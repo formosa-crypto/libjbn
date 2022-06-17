@@ -1,0 +1,55 @@
+/*
+   SPECIFIC SIKE-P434 CODE
+*/
+
+param int NLIMBS = 7;
+
+/* prime SIKE-P434 (P) */
+u64[NLIMBS] glob_p = { 0xffffffffffffffff,
+                       0xffffffffffffffff,
+		       0xffffffffffffffff,
+		       0xfdc1767ae2ffffff,
+		       0x7bc65c783158aea3,
+		       0x6cfc5fd681c52056,
+		       0x0002341f27177344 };
+
+/* R - P = 2^(NLIMBS*64) - P */
+u64[NLIMBS] glob_mp = { 0x0000000000000001,
+                        0x0000000000000000,
+			0x0000000000000000,
+			0x023e89851d000000,
+			0x8439a387cea7515c,
+			0x9303a0297e3adfa9,
+			0xfffdcbe0d8e88cbb };
+
+/* P - 2 */
+u64[NLIMBS] glob_pm2 = { 0xfffffffffffffffd,
+                         0xffffffffffffffff,
+			 0xffffffffffffffff,
+			 0xfdc1767ae2ffffff,
+			 0x7bc65c783158aea3,
+			 0x6cfc5fd681c52056,
+			 0x0002341f27177344 };
+
+/* (glob_p[0] * u0) mod 2^64 = -1 */
+u64 glob_u0 = 1;
+
+/* R mod P = 2^(NLIMBS*64) mod P */
+u64[NLIMBS] glob_oneM = { 0x000000000000742c,
+                          0x0000000000000000,
+			  0x0000000000000000,
+			  0xb90ff404fc000000,
+			  0xd801a4fb559facd4,
+			  0xe93254545f77410c,
+			  0x0000eceea7bd2eda };
+
+
+/* R^2 mod P = 2^(2*NLIMBS*64) mod P */
+u64[NLIMBS] glob_rM = { 0x28e55b65dcd69b30,
+                        0xacec7367768798c2,
+			0xab27973f8311688d,
+			0x175cc6af8d6c7c0b,
+			0xabcd92bf2dde347e,
+			0x69e16a61c7686d9a,
+			0x000025a89bcdd12a };
+
