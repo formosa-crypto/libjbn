@@ -1,0 +1,14 @@
+/*
+   SPECIFIC SIKE-P751 CODE
+*/
+
+require "bn_sike751.jinc"
+
+require "bn_generic.jinc"
+
+require "bn_generic_modular.jinc"
+
+// for test purposes... (exported functions)
+require "bn_generic.jazz"
+require "bn_generic_modular.jazz"
+
