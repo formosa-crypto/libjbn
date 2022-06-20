@@ -6,20 +6,20 @@
 require "bn_generic_modular.jinc"
 
 export fn bn_addm( reg u64 rp ap bp) {
- stack u64[NLIMBS] a, b, tmp;
+ stack u64[NLIMBS] a, b;
  reg ptr u64[NLIMBS] r;
  a = __bn_load(ap);
  b = __bn_load(bp);
- r = __bn_addm(a, b, tmp);
+ r = __bn_addm(a, b);
  __bn_store(rp, r);
 }
 
 export fn bn_subm( reg u64 rp ap bp) {
- stack u64[NLIMBS] a, b, tmp;
+ stack u64[NLIMBS] a, b;
  reg ptr u64[NLIMBS] r;
  a = __bn_load(ap);
  b = __bn_load(bp);
- r = __bn_subm(a, b, tmp);
+ r = __bn_subm(a, b);
  __bn_store(rp, r);
 }
 

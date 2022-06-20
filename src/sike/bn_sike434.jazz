@@ -3,4 +3,4 @@
 */
 
 require "bn_sike434.jinc"
-require "bn_export.jinc"
+from Libjbn require "common/bn_export.jinc"
