@@ -3,13 +3,4 @@
 */
 
 require "bn_sike434.jinc"
-
-require "bn_generic.jinc"
-
-require "bn_generic_modular.jinc"
-
-
-// for test purposes... (exported functions)
-require "bn_generic.jazz"
-require "bn_generic_modular.jazz"
-
+require "bn_export.jinc"
