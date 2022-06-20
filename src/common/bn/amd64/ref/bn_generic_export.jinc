@@ -17,7 +17,7 @@ export fn bn_eq(reg u64 ap bp) -> reg u64 {
  reg u64 r;
  a = __bn_load(ap);
  b = __bn_load(bp);
- r = __bn_eq(a, b);
+ r = _bn_eq_(a, b);
  return r;
 }
   

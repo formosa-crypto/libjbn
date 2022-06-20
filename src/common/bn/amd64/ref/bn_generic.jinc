@@ -149,6 +149,19 @@ fn _bn_eq
   return r;
 }
 
+inline fn _bn_eq_
+( reg ptr u64[NLIMBS] _a _b
+) -> reg u64 /* 0 or 1 */ {
+  reg u64 r;
+  reg ptr u64[NLIMBS] a b;
+
+  a = _a;
+  b = _b;
+  r = _bn_eq(a,b);
+  r = r;
+  return r;
+}
+
 /**
  * Checks if a bignum is zero.
  * If a == 0, return 1. Otherwise, return 0.

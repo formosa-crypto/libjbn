@@ -1,0 +1,7 @@
+/*
+   SPECIFIC SIKE-P503 CODE
+*/
+
+require "bn_sike503.jinc"
+from Libjbn require "common/bn/amd64/ref/bn_export.jinc"
+
