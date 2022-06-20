@@ -14,7 +14,7 @@
      *M <- dealing with Montgomery representation
 */
 
-require "bn_generic.jazz"
+require "bn_generic.jinc"
 
 
 /* CONDITIONAL-ADD-P */
