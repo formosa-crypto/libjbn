@@ -56,11 +56,14 @@ inline fn __bn_cminusP
   inline int i;
   reg bool _cf;
   reg u64 t;
+  stack u64[NLIMBS] tmp;
+  reg ptr u64[NLIMBS] tmpp;
 
   tmp = __bn_copy(x);
-  _cf, tmp = __bn_addc(tmp, glob_mp);
+  tmpp = tmp;
+  _cf, tmp = __bn_addc(tmpp, glob_mp);
 
-  x = __bn_cmov(_cf, x, tmp);
+  x = __bn_cmov(_cf, x, tmpp);
   return x;
 }
 
