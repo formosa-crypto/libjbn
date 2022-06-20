@@ -20,19 +20,21 @@ require "bn_generic.jinc"
 /* CONDITIONAL-ADD-P */
 inline fn __bn_caddP
 ( reg bool cf
-, reg ptr u64[NLIMBS] x tmp
+, reg ptr u64[NLIMBS] x
 ) -> reg ptr u64[NLIMBS]
-{ inline int i;
+{
+  inline int i;
   reg u64 t t0;
+  stack u64[NLIMBS] tmp;
+  reg ptr u64[NLIMBS] tmpp;
 
   tmp = __bn_copy(glob_p);
 
-/*
-  _, t -= t - cf;
-  for i = 0 to NLIMBS {
-    tmp[i] &= t;
-  }
-*/
+  //_, t -= t - cf;
+  //for i = 0 to NLIMBS {
+  //  tmp[i] &= t;
+  //}
+
   t0 = 0;
   for i = 0 to NLIMBS {
     t = tmp[i];
@@ -40,7 +42,8 @@ inline fn __bn_caddP
     tmp[i] = t;
   }
 
-  _, x = __bn_addc( x, tmp );
+  tmpp = tmp;
+  _, x = __bn_addc( x, tmpp );
 
   return x;
 }
