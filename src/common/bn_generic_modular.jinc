@@ -85,11 +85,11 @@ fn _bn_addm
 }
 
 inline fn __bn_subm
-( reg ptr u64[NLIMBS] a b tmp
+( reg ptr u64[NLIMBS] a b
 ) -> reg ptr u64[NLIMBS] {
  reg bool cf;
  cf, a = __bn_subc(a, b);
- a = __bn_caddP(cf, a, tmp);
+ a = __bn_caddP(cf, a);
  return a;
 }
 
@@ -97,8 +97,7 @@ inline fn __bn_subm
 fn _bn_subm
 ( reg ptr u64[NLIMBS] a b
 ) -> reg ptr u64[NLIMBS] {
- stack u64[NLIMBS] tmp;
- a = __bn_subm(a, b, tmp);
+ a = __bn_subm(a, b);
  return a;
 }
 
