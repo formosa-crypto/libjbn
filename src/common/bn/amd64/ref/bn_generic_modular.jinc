@@ -67,6 +67,8 @@ inline fn __bn_cminusP
   return x;
 }
 
+// ////////////////////////////////////
+
 inline fn __bn_addm
 ( reg ptr u64[NLIMBS] a b
 ) -> reg ptr u64[NLIMBS] {
@@ -83,6 +85,8 @@ fn _bn_addm
  a = __bn_addm(a, b);
  return a;
 }
+
+// ////////////////////////////////////
 
 inline fn __bn_subm
 ( reg ptr u64[NLIMBS] a b
@@ -101,6 +105,7 @@ fn _bn_subm
  return a;
 }
 
+// ////////////////////////////////////
 
 inline fn __bn_rdcn
 ( reg ptr u64[2*NLIMBS] a
@@ -229,7 +234,9 @@ fn _bn_expm
 /* Modular Inversion */
 inline fn __bn_invm( reg ptr u64[NLIMBS] a r ) -> reg ptr u64[NLIMBS] {
   /* a^{p-2} */
-  r = _bn_expm(a, glob_pm2, r);
+  reg ptr u64[NLIMBS] b;
+  b = glob_pm2;
+  r = _bn_expm(a, b, r);
   return r;
 }
 

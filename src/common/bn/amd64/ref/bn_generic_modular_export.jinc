@@ -5,78 +5,99 @@
 
 require "bn_generic_modular.jinc"
 
-export fn bn_addm( reg u64 rp ap bp) {
- stack u64[NLIMBS] a, b;
- reg ptr u64[NLIMBS] r;
- a = __bn_load(ap);
- b = __bn_load(bp);
- r = __bn_addm(a, b);
- __bn_store(rp, r);
+
+export fn bn_addm(reg u64 rp ap bp)
+{
+ stack u64[NLIMBS] _a _b;
+ reg ptr u64[NLIMBS] a b;
+
+ _a = __bn_load(ap); a = _a;
+ _b = __bn_load(bp); b = _b;
+ a = _bn_addm(a, b);
+ __bn_store(rp, a);
 }
 
-export fn bn_subm( reg u64 rp ap bp) {
- stack u64[NLIMBS] a, b;
- reg ptr u64[NLIMBS] r;
- a = __bn_load(ap);
- b = __bn_load(bp);
- r = __bn_subm(a, b);
- __bn_store(rp, r);
+
+export fn bn_subm( reg u64 rp ap bp)
+{
+ stack u64[NLIMBS] _a _b;
+ reg ptr u64[NLIMBS] a b;
+
+ _a = __bn_load(ap); a = _a;
+ _b = __bn_load(bp); b = _b;
+ a = _bn_subm(a, b);
+ __bn_store(rp, a);
 }
 
-export fn bn_mulm(reg u64 rp ap bp) {
-  reg u64 rp_; 
-  stack u64[NLIMBS] a b r;
-  a = __bn_load(ap);
-  b = __bn_load(bp);
-  rp_ = rp; // relax ABI constraint
+export fn bn_mulm(reg u64 rp ap bp)
+{
+  stack u64[NLIMBS] _a _b _r;
+  reg ptr u64[NLIMBS] a b r;
+
+  _a = __bn_load(ap); a = _a;
+  _b = __bn_load(bp); b = _b;
+                      r = _r;
   r = _bn_mulm(a, b, r);
-  __bn_store(rp_, r);
+  __bn_store(rp, r);
 }
 
-export fn bn_sqrm(reg u64 rp ap) {
-  reg u64 rp_; 
-  stack u64[NLIMBS] a r;
-  a = __bn_load(ap);
-  rp_ = rp; // relax ABI constraint
+export fn bn_sqrm(reg u64 rp ap)
+{
+  stack u64[NLIMBS] _a _r;
+  reg ptr u64[NLIMBS] a r;
+
+  _a = __bn_load(ap); a = _a;
+                      r = _r;
   r = _bn_sqrm(a, r);
-  __bn_store(rp_, r);
+  __bn_store(rp, r);
 }
 
-export fn bn_expm_noct(reg u64 rp ap bp) {
-  stack u64 rp_; 
-  stack u64[NLIMBS] a b r;
-  a = __bn_load(ap);
-  b = __bn_load(bp);
-  rp_ = rp; // spill
+export fn bn_expm_noct(reg u64 rp ap bp)
+{
+  stack u64[NLIMBS] _a _b _r;
+  reg ptr u64[NLIMBS] a b r;
+  stack u64 _rp;
+
+  _rp = rp;
+  _a = __bn_load(ap); a = _a;
+  _b = __bn_load(bp); b = _b;
+                      r = _r;
   r = _bn_expm(a, b, r);
-  rp = rp_;
+  rp = _rp;
   __bn_store(rp, r);
 }
 
-export fn bn_invm(reg u64 rp ap) {
-  stack u64 rp_; 
-  stack u64[NLIMBS] a r;
-  a = __bn_load(ap);
-  rp_ = rp; // relax ABI constraint
+export fn bn_invm(reg u64 rp ap)
+{
+  stack u64[NLIMBS] _a _r;
+  reg ptr u64[NLIMBS] a r;
+  stack u64 _rp;
+
+  _rp = rp;
+  _a = __bn_load(ap); a = _a;
+                      r = _r;
   r = __bn_invm(a, r);
-  rp = rp_;
+  rp = _rp;
   __bn_store(rp, r);
 }
 
-export fn bn_toM(reg u64 rp ap) {
-  reg u64 rp_; 
-  stack u64[NLIMBS] a;
-  a = __bn_load(ap);
-  rp_ = rp; // relax ABI constraint
+export fn bn_toM(reg u64 rp ap)
+{
+  stack u64[NLIMBS] _a;
+  reg ptr u64[NLIMBS] a;
+
+  _a = __bn_load(ap); a = _a;
   a = _bn_toM(a);
-  __bn_store(rp_, a);
+  __bn_store(rp, a);
 }
 
-export fn bn_fromM(reg u64 rp ap) {
-  reg u64 rp_; 
-  stack u64[NLIMBS] a;
-  a = __bn_load(ap);
-  rp_ = rp; // relax ABI constraint
+export fn bn_fromM(reg u64 rp ap)
+{
+  stack u64[NLIMBS] _a;
+  reg ptr u64[NLIMBS] a;
+
+  _a = __bn_load(ap); a = _a;
   a = _bn_fromM(a);
-  __bn_store(rp_, a);
+  __bn_store(rp, a);
 }
+
