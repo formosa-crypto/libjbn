@@ -14,11 +14,10 @@
      *M <- dealing with Montgomery representation
 */
 
-require "bn_generic.jinc"
-
+from Libjbn require "common/bn/amd64/ref/bn_generic.jinc"
 
 /* CONDITIONAL-ADD-P */
-inline fn __bn_caddP
+inline fn __fp_caddP
 ( reg bool cf
 , reg ptr u64[NLIMBS] x
 ) -> reg ptr u64[NLIMBS]
@@ -51,7 +50,7 @@ inline fn __bn_caddP
 }
 
 /* x-P if P<=x else x */
-inline fn __bn_cminusP
+inline fn __fp_cminusP
 ( reg ptr u64[NLIMBS] x
 ) -> reg ptr u64[NLIMBS]
 {
@@ -72,44 +71,44 @@ inline fn __bn_cminusP
 
 // ////////////////////////////////////
 
-inline fn __bn_addm
+inline fn __fp_add
 ( reg ptr u64[NLIMBS] a b
 ) -> reg ptr u64[NLIMBS] {
  _, a = __bn_addc(a, b);
- a = __bn_cminusP(a);
+ a = __fp_cminusP(a);
  return a;
 }
 
 /* Modular addition */
-fn _bn_addm
+fn _fp_add
 ( reg ptr u64[NLIMBS] a b
 ) -> reg ptr u64[NLIMBS] {
- a = __bn_addm(a, b);
+ a = __fp_add(a, b);
  return a;
 }
 
 // ////////////////////////////////////
 
-inline fn __bn_subm
+inline fn __fp_sub
 ( reg ptr u64[NLIMBS] a b
 ) -> reg ptr u64[NLIMBS] {
  reg bool cf;
  cf, a = __bn_subc(a, b);
- a = __bn_caddP(cf, a);
+ a = __fp_caddP(cf, a);
  return a;
 }
 
 /* Modular subtraction */
-fn _bn_subm
+fn _fp_sub
 ( reg ptr u64[NLIMBS] a b
 ) -> reg ptr u64[NLIMBS] {
- a = __bn_subm(a, b);
+ a = __fp_sub(a, b);
  return a;
 }
 
 // ////////////////////////////////////
 
-inline fn __bn_rdcn
+inline fn __fp_rdcn
 ( reg ptr u64[2*NLIMBS] a
 , reg ptr u64[NLIMBS] r
 ) -> reg ptr u64[NLIMBS] {
@@ -150,11 +149,13 @@ inline fn __bn_rdcn
   x[(2*NLIMBS-1) % 3] += a[2*NLIMBS-1];
   r[NLIMBS-1] = x[(2*NLIMBS-1) % 3];
 
-  r = __bn_cminusP(r);
+  r = __fp_cminusP(r);
   return r;
 }
 
-fn _bn_mulm
+// ////////////////////////////////////
+
+fn _fp_mul
 ( reg ptr u64[NLIMBS] a b r
 ) -> reg ptr u64[NLIMBS] {
   stack u64[2*NLIMBS] _tmp;
@@ -162,11 +163,13 @@ fn _bn_mulm
 
   tmp = _tmp;
   tmp = __bn_muln(a, b, tmp);
-  r = __bn_rdcn(tmp, r);
+  r = __fp_rdcn(tmp, r);
   return r;
 }
 
-fn _bn_mulmU // update inplace
+// ////////////////////////////////////
+
+fn _fp_mulU // update inplace
 ( reg ptr u64[NLIMBS] a b
 ) -> reg ptr u64[NLIMBS] {
   stack u64[2*NLIMBS] _tmp;
@@ -174,11 +177,13 @@ fn _bn_mulmU // update inplace
 
   tmp = _tmp;
   tmp = __bn_muln(a, b, tmp);
-  a = __bn_rdcn(tmp, a);
+  a = __fp_rdcn(tmp, a);
   return a;
 }
 
-fn _bn_sqrm
+// ////////////////////////////////////
+
+fn _fp_sqr
 ( reg ptr u64[NLIMBS] a r
 ) -> reg ptr u64[NLIMBS] {
   stack u64[2*NLIMBS] _tmp;
@@ -186,12 +191,14 @@ fn _bn_sqrm
 
   tmp = _tmp;
   tmp = __bn_sqrn(a, tmp);
-  r = __bn_rdcn(tmp, r);
+  r = __fp_rdcn(tmp, r);
   return r;
 }
 
+// ////////////////////////////////////
+
 #[returnaddress="stack"]
-fn _bn_sqrmU // update inplace
+fn _fp_sqrU // update inplace
 ( reg ptr u64[NLIMBS] a
 ) -> reg ptr u64[NLIMBS] {
   stack u64[2*NLIMBS] _tmp;
@@ -199,15 +206,17 @@ fn _bn_sqrmU // update inplace
 
   tmp = _tmp;
   tmp = __bn_sqrn(a, tmp);
-  a = __bn_rdcn(tmp, a);
+  a = __fp_rdcn(tmp, a);
   return a;
 }
+
+// ////////////////////////////////////
 
 /* Modular exponentiation
   obs: naive square-multiply algorithm. Not Constant-Time!!!
   (good enough for use with public exponents, such as in inversion) */
 #[returnaddress="stack"]
-fn _bn_expm
+fn _fp_exp
 ( reg ptr u64[NLIMBS] a _b r
 ) -> reg ptr u64[NLIMBS] {
   inline int j;
@@ -240,12 +249,12 @@ fn _bn_expm
       if (cf) {
         r = rr;
         x = _x; //w
-        r = _bn_mulmU(r, x);
+        r = _fp_mulU(r, x);
         _x = x; //w
         rr = r;
       }
       x = _x; //w
-      x = _bn_sqrmU(x);
+      x = _fp_sqrU(x);
       _x = x; //w
       k = ss;
       k -= 1;
@@ -255,17 +264,21 @@ fn _bn_expm
   return r;
 }
 
+// ////////////////////////////////////
+
 /* Modular Inversion */
-inline fn __bn_invm( reg ptr u64[NLIMBS] a r ) -> reg ptr u64[NLIMBS] {
+inline fn __fp_inv( reg ptr u64[NLIMBS] a r ) -> reg ptr u64[NLIMBS] {
   /* a^{p-2} */
   reg ptr u64[NLIMBS] glob_pm2p;
   glob_pm2p = glob_pm2;
-  r = _bn_expm(a, glob_pm2p, r);
+  r = _fp_exp(a, glob_pm2p, r);
   return r;
 }
 
+// ////////////////////////////////////
+
 /* Conversion out from Montgomery form */
-fn _bn_fromM( reg ptr u64[NLIMBS] a ) -> reg ptr u64[NLIMBS] {
+fn _fp_fromM( reg ptr u64[NLIMBS] a ) -> reg ptr u64[NLIMBS] {
   stack u64[2*NLIMBS] _tmp;
   reg ptr u64[2*NLIMBS] tmp;
   reg u64 t;
@@ -280,15 +293,17 @@ fn _bn_fromM( reg ptr u64[NLIMBS] a ) -> reg ptr u64[NLIMBS] {
   }
 
   tmp = _tmp;
-  a = __bn_rdcn(tmp, a);
+  a = __fp_rdcn(tmp, a);
   return a;
 }
 
+// ////////////////////////////////////
+
 /* Conversion into Montgomery form */
-fn _bn_toM( reg ptr u64[NLIMBS] a ) -> reg ptr u64[NLIMBS] {
+fn _fp_toM( reg ptr u64[NLIMBS] a ) -> reg ptr u64[NLIMBS] {
   reg ptr u64[NLIMBS] glob_rMp;
   glob_rMp = glob_rM;
-  a = _bn_mulmU(a, glob_rMp);
+  a = _fp_mulU(a, glob_rMp);
   return a;
 }
 

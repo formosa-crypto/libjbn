@@ -87,3 +87,5 @@ u64[NLIMBS] glob_rM = {
   0x000041ad830f1f35
 };
 
+from Libjbn require "common/fp/amd64/ref/fp_generic.jinc"
+

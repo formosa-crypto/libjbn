@@ -3,5 +3,5 @@
 */
 
 require "bn_sike751.jinc"
-from Libjbn require "common/bn/amd64/ref/bn_export.jinc"
+from Libjbn require "common/fp/amd64/ref/fp_generic_export.jinc"
 
