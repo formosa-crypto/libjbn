@@ -25,10 +25,12 @@ inline fn __bn_caddP
 {
   inline int i;
   reg u64 t t0;
-  stack u64[NLIMBS] tmp;
-  reg ptr u64[NLIMBS] tmpp;
+  stack u64[NLIMBS] _tmp;
+  reg ptr u64[NLIMBS] tmp;
+  reg ptr u64[NLIMBS] glob_pp;
 
-  tmp = __bn_copy(glob_p);
+  glob_pp = glob_p;
+  _tmp = __bn_copy(glob_pp);
 
   //_, t -= t - cf;
   //for i = 0 to NLIMBS {
@@ -37,13 +39,13 @@ inline fn __bn_caddP
 
   t0 = 0;
   for i = 0 to NLIMBS {
-    t = tmp[i];
+    t = _tmp[i];
     t = t0 if !cf;
-    tmp[i] = t;
+    _tmp[i] = t;
   }
 
-  tmpp = tmp;
-  _, x = __bn_addc( x, tmpp );
+  tmp = _tmp;
+  _, x = __bn_addc( x, tmp );
 
   return x;
 }
@@ -55,15 +57,16 @@ inline fn __bn_cminusP
 {
   inline int i;
   reg bool _cf;
-  reg u64 t;
-  stack u64[NLIMBS] tmp;
-  reg ptr u64[NLIMBS] tmpp;
+  stack u64[NLIMBS] _tmp;
+  reg ptr u64[NLIMBS] tmp;
+  reg ptr u64[NLIMBS] glob_mpp;
 
-  tmp = __bn_copy(x);
-  tmpp = tmp;
-  _cf, tmpp = __bn_addc(tmpp, glob_mp);
+  _tmp = __bn_copy(x);
+   tmp = _tmp;
+  glob_mpp = glob_mp;
+  _cf, tmp = __bn_addc(tmp, glob_mpp);
 
-  x = __bn_cmov(_cf, x, tmpp);
+  x = __bn_cmov(_cf, x, tmp);
   return x;
 }
 
@@ -81,7 +84,6 @@ inline fn __bn_addm
 fn _bn_addm
 ( reg ptr u64[NLIMBS] a b
 ) -> reg ptr u64[NLIMBS] {
- stack u64[NLIMBS] tmp;
  a = __bn_addm(a, b);
  return a;
 }
@@ -109,8 +111,9 @@ fn _bn_subm
 
 inline fn __bn_rdcn
 ( reg ptr u64[2*NLIMBS] a
-, reg ptr u64[NLIMBS] r tmp
+, reg ptr u64[NLIMBS] r
 ) -> reg ptr u64[NLIMBS] {
+  reg ptr u64[NLIMBS] glob_pp;
   inline int k;
   reg bool cf;
   reg u64 t t0 t1 zero u0r p0;
@@ -125,7 +128,8 @@ inline fn __bn_rdcn
   _, _, _, _, _, x[2] = #set0();
 
   for k = 0 to NLIMBS {
-    x = __muln_innerloop(k, 0, k, r, glob_p, x);
+    glob_pp = glob_p;
+    x = __muln_innerloop(k, 0, k, r, glob_pp, x);
     t0 = a[k];
     x = __addacc3(zero, t0, x, k);
     t0 = x[k % 3];
@@ -135,7 +139,8 @@ inline fn __bn_rdcn
     x = __addacc3(t1, t0, x, k);
   }
   for k = NLIMBS to 2*NLIMBS-1 {
-    x = __muln_innerloop(k, k-NLIMBS+1, NLIMBS, r, glob_p, x);
+    glob_pp = glob_p;
+    x = __muln_innerloop(k, k-NLIMBS+1, NLIMBS, r, glob_pp, x);
     t0 = a[k];
     x = __addacc3(zero, t0, x, k);
     t0 = x[k % 3];
@@ -152,30 +157,36 @@ inline fn __bn_rdcn
 fn _bn_mulm
 ( reg ptr u64[NLIMBS] a b r
 ) -> reg ptr u64[NLIMBS] {
-  stack u64[NLIMBS] tmp;
-  stack u64[2*NLIMBS] tmp2;
-  tmp2 = __bn_muln(a, b, tmp2);
-  r = __bn_rdcn(tmp2, r, tmp);
+  stack u64[2*NLIMBS] _tmp;
+  reg ptr u64[2*NLIMBS] tmp;
+
+  tmp = _tmp;
+  tmp = __bn_muln(a, b, tmp);
+  r = __bn_rdcn(tmp, r);
   return r;
 }
 
 fn _bn_mulmU // update inplace
 ( reg ptr u64[NLIMBS] a b
 ) -> reg ptr u64[NLIMBS] {
-  stack u64[NLIMBS] tmp;
-  stack u64[2*NLIMBS] tmp2;
-  tmp2 = __bn_muln(a, b, tmp2);
-  a = __bn_rdcn(tmp2, a, tmp);
+  stack u64[2*NLIMBS] _tmp;
+  reg ptr u64[2*NLIMBS] tmp;
+
+  tmp = _tmp;
+  tmp = __bn_muln(a, b, tmp);
+  a = __bn_rdcn(tmp, a);
   return a;
 }
 
 fn _bn_sqrm
 ( reg ptr u64[NLIMBS] a r
 ) -> reg ptr u64[NLIMBS] {
-  stack u64[NLIMBS] tmp;
-  stack u64[2*NLIMBS] tmp2;
-  tmp2 = __bn_sqrn(a, tmp2);
-  r = __bn_rdcn(tmp2, r, tmp);
+  stack u64[2*NLIMBS] _tmp;
+  reg ptr u64[2*NLIMBS] tmp;
+
+  tmp = _tmp;
+  tmp = __bn_sqrn(a, tmp);
+  r = __bn_rdcn(tmp, r);
   return r;
 }
 
@@ -183,10 +194,12 @@ fn _bn_sqrm
 fn _bn_sqrmU // update inplace
 ( reg ptr u64[NLIMBS] a
 ) -> reg ptr u64[NLIMBS] {
-  stack u64[NLIMBS] tmp;
-  stack u64[2*NLIMBS] tmp2;
-  tmp2 = __bn_sqrn(a, tmp2);
-  a = __bn_rdcn(tmp2, a, tmp);
+  stack u64[2*NLIMBS] _tmp;
+  reg ptr u64[2*NLIMBS] tmp;
+
+  tmp = _tmp;
+  tmp = __bn_sqrn(a, tmp);
+  a = __bn_rdcn(tmp, a);
   return a;
 }
 
@@ -200,13 +213,20 @@ fn _bn_expm
   inline int j;
   reg u64 k t;
   reg bool cf;
-  stack u64[NLIMBS] x y;
+  stack u64[NLIMBS] _x;
+  reg ptr u64[NLIMBS] x;
   stack u64 ss;
   stack ptr u64[NLIMBS] rr bb;
   reg ptr u64[NLIMBS] b;
+  reg ptr u64[NLIMBS] glob_oneMp;
+
+  x = _x;
+  glob_oneMp = glob_oneM;
 
   x = __bn_copy2(a, x);
-  r = __bn_copy2(glob_oneM, r);
+  r = __bn_copy2(glob_oneMp, r);
+
+  _x = x;
 
   bb = _b;
   rr = r;
@@ -219,10 +239,14 @@ fn _bn_expm
       _, cf, _, _, _, t = #SHR(t, 1);
       if (cf) {
         r = rr;
+        x = _x; //w
         r = _bn_mulmU(r, x);
+        _x = x; //w
         rr = r;
       }
+      x = _x; //w
       x = _bn_sqrmU(x);
+      _x = x; //w
       k = ss;
       k -= 1;
     }
@@ -234,32 +258,37 @@ fn _bn_expm
 /* Modular Inversion */
 inline fn __bn_invm( reg ptr u64[NLIMBS] a r ) -> reg ptr u64[NLIMBS] {
   /* a^{p-2} */
-  reg ptr u64[NLIMBS] b;
-  b = glob_pm2;
-  r = _bn_expm(a, b, r);
+  reg ptr u64[NLIMBS] glob_pm2p;
+  glob_pm2p = glob_pm2;
+  r = _bn_expm(a, glob_pm2p, r);
   return r;
 }
 
 /* Conversion out from Montgomery form */
 fn _bn_fromM( reg ptr u64[NLIMBS] a ) -> reg ptr u64[NLIMBS] {
-  stack u64[NLIMBS] tmp;
-  stack u64[2*NLIMBS] tmp2;
+  stack u64[2*NLIMBS] _tmp;
+  reg ptr u64[2*NLIMBS] tmp;
   reg u64 t;
   inline int i;
+
   for i = 0 to NLIMBS {
-    tmp2[NLIMBS + i] = 0;
+    _tmp[NLIMBS + i] = 0;
   }
   for i = 0 to NLIMBS {
     t = a[i];
-    tmp2[i] = t;
+    _tmp[i] = t;
   }
-  a = __bn_rdcn(tmp2, a, tmp);
+
+  tmp = _tmp;
+  a = __bn_rdcn(tmp, a);
   return a;
 }
 
 /* Conversion into Montgomery form */
 fn _bn_toM( reg ptr u64[NLIMBS] a ) -> reg ptr u64[NLIMBS] {
-  a = _bn_mulmU(a, glob_rM);
+  reg ptr u64[NLIMBS] glob_rMp;
+  glob_rMp = glob_rM;
+  a = _bn_mulmU(a, glob_rMp);
   return a;
 }
 
