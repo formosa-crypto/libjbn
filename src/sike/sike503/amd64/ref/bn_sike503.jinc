@@ -1,0 +1,71 @@
+/*
+   SPECIFIC SIKE-P503 CODE
+*/
+
+param int NLIMBS = 8;
+
+/* prime SIKE-P503 (P) */
+u64[NLIMBS] glob_p = {
+  0xffffffffffffffff,
+  0xffffffffffffffff,
+  0xffffffffffffffff,
+  0xabffffffffffffff,
+  0x13085bda2211e7a0,
+  0x1b9bf6c87b7e7daf,
+  0x6045c6bdda77a4d0,
+  0x004066f541811e1e
+};
+
+/* R - P = 2^(NLIMBS*64) - P */
+u64[NLIMBS] glob_mp = {
+  0x0000000000000001,
+  0x0000000000000000,
+  0x0000000000000000,
+  0x5400000000000000,
+  0xecf7a425ddee185f,
+  0xe464093784818250,
+  0x9fba394225885b2f,
+  0xffbf990abe7ee1e1
+};
+
+/* P - 2 */
+u64[NLIMBS] glob_pm2 = {
+  0xfffffffffffffffd,
+  0xffffffffffffffff,
+  0xffffffffffffffff,
+  0xabffffffffffffff,
+  0x13085bda2211e7a0,
+  0x1b9bf6c87b7e7daf,
+  0x6045c6bdda77a4d0,
+  0x004066f541811e1e
+};
+
+/* (glob_p[0] * u0) mod 2^64 = -1 */
+u64 glob_u0 = 1;
+
+/* R mod P = 2^(NLIMBS*64) mod P */
+u64[NLIMBS] glob_oneM = {
+  0x00000000000003f9,
+  0x0000000000000000,
+  0x0000000000000000,
+  0xb400000000000000,
+  0x63cb1a6ea6ded2b4,
+  0x51689d8d667eb37d,
+  0x8acd77c71ab24142,
+  0x0026fbaec60f5953
+};
+
+/* R^2 mod P = 2^(2*NLIMBS*64) mod P */
+u64[NLIMBS] glob_rM = {
+  0x5289a0cf641d011f,
+  0x9b88257189fed2b9,
+  0xa3b365d58dc8f17a,
+  0x5bc57ab6eff168ec,
+  0x9e51998bd84d4423,
+  0xbf8999cbac3b5695,
+  0x46e9127bce14cdb6,
+  0x003f6cfce8b81771
+};
+
+from Libjbn require "common/fp/amd64/ref/fp_generic.jinc"
+

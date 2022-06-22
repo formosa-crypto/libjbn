@@ -1,0 +1,10 @@
+*.s
+*.o
+*.a
+_build/
+.deps
+.ec
+.log
+.ci
+.error
+check.tar.gz

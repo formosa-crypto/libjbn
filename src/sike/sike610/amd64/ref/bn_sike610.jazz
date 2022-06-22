@@ -1,0 +1,7 @@
+/*
+   SPECIFIC SIKE-P610 CODE
+*/
+
+require "bn_sike610.jinc"
+from Libjbn require "common/fp/amd64/ref/fp_generic_export.jinc"
+

@@ -1,0 +1,107 @@
+/*
+   GENERIC CODE (parametric on the number of limbs)
+
+   EXPECTS: "param int NLIMBS=??"
+
+*/
+
+require "bn_generic.jinc"
+
+/* exported version
+ remark: really like to have support for [reg ptr] in
+ exported functions :-)...
+*/
+
+export fn bn_eq(reg u64 ap bp) -> reg u64
+{
+  stack u64[NLIMBS] _a _b;
+  reg ptr u64[NLIMBS] a b;
+  reg u64 r;
+
+  _a = __bn_load(ap); a = _a;
+  _b = __bn_load(bp); b = _b;
+  r = _bn_eq_(a, b);
+  return r;
+}
+
+export fn bn_test0(reg u64 ap) -> reg u64
+{
+  stack u64[NLIMBS] _a;
+  reg ptr u64[NLIMBS] a;
+  reg u64 r;
+
+  _a = __bn_load(ap); a = _a;
+  r = __bn_test0(a);
+  r = r; // avoid extra assignment warning
+  return r;
+}
+
+export fn bn_copy(reg u64 rp ap)
+{
+  inline int i;
+  reg u64 t;
+
+  for i = 0 to NLIMBS {
+    t = [ap + 8*i];
+    [rp + 8*i] = t;
+  }
+}
+
+export fn bn_set0(reg u64 rp)
+{
+  inline int i;
+
+  for i = 0 to NLIMBS {
+    [rp + 8*i] = 0;
+  }
+}
+
+export fn bn_addn(reg u64 rp ap bp)
+{
+  stack u64[NLIMBS] _a _b;
+  reg ptr u64[NLIMBS] a b;
+
+  _a = __bn_load(ap); a = _a;
+  _b = __bn_load(bp); b = _b;
+  _, a = __bn_addc(a, b);
+  __bn_store(rp, a);
+}
+
+export fn bn_subn(reg u64 rp ap bp)
+{
+ stack u64[NLIMBS] _a _b;
+ reg ptr u64[NLIMBS] a b;
+
+ _a = __bn_load(ap); a = _a;
+ _b = __bn_load(bp); b = _b;
+ _, a = __bn_subc(a, b);
+ __bn_store(rp, a);
+}
+
+export fn bn_muln(reg u64 rp ap bp)
+{
+  stack u64[NLIMBS] _a _b;
+  stack u64[2*NLIMBS] _r;
+  reg ptr u64[NLIMBS] a b;
+  reg ptr u64[2*NLIMBS] r;
+
+  _a = __bn_load(ap); a = _a;
+  _b = __bn_load(bp); b = _b;
+                      r = _r;
+  r = __bn_muln(a, b, r);
+  __bn2_store(rp, r);
+}
+
+export fn bn_sqrn(reg u64 rp ap)
+{
+  stack u64[NLIMBS] _a;
+  stack u64[2*NLIMBS] _r;
+  reg ptr u64[NLIMBS] a;
+  reg ptr u64[2*NLIMBS] r;
+
+  _a = __bn_load(ap); a = _a;
+                      r = _r;
+  r = __bn_sqrn(a, r);
+  __bn2_store(rp, r);
+}
+

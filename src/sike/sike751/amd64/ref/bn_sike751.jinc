@@ -1,0 +1,91 @@
+/*
+   SPECIFIC SIKE-P751 CODE
+*/
+
+param int NLIMBS = 12;
+
+/* prime SIKE-P751 (P) */
+u64[NLIMBS] glob_p = {
+  0xffffffffffffffff,
+  0xffffffffffffffff,
+  0xffffffffffffffff,
+  0xffffffffffffffff,
+  0xffffffffffffffff,
+  0xeeafffffffffffff,
+  0xe3ec968549f878a8,
+  0xda959b1a13f7cc76,
+  0x084e9867d6ebe876,
+  0x8562b5045cb25748,
+  0x0e12909f97badc66,
+  0x00006fe5d541f71c
+};
+
+/* R - P = 2^(NLIMBS*64) - P */
+u64[NLIMBS] glob_mp = {
+  0x0000000000000001,
+  0x0000000000000000,
+  0x0000000000000000,
+  0x0000000000000000,
+  0x0000000000000000,
+  0x1150000000000000,
+  0x1c13697ab6078757,
+  0x256a64e5ec083389,
+  0xf7b1679829141789,
+  0x7a9d4afba34da8b7,
+  0xf1ed6f6068452399,
+  0xffff901a2abe08e3
+};
+
+/* P - 2 */
+u64[NLIMBS] glob_pm2 = {
+  0xfffffffffffffffd,
+  0xffffffffffffffff,
+  0xffffffffffffffff,
+  0xffffffffffffffff,
+  0xffffffffffffffff,
+  0xeeafffffffffffff,
+  0xe3ec968549f878a8,
+  0xda959b1a13f7cc76,
+  0x084e9867d6ebe876,
+  0x8562b5045cb25748,
+  0x0e12909f97badc66,
+  0x00006fe5d541f71c
+};
+
+/* (glob_p[0] * u0) mod 2^64 = -1 */
+u64 glob_u0 = 1;
+
+/* R mod P = 2^(NLIMBS*64) mod P */
+u64[NLIMBS] glob_oneM = {
+  0x00000000000249ad,
+  0x0000000000000000,
+  0x0000000000000000,
+  0x0000000000000000,
+  0x0000000000000000,
+  0x8310000000000000,
+  0x5527b1e4375c6c66,
+  0x697797bf3f4f24d0,
+  0xc89db7b2ac5c4e2e,
+  0x4ca4b439d2076956,
+  0x10f7926c7512c7e9,
+  0x00002d5b24bce5e2
+};
+
+/* R^2 mod P = 2^(2*NLIMBS*64) mod P */
+u64[NLIMBS] glob_rM = {
+  0x233046449dad4058,
+  0xdb010161a696452a,
+  0x5e36941472e3fd8e,
+  0xf40bfe2082a2e706,
+  0x4932cca8904f8751,
+  0x1f735f1f1ee7fc81,
+  0xa24f4d80c1048e18,
+  0xb56c383ccdb607c5,
+  0x441dd47b735f9c90,
+  0x5673ed2c6a6ac82a,
+  0x06c905261132294b,
+  0x000041ad830f1f35
+};
+
+from Libjbn require "common/fp/amd64/ref/fp_generic.jinc"
+
