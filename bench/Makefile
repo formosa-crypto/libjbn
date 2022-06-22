@@ -32,7 +32,7 @@ INCLUDES   = -I$(IDIR)/include/ -I$(COMMON)/
 COMPILE    = $(CC) $(CFLAGS) -o $@ $(DEFINES) $(INCLUDES) $(MAIN) $(ASM)
 
 # --------------------------------------------------------------------
-.PHONY: __phony benchs
+.PHONY: __phony benchs run report
 
 default: benchs
 
@@ -46,6 +46,9 @@ $(BENCH): ; @mkdir -p $@
 
 run: benchs
 	for d in $(BENCH); do (cd $$d && ./bench); done
+
+report:
+	for d in $(BENCH); do (cd $$d && echo "$$d" && cat *.csv); done
 
 # --------------------------------------------------------------------
 clean:
