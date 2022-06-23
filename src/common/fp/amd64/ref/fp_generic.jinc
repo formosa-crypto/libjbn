@@ -83,6 +83,8 @@ inline fn __fp_add
 fn _fp_add
 ( reg ptr u64[NLIMBS] a b
 ) -> reg ptr u64[NLIMBS] {
+
+ a = a; //ws
  a = __fp_add(a, b);
  return a;
 }
@@ -102,6 +104,8 @@ inline fn __fp_sub
 fn _fp_sub
 ( reg ptr u64[NLIMBS] a b
 ) -> reg ptr u64[NLIMBS] {
+
+ a = a; //ws
  a = __fp_sub(a, b);
  return a;
 }
@@ -161,6 +165,7 @@ fn _fp_mul
   stack u64[2*NLIMBS] _tmp;
   reg ptr u64[2*NLIMBS] tmp;
 
+  r = r; //ws
   tmp = _tmp;
   tmp = __bn_muln(a, b, tmp);
   r = __fp_rdcn(tmp, r);
@@ -175,6 +180,7 @@ fn _fp_mulU // update inplace
   stack u64[2*NLIMBS] _tmp;
   reg ptr u64[2*NLIMBS] tmp;
 
+  a = a; //ws
   tmp = _tmp;
   tmp = __bn_muln(a, b, tmp);
   a = __fp_rdcn(tmp, a);
@@ -189,6 +195,7 @@ fn _fp_sqr
   stack u64[2*NLIMBS] _tmp;
   reg ptr u64[2*NLIMBS] tmp;
 
+  r = r; //ws
   tmp = _tmp;
   tmp = __bn_sqrn(a, tmp);
   r = __fp_rdcn(tmp, r);
@@ -204,6 +211,7 @@ fn _fp_sqrU // update inplace
   stack u64[2*NLIMBS] _tmp;
   reg ptr u64[2*NLIMBS] tmp;
 
+  a = a; //ws
   tmp = _tmp;
   tmp = __bn_sqrn(a, tmp);
   a = __fp_rdcn(tmp, a);
@@ -284,6 +292,7 @@ fn _fp_fromM( reg ptr u64[NLIMBS] a ) -> reg ptr u64[NLIMBS] {
   reg u64 t;
   inline int i;
 
+  a = a; //ws;
   for i = 0 to NLIMBS {
     _tmp[NLIMBS + i] = 0;
   }
@@ -302,6 +311,8 @@ fn _fp_fromM( reg ptr u64[NLIMBS] a ) -> reg ptr u64[NLIMBS] {
 /* Conversion into Montgomery form */
 fn _fp_toM( reg ptr u64[NLIMBS] a ) -> reg ptr u64[NLIMBS] {
   reg ptr u64[NLIMBS] glob_rMp;
+
+  a = a; //ws;
   glob_rMp = glob_rM;
   a = _fp_mulU(a, glob_rMp);
   return a;
