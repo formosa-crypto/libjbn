@@ -1,4 +1,4 @@
-require import Core Int IntDiv List StdOrder Bool.
+require import Core Int IntDiv Real List StdOrder Bool.
 require import BitEncoding StdBigop Bigalg.
 (*---*) import Ring.IntID IntOrder BS2Int.
 (*---*) import Bigint BIA.
@@ -183,7 +183,7 @@ lemma bnkupP k x:
  bnkup (k-1) x = to_uint x.[k-1] + bnkup (k) x * W64.modulus.
 proof.
 move=> *; rewrite /bnkup (range_cat k) 1..2:/# big_cat.
-rewrite rangeS big_cons big_nil /predT /= expr0; congr => //.
+rewrite rangeS big_cons big_nil /predT /=; congr => //.
 rewrite mulr_suml; apply eq_big_int => i * /=.
 rewrite mulzA; congr.
 by rewrite (_:i-(k-1)=i-k+1) 1:/# exprS /#.
@@ -254,7 +254,7 @@ elim/natind: k x.
  by rewrite (_:k=0) 1:/# bnk0 expr0 modz1.
 move=> k Hk0 IH /= x Hk.
 case: (k=0) => [->/=|Ek].
- rewrite expr0 /= bnk1 digE expr0 bn_ofintE; first smt(gt0_nlimbs).
+ rewrite bnk1 digE expr0 bn_ofintE; first smt(gt0_nlimbs).
  by rewrite expr0 divz1 W64.of_uintK.
 rewrite bnkS 1:/# /= IH 1:/# bn_ofintE 1:/# of_uintK.
 rewrite exprS 1:/#.
@@ -296,7 +296,7 @@ elim: (to_list x) => //=.
  by rewrite /bn_seq big1_eq.
 move=> y ys IH; rewrite /bn_seq /= -/(bn_seq ys).
 rewrite (range_cat 1) //; first smt(size_ge0).
-rewrite big_cat rangeS big_cons big_nil /predT /= expr0 /=; congr.
+rewrite big_cat rangeS big_cons big_nil /predT /=; congr.
 rewrite -(add0z 1) big_addn /= -IH.
 rewrite big_distrr // 1:/#.
 apply eq_big_seq => z; rewrite mem_range => /> *.
@@ -771,6 +771,13 @@ lemma bnkS_eq k x y:
  x.[k] = y.[k] /\ bnk k x = bnk k y.
 proof. 
 move=> Hk; rewrite !bnkS 1..2:/# /=.
+move=> H.
+rewrite andbC -andaE; split.
+ by move: (bnk_cmp k x) (bnk_cmp k y); smt().
+move=> E; apply word_modeqP.
+rewrite modz_small; first by (move:(W64.to_uint_cmp x.[k]); smt()).
+rewrite modz_small; first by (move:(W64.to_uint_cmp y.[k]); smt()).
+move: H; rewrite E => H.
 smt.
 qed.
 
@@ -790,7 +797,7 @@ wp; while ( #pre /\ 0 <= i <= nlimbs /\ ((acc = W64.zero) <=> (bnk i a = 0))).
  by rewrite orw_eq0 H1 H32 /= to_uint_eq /#.
 wp; skip => />; progress. smt(gt0_nlimbs).
 by rewrite bnk1 /= H to_uint0.
-move: H; rewrite bnk1 /= expr0 /=. smt.
+move: H; rewrite bnk1 /=. smt.
 move: H2; rewrite (_:i0=nlimbs) 1:/# => <-.
 by rewrite /ALU.AND_64 /#.
 qed.
@@ -869,7 +876,7 @@ qed.
 lemma bn_digit (w : W64.t) : bn (bn_digit w) = to_uint w.
 proof.
 rewrite (bn_k_kup 1); first smt(gt0_nlimbs).
-by rewrite bnk1 /= expr0 /= bn_digit0 bnkup_digit.
+by rewrite bnk1 /= bn_digit0 bnkup_digit.
 qed.
 
 lemma mod_sub x y b m : 
@@ -903,7 +910,7 @@ split.
  split.
   by rewrite (_: 1 = 0 + 1) // bn_carryS // bn_carry0 bn_digit0 carryE addcE /= /carry_add.
  rewrite (_: 1 = 0 + 1) // !bnkS //= !bnk0 //= get_setE 1:/# //=.
- by rewrite addcP' addcE carryE /carry_add /= expr0.
+ by rewrite addcP' addcE carryE /carry_add /=.
 move => j dd Hj1 Hj2 Hj3 Hwsize; split.
  by rewrite (_ : j = nlimbs) 1:/# bn_carryE 1:/# bn_modulusE bn_digit.
 move: Hwsize; rewrite (_:j = nlimbs) 1:/# => ->.
@@ -1021,7 +1028,7 @@ split.
  split.
   by rewrite (_: 1 = 0 + 1) // bn_borrowS // bn_borrow0 bn_digit0 subcE /= /borrow_add.
  rewrite (_: 1 = 0 + 1) // !bnkS //= !bnk0 //= get_setE 1:/# //=.
- by rewrite subcP' subcE borrowE /borrow_sub /= expr0.
+ by rewrite subcP' subcE borrowE /borrow_sub /=.
 move => j dd Hj1 Hj2 Hj3 Hwsize; split.
  by rewrite (_ : j = nlimbs) 1:/# bn_borrowE 1:/# bn_digit.
 move: Hwsize; rewrite (_:j = nlimbs) 1:/# => ->.
@@ -1222,7 +1229,11 @@ proof.
 rewrite /valAcc /= modzDr !get_setE 1..3:/# /=.
 have E: forall x, x <> 0 => 0 <= x < 3 =>
          ((k + x) %% 3 <> (k %% 3)) by smt().
-rewrite !E // expr0 -addzA mulr1 -mulzA -mulzDl /= divzMDr //.
+rewrite !E //= -addzA.
+pose X:= to_uint a.[(k + 1) %% 3] * _ + _.
+have ->: X = (to_uint a.[(k + 1) %% 3] + to_uint a.[(k + 2) %% 3] * 18446744073709551616) * 18446744073709551616.
+ by rewrite /X; ring.
+rewrite divzMDr //.
 by rewrite divz_small; move: to_uint_cmp; smt().
 qed.
 
@@ -1901,7 +1912,7 @@ wp; skip => />; split.
  progress; first smt().
  rewrite (_:1=0+1) 1:/# (_:2=0+1+1) 1:/#.
  rewrite !bnkS 1..3:/# /= !bnk0.
- rewrite b2i0 expr0 /= !get_setE 1..4:/# /=.
+ rewrite b2i0 /= !get_setE 1..4:/# /=.
  have L1 := muluP aak bb.[0].
  by ring L1.
 move=> _cf0 i0 r0 Hc Hi1 Hi2.
@@ -1919,8 +1930,13 @@ move => H2; rewrite -andaE; split.
  by ring L1.
  move: H2; rewrite L1' mulrDl -addrA addrC !addrA -!mulrA. 
  move => H2.
- by have:= (leftovers0 _ _ _ _ _ M (M^nlimbs) H2 _ _ _ _ _);
-    move: to_uint_cmp R2.bnk_cmp R.bnk_cmp; smt().
+ have /=:= (leftovers0 _ _ _ _ _ M (M^nlimbs) H2 _ _ _ _ _).
+ + move: (to_uint_cmp aak); smt().
+ + move: (R.bnk_cmp nlimbs bb); smt().
+ + move: (R2.bnk_cmp nlimbs r0) (to_uint_cmp (ADDC r0.[nlimbs] W64.zero _cf0)); smt().
+ + smt().
+ + by rewrite /=.
+ smt().
 move => NC.
 by rewrite H2 L1 NC; ring.
 qed.
@@ -1988,19 +2004,22 @@ proof.
 proc; simplify.
 have nlimbs_pos:= gt0_nlimbs.
 splitwhile 2: (i < nlimbs-2).
-seq 2: (#[:-3]pre /\ i=nlimbs-2 /\
+seq 2: (#[:-4]pre /\ i=nlimbs-2 /\
         bnk (kk+nlimbs) x
         = bnk (kk+nlimbs) xx
           + bnk i bb * to_uint a * W64.modulus^k
           - b2i _of * W64.modulus^(kk+i) - b2i _cf * W64.modulus^(kk+i+1)).
- while (#[:-3]pre /\ 0 <= i <= nlimbs-2 /\
+ while (#[:-4]pre /\ 0 <= i <= nlimbs-2 /\
         bnk i bb * to_uint a * W64.modulus^k
         + bnk (k+i+2) xx
         = bnk (k+i+2) x
           + b2i _of * W64.modulus^(kk+i) + b2i _cf * W64.modulus^(kk+i+1) /\
         forall j, k+i+1 < j <= nlimbs+k => x.[j]=xx.[j]).
   have E: forall x, x+2 = x+1+1 by smt().
-  wp; skip => />; progress; first 2 smt(). 
+  wp; skip => /> &hr H H0 H1 H2 H3 H4 H5 *.
+(*; progress; first 2 smt().*)
+  split; first smt().
+  split.
    rewrite !get_setE 1:/#.
    rewrite (_:!kk + i{hr} + 1 = kk + i{hr}) 1:/# /=.
    rewrite !E addrA !R2.bnkS 1..6:/# /=.
@@ -2012,20 +2031,21 @@ seq 2: (#[:-3]pre /\ i=nlimbs-2 /\
    move: H4.
    rewrite !E !R2.bnkS 1..4:/# /=.
    rewrite !exprD_nneg 1..8:/# /= => H4.
-   rewrite !bnk_setO 1..2:/# !expr0 /=.
+   rewrite !bnk_setO 1..2:/# /=.
    have L1 := muluP aa bb.[i{hr}].
    have L2 := addcPP x{hr}.[kk + i{hr}] (MULlo aa bb.[i{hr}]) _of{hr}.
    have L3 := addcPP x{hr}.[kk + i{hr} + 1] (MULhi aa bb.[i{hr}]) _cf{hr}.
    rewrite (H5 (kk + i{hr} + 2)) 1:/#.
    by ring L1 L2 L3 H4.
+  move => j *.
   rewrite !get_setE 1..3:/#.
   rewrite (_:! j = kk + i{hr} + 1 ) 1:/# /=.
   rewrite (_:! j = kk + i{hr}) 1:/# /=.
   by rewrite H5 /#.
- wp; skip => />; smt(bnk0).
+ wp; skip => /> *; smt(bnk0).
 rcondt 1; first by skip => /> /#.
 rcondf 7; first by wp; skip => /#.
-seq 6: (#[:-2]pre /\ i=nlimbs-1 /\
+seq 6: (#[:-3]pre /\ i=nlimbs-1 /\
         bnk (kk+nlimbs) x
         = bnk (kk+nlimbs) xx
           + bnk (nlimbs-1) bb
@@ -2053,7 +2073,7 @@ seq 6: (#[:-2]pre /\ i=nlimbs-1 /\
  rewrite (_:M^(kk+nlimbs-1)=M^1*M^kk*M^(nlimbs-2)) 1:-!exprD_nneg 1..5:/# !expr1.
  rewrite (_:M^(kk+nlimbs-2)=M^kk*M^(nlimbs-2)) 1:-!exprD_nneg 1..3:/#.
  move=> H3; ring L1 L2 L3 H3.  rewrite /=. ring.
-seq 4: (#[:-2]pre /\
+seq 4: (#[:-3]pre /\
         bnk (kk + nlimbs) xx + to_uint aa * valR bb * M^kk
         = bnk (kk+nlimbs+1) x
           + b2i _of * M ^ (kk+nlimbs)
@@ -2076,7 +2096,7 @@ seq 4: (#[:-2]pre /\
  rewrite (_:M^(kk+nlimbs)=M^1*M^kk*M^(nlimbs-1)) 1:-!exprD_nneg 1..5:/# !expr1.
  rewrite (_:M^(kk+nlimbs-1)=M^kk*M^(nlimbs-1)) 1:-!exprD_nneg 1..3:/#.
  by move=> /= H2; ring L1 L2 H2. 
-seq 4: (#[/:-2]pre /\
+seq 4: (#[/:-3]pre /\
         bnk (kk+nlimbs) xx + to_uint aa * valR bb * M^kk
         = bnk (kk + nlimbs + 1) x
           + (b2i _cf{hr} + b2i _of{hr})
@@ -2139,7 +2159,7 @@ wp; ecall (mul1_h a.[0] b); wp; skip => />; progress.
   smt(gt0_nlimbs).
  rewrite H2 /=. 
  have ->: bnk 1 aa = bnk (0+1) aa by smt().
- by rewrite bnkS 1:/# /= expr0 bnk0 1:// /#.
+ by rewrite bnkS 1:/# /= bnk0 1:// /#.
 smt().
 qed.
 
@@ -2441,7 +2461,7 @@ wp; skip; progress.
    by rewrite -exprS 1:/# /=.
   have E2: valAcc (2*nlimbs-1) result = to_uint result.[(2*nlimbs-1)%%3].
    rewrite (divz_eq (valAcc (2 * nlimbs - 1) result) W64.modulus) divz_small /=.
-    apply bound_abs; split; [rewrite /valAcc /= !expr0 /=|].
+    apply bound_abs; split; [rewrite /valAcc /= |].
      move: to_uint_cmp expr_gt0; smt().
     rewrite /= in B2.
     move: to_uint_cmp expr_gt0; smt().
@@ -2449,7 +2469,7 @@ wp; skip; progress.
   have B3: valAcc (2*nlimbs-1) a1 < W64.modulus by move: to_uint_cmp; smt().
   have E3: valAcc (2*nlimbs-1) a1 = to_uint a1.[(2*nlimbs-1)%%3].
    rewrite (divz_eq (valAcc (2 * nlimbs - 1) a1) W64.modulus) divz_small /=.
-    apply bound_abs; split; [rewrite /valAcc/= expr0 /=|].
+    apply bound_abs; split; [rewrite /valAcc/= |].
      by move: to_uint_cmp expr_gt0; smt().
     rewrite /= in B3.
     move: to_uint_cmp expr_gt0; smt().
