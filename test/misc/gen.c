@@ -281,6 +281,7 @@ void gen_print_c(
 
 //
 
+#ifdef _MAIN
 int main(int argc, char **argv)
 {
   size_t NLIMBS;
@@ -315,3 +316,4 @@ int main(int argc, char **argv)
 
   return 0;
 }
+#endif

@@ -12,7 +12,7 @@ default: asm
 
 #--
 gen: gen.c
-	$(CC) $(CFLAGS) -o $@ $< -lgmp
+	$(CC) $(CFLAGS) -D_MAIN -o $@ $< -lgmp
 
 #--
 JAZZ := sike434.jazz sike503.jazz sike610.jazz sike751.jazz
