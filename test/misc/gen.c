@@ -15,12 +15,15 @@ void gen_load(mpz_t dest, int dest_init, const uint64_t *src, size_t NLIMBS)
   mpz_import(dest, NLIMBS, -1, sizeof(uint64_t), 0, 0, src);
 }
 
-void gen_store(uint64_t *dest, size_t NLIMBS, mpz_t src, int src_clear)
+void gen_store(uint64_t *dest, size_t NLIMBS, mpz_t src, int src_clear, char *debug)
 {
   uint64_t *r;
   size_t count = NLIMBS;
+  size_t sizeinbase = mpz_sizeinbase(src,2);
 
-  assert( ((mpz_sizeinbase(src,2)>>6)+1) >= NLIMBS);
+  if(sizeinbase > NLIMBS*64)
+  { gmp_fprintf(stderr, "error: %s : 0x%Zx = %zu bits\n", debug, src, sizeinbase);
+    exit(-1); }
 
   memset(dest, 0, sizeof(uint64_t) * NLIMBS);
   r = mpz_export(dest, &count, -1, sizeof(uint64_t), 0, 0, src);
@@ -32,14 +35,20 @@ void gen_store(uint64_t *dest, size_t NLIMBS, mpz_t src, int src_clear)
   { mpz_clear(src); }
 }
 
+// R = 2^(NLIMBS*64)
+void gen_set_R(mpz_t R, size_t NLIMBS)
+{
+  mpz_init_set_ui(R, 1);
+  mpz_mul_2exp(R, R, NLIMBS*64);
+}
+
 // R = 2^(NLIMBS*64) && gcd(R,P) == 1
 void gen_set_and_check_R(mpz_t R, const mpz_t P, size_t NLIMBS)
 {
   mpz_t gcd, one;
 
   // set R to 2**(NLIMBS*64)
-  mpz_init_set_ui(R, 1);
-  mpz_mul_2exp(R, R, NLIMBS*64);
+  gen_set_R(R, NLIMBS);
 
   // set gcd to 0 and one to 1
   mpz_init_set_ui(gcd, 0);
@@ -69,7 +78,7 @@ void gen_precompute_RmP(uint64_t *_RmP, const uint64_t *_P, size_t NLIMBS)
   // CHECKME RmP
 
   // store and free
-  gen_store(_RmP, NLIMBS, RmP, 1);
+  gen_store(_RmP, NLIMBS, RmP, 1, "RmP");
   mpz_clears(R, P, NULL);
 }
 
@@ -87,7 +96,7 @@ void gen_precompute_Pm2(uint64_t *_Pm2, const uint64_t *_P, size_t NLIMBS)
   mpz_sub(Pm2, P, two);
 
   // store and free
-  gen_store(_Pm2, NLIMBS, Pm2, 1);
+  gen_store(_Pm2, NLIMBS, Pm2, 1, "Pm2");
   mpz_clears(P, two, NULL);
 }
 
@@ -103,15 +112,15 @@ void gen_precompute_u0(uint64_t *_u0, const uint64_t *_P)
   mpz_init_set_ui(m, 1);
   mpz_mul_2exp(m, m, 64);
 
-  // 
+  //
   r = mpz_invert(u0, p0, m);
   assert(r != 0);
-  
+
   mpz_mul_ui(u0, u0, 0xFFFFFFFFFFFFFFFF);
   mpz_mod(u0, u0, m);
 
   // store and free
-  gen_store(_u0, 1, u0, 1);
+  gen_store(_u0, 1, u0, 1, "u0");
   mpz_clears(p0, m, NULL);
 }
 
@@ -129,7 +138,7 @@ void gen_precompute_RmodP(uint64_t *_RmodP, const uint64_t *_P, size_t NLIMBS)
   mpz_mod(RmodP, R, P);
 
   // store and free
-  gen_store(_RmodP, NLIMBS, RmodP, 1);
+  gen_store(_RmodP, NLIMBS, RmodP, 1, "RmodP");
   mpz_clears(R, P, NULL);
 }
 
@@ -148,7 +157,7 @@ void gen_precompute_R2modP(uint64_t *_R2modP, const uint64_t *_P, size_t NLIMBS)
   mpz_mod(R2modP, R2modP, P);
 
   // store and free
-  gen_store(_R2modP, NLIMBS, R2modP, 1);
+  gen_store(_R2modP, NLIMBS, R2modP, 1, "R2modP");
   mpz_clears(R, P, NULL);
 }
 
@@ -165,7 +174,7 @@ void gen_precompute_all(
   size_t NLIMBS
 )
 {
-  if(dest_init)
+  if(dest_init == 1)
   {
     *P      = calloc(NLIMBS, sizeof(uint64_t));
     *RmP    = calloc(NLIMBS, sizeof(uint64_t));
@@ -207,7 +216,7 @@ void gen_load_from_string(uint64_t *_P, const char *str, size_t NLIMBS)
   r = mpz_set_str(P, str, 0); // base = 0 => 0x,0X:hex; 0b,0B:bin; 0:octal; otherwise:decimal;
   assert(r == 0);
 
-  gen_store(_P, NLIMBS, P, 1);
+  gen_store(_P, NLIMBS, P, 1, "from_string");
 }
 
 void gen_fprintf(FILE *f, char *s1, uint64_t *src, size_t NLIMBS, char *s2)
@@ -242,7 +251,7 @@ void gen_print_jasmin(
 
   gen_fprintf(fout, "u64[NLIMBS] glob_pm2 = {", Pm2, NLIMBS, "};");
 
-  fprintf(fout, "u64 glob_u0 = %" PRIx64 ";\n\n", u0);
+  fprintf(fout, "u64 glob_u0 = 0x%" PRIx64 ";\n\n", u0);
 
   gen_fprintf(fout, "u64[NLIMBS] glob_oneM = {", RmodP, NLIMBS, "};");
 
@@ -272,7 +281,7 @@ void gen_print_c(
 
   gen_fprintf(fout, "uint64_t glob_pm2[NLIMBS] = {", Pm2, NLIMBS, "};");
 
-  fprintf(fout, "uint64_t glob_u0 = %" PRIx64 ";\n\n", u0);
+  fprintf(fout, "uint64_t glob_u0 = 0x%" PRIx64 ";\n\n", u0);
 
   gen_fprintf(fout, "uint64_t glob_oneM[NLIMBS] = {", RmodP, NLIMBS, "};");
 
@@ -281,7 +290,7 @@ void gen_print_c(
 
 //
 
-#ifdef _MAIN
+#ifdef _MAIN_GEN
 int main(int argc, char **argv)
 {
   size_t NLIMBS;
@@ -297,7 +306,7 @@ int main(int argc, char **argv)
   }
 
   NLIMBS = strtoull(argv[2], NULL, 0);
-  assert(NLIMBS >= 1 && NLIMBS <= 128);
+  assert(NLIMBS >= 1 && NLIMBS <= 256);
 
   // precompute and print
   gen_precompute_all(&P, &RmP, &Pm2, &RmodP, &R2modP, &u0, 1, argv[3], NLIMBS);

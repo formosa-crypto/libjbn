@@ -6,7 +6,9 @@
 
 void gen_load(mpz_t dest, int dest_init, const uint64_t *src, size_t NLIMBS);
 
-void gen_store(uint64_t *dest, size_t NLIMBS, mpz_t src, int src_clear);
+void gen_store(uint64_t *dest, size_t NLIMBS, mpz_t src, int src_clear, char *debug);
+
+void gen_set_R(mpz_t R, size_t NLIMBS);
 
 void gen_set_and_check_R(mpz_t R, const mpz_t P, size_t NLIMBS);
 
