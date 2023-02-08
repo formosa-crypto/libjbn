@@ -38,9 +38,9 @@ int primes_P(uint64_t **_P, int dest_init, int dest_print, FILE *fout, size_t NL
   // Miller-Rabin tests
   #define MRT 30
 
-  int found = 0;
-  size_t clear_bits_from_the_top = 0;
-  mpz_t R, gcd, one, P;
+  int found;
+  size_t clear_bits_from_the_top = 1; // one bit clear on the top from the start
+  mpz_t P, P2, R, gcd, one;
 
   // R = 2^(NLIMBS*64) 
   gen_set_R(R, NLIMBS);
@@ -48,30 +48,43 @@ int primes_P(uint64_t **_P, int dest_init, int dest_print, FILE *fout, size_t NL
   // set gcd to 0 and one to 1
   mpz_init_set_ui(gcd, 0);
   mpz_init_set_ui(one, 1);
+  mpz_init2(P2, (NLIMBS+1)*64);
 
   // "seed" and test P
   primes_seed(_P, dest_init, NLIMBS, clear_bits_from_the_top);
   gen_load(P, 1, *_P, NLIMBS);
-  found = mpz_probab_prime_p(P, MRT);
 
-  while(found < 1) // mpz_probab_prime_p returns: 0 definitely not prime; 1 probably prime; 2 definitely prime;
+  found = 0;
+  do
   {
-    mpz_nextprime(P, P);
-    found = mpz_probab_prime_p(P, MRT);
+     // check probability of mpz_probab_prime_p returning > 0 after primes seeed (intuitively is low)
+     mpz_nextprime(P, P);
 
-    if( mpz_sizeinbase(P,2) > NLIMBS*64 )
-    { clear_bits_from_the_top += 1;
-      primes_seed(_P, 0, NLIMBS, clear_bits_from_the_top);
-      gen_load(P, 0, *_P, NLIMBS);
-      found = mpz_probab_prime_p(P, MRT);
-    }
+     // check if 2*P < R
+     mpz_mul_2exp(P2, P, 1);
+     if(mpz_cmp(P2, R) > -1) // "returns a positive value if op1 > op2 ; zero if op1 = op2 ; negative value if op1 < op2"
+     { // if this condition isn't met, then get a different seed with one bit less
+       clear_bits_from_the_top += 1;
+       primes_seed(_P, 0, NLIMBS, clear_bits_from_the_top);
+       gen_load(P, 0, *_P, NLIMBS);
+       continue;
+     }
+
+     // test if gcd(P,R) == 1 // after nextprime it should be given current R, nonetheless leave the code 'generic'.
+     mpz_gcd(gcd, P, R);
+     if(mpz_cmp(gcd, one) != 0)
+     { continue; }
+
+     // test P with mpz_probab_prime_p
+     found = mpz_probab_prime_p(P, MRT);
   }
+  while(found < 0);
 
   if(dest_print == 1)
   { gmp_fprintf(fout, "0x%Zx\n", P); }
 
   gen_store(*_P, NLIMBS, P, 1, "prime_P");
-  mpz_clears(R, gcd, one, NULL);
+  mpz_clears(R, gcd, one, P2, NULL);
   return found;
 
   #undef MRT

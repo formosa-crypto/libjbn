@@ -243,21 +243,27 @@ void gen_print_jasmin(
   FILE *fout
 )
 {
-  fprintf(fout, "param int NLIMBS = %zu;\n\n", NLIMBS);
+      fprintf(fout, "param int NLIMBS = %zu;\n\n", NLIMBS);
 
+      fprintf(fout, "// glob_p = P\n");
   gen_fprintf(fout, "u64[NLIMBS] glob_p = {", P, NLIMBS, "};");
 
+      fprintf(fout, "// glob_mp = R - P == 2^(NLIMBS*64) - P\n");
   gen_fprintf(fout, "u64[NLIMBS] glob_mp = {", RmP, NLIMBS, "};");
 
+      fprintf(fout, "// glob_pm2 = P - 2\n");
   gen_fprintf(fout, "u64[NLIMBS] glob_pm2 = {", Pm2, NLIMBS, "};");
 
-  fprintf(fout, "u64 glob_u0 = 0x%" PRIx64 ";\n\n", u0);
+      fprintf(fout, "// (glob_u0 * P[0]) mod 2^64 == -1\n"); 
+      fprintf(fout, "u64 glob_u0 = 0x%" PRIx64 ";\n\n", u0);
 
+      fprintf(fout, "// glob_oneM = R mod P == 2^(NLIMBS*64) mod P\n");
   gen_fprintf(fout, "u64[NLIMBS] glob_oneM = {", RmodP, NLIMBS, "};");
 
+      fprintf(fout, "// glob_rM = R^2 mod P == 2^(2*NLIMBS*64) mod P\n");
   gen_fprintf(fout, "u64[NLIMBS] glob_rM = {", R2modP, NLIMBS, "};");
 
-  fprintf(fout, "from Libjbn require \"common/fp/amd64/ref/fp_generic_export.jinc\"\n\n");
+      fprintf(fout, "from Libjbn require \"common/fp/amd64/ref/fp_generic_export.jinc\"\n\n");
 }
 
 void gen_print_c(
