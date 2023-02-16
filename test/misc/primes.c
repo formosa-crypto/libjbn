@@ -5,15 +5,17 @@
 #include <assert.h>
 #include <gmp.h>
 
-#include "gen.h"
+#include "params.h"
 #include "randombytes.h"
 #include "primes.h"
+
 
 void primes_clear_bit(uint64_t *dest, size_t index)
 {
   uint64_t mask = ~(((uint64_t)1) << (index & 0x3f));
   dest[index >> 6] &= mask;  
 }
+
 
 void primes_seed(uint64_t **dest, int dest_init, size_t NLIMBS, size_t clear_bits_from_the_top)
 {
@@ -24,14 +26,14 @@ void primes_seed(uint64_t **dest, int dest_init, size_t NLIMBS, size_t clear_bit
 
   dest_tmp = *dest;
   randombytes((uint8_t*) dest_tmp, NLIMBS*sizeof(uint64_t));
-  //memset(dest_tmp, 0xff, NLIMBS*sizeof(uint64_t));
-  dest_tmp[0] |= 1;
+  dest_tmp[0] |= 1; // make it odd
 
   while(clear_bits_from_the_top > 0)
   { primes_clear_bit(dest_tmp, (NLIMBS*64) - clear_bits_from_the_top);
     clear_bits_from_the_top--;
   }
 }
+
 
 int primes_P(uint64_t **_P, int dest_init, int dest_print, FILE *fout, size_t NLIMBS)
 {
@@ -43,7 +45,7 @@ int primes_P(uint64_t **_P, int dest_init, int dest_print, FILE *fout, size_t NL
   mpz_t P, P2, R, gcd, one;
 
   // R = 2^(NLIMBS*64) 
-  gen_set_R(R, NLIMBS);
+  params_set_R(R, NLIMBS);
 
   // set gcd to 0 and one to 1
   mpz_init_set_ui(gcd, 0);
@@ -52,7 +54,7 @@ int primes_P(uint64_t **_P, int dest_init, int dest_print, FILE *fout, size_t NL
 
   // "seed" and test P
   primes_seed(_P, dest_init, NLIMBS, clear_bits_from_the_top);
-  gen_load(P, 1, *_P, NLIMBS);
+  params_load(P, 1, *_P, NLIMBS);
 
   found = 0;
   do
@@ -62,15 +64,15 @@ int primes_P(uint64_t **_P, int dest_init, int dest_print, FILE *fout, size_t NL
 
      // check if 2*P < R
      mpz_mul_2exp(P2, P, 1);
-     if(mpz_cmp(P2, R) > -1) // "returns a positive value if op1 > op2 ; zero if op1 = op2 ; negative value if op1 < op2"
-     { // if this condition isn't met, then get a different seed with one bit less
+     if(mpz_cmp(P2, R) >= 0) // "returns a positive value if op1 > op2 ; zero if op1 = op2 ; negative value if op1 < op2"
+     { // if this condition isn't met, get a different seed with one bit less
        clear_bits_from_the_top += 1;
        primes_seed(_P, 0, NLIMBS, clear_bits_from_the_top);
-       gen_load(P, 0, *_P, NLIMBS);
+       params_load(P, 0, *_P, NLIMBS);
        continue;
      }
 
-     // test if gcd(P,R) == 1 // after nextprime it should be given current R, nonetheless leave the code 'generic'.
+     // test if gcd(P,R) == 1 // after mpz_nextprime it should be, considering R, nonetheless leave the code 'generic'.
      mpz_gcd(gcd, P, R);
      if(mpz_cmp(gcd, one) != 0)
      { continue; }
@@ -83,7 +85,7 @@ int primes_P(uint64_t **_P, int dest_init, int dest_print, FILE *fout, size_t NL
   if(dest_print == 1)
   { gmp_fprintf(fout, "0x%Zx\n", P); }
 
-  gen_store(*_P, NLIMBS, P, 1, "prime_P");
+  params_store(*_P, NLIMBS, P, 1, "prime_P");
   mpz_clears(R, gcd, one, P2, NULL);
   return found;
 
@@ -98,8 +100,8 @@ int main(int argc, char** argv)
 
   // check argc and load NLIMBS
   if(argc != 3)
-  { fprintf(stderr, "usage:   ./gen NLIMBS NUMBER_OF_PRIMES\n");
-    fprintf(stderr, "example: ./gen 4 10\n");
+  { fprintf(stderr, "usage:   ./primes NLIMBS NUMBER_OF_PRIMES\n");
+    fprintf(stderr, "example: ./primes 4 10\n");
     return -1;
   }
 
@@ -116,11 +118,4 @@ int main(int argc, char** argv)
   return 0;
 }
 #endif
-
-
-
-
-
-
-
 
