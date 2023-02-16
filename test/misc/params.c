@@ -274,7 +274,7 @@ void params_print_jasmin(
          fprintf(fout, "// glob_pm2 = P - 2\n");
   params_fprintf(fout, "u64[NLIMBS] glob_pm2 = {", Pm2, NLIMBS, "};");
 
-         fprintf(fout, "// (glob_u0 * P[0]) mod 2^64 == -1\n"); 
+         fprintf(fout, "// (glob_u0 * P[0]) mod 2^64 == -1\n");
          fprintf(fout, "u64 glob_u0 = 0x%" PRIx64 ";\n\n", u0);
 
          fprintf(fout, "// glob_oneM = R mod P == 2^(NLIMBS*64) mod P\n");
@@ -311,7 +311,7 @@ void params_print_c(
          fprintf(fout, "// glob_pm2 = P - 2\n");
   params_fprintf(fout, "uint64_t glob_pm2[NLIMBS] = {", Pm2, NLIMBS, "};");
 
-         fprintf(fout, "// (glob_u0 * P[0]) mod 2^64 == -1\n"); 
+         fprintf(fout, "// (glob_u0 * P[0]) mod 2^64 == -1\n");
          fprintf(fout, "uint64_t glob_u0 = 0x%" PRIx64 ";\n\n", u0);
 
          fprintf(fout, "// glob_oneM = R mod P == 2^(NLIMBS*64) mod P\n");

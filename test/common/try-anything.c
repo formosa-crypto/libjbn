@@ -277,7 +277,7 @@ int try_anything_main(void)
   state *s;
 
   memset(checksum_state, 0, sizeof(checksum_state));
-  memset(checksum_hex, 0, sizeof(checksum_hex)); 
+  memset(checksum_hex, 0, sizeof(checksum_hex));
 
   s = preallocate();
   allocate(s);

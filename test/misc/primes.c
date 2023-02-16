@@ -13,7 +13,7 @@
 void primes_clear_bit(uint64_t *dest, size_t index)
 {
   uint64_t mask = ~(((uint64_t)1) << (index & 0x3f));
-  dest[index >> 6] &= mask;  
+  dest[index >> 6] &= mask;
 }
 
 
@@ -44,7 +44,7 @@ int primes_P(uint64_t **_P, int dest_init, int dest_print, FILE *fout, size_t NL
   size_t clear_bits_from_the_top = 1; // one bit clear on the top from the start
   mpz_t P, P2, R, gcd, one;
 
-  // R = 2^(NLIMBS*64) 
+  // R = 2^(NLIMBS*64)
   params_set_R(R, NLIMBS);
 
   // set gcd to 0 and one to 1

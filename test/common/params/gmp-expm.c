@@ -20,7 +20,7 @@ void expm_test(uint64_t *result, uint64_t *base, uint64_t *exp, uint64_t *mod)
   /**
   void mpz_import (mpz_t rop, size_t count, int order, size_t size, int endian, size_t nails, const void *op)
     count: number of words;
-    order: 1 most significant word first; -1 least significant word first; 
+    order: 1 most significant word first; -1 least significant word first;
     size: size of each word;
     endian: 1 most significant byte first; -1 least significant byte first; 0 native;
     nails: number of most significant bits that are skipped, 0 means use the full word;

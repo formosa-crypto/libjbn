@@ -2,7 +2,7 @@
 
 #include "randombytes.h"
 
-#if defined(__linux__) 
+#if defined(__linux__)
 
 #include <unistd.h>
 #include <sys/random.h>

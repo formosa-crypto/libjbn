@@ -5,7 +5,7 @@ top=$(cd "$(dirname "$0")/../../" ; pwd -P)
 if [ ! "$#" -eq 5 ]
 then
 cat <<END
- 
+
 usage:   $ ./gen.sh TYPE DEST_DIR MIN_LIMBS MAX_LIMBS NUMBER_TESTS
  * TYPE : 'det' or 'rnd'
 

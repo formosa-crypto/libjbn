@@ -132,13 +132,13 @@ void reduce(uint64_t *base, uint64_t *mod)
   assert( base_count <= NLIMBS);
 }
 
-extern uint64_t glob_p[NLIMBS]; 
+extern uint64_t glob_p[NLIMBS];
 
 void test(unsigned char *checksum_state, state *_s)
 {
   unsigned long long loop;
   state s = *_s;
-  
+
   for (loop = 0;loop < LOOPS;++loop)
   {
     //
