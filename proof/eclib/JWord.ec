@@ -31,6 +31,19 @@ op flags_w2 (fs:bool * bool * bool * bool * bool) (w1 w2: 't) =
   let (OF, CF, SF, PF, ZF) = fs in
   (OF, CF, SF, PF, ZF, w1, w2).
 
+(* ------------------------------------------------------------------- *)
+
+op _sLT (OF CF SF ZF :bool) =  OF <> SF.       (* CFC_L  OF CF SF ZF *)
+op _uLT (OF CF SF ZF :bool) =  CF.             (* CFC_B  OF CF SF ZF. *)
+op _sLE (OF CF SF ZF :bool) =  (OF<>SF) || ZF. (* CFC_LE OF CF SF ZF. *)
+op _uLE (OF CF SF ZF :bool) =  CF || ZF.       (* CFC_BE OF CF SF ZF. *)
+op _EQ  (OF CF SF ZF :bool) =  ZF.             (* CFC_E  OF CF SF ZF. *)
+op _NEQ (OF CF SF ZF :bool) = !_EQ  OF CF SF ZF.
+op _sGE (OF CF SF ZF :bool) = !_sLT OF CF SF ZF.
+op _uGE (OF CF SF ZF :bool) = !_uLT OF CF SF ZF.
+op _sGT (OF CF SF ZF :bool) = !_sLE OF CF SF ZF.
+op _uGT (OF CF SF ZF :bool) = !_uLE OF CF SF ZF.
+
 (* -------------------------------------------------------------------- *)
 
 abstract theory BitWord.
@@ -57,6 +70,9 @@ abbrev modulus = 2 ^ size.
 
 abbrev max_uint = modulus - 1.
 lemma max_uintS: max_uint + 1 = modulus by done.
+
+abbrev min_sint = - 2 ^ (size - 1).
+abbrev max_sint =  2 ^ (size - 1) - 1.
 
 lemma ge2_modulus : 2 <= modulus.
 proof. rewrite powS_minus ?gt0_size; smt (gt0_size expr_gt0). qed.
@@ -98,6 +114,11 @@ proof.
   by rewrite to_uintE bs2int_ge0 -(size_w2bits x) bs2int_le2Xs.
 qed.
 
+lemma to_sint_cmp (x : t) : min_sint <= to_sint x <= max_sint.
+proof.
+ by rewrite /to_sint /= /smod /=; smt.
+qed.
+
 lemma of_uintK (x : int) : to_uint (of_int x) = x %% modulus.
 proof.
   by rewrite to_uintE of_intE bits2wK 1:size_int2bs // int2bsK // modz_cmp.
@@ -135,8 +156,8 @@ hint simplify of_int_mod_red.
 lemma to_uint_small i : 0 <= i < modulus => to_uint (of_int i) = i.
 proof. by move=> h; rewrite of_uintK modz_small;solve. qed.
 
-lemma to_uint0 : to_uint (of_int 0) = 0 by [].
-lemma to_uint1 : to_uint (of_int 1) = 1 by [].
+lemma to_uint0 : to_uint (of_int 0) = 0 by rewrite of_uintK.
+lemma to_uint1 : to_uint (of_int 1) = 1 by rewrite to_uint_small; smt (ge2_modulus).
 
 hint simplify (to_uint0, to_uint1)@0.
 hint simplify to_uint_small@1.
@@ -165,7 +186,10 @@ qed.
 op dword = duniform all_words.
 
 lemma dword_ll : is_lossless dword.
-proof. apply duniform_ll; smt(List.in_nil all_wordsP). qed.
+proof.
+apply: duniform_ll; apply/negP=> eq0.
+by have := all_wordsP witness; rewrite eq0.
+qed.
 
 lemma dword_uni : is_uniform dword.
 proof. by apply duniform_uni. qed.
@@ -192,10 +216,11 @@ lemma zerowE i: zero.[i] = false.
 proof. by rewrite of_intwE /int_bit. qed.
 hint simplify zerowE.
 
-lemma of_int_powm1 p i : 0 <= p =>
+lemma of_int_powm1 p i :
+  0 <= p =>
   (of_int (2^p - 1)).[i] = (0 <= i < size /\ i < p).
 proof.
-  move=> hp; case: (0 <= i < size) => [[h0i his] | hi]; last by rewrite get_out.
+  case: (0 <= i < size) => [[h0i his] /= hp | hi]; last by rewrite get_out.
   have aux : forall p, 0 <= p <= size => (of_int (2 ^ p - 1)).[i] = (true /\ i < p).
   + move=> {p hp} p hp.
     rewrite of_intwE 1:// /int_bit /= (modz_small (2 ^ p - 1)).
@@ -516,11 +541,11 @@ op ([-]) = ulift1 Int.([-]) axiomatized by oppE.
 op ( * ) = ulift2 Int.( * ) axiomatized by mulE.
 
 op (\udiv) = ulift2 IntDiv.( %/) axiomatized by udivE.
-op (\umod) = ulift2 IntDiv.( %/) axiomatized by umodE.
+op (\umod) = ulift2 IntDiv.( %%) axiomatized by umodE.
 
 (* TODO check this *)
 op (\sdiv) = slift2 IntDiv.( %/) axiomatized by sdivE.
-op (\smod) = slift2 IntDiv.( %/) axiomatized by smodE.
+op (\smod) = slift2 IntDiv.( %%) axiomatized by smodE.
 
 (* --------------------------------------------------------------------- *)
 (* Comparisons                                                           *)
@@ -871,6 +896,8 @@ abbrev (`&`) = andw.
 abbrev (`|`) = orw.
 abbrev (`^`) = (+^).
 
+op msb (b: t): bool = 2^(size - 1) <= (to_uint b).
+
 op (`>>>`) (x : t) (i : int) =
   init (fun j => x.[j + i])
 axiomatized by wlsrE.
@@ -1035,18 +1062,21 @@ op rol (x : t) (i : int) =
   init (fun j => x.[(j - i) %% size])
 axiomatized by rolE.
 
+abbrev (`|>>>|`) = ror.
+abbrev (`|<<<|`) = rol.
+
 lemma rorwE w k i :
-  (ror w k).[i] = if (0 <= i < size) then w.[(i+k) %% size] else false.
+  (w `|>>>|` k).[i] = if (0 <= i < size) then w.[(i+k) %% size] else false.
 proof. by rewrite rorE initE. qed.
 
 lemma rolwE w k i :
-  (rol w k).[i] = if (0 <= i < size) then w.[(i-k) %% size] else false.
+  (w `|<<<|` k).[i] = if (0 <= i < size) then w.[(i-k) %% size] else false.
 proof. by rewrite rolE initE. qed.
 
 hint simplify (rorwE, rolwE).
 
 lemma rol_xor w i : 0 <= i < size =>
-  rol w i = (w `<<<` i) `^` (w `>>>` (size - i)).
+  w `|<<<|` i = (w `<<<` i) `^` (w `>>>` (size - i)).
 proof.
   move=> hi; apply wordP => k hk /=.
   rewrite hk /=.
@@ -1059,7 +1089,7 @@ qed.
 
 lemma rol_xor_simplify w1 w2 i si:
    w1 = w2 => si = size - i => 0 <= i < size =>
-   (w1 `<<<` i) `^` (w2 `>>>` si) = rol w1 i.
+   (w1 `<<<` i) `^` (w2 `>>>` si) = w1 `|<<<|` i.
 proof. by move=> 2!-> hi;rewrite rol_xor. qed.
 
 (* --------------------------------------------------------------------- *)
@@ -1249,7 +1279,7 @@ case: (0 <= k) => H; last first.
 + by rewrite ler_maxl 1:/# /=; smt(ge0_size). 
 rewrite ler_maxr 1://. 
 case: (0 <= i < size) => Hi; last by rewrite get_out /#.
-rewrite /masklsb of_intE.
+rewrite of_intE.
 case: (size <= k) => H0.
 + rewrite powm1_mod // get_bits2w //.
   have /=:= (bs2int_nseq true size); rewrite ge0_size /= => <-.
@@ -1406,6 +1436,9 @@ move=> *.
 by apply (ler_lt_trans (to_uint w)); smt(leq_trunc_div gt0_pow2 to_uint_cmp).
 qed.
 
+op wmulhs (v1 v2: t) = 
+  of_int (to_sint v1 * to_sint v2 %/ modulus).
+
 theory ALU.
 
 op SF_of (w : t) = w.[size - 1].
@@ -1447,6 +1480,14 @@ op rflags_of_andn (w: t) =
   let ZF = ZF_of w in
   (OF, CF, SF, PF, ZF).
 
+op rflags_of_popcnt (w: t) =
+  let OF = false in
+  let CF = false in
+  let SF = false in
+  let PF = false in
+  let ZF = ZF_of w in
+  (OF, CF, SF, PF, ZF).
+
 op rflags_of_aluop_nocf_w (w : t) (vs : int) =
   let OF = to_sint w <> vs in
   let SF = SF_of w in
@@ -1460,7 +1501,7 @@ op rflags_of_aluop_w (w : t) (vu vs : int) =
 op rflags_of_bwop_w (w : t) =
   flags_w (rflags_of_bwop w) w.
 
-op set0_XX = (false,false,false,false,false, of_int 0).
+op set0_XX_ = (false,false,false,false,false, of_int 0).
 
 op ADD_XX (v1 v2 : t)  =
   rflags_of_aluop_w 
@@ -1490,9 +1531,6 @@ op IMUL_overflow (hi lo: t) : bool =
   let ov = wdwords hi lo in
   (ov < -modulus) || (modulus - 1 < ov).
 
-op wmulhs (v1 v2: t) = 
-  of_int (to_sint v1 * to_sint v2 %/ modulus).
-
 op IMUL_XX (v1 v2: t) =
   let lo = v1 * v2 in
   let hi = wmulhs v1 v2 in
@@ -1511,21 +1549,24 @@ op IMULri_XX = IMULt_XX.
 op DIV_XX (hi lo dv: t) =
   let dd = wdwordu hi lo in
   let dv = to_uint dv in
-  let q  = dd  %/  dv in
+  let q  = dd %/ dv in
   let r  = dd %% dv in
-  let ov = max_uint < q in
+(* The next lines are commented:
+   The point is that the (Coq) semantic raise an error if "dv = 0 || ov".
+   But the extraction need to be correct only on safe program, so it is not necessary. *)
+(*let ov = max_uint < q in
+  let (q, r) = if dv = 0 || ov then (0, 0) else (q, r) in *)
   flags_w2 rflags_undefined (of_int q) (of_int r).
-(*
-(* FIXME *)
-op IDIV (hi lo dv: t) =
-  let dd := wdwords hi lo in
-  let dv := to_sint dv in
-  let q  := (Z.quot dd dv)%Z in
-  let r  := (Z.rem  dd dv)%Z in
-  let ov := (q <? wmin_signed sz)%Z || (q >? wmax_signed sz)%Z in
-  if (dv == 0)%Z || ov then type_error else
-  ok (flags_w2 (rflags_of_div) (:: (wrepr sz q) & (wrepr sz r))).
-*)
+
+op IDIV_XX (hi lo dv: t) =
+  let dd = wdwords hi lo in
+  let dv = to_sint dv in
+  let q  = dd %/ dv in
+  let r  = dd %/ dv in
+(* Same comment than for DIV_XX *)
+(*let ov = (q <? wmin_signed sz)%Z || (q >? wmax_signed sz)%Z in
+  let (q, r) = if dv = 0 || ov then (0,0) else (q, r) in *)
+  flags_w2 rflags_undefined (of_int q) (of_int r). 
 
 op CQO_XX (w:t) =
   of_int (if SF_of w then -1 else 0).
@@ -1604,6 +1645,10 @@ op XOR_XX (v1 v2: t) =
 op NOT_XX (v: t) =
   invw v.
 
+op LZCNT_XX (w:t) =
+  let v = of_int (lzcnt (rev (w2bits w))) in
+  (undefined_flag, ZF_of w, undefined_flag, undefined_flag, ZF_of v, v).
+
 lemma DEC_XX_counter n (c:t) :
   c <> zero =>
   (n - to_uint c + 1 = n - to_uint (DEC_XX c).`5 /\
@@ -1617,6 +1662,22 @@ proof.
   + by apply negP => heq; apply hc0; rewrite -(to_uintK c) heq.
   rewrite to_uintB /= 1:uleE /=; smt (to_uint_cmp).
 qed.
+
+op POPCNT_XX (v: t) =
+  let vb = w2bits v in
+  let wcnt = of_int (count idfun vb) in
+  flags_w (rflags_of_popcnt wcnt) wcnt.
+
+op PEXT_XX (v m: t) =
+  let vbi = filter (fun i => m.[i]) (iota_ 0 size) in
+  bits2w (map (fun i => v.[i]) vbi).
+
+op bitpdep (w: t) (i:int) (mask: bool list) =
+  with mask = "[]" => []
+  with mask = b :: mask' => if b then w.[i] :: bitpdep w (i+1) mask' else false :: bitpdep w i mask'.
+
+op PDEP_XX (v m: t) =
+  bits2w (bitpdep v 0 (w2bits m)).
 
 end ALU.
 
@@ -1647,8 +1708,11 @@ theory W8.
     by rewrite modz_small.
   qed.
 
+  op (`|>>|`) (w1 w2 : W8.t) = w1 `|>>>|` (to_uint w2 %% size).
+  op (`|<<|`) (w1 w2 : W8.t) = w1 `|<<<|` (to_uint w2 %% size).
+
   lemma rol_xor_shft w i : 0 < i < size =>
-    rol w i = (w `<<` of_int i) +^ (w `>>` of_int (size - i)).
+    w `|<<<|` i = (w `<<` of_int i) +^ (w `>>` of_int (size - i)).
   proof.
     move=> hi; rewrite /(`<<`) /(`>>`) !of_uintK /=.
     by rewrite !(modz_small _ 256) 1,2:/# !modz_small 1,2:/# rol_xor 1:/#.
@@ -1656,36 +1720,38 @@ theory W8.
 
   op (`|>>`) (w1 w2 : W8.t) = sar w1 (to_uint w2 %% size).
 
+  op SETcc (b: bool) = b ? W8.one : W8.zero.
+
   theory SHIFT.
 
   op shift_mask i = to_uint i %% 32.
   
-  op ROR_XX (v: t) (i: W8.t) =
+  op ROR_8 (v: t) (i: W8.t) =
     let i = shift_mask i in
     if i = 0 then (undefined_flag, undefined_flag, v) 
     else
-      let r = ror v i in
+      let r = v `|>>>|` i in
       let CF = ALU.SF_of r in
       let OF = if i = 1 then CF <> ALU.SF_of v else undefined_flag in
       (OF , CF,  r)
-  axiomatized by ROR_XX_E.
+  axiomatized by ROR_8_E.
   
-  op ROL_XX (v: t) (i: W8.t) =
+  op ROL_8 (v: t) (i: W8.t) =
     let i = shift_mask i in
     if i = 0 then(undefined_flag, undefined_flag, v)
     else
-      let r = rol v i in
+      let r = v `|<<<|` i in
       let CF = ALU.PF_of r in
       let OF = if i = 1 then ALU.SF_of r <> CF else undefined_flag in
       (OF, CF, r)
-  axiomatized by ROL_XX_E.
+  axiomatized by ROL_8_E.
   
   op im i = 
     if size = 8 then i %% 9
     else if size = 16 then i %% 17
     else i.
 
-  op RCL_XX (v: t) (i: W8.t) (cf:bool) =
+  op RCL_8 (v: t) (i: W8.t) (cf:bool) =
     let i  = shift_mask i in
     let im = im i in
     let r  = fun j => if j = 0 then cf else v.[j-1] in
@@ -1695,7 +1761,7 @@ theory W8.
     let OF = if i = 1 then (ALU.SF_of r <> CF) else undefined_flag in
     (OF, CF, r).
   
-  op RCR_XX (v: t) (i: W8.t) (cf:bool) =
+  op RCR_8 (v: t) (i: W8.t) (cf:bool) =
     let i  = shift_mask i in
     let im = im i in
     let r  = fun j => if j = 0 then cf else v.[j-1] in
@@ -1713,7 +1779,7 @@ theory W8.
     let ZF = ALU.ZF_of r in
     (OF, CF, SF, PF, ZF, r).
 
-  op SHL_XX  (v: t) (i: W8.t) =
+  op SHL_8  (v: t) (i: W8.t) =
     let i = shift_mask i in
     if i = 0 then flags_w rflags_undefined v
     else
@@ -1721,7 +1787,7 @@ theory W8.
       let r  = v `<<<` i in
       rflags_OF i r rc (ALU.SF_of r ^^ rc).
 
-  op SHLD_XX (v1 v2: t) (i: W8.t) =
+  op SHLD_8 (v1 v2: t) (i: W8.t) =
     let i = shift_mask i in
     if i = 0 then flags_w rflags_undefined v1
     else
@@ -1731,7 +1797,7 @@ theory W8.
       let r  = r1 +^ r2 in
       rflags_OF i r rc (ALU.SF_of r ^^ rc).
   
-  op SHR_XX (v: t) (i: W8.t) =
+  op SHR_8 (v: t) (i: W8.t) =
     let i = shift_mask i in 
     if i = 0 then flags_w rflags_undefined v 
     else
@@ -1739,7 +1805,7 @@ theory W8.
       let r  = v `>>>` i in
       rflags_OF i r rc (ALU.SF_of r).
   
-  op SHRD_XX (v1 v2: t) (i: W8.t) = 
+  op SHRD_8 (v1 v2: t) (i: W8.t) =
     let i = shift_mask i in
     if i = 0 then flags_w rflags_undefined v1
     else
@@ -1749,7 +1815,7 @@ theory W8.
       let r  = r1 +^ r2 in
       rflags_OF i r rc (ALU.SF_of r ^^ ALU.SF_of v1).
   
-  op SAR_XX (v: t) (i: W8.t) = 
+  op SAR_8 (v: t) (i: W8.t) =
     let i = shift_mask i in 
     if i = 0 then flags_w rflags_undefined v
     else
@@ -1773,10 +1839,14 @@ abstract theory WT.
   op (+^) : t -> t -> t.
   op invw : t -> t.
 
+  op wmulhs : t -> t -> t.
+
   op (+) : t -> t -> t.
   op [-] : t -> t. 
   op ( * ) : t -> t -> t.
 
+  op (`>>>`) : t -> int -> t.
+  op (`<<<`) : t -> int -> t.
   op (`>>`) : t -> W8.t -> t.
   op (`|>>`) : t -> W8.t -> t.
   op (`<<`) : t -> W8.t -> t.
@@ -1786,6 +1856,8 @@ abstract theory WT.
   op to_sint : t -> int.
 
   op bits : t -> int -> int -> bool list.
+
+  abbrev (`|<<<|`) = rol.
 
   axiom initiE (f : int -> bool) (i : int) : 0 <= i < size => (init f).[i] = f i.
 
@@ -1826,7 +1898,7 @@ abstract theory WT.
       andw w (of_int (2^k - 1)) = of_int (to_uint w %% 2^k).
 
   axiom rol_xor_shft w i : 0 < i < size =>
-    rol w i = (w `<<` W8.of_int i) +^ (w `>>` W8.of_int (size - i)).
+    w `|<<<|` i = (w `<<` W8.of_int i) +^ (w `>>` W8.of_int (size - i)).
 
 end WT.
 
@@ -1843,6 +1915,7 @@ abstract theory W_WS.
 
   clone export MonoArray as Pack with
     type elem <- WS.t,
+
     op dfl <- WS.of_int 0,
     op size <- r
     proof ge0_size by smt (gt0_r)
@@ -2096,9 +2169,7 @@ abstract theory W_WS.
      move=> [h0i hir];rewrite bits'S_div //.
      rewrite WB.of_uintK modz_pow2_div.
      + by rewrite sizeBrS mulzC; apply cmpW; apply mulz_cmp_r.
-     rewrite -WS.of_int_mod modz_mod_pow2 /min.
-     + rewrite sizeBrS mulrC -mulrBr; smt (WS.gt0_size).
-     + smt (WS.gt0_size).
+     rewrite -WS.of_int_mod modz_mod_pow2 !ger0_norm /min; 1,2: smt (sizeBrS WS.gt0_size).
      have -> /= : !sizeB - sizeS * i < sizeS.
      + rewrite sizeBrS.
        have -> : r * sizeS - sizeS * i = sizeS * (r - i) by ring.
@@ -2171,8 +2242,11 @@ abstract theory W_WS.
    op VPSUB_'Ru'S (w1 : WB.t) (w2 : WB.t) =
      map2 (fun (x y:WS.t) => x + (- y)) w1 w2. 
 
-   op VPMUL_'Ru'S (w1 : WB.t) (w2 : WB.t) =
+   op VPMULL_'Ru'S (w1 : WB.t) (w2 : WB.t) =
      map2 WS.( * ) w1 w2. 
+   
+   op VPMULH_'Ru'S (w1 : WB.t) (w2 : WB.t) =
+     map2 (fun (x y:WS.t) => wmulhs x y) w1 w2.
 
    op VPSLL_'Ru'S (w : WB.t) (cnt : W8.t) =
      map (fun (w:WS.t) => w `<<` cnt) w.
@@ -2186,6 +2260,15 @@ abstract theory W_WS.
    op VPBROADCAST_'Ru'S (w : WS.t) =
      pack'R (map (fun i => w) (iota_ 0 r)).
 
+   op wucmp (cmp: int -> int -> bool) (x y: WS.t) : WS.t =
+     if cmp (to_uint x) (to_uint y) then (WS.of_int (-1)) else (WS.of_int 0).
+
+   op VPCMPGT_'Ru'S (w1 : WB.t) (w2: WB.t) =
+     map2 (wucmp Int.(<=)) w2 w1.
+
+   op VPCMPEQ_'Ru'S (w1 : WB.t) (w2: WB.t) =
+     map2 (wucmp (=)) w1 w2.
+
    op VPMAXU_'Ru'S (w1 : WB.t) (w2 : WB.t) = 
      map2 (fun x y => if WS.to_uint x < WS.to_uint y then y else x) w1 w2.
   
@@ -2197,7 +2280,20 @@ abstract theory W_WS.
 
    op VPMINS_'Ru'S (w1 : WB.t) (w2 : WB.t) = 
      map2 (fun x y => if WS.to_sint x < WS.to_sint y then x else y) w1 w2.
- 
+
+   op VPEXTR_'S (w: WB.t) (i: W8.t) = w \bits'S ((W8.to_uint i)%% r).
+
+   op VPINSR_'Ru'S (w1:WB.t) (w2:WS.t) (i:W8.t) : WB.t = 
+     pack'R_t (init (fun j => if j = to_uint i %% r then w2 else w1 \bits'S j)).
+
+   op VPSLLV_'Ru'S (w1:WB.t) (w2:WB.t) =
+     let sll = fun (x1 x2:WS.t) => x1 `<<<` WS.to_uint x2 in
+     map2 sll w1 w2.
+
+   op VPSRLV_'Ru'S (w1:WB.t) (w2:WB.t) =
+     let srl = fun (x1 x2:WS.t) => x1 `>>>` WS.to_uint x2 in
+     map2 srl w1 w2.
+
    (** TODO CHECKME : still x86 **)
    lemma x86_'Ru'S_rol_xor i w : 0 < i < sizeS =>
       VPSLL_'Ru'S w (W8.of_int i) +^ VPSRL_'Ru'S w (W8.of_int (sizeS - i)) =
@@ -2205,7 +2301,7 @@ abstract theory W_WS.
    proof.
      move=> hr;rewrite /VPSRL_'Ru'S /VPSLL_'Ru'S.
      apply wordP => j hj.
-     by rewrite xorb'SE !mapbE 1..3:// /= rol_xor_shft. 
+     by rewrite xorb'SE !mapbE 1..3:// /= rol_xor_shft.
    qed.
 
    (** TODO CHECKME : still x86 **)
@@ -2233,6 +2329,8 @@ abstract theory BitWordSH.
   op (`>>`) (w1 : t) (w2 : W8.t) = w1 `>>>` (to_uint w2 %% size).
   op (`<<`) (w1 : t) (w2 : W8.t) = w1 `<<<` (to_uint w2 %% size).
   op (`|>>`) (w1 : t) (w2 : W8.t) = sar w1 (to_uint w2 %% size).
+  op (`|>>|`) (w1 : t) (w2 : W8.t) = w1 `|>>>|` (to_uint w2 %% size).
+  op (`|<<|`) (w1 : t) (w2 : W8.t) = w1 `|<<<|` (to_uint w2 %% size).
 
   lemma shr_div w1 w2 : to_uint (w1 `>>` w2) = to_uint w1 %/ 2^ (to_uint w2 %% size).
   proof.
@@ -2251,12 +2349,12 @@ abstract theory BitWordSH.
   qed.
 
   lemma rol_xor_shft w i : 0 < i < size =>
-    rol w i = (w `<<` W8.of_int i) +^ (w `>>` W8.of_int (size - i)).
+    w `|<<<|` i = (w `<<` W8.of_int i) +^ (w `>>` W8.of_int (size - i)).
   proof.
     move=> hi; rewrite /(`<<`) /(`>>`) !W8.of_uintK.
     have h : 0 <= i < `|W8.modulus|.
     + by rewrite /=; smt (size_le_256).
-    rewrite !(modz_small _ W8.modulus) 1:// 1:[smt (size_le_256)] !modz_small 1,2:/#.
+    rewrite !(modz_small _ W8.modulus) 1:// 1: #smt: (size_le_256) !modz_small 1,2:/#.
     by rewrite rol_xor 1:/#.
   qed.
 
@@ -2284,7 +2382,7 @@ abstract theory BitWordSH.
     let i = shift_mask i in
     if i = 0 then (undefined_flag, undefined_flag, v) 
     else
-      let r = ror v i in
+      let r = v `|>>>|` i in
       let CF = ALU.SF_of r in
       let OF = if i = 1 then CF <> ALU.SF_of v else undefined_flag in
       (OF , CF,  r)
@@ -2294,7 +2392,7 @@ abstract theory BitWordSH.
     let i = shift_mask i in
     if i = 0 then(undefined_flag, undefined_flag, v)
     else
-      let r = rol v i in
+      let r = v `|<<<|` i in
       let CF = ALU.PF_of r in
       let OF = if i = 1 then ALU.SF_of r <> CF else undefined_flag in
       (OF, CF, r)
@@ -2340,6 +2438,8 @@ abstract theory BitWordSH.
       let rc = ALU.SF_of (v `<<<` (i - 1)) in 
       let r  = v `<<<` i in
       rflags_OF i r rc (ALU.SF_of r ^^ rc).
+
+  abbrev [-printing] SAL_XX = SHL_XX.
 
   op SHLD_XX (v1 v2: t) (i: W8.t) =
     let i = shift_mask i in
@@ -3434,6 +3534,14 @@ lemma W8u32_W16u16 ws1 ws2 ws3 ws4 ws5 ws6 ws7 ws8:
          W2u16.pack2_t ws5; W2u16.pack2_t ws6; W2u16.pack2_t ws7; W2u16.pack2_t ws8 ] =
   pack16 [ws1.[0]; ws1.[1]; ws2.[0]; ws2.[1]; ws3.[0]; ws3.[1]; ws4.[0]; ws4.[1];
          ws5.[0]; ws5.[1]; ws6.[0]; ws6.[1]; ws7.[0]; ws7.[1]; ws8.[0]; ws8.[1]].
+proof. by apply W16u16.allP => /=. qed.
+
+lemma W2u128_W16u16 ws1 ws2 ws3 ws4 ws5 ws6 ws7 ws8
+                    ws9 ws10 ws11 ws12 ws13 ws14 ws15 ws16 :
+  pack2 [W8u16.pack8 [ws1; ws2; ws3; ws4; ws5; ws6; ws7; ws8];
+         W8u16.pack8 [ws9; ws10; ws11; ws12; ws13; ws14; ws15; ws16] ] =
+  pack16 [ws1; ws2; ws3; ws4; ws5; ws6; ws7; ws8;
+         ws9; ws10; ws11; ws12; ws13; ws14; ws15; ws16].
 proof. by apply W16u16.allP => /=. qed.
 
 hint simplify W2u32_W4u16, W4u32_W8u16, W8u32_W16u16.
