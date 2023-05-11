@@ -8,8 +8,6 @@ require import EClib.
 
 from Jasmin require import JModel.
 
-from Jasmin require import JBigNum.
-
 from JasminExtra require import JBigNum.
 
 require import Array4 Array8.
@@ -53,8 +51,9 @@ lemma inzp_over x:
  inzp (2^255 * x) = inzp (19*x).
 proof. by have /= := zpcgr_over 0 x; rewrite -eq_inzp. qed.
 
-lemma twop255_cgr : 2^255 %% P = 19 by smt.
-lemma twop256_cgr : 2^256 %% P = 38 by smt.
+lemma twop255_cgr : 2^255 %% P = 19
+by rewrite pE /=.
+lemma twop256_cgr : 2^256 %% P = 38 by rewrite pE /=.
 
 lemma P_cgr: (2^256 - 2^255 - 19)%%P = 0.
 proof.
@@ -359,14 +358,14 @@ module CSpecFp = {
  }
  proc caddP(c: bool, a: int): int = {
   var x, r;
-  x <- ASpecFp.ctseln(c, 0, P);
+  x <@ ASpecFp.ctseln(c, 0, P);
   (c, r) <@ ASpecFp.addn(a, x);
   return r;
  }
  proc subm(a b: zp): int = {
   var c, r, x;
   (c, r) <@ ASpecFp.subn(asint a, asint b);
-  x <- ASpecFp.caddP(c, r);
+  x <@ ASpecFp.caddP(c, r);
   return x;
  }
  proc freeze(a: int): int = {
@@ -388,7 +387,7 @@ equiv cminusP_eq:
  ASpecFp.cminusP ~ CSpecFp.cminusP: ={a} /\ a{2}<modulusR ==> ={res}.
 proof.
 proc; inline*; wp; skip => &1 &2.
-have ->: modulusR = 2^256 by rewrite R.bn_modulusE /= !mulrA expr0. 
+have ->: modulusR = 2^256 by rewrite R.bn_modulusE /=.
 move=> [-> Ha] X.
 rewrite lerNgt if_neg.
 rewrite /X addrA ltP_overflow.
@@ -402,7 +401,7 @@ equiv freeze_eq:
  ASpecFp.freeze ~ CSpecFp.freeze: ={a} /\ 0<=a{2}<modulusR ==> asint res{1}=res{2}.
 proof.
 proc; inline*; wp; skip => &1 &2.
-have ->: modulusR = 2^256 by rewrite R.bn_modulusE /= !mulrA expr0. 
+have ->: modulusR = 2^256 by rewrite R.bn_modulusE /=.
 move=> [-> [Ha1 Ha2]] /=.
 rewrite inzpK; case: (a{2} < P) => H0.
  by rewrite modz_small /#.
@@ -423,11 +422,11 @@ proof.
 proc; simplify.
 + inline*; wp; skip => /> &2.
   have ->: (asint a{2} + asint b{2}) %% modulusR = (asint a{2} + asint b{2}).
-   rewrite modz_small. smt.
-   done.
+   rewrite modz_small //.
+   by move: rg_asint; rewrite pE /R.bn_modulus /= /#.
   case: (asint a{2} + asint b{2} < P) => H.
    by rewrite addE modz_small; smt(rg_asint).
-  rewrite addE. smt. 
+  by move: H rg_asint; rewrite addE pE /= /#.
 qed.
 
 equiv caddP_eq:
@@ -436,7 +435,7 @@ equiv caddP_eq:
   ==> ={res}.
 proof.
 proc; inline*; wp; skip => &1 &2 /=.
-have ->: modulusR = 2^256 by rewrite R.bn_modulusE /= !mulrA expr0. 
+have ->: modulusR = 2^256 by rewrite R.bn_modulusE /=.
 move=> [-> ->] /=.
 case: (c{2}) => ?; first smt().
 by move=> /> *; rewrite modz_small /#.
@@ -450,11 +449,13 @@ proc; simplify.
 inline*. wp; skip => />  &2.
 case: (asint a{2} < asint b{2} ) => /= H.
  rewrite modzDml modz_small.
-  smt.
- rewrite addE oppE modzDmr. smt.
+  by move: rg_asint; rewrite pE /R.bn_modulus /= /#.
+ rewrite addE oppE modzDmr. 
+  by move: rg_asint; rewrite pE /R.bn_modulus /= /#.
 rewrite modz_small.
- smt.
-rewrite addE oppE modzDmr. smt. 
+ by move: rg_asint; rewrite pE /R.bn_modulus /= /#.
+rewrite addE oppE modzDmr. 
+by move: rg_asint; rewrite pE /R.bn_modulus /= /#.
 qed.
 
 equiv mulm_eq:
