@@ -6,6 +6,7 @@ require import BitEncoding StdBigop Bigalg.
 from Jasmin require import JWord JUtils JArray.
 
 (* Where does this belongs? *)
+(*
 lemma divzU a b q r:
  0 <= r < `|b|%Int => a = b*q+r => q=a%/b.
 proof.
@@ -15,7 +16,9 @@ have [??] := euclideU b q (a%/b) r (a%%b) _ _ _ => //.
  by rewrite mulzC -E {1}Ediv.
 smt(modz_ge0 ltz_mod).
 qed.
+*)
 
+(* it is now [-divzMl] 
 lemma divz_div a b c:
  0 <= b => 0 <= c => a %/ b %/ c = a %/ (b * c).
 proof.
@@ -34,16 +37,24 @@ rewrite {1}(divz_eq a b) addzA; congr.
 rewrite mulzA -mulzDr mulzC; congr.
 by rewrite {1}(divz_eq (a%/b) c); ring.
 qed.
+*)
 
 lemma lex_lt x1 x2 m y1 y2:
  0 < m => 0 <= x1 < m => 0 <= x2 < m => 0 <= y1 => 0 <= y2 =>
- (y1*m + x1 < y2*m + x2) = (y1 < y2 \/ y1=y2 /\ x1 < x2).
-proof. by move=> /> *; rewrite (divzU (y1 * m + x1) m y1 x1) /#. qed.
+ (y1*m + x1 < y2*m + x2) = (y1 < y2 \/ y1=y2 /\ x1 < x2)
+by smt().
+(*proof. by move=> /> *; rewrite (divzU (y1 * m + x1) m y1 x1) /#. qed.*)
 
 lemma lex_le x1 x2 m y1 y2:
  0 < m => 0 <= x1 < m => 0 <= x2 < m => 0 <= y1 => 0 <= y2 =>
- (y1*m + x1 <= y2*m + x2) = (y1 < y2 \/ y1=y2 /\ x1 <= x2).
-proof. by move=> /> *; rewrite (divzU (y1 * m + x1) m y1 x1) /#. qed.
+ (y1*m + x1 <= y2*m + x2) = (y1 < y2 \/ y1=y2 /\ x1 <= x2)
+by smt().
+(*proof. by move=> /> *; rewrite (divzU (y1 * m + x1) m y1 x1) /#. qed.*)
+
+lemma lex_eq x1 x2 m y1 y2:
+ 0 < m => 0 <= x1 < m => 0 <= x2 < m => 0 <= y1 => 0 <= y2 =>
+ (y1*m + x1 = y2*m + x2) = (y1 = y2 /\ x1 = x2)
+by smt().
 
 lemma modz_pow (a b d: int):
  0 <= b => a ^ b %% d = (a %% d) ^ b %% d.
@@ -55,6 +66,7 @@ rewrite !exprS 1..2://.
 by rewrite eq_sym -modzMmr -IH 1:// modzMmr modzMml.
 qed.
 
+(* is is now [Ring.IntID.exprMn]
 lemma mul_pow (a b c: int):
  0 <= c => (a*b)^c = a^c * b^c.
 proof.
@@ -62,13 +74,16 @@ elim/natind: c => n *.
  by rewrite (_:n=0) 1:/# !expr0.
 by rewrite !exprS 1..3:// /#.
 qed.
+*)
 
+(* it is now Ring.IntID.expr1z 
 lemma one_pow x: 1 ^ x = 1.
 proof.
 elim/natind: x => *.
  by rewrite expr1z.
 by rewrite exprS.
 qed.
+*)
 
 (* END: *)
 
@@ -281,7 +296,6 @@ rewrite modz_small; move: bnk_cmp; smt().
 qed.
 
 (* to prove by simplification... *)
-
 op bn_seq (x: W64.t list) : int = foldr (fun w r => W64.to_uint w + W64.modulus * r) 0 x.
 
 import List.
@@ -765,13 +779,10 @@ lemma bnkS_eq k x y:
  0 <= k => bnk (k+1) x = bnk (k+1) y =>
  x.[k] = y.[k] /\ bnk k x = bnk k y.
 proof. 
-move=> Hk; rewrite !bnkS 1..2:/#.
-move=> E.
-rewrite -andaE; split.
- move/(congr1 (fun x => x %/ W64.modulus^k)): E => /=.
- rewrite !divzMDl; first 2 smt(expr_gt0).
- by rewrite !divz_small; move: bnk_cmp; smt(to_uint_eq).
-by move: (to_uint_cmp y.[k]) (bnk_cmp k y) => /= /#.
+move=> Hk; rewrite !bnkS 1..2:/# /=.
+have /= ?:= bnk_cmp.
+have /= ?:= to_uint_cmp.
+by rewrite lex_eq; smt(expr_gt0 to_uint_eq).
 qed.
 
 lemma test0R_h aa:
