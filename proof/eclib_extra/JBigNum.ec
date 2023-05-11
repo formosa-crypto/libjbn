@@ -1,4 +1,4 @@
-require import Core Int IntDiv Real List StdOrder Bool.
+require import AllCore Int IntDiv List StdOrder Bool.
 require import BitEncoding StdBigop Bigalg.
 (*---*) import Ring.IntID IntOrder BS2Int.
 (*---*) import Bigint BIA.
@@ -6,6 +6,7 @@ require import BitEncoding StdBigop Bigalg.
 from Jasmin require import JWord JUtils JArray.
 
 (* Where does this belongs? *)
+(*
 lemma divzU a b q r:
  0 <= r < `|b|%Int => a = b*q+r => q=a%/b.
 proof.
@@ -15,7 +16,9 @@ have [??] := euclideU b q (a%/b) r (a%%b) _ _ _ => //.
  by rewrite mulzC -E {1}Ediv.
 smt(modz_ge0 ltz_mod).
 qed.
+*)
 
+(* it is now [-divzMl] 
 lemma divz_div a b c:
  0 <= b => 0 <= c => a %/ b %/ c = a %/ (b * c).
 proof.
@@ -34,16 +37,24 @@ rewrite {1}(divz_eq a b) addzA; congr.
 rewrite mulzA -mulzDr mulzC; congr.
 by rewrite {1}(divz_eq (a%/b) c); ring.
 qed.
+*)
 
 lemma lex_lt x1 x2 m y1 y2:
  0 < m => 0 <= x1 < m => 0 <= x2 < m => 0 <= y1 => 0 <= y2 =>
- (y1*m + x1 < y2*m + x2) = (y1 < y2 \/ y1=y2 /\ x1 < x2).
-proof. by move=> /> *; rewrite (divzU (y1 * m + x1) m y1 x1) /#. qed.
+ (y1*m + x1 < y2*m + x2) = (y1 < y2 \/ y1=y2 /\ x1 < x2)
+by smt().
+(*proof. by move=> /> *; rewrite (divzU (y1 * m + x1) m y1 x1) /#. qed.*)
 
 lemma lex_le x1 x2 m y1 y2:
  0 < m => 0 <= x1 < m => 0 <= x2 < m => 0 <= y1 => 0 <= y2 =>
- (y1*m + x1 <= y2*m + x2) = (y1 < y2 \/ y1=y2 /\ x1 <= x2).
-proof. by move=> /> *; rewrite (divzU (y1 * m + x1) m y1 x1) /#. qed.
+ (y1*m + x1 <= y2*m + x2) = (y1 < y2 \/ y1=y2 /\ x1 <= x2)
+by smt().
+(*proof. by move=> /> *; rewrite (divzU (y1 * m + x1) m y1 x1) /#. qed.*)
+
+lemma lex_eq x1 x2 m y1 y2:
+ 0 < m => 0 <= x1 < m => 0 <= x2 < m => 0 <= y1 => 0 <= y2 =>
+ (y1*m + x1 = y2*m + x2) = (y1 = y2 /\ x1 = x2)
+by smt().
 
 lemma modz_pow (a b d: int):
  0 <= b => a ^ b %% d = (a %% d) ^ b %% d.
@@ -55,6 +66,7 @@ rewrite !exprS 1..2://.
 by rewrite eq_sym -modzMmr -IH 1:// modzMmr modzMml.
 qed.
 
+(* is is now [Ring.IntID.exprMn]
 lemma mul_pow (a b c: int):
  0 <= c => (a*b)^c = a^c * b^c.
 proof.
@@ -62,13 +74,16 @@ elim/natind: c => n *.
  by rewrite (_:n=0) 1:/# !expr0.
 by rewrite !exprS 1..3:// /#.
 qed.
+*)
 
+(* it is now Ring.IntID.expr1z 
 lemma one_pow x: 1 ^ x = 1.
 proof.
 elim/natind: x => *.
  by rewrite expr1z.
 by rewrite exprS.
 qed.
+*)
 
 (* END: *)
 
@@ -214,8 +229,8 @@ lemma bn_mod k x:
 proof.
 by move=> H; rewrite (bn_k_kup k x _) 1:/# modzMDr modz_small; move:bnk_cmp; smt().
 qed.
- 
-lemma bghint_div k x:
+
+lemma bn_div_kup k x:
  0 <= k <= nlimbs =>
  bn x %/ W64.modulus^k = bnkup k x.
 proof.
@@ -281,7 +296,6 @@ rewrite modz_small; move: bnk_cmp; smt().
 qed.
 
 (* to prove by simplification... *)
-
 op bn_seq (x: W64.t list) : int = foldr (fun w r => W64.to_uint w + W64.modulus * r) 0 x.
 
 import List.
@@ -355,9 +369,7 @@ proof.
 elim: k.
  by rewrite expr0 !bnk0 // bn_carry0 /#.
 move=> k Hk IH; rewrite bn_carryS // carryE IH; clear IH.
-pose X:= (_ <= _)%Int.
-have ->{X}: X = (W64.modulus-(to_uint x.[k]+to_uint y.[k]) 
-              <= (bnk k x + bnk k y + b2i c)%/ W64.modulus^k) by smt. 
+rewrite -ler_subl_addl.
 rewrite lez_divRL 1:expr_gt0 1:expr_gt0 1:// mulzDl -ler_subr_addr /= -exprS //.
 pose X:= ( _ - _ * _)%Int.
 have ->{X}: X = bnk (k+1) x + bnk (k+1) y + b2i c.
@@ -379,9 +391,7 @@ proof.
 elim/natind: k => //=.
  by move=> n Hn Hn'; rewrite (_:n=0) 1:/# bn_carry0 expr0 !bnk0 /#.
 move=> k Hk IH {IH} H {H}; rewrite bn_carryS // !bnkS // /dig /= carryE bn_carryP //.
-pose X:= (_ <= _)%Int.
-have ->{X}: X = (W64.modulus-(to_uint x.[k]+to_uint y.[k]) 
-              <= (bnk k x + bnk k y + b2i c)%/ W64.modulus^k) by smt.
+rewrite -ler_subl_addl.
 by rewrite lez_divRL 1:expr_gt0 1:expr_gt0 1:// mulzDl -ler_subr_addr /=
            -exprS // /#.
 qed.
@@ -403,9 +413,7 @@ proof.
 elim: k.
  by rewrite expr0 !bnk0 // bn_borrow0 /=. 
 move=> k Hk IH; rewrite bn_borrowS // IH; clear IH.
-pose X:= (_ < _)%Int.
-have ->{X}: X = (bnk k x - bnk k y - b2i c) %/ W64.modulus ^ k < to_uint y.[k] - to_uint x.[k]
- by smt.
+rewrite ltr_subr_addr -ltr_subr_addl. 
 rewrite ltz_divLR 1:expr_gt0 1:expr_gt0 1:// mulzDl.
 pose X:= (_ < _)%Int.
 have ->{X}: X = bnk (k+1) x < bnk (k+1) y + b2i c.
@@ -739,11 +747,12 @@ lemma orw_eq0 w1 w2:
  W64.orw w1 w2 = W64.zero <=> w1=W64.zero /\ w2=W64.zero.
 proof.
 split.
- case: (w1=W64.zero) => [E|E].
+ case: (w1=W64.zero) => [E|/negP E].
   by rewrite E or0w.
- move=> H /=.
- have := ule_orw w1 w2; rewrite H uleE to_uint0.
- smt.
+ move=> H /=; apply E.
+ rewrite to_uint_eq /=.
+ have:= ule_orw w1 w2; rewrite H uleE to_uint0.
+ move: (to_uint_cmp w1); smt().
 by move=> [-> ->]; rewrite or0w.
 qed.
 
@@ -763,7 +772,7 @@ lemma bnkS_eq0 k x:
  to_uint x.[k] = 0 /\ bnk k x = 0.
 proof. 
 move=> Hk; rewrite bnkS 1:/# /=.
-smt.
+move: (to_uint_cmp x.[k]) (bnk_cmp k x); smt(). 
 qed.
 
 lemma bnkS_eq k x y:
@@ -771,14 +780,9 @@ lemma bnkS_eq k x y:
  x.[k] = y.[k] /\ bnk k x = bnk k y.
 proof. 
 move=> Hk; rewrite !bnkS 1..2:/# /=.
-move=> H.
-rewrite andbC -andaE; split.
- by move: (bnk_cmp k x) (bnk_cmp k y); smt().
-move=> E; apply word_modeqP.
-rewrite modz_small; first by (move:(W64.to_uint_cmp x.[k]); smt()).
-rewrite modz_small; first by (move:(W64.to_uint_cmp y.[k]); smt()).
-move: H; rewrite E => H.
-smt.
+have /= ?:= bnk_cmp.
+have /= ?:= to_uint_cmp.
+by rewrite lex_eq; smt(expr_gt0 to_uint_eq).
 qed.
 
 lemma test0R_h aa:
@@ -790,14 +794,15 @@ lemma test0R_h aa:
 proof.
 proc.
 wp; while ( #pre /\ 0 <= i <= nlimbs /\ ((acc = W64.zero) <=> (bnk i a = 0))).
- wp; skip => /> &hr; progress. smt(). smt().
- move: H3; rewrite orw_eq0 => [[E1 E2]].
- by rewrite bnkS 1:/# /= E2 to_uint0 /= -H1 E1.
+ wp; skip => /> &hr; progress; first 2 smt().
+  move: H3; rewrite orw_eq0 => [[E1 E2]].
+  by rewrite bnkS 1:/# /= E2 to_uint0 /= -H1 E1.
  move: (bnkS_eq0 _ _ H H3) => {H3} [H31 H32].
  by rewrite orw_eq0 H1 H32 /= to_uint_eq /#.
-wp; skip => />; progress. smt(gt0_nlimbs).
-by rewrite bnk1 /= H to_uint0.
-move: H; rewrite bnk1 /=. smt.
+wp; skip => />; progress.
+   smt(gt0_nlimbs).
+  by rewrite bnk1 /= H to_uint0.
+ by move: H; rewrite bnk1 /= to_uint_eq /=.
 move: H2; rewrite (_:i0=nlimbs) 1:/# => <-.
 by rewrite /ALU.AND_64 /#.
 qed.
@@ -974,11 +979,11 @@ wp; skip => />; progress.
 - smt().
 - move: H2; rewrite (_:i0 = nlimbs) 1:/# => ->.
   have ?:= W64.ge0_size.
-  pose X:= (bn_carry _ _ _ _); case: X; rewrite /X bn_carryE 1:/# => E.
-   rewrite b2i1 -(modzMDr (-1)) bn_modulusE /= modz_small 2:/# /=.
-   smt. (*bnk_cmp exprM*)
+  pose X:= (bn_carry _ _ _ _); case: X; rewrite /X bn_carryE 1:/# => /= E.
+   rewrite b2i1 -(modzMDr (-1)) bn_modulusE /= modz_small 2:/# /= mulN1r.
+   by move: bnk_cmp; smt().
   rewrite b2i0 bn_modulusE /= modz_small //.
-  smt. (*bnk_cmp exprM*)
+  by move: bnk_cmp; smt().
 qed.
 
 lemma addcR_ll: islossless Ops.addcR.
@@ -1217,7 +1222,6 @@ proof.
 by rewrite addcP' /addc /= /carry_add carryE; ring.
 qed.
 
-
 op valAcc (b: int) (x: W64.t Array3.t) : int =
  to_uint x.[b%%3]
  + to_uint x.[(b+1)%%3] * W64.modulus
@@ -1226,15 +1230,11 @@ op valAcc (b: int) (x: W64.t Array3.t) : int =
 lemma valAccS k (a: W64.t Array3.t):
   valAcc (k + 1) a.[k %% 3 <- W64.zero] = (valAcc k a) %/ W64.modulus.
 proof.
-rewrite /valAcc /= modzDr !get_setE 1..3:/# /=.
+rewrite /valAcc {2}expr2 -!addzA -!mulzA -mulzDl divzMDr //= modzDr !get_setE 1..3:/# /=.
 have E: forall x, x <> 0 => 0 <= x < 3 =>
          ((k + x) %% 3 <> (k %% 3)) by smt().
-rewrite !E //= -addzA.
-pose X:= to_uint a.[(k + 1) %% 3] * _ + _.
-have ->: X = (to_uint a.[(k + 1) %% 3] + to_uint a.[(k + 2) %% 3] * 18446744073709551616) * 18446744073709551616.
- by rewrite /X; ring.
-rewrite divzMDr //.
-by rewrite divz_small; move: to_uint_cmp; smt().
+rewrite !E //= -addzA divz_small //.
+by move: to_uint_cmp; smt().
 qed.
 
 lemma valAcc_mod k (a: W64.t Array3.t):
@@ -1824,7 +1824,12 @@ wp; while (#pre /\ 0 <= i <= nlimbs /\
  wp; skip; progress; first 2 smt(). 
  rewrite !bnkS 1,2:/# /= H1 /bn_modulus bnk_setO 1:/#.
  by rewrite get_setE 1:/#.
-wp; skip => />; progress; smt.
+wp; skip => />; split.
+ by rewrite !bnk0; smt(gt0_nlimbs).
+move=> i lo ???; have ->: i=nlimbs by smt().
+move=> H; split; first by rewrite !bnk0; smt(gt0_nlimbs).
+move=> hi j ???; have ->: j=nlimbs by smt().
+smt().
 qed.
 
 lemma unpackR2_h2 aa:
@@ -1930,13 +1935,13 @@ move => H2; rewrite -andaE; split.
  by ring L1.
  move: H2; rewrite L1' mulrDl -addrA addrC !addrA -!mulrA. 
  move => H2.
- have /=:= (leftovers0 _ _ _ _ _ M (M^nlimbs) H2 _ _ _ _ _).
- + move: (to_uint_cmp aak); smt().
- + move: (R.bnk_cmp nlimbs bb); smt().
- + move: (R2.bnk_cmp nlimbs r0) (to_uint_cmp (ADDC r0.[nlimbs] W64.zero _cf0)); smt().
- + smt().
- + by rewrite /=.
- smt().
+ have:= (leftovers0 _ _ _ _ _ M (M^nlimbs) H2 _ _ _ _ _).
+ + move: to_uint_cmp R2.bnk_cmp R.bnk_cmp; smt().
+ + move: to_uint_cmp R2.bnk_cmp R.bnk_cmp; smt().
+ + case: _cf0; move: to_uint_cmp R2.bnk_cmp R.bnk_cmp; smt(). 
+ + move: to_uint_cmp R2.bnk_cmp R.bnk_cmp; smt().
+ + move: to_uint_cmp R2.bnk_cmp R.bnk_cmp; smt().
+ + move: to_uint_cmp R2.bnk_cmp R.bnk_cmp; smt().
 move => NC.
 by rewrite H2 L1 NC; ring.
 qed.
@@ -1970,7 +1975,7 @@ move => Hk Hn Hb Hc Ha E.
 move: Ha; rewrite E => {E}.
 have Aux: forall (a b c:int), 0 <= a => a+b < c => b<c by smt().
 move=> /(Aux _ _ _ Hb) {Aux}.
-smt.
+smt(@IntOrder).
 qed.
 
 lemma mul1acc_aux k a b c:
@@ -1987,7 +1992,7 @@ rewrite 3!E => *.
 apply (ler_lt_trans ((M^k-1)+(M-1)*(M^k-1))).
  apply ler_add; first done.
  by apply ler_pmul.
-smt.
+smt(@IntOrder).
 qed.
 
 lemma mul1acc_h kk aa bb xx:
@@ -2016,10 +2021,7 @@ seq 2: (#[:-4]pre /\ i=nlimbs-2 /\
           + b2i _of * W64.modulus^(kk+i) + b2i _cf * W64.modulus^(kk+i+1) /\
         forall j, k+i+1 < j <= nlimbs+k => x.[j]=xx.[j]).
   have E: forall x, x+2 = x+1+1 by smt().
-  wp; skip => /> &hr H H0 H1 H2 H3 H4 H5 *.
-(*; progress; first 2 smt().*)
-  split; first smt().
-  split.
+  wp; skip => />; progress; first 2 smt().
    rewrite !get_setE 1:/#.
    rewrite (_:!kk + i{hr} + 1 = kk + i{hr}) 1:/# /=.
    rewrite !E addrA !R2.bnkS 1..6:/# /=.
@@ -2037,12 +2039,11 @@ seq 2: (#[:-4]pre /\ i=nlimbs-2 /\
    have L3 := addcPP x{hr}.[kk + i{hr} + 1] (MULhi aa bb.[i{hr}]) _cf{hr}.
    rewrite (H5 (kk + i{hr} + 2)) 1:/#.
    by ring L1 L2 L3 H4.
-  move => j *.
   rewrite !get_setE 1..3:/#.
   rewrite (_:! j = kk + i{hr} + 1 ) 1:/# /=.
   rewrite (_:! j = kk + i{hr}) 1:/# /=.
   by rewrite H5 /#.
- wp; skip => /> *; smt(bnk0).
+ wp; skip => />; smt(bnk0).
 rcondt 1; first by skip => /> /#.
 rcondf 7; first by wp; skip => /#.
 seq 6: (#[:-3]pre /\ i=nlimbs-1 /\
@@ -2194,8 +2195,8 @@ have E: forall x y, x <> y => 0 <= x < 3 => 0 <= y < 3 =>
          ((kk + x) %% 3 <> ((kk + y)%%3)) by smt().
 rewrite !E //= !R.addcP' !addcE /carry_add !carryE /=.
 split.
- ring; smt.
-smt.
+ ring; smt(@IntOrder).
+smt(@IntOrder).
 qed.
 
 lemma addacc3_ll: islossless MulOps.addacc3.
@@ -2230,9 +2231,11 @@ while (i2 = iend /\ k = kk /\ a = aa /\ b = bb
           = valAcc kk acc
             + bigi predT (fun i=> to_uint a.[i]*to_uint b.[kk-i]) istart i).
  wp; ecall (addacc3_h k t1 t0 x); wp; skip => />; progress; first 4 by smt().
- rewrite H7 (range_cat i{hr}) 1..2:/# rangeS big_cat big_cons big_nil. 
- rewrite muluE H4 /predT /= -!addzA; congr; ring.
- move: (mulhiP a{hr}.[i{hr}] b{hr}.[k{hr}-i{hr}]); smt. 
+ rewrite H7 (range_cat i{hr}) 1..2:/# rangeS big_cat big_cons big_nil.
+ clear H7.
+ rewrite muluE H4 /predT /= -!addzA; congr.
+ move: (mulhiP aa.[i{hr}] bb.[kk-i{hr}]) => /= E.
+ by ring H4 E.
 wp; skip => />; progress; first 2 smt().
 - by rewrite range_geq // big_nil.
 - by rewrite H7 /#.
