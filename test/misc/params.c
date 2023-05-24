@@ -64,7 +64,9 @@ void params_set_R(mpz_t R, size_t NLIMBS)
 }
 
 
-// R = 2^(NLIMBS*64); and also asserts that: gcd(R,P) == 1 && 2*P < R
+// R = 2^(NLIMBS*64); and also asserts that: gcd(R,P) == 1
+// the previous version of this function also asserted that: 2*P < R
+// - mostly to avoid 'recording' the carry flag in __fp_rdcn and use it __fp_cminusP
 void params_set_and_check_R(mpz_t R, const mpz_t P, size_t NLIMBS)
 {
   mpz_t gcd, one, P2;
@@ -82,7 +84,7 @@ void params_set_and_check_R(mpz_t R, const mpz_t P, size_t NLIMBS)
   // mpz_cmp: "returns a positive value if op1 > op2 ; zero if op1 = op2 ; negative value if op1 < op2"
   mpz_gcd(gcd, R, P);
   assert(mpz_cmp(gcd, one) == 0);
-  assert(mpz_cmp(P2, R) < 0);
+  // assert(mpz_cmp(P2, R) < 0); // no longer necessary, check above comment
 
   // clear gcd and one
   mpz_clears(gcd, one, P2, NULL);
