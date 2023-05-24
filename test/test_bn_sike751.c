@@ -77,32 +77,32 @@ uint64_t add12[NLIMBS] =
  { 0xfffffffffffffff0,
    0xffffffffffffffff,
    0xffffffffffffffff,
-   0xffffffffffffffff, 
-   0xffffffffffffffff, 
-   0xeeafffffffffffff, 
-   0xe3ec968549f878a8, 
-   0xda959b1a13f7cc76, 
-   0x084e9867d6ebe876, 
-   0x8562b5045cb25748, 
-   0x0e12909f97badc66, 
+   0xffffffffffffffff,
+   0xffffffffffffffff,
+   0xeeafffffffffffff,
+   0xe3ec968549f878a8,
+   0xda959b1a13f7cc76,
+   0x084e9867d6ebe876,
+   0x8562b5045cb25748,
+   0x0e12909f97badc66,
    0x00006fe5d541f710 };
 
-uint64_t sub12[NLIMBS] = 
- { 0xfffffffffffffff1, 
-   0xffffffffffffffff, 
-   0xffffffffffffffff, 
-   0xffffffffffffffff, 
-   0xffffffffffffffff, 
-   0xffffffffffffffff, 
-   0xffffffffffffffff, 
-   0xffffffffffffffff, 
-   0xffffffffffffffff, 
-   0xffffffffffffffff, 
-   0xffffffffffffffff, 
+uint64_t sub12[NLIMBS] =
+ { 0xfffffffffffffff1,
+   0xffffffffffffffff,
+   0xffffffffffffffff,
+   0xffffffffffffffff,
+   0xffffffffffffffff,
+   0xffffffffffffffff,
+   0xffffffffffffffff,
+   0xffffffffffffffff,
+   0xffffffffffffffff,
+   0xffffffffffffffff,
+   0xffffffffffffffff,
    0x000000000000000b };
 
-uint64_t sub21[NLIMBS] = 
- { 0x000000000000000e, 
+uint64_t sub21[NLIMBS] =
+ { 0x000000000000000e,
    0x0000000000000000,
    0x0000000000000000,
    0x0000000000000000,
@@ -129,7 +129,7 @@ uint64_t mul12[NLIMBS] =
    0x0000000000000000,
    0x00000000000000b4 };
 
-uint64_t inv1[NLIMBS] = 
+uint64_t inv1[NLIMBS] =
  { 0xcccccccccccccccc,
    0xcccccccccccccccc,
    0xcccccccccccccccc,
