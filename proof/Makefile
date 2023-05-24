@@ -42,7 +42,7 @@ usage:
 	@echo "Usage: make <target> where <target> in [check|check-xunit]" >&2
 
 check: extract
-	$(ECCHECK) --bin-args="$(ECARGS)" --jobs="$(ECJOBS)" $(ECCONF) $(CHECKS)
+	$(ECCHECK) $(ECCONF) $(CHECKS)
 
 extract: $(JAZZ) $(ECMK)
 
