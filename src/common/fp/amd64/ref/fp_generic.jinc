@@ -51,7 +51,8 @@ inline fn __fp_caddP
 
 /* x-P if P<=x else x */
 inline fn __fp_cminusP
-( reg ptr u64[NLIMBS] x
+( reg u64 lastbit,
+  reg ptr u64[NLIMBS] x
 ) -> reg ptr u64[NLIMBS]
 {
   inline int i;
@@ -65,6 +66,9 @@ inline fn __fp_cminusP
   glob_mpp = glob_mp;
   _cf, tmp = __bn_addc(tmp, glob_mpp);
 
+  _, lastbit += 0 + _cf;
+  _, _cf, _, _, _, _ = #NEG(lastbit);
+
   x = __bn_cmov(_cf, x, tmp);
   return x;
 }
@@ -73,10 +77,18 @@ inline fn __fp_cminusP
 
 inline fn __fp_add
 ( reg ptr u64[NLIMBS] a b
-) -> reg ptr u64[NLIMBS] {
- _, a = __bn_addc(a, b);
- a = __fp_cminusP(a);
- return a;
+) -> reg ptr u64[NLIMBS]
+{
+  reg bool cf;
+  reg u64 lastbit;
+
+  cf, a = __bn_addc(a, b);
+
+  lastbit = 0;
+  _, lastbit += 0 + cf;
+
+  a = __fp_cminusP(lastbit, a);
+  return a;
 }
 
 /* Modular addition */
@@ -119,7 +131,7 @@ inline fn __fp_rdcn
   reg ptr u64[NLIMBS] glob_pp;
   inline int k;
   reg bool cf;
-  reg u64 t t0 t1 zero u0r p0;
+  reg u64 t t0 t1 zero u0r p0 lastbit;
   reg u64[3] x;
 
   _, _, _, _, _, zero = #set0();
@@ -150,10 +162,14 @@ inline fn __fp_rdcn
     r[k-NLIMBS] = t0;
     _, _, _, _, _, x[k % 3] = #set0();
   }
-  x[(2*NLIMBS-1) % 3] += a[2*NLIMBS-1];
+
+  lastbit = 0;
+  cf, x[(2*NLIMBS-1) % 3] += a[2*NLIMBS-1];
+  _, lastbit += 0 + cf;
+
   r[NLIMBS-1] = x[(2*NLIMBS-1) % 3];
 
-  r = __fp_cminusP(r);
+  r = __fp_cminusP(lastbit, r);
   return r;
 }
 
