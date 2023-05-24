@@ -34,6 +34,7 @@ primes-rnd: primes.c params.c ../common/randombytes.c
 .PHONY: $(PARAMS_DIR)
 $(PARAMS_DIR): params primes-det
 	./sike.sh $(PARAMS_DIR)
+	./rfc3526.sh $(PARAMS_DIR)
 	./gen.sh det $(PARAMS_DIR) $(MIN_NLIMBS) $(MAX_NLIMBS) $(MAX_TESTS)
 	$(MAKE) compile
 

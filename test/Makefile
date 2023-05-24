@@ -9,6 +9,7 @@ MIN_NLIMBS  ?= 1
 MAX_NLIMBS  ?= 16
 MAX_TESTS   ?= 10
 
+#--
 LIST_NLIMBS := $(shell seq $(MIN_NLIMBS) $(MAX_NLIMBS))
 LIST_TESTS  := $(shell seq 1 $(MAX_TESTS))
 
@@ -70,6 +71,27 @@ $(BIN)/libjbn_expm_d_%: __phony bin/params | $(BIN)
 $(BIN)/libjbn_expm_d_%.out: $(BIN)/libjbn_expm_d_%
 	(./$< > $@ 2>&1 || true)
 
+#-- ------------------------------------------------------------------------------------------------
+#-- ------------------------------------------------------------------------------------------------
+#-- ------------------------------------------------------------------------------------------------
+#-- LIBJBN / GMP rfc :: to be refactored (requires different names of non-random instantiations like sike and rfc3526)
+$(BIN)/libjbn_expm_rfc3526_modp2048: __phony
+	$(CC) $(CFLAGS) -o $@ -DNLIMBS=32 $(INCLUDE) common/params/try-expm.c common/params/libjbn-expm.c bin/params/libjbn_rfc3526_modp2048.c bin/params/libjbn_rfc3526_modp2048.s -lgmp
+
+$(BIN)/libjbn_expm_rfc3526_modp2048.out: $(BIN)/libjbn_expm_rfc3526_modp2048
+	(./$< > $@ 2>&1 || true)
+
+# --
+
+$(BIN)/gmp_expm_rfc3526_modp2048: __phony
+	$(CC) $(CFLAGS) -o $@ -DNLIMBS=32 $(INCLUDE) common/params/try-expm.c common/params/gmp-expm.c bin/params/libjbn_rfc3526_modp2048.c -lgmp
+
+$(BIN)/gmp_expm_rfc3526_modp2048.out: $(BIN)/gmp_expm_rfc3526_modp2048
+	(./$< > $@ 2>&1 || true)
+
+#-- ------------------------------------------------------------------------------------------------
+#-- ------------------------------------------------------------------------------------------------
+#-- ------------------------------------------------------------------------------------------------
 
 #-- CHECK
 check: __phony
