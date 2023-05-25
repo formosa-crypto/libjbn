@@ -1,5 +1,7 @@
 include ../Makefile.compiler_flags
 
+INCLUDE := -I../common -I../../ext/randombytes/
+
 #--
 TOP         = $(abspath $(dir $(firstword $(MAKEFILE_LIST)))../../)
 TEST        = $(TOP)/test
@@ -56,20 +58,21 @@ default: $(PARAMS_DIR)
 # -----------------------------------------------------------------------------
 exec: $(BIN)/params $(BIN)/primes-det $(BIN)/primes-rnd
 
-$(BIN)/params: params.c | $(BIN) $(BIN)/$(CID)
+$(BIN)/params: params.c | $(BIN)/$(CID)
 	$(CC) $(CFLAGS) -D_MAIN_PARAMS -o $@ $< -lgmp $(CIL)
 
-$(BIN)/primes-det: primes.c params.c ../common/notrandombytes.c | $(BIN) $(BIN)/$(CID)
-	$(CC) $(CFLAGS) -D_MAIN_PRIMES -o $@ -I../common $^ -lgmp $(CIL)
+$(BIN)/primes-det: primes.c params.c ../common/notrandombytes.c | $(BIN)/$(CID)
+	$(CC) $(CFLAGS) -D_MAIN_PRIMES -o $@ $(INCLUDE) $^ -lgmp $(CIL)
 
-$(BIN)/primes-rnd: primes.c params.c ../common/randombytes.c | $(BIN) $(BIN)/$(CID)
-	$(CC) $(CFLAGS) -D_MAIN_PRIMES -o $@ -I../common $^ -lgmp $(CIL)
+$(BIN)/primes-rnd: primes.c params.c ../../ext/randombytes/randombytes.c | $(BIN)/$(CID)
+	$(CC) $(CFLAGS) -D_MAIN_PRIMES -o $@ $(INCLUDE) $^ -lgmp $(CIL)
 
 
 # -----------------------------------------------------------------------------
 .PHONY: $(PARAMS_DIR)
-$(PARAMS_DIR): exec | $(dir $(PARAMS_DIR))$(CID)
+$(PARAMS_DIR): exec
 	mkdir -p $@
+	mkdir -p $(dir $(PARAMS_DIR))$(CID)
 	./sike.sh $(PARAMS_DIR) $(CIL)
 	./rfc3526.sh $(PARAMS_DIR) $(CILA)
 	./gen.sh det $(PARAMS_DIR) $(MIN_NLIMBS) $(MAX_NLIMBS) $(MAX_TESTS) $(CILA)
@@ -87,8 +90,7 @@ compile:
 %.s: %.jazz
 	$(JASMIN) -o $@ $(JINCLUDE) $< $(CIL)
 
-$(BIN): ; mkdir -p $@
-
+$(BIN)/: ; mkdir -p $@
 
 # -----------------------------------------------------------------------------
 ifeq ($(CI),1)

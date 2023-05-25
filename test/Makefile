@@ -1,6 +1,6 @@
 include Makefile.compiler_flags
 
-INCLUDE ?= -Icommon/
+INCLUDE := -Icommon/
 
 #--
 TOP         = $(abspath $(dir $(firstword $(MAKEFILE_LIST)))../)
@@ -22,13 +22,13 @@ export MAX_NLIMBS
 export MAX_TESTS
 
 # -----------------------------------------------------------------------------
-TESTS_LIBS      := libjbn gmp
-TESTS_DEFINED   := expm
-TESTS_BASE_NAME := $(patsubst %.s, %, $(subst libjbn_,, $(notdir $(shell test -d $(PARAMS_DIR) && find $(PARAMS_DIR) -name '*.s'))))
+TESTS_FP_LIBS      := libjbn gmp
+TESTS_FP_DEFINED   := expm
+TESTS_FP_BASE_NAME := $(patsubst %.s, %, $(subst libjbn_,, $(notdir $(shell test -d $(PARAMS_DIR) && find $(PARAMS_DIR) -name '*.s'))))
 
-TESTS := $(addprefix $(BIN)/, $(foreach LB, $(TESTS_LIBS), $(foreach TD, $(TESTS_DEFINED), $(foreach BN,$(TESTS_BASE_NAME),$(LB)_$(TD)_$(BN)))))
-TESTS_BIN := $(addsuffix .bin, $(TESTS))
-TESTS_OUT := $(addsuffix .out, $(TESTS))
+TESTS_FP     := $(addprefix $(BIN)/fp/, $(foreach LB, $(TESTS_FP_LIBS), $(foreach TD, $(TESTS_FP_DEFINED), $(foreach BN,$(TESTS_FP_BASE_NAME),$(LB)_$(TD)_$(BN)))))
+TESTS_FP_BIN := $(addsuffix .bin, $(TESTS_FP))
+TESTS_FP_OUT := $(addsuffix .out, $(TESTS_FP))
 
 
 # -----------------------------------------------------------------------------
@@ -70,8 +70,8 @@ all:
 	$(MAKE) -C misc/ default
 	$(MAKE) all-out
 
-all-out: $(TESTS_OUT)
-all-bin: $(TESTS_BIN)
+all-out: $(TESTS_FP_OUT)
+all-bin: $(TESTS_FP_BIN)
 
 # -----------------------------------------------------------------------------
 # expm or mul or ...
@@ -87,23 +87,23 @@ GET_LIMBS       = $(word 3, $(subst _, ,$*))
 GET_TEST_NUMBER = $(word 4, $(subst _, ,$*))
 
 #--
-$(TESTS):
-$(BIN)/gmp_%.bin: | $(BIN) $(BIN)/$(CID)
-	$(CC) $(CFLAGS) -o $@ -DNLIMBS=$(GET_LIMBS) $(INCLUDE) common/params/try-$(GET_TEST).c \
-   common/params/gmp-$(GET_TEST).c $(PARAMS_DIR)/libjbn_$(GET_TYPE)_$(GET_LIMBS)_$(GET_TEST_NUMBER).c -lgmp $(CIL)
+$(TESTS_FP_BIN):
+$(BIN)/fp/gmp_%.bin: $(BIN)/fp/$(CID)
+	$(CC) $(CFLAGS) -o $@ -DNLIMBS=$(GET_LIMBS) $(INCLUDE) common/fp/try-$(GET_TEST).c \
+   common/fp/gmp-$(GET_TEST).c $(PARAMS_DIR)/libjbn_$(GET_TYPE)_$(GET_LIMBS)_$(GET_TEST_NUMBER).c -lgmp $(CIL)
 
-$(BIN)/libjbn_%.bin: | $(BIN) $(BIN)/$(CID)
-	$(CC) $(CFLAGS) -o $@ -DNLIMBS=$(GET_LIMBS) $(INCLUDE) common/params/try-$(GET_TEST).c \
-   common/params/libjbn-$(GET_TEST).c $(PARAMS_DIR)/libjbn_$(GET_TYPE)_$(GET_LIMBS)_$(GET_TEST_NUMBER).c \
+$(BIN)/fp/libjbn_%.bin: | $(BIN)/fp/$(CID)
+	$(CC) $(CFLAGS) -o $@ -DNLIMBS=$(GET_LIMBS) $(INCLUDE) common/fp/try-$(GET_TEST).c \
+   common/fp/libjbn-$(GET_TEST).c $(PARAMS_DIR)/libjbn_$(GET_TYPE)_$(GET_LIMBS)_$(GET_TEST_NUMBER).c \
    $(PARAMS_DIR)/libjbn_$(GET_TYPE)_$(GET_LIMBS)_$(GET_TEST_NUMBER).s -lgmp $(CIL)
 
 #--
-$(TESTS_OUT):
-$(BIN)/%.out: $(BIN)/%.bin | $(BIN) $(BIN)/$(CID)
+$(TESTS_FP_OUT):
+$(BIN)/fp/%.out: $(BIN)/fp/%.bin | $(BIN)/fp/$(CID)
 	./$< > $@ $(CIL)
 
 #--
-$(BIN): ; mkdir -p $@
+$(BIN)/fp/: ; mkdir -p $@
 
 
 # -----------------------------------------------------------------------------
@@ -169,7 +169,7 @@ clean-bin:
 	rm -f $(BIN)/*.bin
 
 clean:
-	rm -fr $(BIN) $(CID) $(CI_TAR_NAME)
+	rm -fr $(BIN) $(CI_TAR_NAME)
 
 distclean: clean
 
