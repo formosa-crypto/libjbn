@@ -1,30 +1,23 @@
+include ../Makefile.compiler_flags
+
 #--
-CC      ?= clang
-CFLAGS  ?= -O3 -Wall -Wextra -Wpedantic -Wvla -Werror -std=c99 \
-	         -Wundef -Wshadow -Wcast-align -Wpointer-arith -Wmissing-prototypes \
-	         -fstrict-aliasing -fno-common -pipe
+TOP         = $(abspath $(dir $(firstword $(MAKEFILE_LIST)))../../)
+TEST        = $(TOP)/test
+SRC         = $(TOP)/src
+BIN        ?= bin
+PARAMS_DIR ?= $(TEST)/$(BIN)/params
 
 #--
 JASMIN   ?= jasminc
 JINCLUDE ?= -I Libjbn:$(SRC)/
 
 #--
-TOP  = $(abspath $(dir $(firstword $(MAKEFILE_LIST)))../../)
-TEST = $(TOP)/test
-SRC  = $(TOP)/src
-BIN ?= bin
-
-#--
-PARAMS_DIR ?= $(TEST)/$(BIN)/params
 MIN_NLIMBS ?= 1
 MAX_NLIMBS ?= 16
 MAX_TESTS  ?= 10
 
-# --------------------------------------------------------------------
 
-default: $(PARAMS_DIR)
-
-# --------------------------------------------------------------------
+# -----------------------------------------------------------------------------
 # CI   - 0 or 1 depending if in CI or not : example : $ make ... CI=1 ...
 # CID  - CI DIRNAME
 # CIDR - CI DIRNAME to be used in RULES
@@ -55,7 +48,12 @@ CILA = 2>> $(CIDR)/$(@F).log || \
         rm -f $(CIDR)/$(@F).log)
 endif
 
-# --------------------------------------------------------------------
+
+# -----------------------------------------------------------------------------
+default: $(PARAMS_DIR)
+
+
+# -----------------------------------------------------------------------------
 exec: $(BIN)/params $(BIN)/primes-det $(BIN)/primes-rnd
 
 $(BIN)/params: params.c | $(BIN) $(BIN)/$(CID)
@@ -68,7 +66,7 @@ $(BIN)/primes-rnd: primes.c params.c ../common/randombytes.c | $(BIN) $(BIN)/$(C
 	$(CC) $(CFLAGS) -D_MAIN_PRIMES -o $@ -I../common $^ -lgmp $(CIL)
 
 
-# --------------------------------------------------------------------
+# -----------------------------------------------------------------------------
 .PHONY: $(PARAMS_DIR)
 $(PARAMS_DIR): exec | $(dir $(PARAMS_DIR))$(CID)
 	mkdir -p $@
@@ -78,7 +76,7 @@ $(PARAMS_DIR): exec | $(dir $(PARAMS_DIR))$(CID)
 	$(MAKE) compile $(CILA)
 
 
-# --------------------------------------------------------------------
+# -----------------------------------------------------------------------------
 .PHONY: compile
 compile: JAZZ := $(shell test -d $(PARAMS_DIR) && find $(PARAMS_DIR) -name '*.jazz')
 compile: ASM  := $(JAZZ:%.jazz=%.s)
@@ -92,7 +90,7 @@ compile:
 $(BIN): ; mkdir -p $@
 
 
-# --------------------------------------------------------------------
+# -----------------------------------------------------------------------------
 ifeq ($(CI),1)
 
 CI_TAR_NAME := libjbn-test-misc.tar.gz
@@ -105,13 +103,14 @@ $(CID): ; mkdir -p $@
 
 .PHONY: ci_reporter
 
-ci_reporter: ci_reporter_params
+ci_reporter:
+	$(MAKE) ci_reporter_params
 	$(MAKE) $(CI_TAR_NAME)
 
 ci_reporter_params:
-	./../../scripts/ci/reporter/jlog "Status: $(TEST)/misc/$(BIN)/*" $(TEST)/misc/$(BIN)/$(CID)/ "*" $(CICL);
-	./../../scripts/ci/reporter/jlog "Status: $(PARAMS_DIR)/libjbn*" $(PARAMS_DIR)/$(CID)/ "libjbn*" $(CICL);
-	./../../scripts/ci/reporter/jlog "Status: $(PARAMS_DIR)" $(dir $(PARAMS_DIR))$(CID)/ "$(notdir $(PARAMS_DIR))" $(CICL);
+	./../../scripts/ci/reporter/jlog "Status: $(TEST)/misc/$(BIN)/*" $(TEST)/misc/$(BIN)/$(CID)/ "*" $(CICL)
+	./../../scripts/ci/reporter/jlog "Status: $(PARAMS_DIR)/libjbn*" $(PARAMS_DIR)/$(CID)/ "libjbn*" $(CICL)
+	./../../scripts/ci/reporter/jlog "Status: $(PARAMS_DIR)" $(dir $(PARAMS_DIR))$(CID)/ "$(notdir $(PARAMS_DIR))" $(CICL)
 
 CI_ERR := \
   $(shell test -d $(TEST)/misc/$(BIN)/$(CID)/ && find $(TEST)/misc/$(BIN)/$(CID)/ -name '*.error') \
@@ -126,6 +125,7 @@ CI_WARNINGS := \
 
 CI_FILES_TO_TAR := $(CI_ERR) $(CI_WARNINGS)
 
+.PHONY: $(CI_TAR_NAME)
 $(CI_TAR_NAME):
 	@$(JASMIN) -version > notes
 ifeq ($(words $(CI_FILES_TO_TAR)),0)
@@ -144,8 +144,8 @@ endif
 endif
 
 
-# --------------------------------------------------------------------
-.PHONY: clean
+# -----------------------------------------------------------------------------
+.PHONY: clean distclean
 clean:
 	rm -fr $(BIN) $(CID) $(CI_TAR_NAME)
 
