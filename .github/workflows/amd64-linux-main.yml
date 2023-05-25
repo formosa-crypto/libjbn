@@ -1,0 +1,55 @@
+name: amd64-linux-main
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+  pull_request:
+
+jobs:
+
+  test:
+    runs-on: [self-hosted, linux, X64, amd64-main]
+    steps:
+      - name: checkout
+        uses: actions/checkout@v3
+
+
+      - name: compile - test/misc
+        run: make -j$JOBS -C test/misc CI=1 default
+      - name: compile - test/
+        run: make -j$JOBS -C test/ CI=1 all-bin
+
+
+      - name: run - test/
+        run: make -j$JOBS -C test/ CI=1 all-out
+
+
+
+      - name: print logs - test/misc
+        run: make -C test/misc CI=1 ci_reporter
+      - name: print logs - test
+        run: make -C test/ CI=1 ci_reporter
+
+
+      - name: return error - test/misc
+        run: make -C test/misc CI=1 ci_err
+      - name: return error - test
+        run: make -C test/ CI=1 ci_err
+
+
+      - name: libjbn-test-misc.tar.gz
+        if: always()
+        uses: actions/upload-artifact@v3
+        with:
+          name: libjbn-test-misc.tar.gz
+          path: test/misc/libjbn-test-misc.tar.gz
+
+      - name: libjbn-test.tar.gz
+        if: always()
+        uses: actions/upload-artifact@v3
+        with:
+          name: libjbn-test.tar.gz
+          path: test/libjbn-test.tar.gz
+
