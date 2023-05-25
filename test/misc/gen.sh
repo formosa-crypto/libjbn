@@ -42,9 +42,9 @@ do
     do
       IFS=','
       set -- $type
-      ./params $1 $nlimbs $prime > ${build}/libjbn_d_${nlimbs}_${counter}.${2}
+      ./bin/params $1 $nlimbs $prime > ${build}/libjbn_d_${nlimbs}_${counter}.${2}
     done
     ((counter++))
-  done < <(./primes-${ptype} $nlimbs $max_tests)
+  done < <(./bin/primes-${ptype} $nlimbs $max_tests)
 done
 

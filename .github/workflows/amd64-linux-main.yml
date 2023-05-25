@@ -1,0 +1,33 @@
+name: amd64-linux-main
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - feature/ci_testing_setup
+  pull_request:
+
+jobs:
+
+  test:
+    runs-on: [self-hosted, linux, X64, amd64-main]
+    steps:
+      - name: checkout
+        uses: actions/checkout@v3
+
+      - name: compile - testing parameters - test/misc
+        run: make -j$JOBS -C test/misc CI=1 default
+
+      - name: print logs - testing parameters - test/misc
+        run: make -C test/misc CI=1 ci_reporter
+
+      - name: return error - testing parameters - test/misc
+        run: make -C test/misc CI=1 ci_err
+
+      - name: libjbn-test-misc.tar.gz
+        if: always()
+        uses: actions/upload-artifact@v3
+        with:
+          name: libjbn-test-misc.tar.gz
+          path: test/misc/libjbn-test-misc.tar.gz
+
