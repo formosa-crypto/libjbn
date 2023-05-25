@@ -36,8 +36,10 @@ do
   if [ "$checksum_lib1" == "$checksum_lib2" ];
   then
     echo -n "" > $result_file.log
+    (>&2 echo "OK - $lib1_file / $lib2_file")
   else
     echo -e "$checksum_lib1 /\n$checksum_lib2" > $result_file.error
+    (>&2 echo "ERROR - $lib1_file / $lib2_file")
   fi
 
 done < <(find $dir -name "${lib1}_*.out")
