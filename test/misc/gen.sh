@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 top=$(cd "$(dirname "$0")/../../" ; pwd -P)
 
