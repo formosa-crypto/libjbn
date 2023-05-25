@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
   push:
     branches:
-      - feature/ci_testing_setup
+      - main
   pull_request:
 
 jobs:
