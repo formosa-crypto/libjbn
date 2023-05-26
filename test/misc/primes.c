@@ -41,8 +41,8 @@ int primes_P(uint64_t **_P, int dest_init, int dest_print, FILE *fout, size_t NL
   #define MRT 30
 
   int found;
-  size_t clear_bits_from_the_top = 1; // one bit clear on the top from the start
-  mpz_t P, P2, R, gcd, one;
+  size_t clear_bits_from_the_top = 0; // zero bit clear on the top from the start (previously was one)
+  mpz_t P, R, gcd, one;
 
   // R = 2^(NLIMBS*64)
   params_set_R(R, NLIMBS);
@@ -50,7 +50,6 @@ int primes_P(uint64_t **_P, int dest_init, int dest_print, FILE *fout, size_t NL
   // set gcd to 0 and one to 1
   mpz_init_set_ui(gcd, 0);
   mpz_init_set_ui(one, 1);
-  mpz_init2(P2, (NLIMBS+1)*64);
 
   // "seed" and test P
   primes_seed(_P, dest_init, NLIMBS, clear_bits_from_the_top);
@@ -62,9 +61,8 @@ int primes_P(uint64_t **_P, int dest_init, int dest_print, FILE *fout, size_t NL
      // check probability of mpz_probab_prime_p returning > 0 after primes seeed (intuitively is low)
      mpz_nextprime(P, P);
 
-     // check if 2*P < R
-     mpz_mul_2exp(P2, P, 1);
-     if(mpz_cmp(P2, R) >= 0) // "returns a positive value if op1 > op2 ; zero if op1 = op2 ; negative value if op1 < op2"
+     // check if P < R
+     if(mpz_cmp(P, R) >= 0) // "returns a positive value if op1 > op2 ; zero if op1 = op2 ; negative value if op1 < op2"
      { // if this condition isn't met, get a different seed with one bit less
        clear_bits_from_the_top += 1;
        primes_seed(_P, 0, NLIMBS, clear_bits_from_the_top);
@@ -86,7 +84,7 @@ int primes_P(uint64_t **_P, int dest_init, int dest_print, FILE *fout, size_t NL
   { gmp_fprintf(fout, "0x%Zx\n", P); }
 
   params_store(*_P, NLIMBS, P, 1, "prime_P");
-  mpz_clears(R, gcd, one, P2, NULL);
+  mpz_clears(R, gcd, one, NULL);
   return found;
 
   #undef MRT

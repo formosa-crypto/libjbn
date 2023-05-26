@@ -120,23 +120,23 @@ $(CID): ; mkdir -p $@
 .PHONY: ci_reporter
 
 ci_reporter:
-	$(MAKE) ci_reporter_compile
-	$(MAKE) ci_reporter_run
-	$(MAKE) ci_reporter_checksums
+	$(MAKE) ci_reporter_fp_compile
+	$(MAKE) ci_reporter_fp_run
+	$(MAKE) ci_reporter_fp_checksums
 	$(MAKE) $(CI_TAR_NAME)
 
-ci_reporter_compile:
-	./../scripts/ci/reporter/jlog "Status: $(TEST)/$(BIN)/*.bin" $(TEST)/$(BIN)/$(CID)/ "*.bin" $(CICL)
+ci_reporter_fp_compile:
+	./../scripts/ci/reporter/jlog "Status: fp: $(TEST)/$(BIN)/fp/*.bin" $(TEST)/$(BIN)/fp/$(CID)/ "*.bin" $(CICL)
 
-ci_reporter_run:
-	./../scripts/ci/reporter/jlog "Status: $(TEST)/$(BIN)/*.out" $(TEST)/$(BIN)/$(CID)/ "*.out" $(CICL)
+ci_reporter_fp_run:
+	./../scripts/ci/reporter/jlog "Status: fp $(TEST)/$(BIN)/fp/*.out" $(TEST)/$(BIN)/fp/$(CID)/ "*.out" $(CICL)
 
-ci_reporter_checksums:
+ci_reporter_fp_checksums:
 	./scripts/checksum-compare.sh $(BIN)/ libjbn gmp
-	./../scripts/ci/reporter/jlog "Status: $(TEST)/$(BIN)/*.checksum*" $(TEST)/$(BIN)/ "*checksum_match_with*" $(CICL)
+	./../scripts/ci/reporter/jlog "Status: $(TEST)/$(BIN)/fp/*.checksum*" $(TEST)/$(BIN)/fp/ "*checksum_match_with*" $(CICL)
 
-CI_ERR := $(shell test -d $(TEST)/$(BIN)/$(CID)/ && find $(TEST)/$(BIN)/$(CID)/ -name '*.error')
-CI_WARNINGS := $(shell test -d $(TEST)/$(BIN)/$(CID)/ && find $(TEST)/$(BIN)/$(CID)/ -name '*.log')
+CI_ERR := $(shell test -d $(TEST)/$(BIN)/ && find $(TEST)/$(BIN)/ -name '*.error')
+CI_WARNINGS := $(shell test -d $(TEST)/$(BIN)/ && find $(TEST)/$(BIN)/ -name '*.log')
 
 CI_FILES_TO_TAR := $(CI_ERR) $(CI_WARNINGS)
 

@@ -75,7 +75,7 @@ $(PARAMS_DIR): exec
 	mkdir -p $(dir $(PARAMS_DIR))$(CID)
 	./sike.sh $(PARAMS_DIR) $(CIL)
 	./rfc3526.sh $(PARAMS_DIR) $(CILA)
-	./gen.sh det $(PARAMS_DIR) $(MIN_NLIMBS) $(MAX_NLIMBS) $(MAX_TESTS) $(CILA)
+	./gen.sh rnd $(PARAMS_DIR) $(MIN_NLIMBS) $(MAX_NLIMBS) $(MAX_TESTS) $(CILA)
 	$(MAKE) compile $(CILA)
 
 
