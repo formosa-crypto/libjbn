@@ -18,6 +18,7 @@ extern void fp_sub(uint64_t*, uint64_t*, uint64_t*);
 extern void fp_mul(uint64_t*, uint64_t*, uint64_t*);
 extern void fp_sqr(uint64_t*, uint64_t*);
 extern void fp_expm_noct(uint64_t*, uint64_t*, uint64_t*);
+extern void fp_expm(uint64_t*, uint64_t*, uint64_t*);
 extern void fp_inv(uint64_t*, uint64_t*);
 extern void fp_toM(uint64_t*, uint64_t*);
 extern void fp_fromM(uint64_t*, uint64_t*);
@@ -44,6 +45,7 @@ int fn_generic_main(void)
     xstr(fp_mul,.csv),
     xstr(fp_sqr,.csv),
     xstr(fp_expm_noct,.csv),
+    xstr(fp_expm,.csv),
     xstr(fp_inv,.csv),
     xstr(fp_toM,.csv),
     xstr(fp_fromM,.csv)
@@ -84,6 +86,12 @@ int fn_generic_main(void)
     for (i = 0; i < TIMINGS; i++)
     { cycles[i] = cpucycles();
       fp_expm_noct(a, b, c); }
+    results[op++][loop] = cpucycles_median(cycles, TIMINGS);
+
+    // fp_expm
+    for (i = 0; i < TIMINGS; i++)
+    { cycles[i] = cpucycles();
+      fp_expm(a, b, c); }
     results[op++][loop] = cpucycles_median(cycles, TIMINGS);
 
     // fp_inv

@@ -21,10 +21,17 @@ extern void fp_expm_noct(
   uint64_t *bp
 );
 
+extern void fp_expm(
+  uint64_t *rp,
+  uint64_t *ap,
+  uint64_t *bp
+);
+
 void expm_test(uint64_t *result, uint64_t *base, uint64_t *exp, uint64_t *mod)
 {
   uint64_t baseM[NLIMBS];
   fp_toM(baseM, base);
-  fp_expm_noct(result, baseM, exp);
+//  fp_expm_noct(result, baseM, exp);
+  fp_expm(result, baseM, exp);
   fp_fromM(result, result);
 }

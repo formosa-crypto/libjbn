@@ -82,6 +82,8 @@ void deallocate(state **_s)
   *_s = NULL;
 }
 
+/*
+// commented, as it conflicts with "-Werror -Wcast-align"
 void unalign(state *s)
 {
   s->result  = (uint64_t*) (((unsigned char*)(s->result))  + 1);
@@ -107,6 +109,7 @@ void realign(state *s)
   s->exp2    = (uint64_t*) (((unsigned char*)(s->exp2))    - 1);
   s->mod2    = (uint64_t*) (((unsigned char*)(s->mod2))    - 1);
 }
+*/
 
 // base = base % mod
 void reduce(uint64_t *base, uint64_t *mod)
@@ -175,7 +178,7 @@ void test(unsigned char *checksum_state, state *_s)
 
 #include "try-anything.c"
 
-int main()
+int main(void)
 {
   return try_anything_main();
 }

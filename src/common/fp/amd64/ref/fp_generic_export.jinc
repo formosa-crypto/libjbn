@@ -13,7 +13,7 @@ export fn fp_add(reg u64 rp ap bp)
 
   _a = __bn_load(ap); a = _a;
   _b = __bn_load(bp); b = _b;
-  a = _fp_add(a, b);
+  a = __fp_add(a, b);
   __bn_store(rp, a);
 }
 
@@ -25,7 +25,7 @@ export fn fp_sub( reg u64 rp ap bp)
 
   _a = __bn_load(ap); a = _a;
   _b = __bn_load(bp); b = _b;
-  a = _fp_sub(a, b);
+  a = __fp_sub(a, b);
   __bn_store(rp, a);
 }
 
@@ -37,7 +37,7 @@ export fn fp_mul(reg u64 rp ap bp)
   _a = __bn_load(ap); a = _a;
   _b = __bn_load(bp); b = _b;
                       r = _r;
-  r = _fp_mul(a, b, r);
+  r = __fp_mul(a, b, r);
   __bn_store(rp, r);
 }
 
@@ -48,7 +48,7 @@ export fn fp_sqr(reg u64 rp ap)
 
   _a = __bn_load(ap); a = _a;
                       r = _r;
-  r = _fp_sqr(a, r);
+  r = __fp_sqr(a, r);
   __bn_store(rp, r);
 }
 
@@ -62,7 +62,22 @@ export fn fp_expm_noct(reg u64 rp ap bp)
   _a = __bn_load(ap); a = _a;
   _b = __bn_load(bp); b = _b;
                       r = _r;
-  r = _fp_exp(a, b, r);
+  r = __fp_exp_noct(a, b, r);
+  rp = _rp;
+  __bn_store(rp, r);
+}
+
+export fn fp_expm(reg u64 rp ap bp)
+{
+  stack u64[NLIMBS] _a _b _r;
+  reg ptr u64[NLIMBS] a b r;
+  stack u64 _rp;
+
+  _rp = rp;
+  _a = __bn_load(ap); a = _a;
+  _b = __bn_load(bp); b = _b;
+                      r = _r;
+  r = __fp_exp(a, b, r);
   rp = _rp;
   __bn_store(rp, r);
 }
@@ -85,9 +100,12 @@ export fn fp_toM(reg u64 rp ap)
 {
   stack u64[NLIMBS] _a;
   reg ptr u64[NLIMBS] a;
+  stack u64 _rp;
 
+  _rp = rp;  
   _a = __bn_load(ap); a = _a;
-  a = _fp_toM(a);
+  a = __fp_toM(a);
+  rp = _rp;
   __bn_store(rp, a);
 }
 
@@ -95,9 +113,12 @@ export fn fp_fromM(reg u64 rp ap)
 {
   stack u64[NLIMBS] _a;
   reg ptr u64[NLIMBS] a;
+  stack u64 _rp;
 
+  _rp = rp;
   _a = __bn_load(ap); a = _a;
-  a = _fp_fromM(a);
+  a = __fp_fromM(a);
+  rp = _rp;
   __bn_store(rp, a);
 }
 

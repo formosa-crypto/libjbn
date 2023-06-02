@@ -1,4 +1,5 @@
 #--
+JASMIN  ?= jasminc -lazy-regalloc
 CC      ?= clang
 CFLAGS  ?= -O3 -Wall -Wpedantic -Wvla -Werror -std=c99 \
 	         -Wundef -Wshadow -Wcast-align -Wpointer-arith -Wmissing-prototypes \
