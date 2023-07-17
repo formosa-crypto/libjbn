@@ -67,6 +67,8 @@ $(BIN)/primes-det: primes.c params.c ../common/notrandombytes.c | $(BIN)/$(CID)
 $(BIN)/primes-rnd: primes.c params.c ../../ext/randombytes/randombytes.c | $(BIN)/$(CID)
 	$(CC) $(CFLAGS) -D_MAIN_PRIMES -o $@ $(INCLUDE) $^ -lgmp $(CIL)
 
+$(BIN)/barrett: barrett.c params.c | $(BIN)/$(CID)
+	$(CC) $(CFLAGS) -D_MAIN_BARRETT -o $@ $^ -lgmp $(CIL)
 
 # -----------------------------------------------------------------------------
 .PHONY: $(PARAMS_DIR)
