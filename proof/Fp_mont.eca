@@ -1,0 +1,132 @@
+require import AllCore Int IntDiv.
+
+
+from Jasmin require import JModel_x86.
+import SLH64.
+
+require ZModP.
+require JBigNumber BN_base Bn_exp Fp_base.
+
+(* Parameters *)
+op nlimbs: int.
+axiom gt0_nlimbs: 0 < nlimbs.
+
+clone import JBigNumber.BigN
+ with op nlimbs <- nlimbs
+      proof gt0_nlimbs by exact gt0_nlimbs.
+
+op glob_P: BN.t.
+op glob_mP: BN.t.
+op glob_exp0: BN.t.
+op glob_Pm2: BN.t.
+op glob_P0i: W64.t.
+op glob_rMP: BN.t.
+
+op P: int. (* prime modulus *)
+axiom P_prime: prime P.
+
+clone import ZModP.ZModField as Zp
+ with op p <= P
+      rename "zmod" as "zp"
+      proof prime_p by exact P_prime.
+
+op inzpM x = inzp (x*bn_modulus).
+op oneM = bn_modulus %% P.
+op oneMinv = invm bn_modulus P.
+op asintM x = asint x * oneMinv %% P.
+
+lemma oneM_oneMinv:
+ oneM * oneMinv %% P = 1.
+proof.
+rewrite /oneM /oneMinv modzMml mulmV//.
+ exact P_prime.
+print Euclide.
+admitted.
+
+op red_op (x: BN2.t): BN.t =
+ BN.bn_ofint (BN2.bn x * bn_modulus %% P).
+
+op mul_op (x y: BN.t): BN.t =
+ BN.bn_ofint (BN.bn x * BN.bn y * oneMinv %% P).
+
+
+(* theory hypotheses *)
+axiom glob_P_val:
+ bn glob_P = P.
+axiom glob_mP_val:
+ bn glob_mP = bn_modulus - P.
+axiom glob_Pm2_val:
+ bn glob_Pm2 = P - 2.
+axiom glob_OneMP_val:
+ bn glob_exp0 = oneM.
+axiom glob_P0i_val:
+ W64.to_uint glob_P0i * W64.to_uint glob_P.[0] %% W64.modulus = (-1) %% W64.modulus.
+
+
+clone BN_base as BNB
+ with op nlimbs <- nlimbs,
+      theory BigN <- BigN
+      proof gt0_nlimbs by exact gt0_nlimbs.
+
+(*
+clone Bn_exp as BNE
+ with op nlimbs <- nlimbs,
+      op nlimbsexp <- nlimbs,
+      op glob_exp0 <- glob_exp0,
+      op mul_op <- mul_op,
+      theory BigN <- BigN,
+      theory BNexp <- BN,
+      theory BNB <= BNB
+      proof gt0_nlimbs by exact gt0_nlimbs
+      proof gt0_nlimbsexp by exact gt0_nlimbs.
+*)
+
+clone Fp_base as FPB
+ with op nlimbs <- nlimbs,
+      theory BigN <- BigN,
+      op glob_P <- glob_P,
+      op glob_mP <- glob_mP,
+      op glob_exp0 <- glob_exp0,
+      op glob_Pm2 <- glob_Pm2,
+      op red_op <- red_op,
+      theory BNB <= BNB,
+      theory FPbase_extr.BNbase_extr <- BNB.BNbase_extr
+      proof gt0_nlimbs by exact gt0_nlimbs.
+
+from JPExtract require Fp_mont_extr.
+clone import Fp_mont_extr as FPmont_extr
+ with op nlimbs <- nlimbs,
+      op glob_P <- glob_P,
+      op glob_mP <- glob_mP,
+      op glob_P0i <- glob_P0i,
+      op glob_exp0 <- glob_exp0,
+      op glob_Pm2 <- glob_Pm2,
+      op glob_rMP <- glob_rMP,
+      theory Ap1 <- BN.A,
+      theory Ap2 <- BN2.A,
+      theory BNbase_extr <- BNB.BNbase_extr,
+      theory FPbase_extr <- FPB.FPbase_extr.
+
+
+print M.
+print M.Pfp.
+
+lemma redM_prop _a:
+ phoare[ M._redM : a = _a ==> res = red_op _a] = 1%r.
+admitted.
+
+print FPB._mulmU_h.
+hoare _mulmU_h _a _b:
+ FP(M.Pfp)._mulmU:
+  a=_a /\ b=_b ==>
+ bn res = asint (inzp (bn _a) * inzp (bn _b)).
+conseq (FPB._mulmU_h M.Pfp _ _a _b).
+
+hoare __toM_h _a:
+ M.__toM:
+  a = _a ==> bn res = asint (inzpM (bn _a)).
+proof.
+proc.
+wp.
+ecall (FPB._mulmU_h a rMP).
+

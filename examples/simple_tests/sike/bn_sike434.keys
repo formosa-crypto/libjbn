@@ -1,0 +1,57 @@
+( ( "bn_base"
+  , { 'qual': 'BN'
+    , 'nlimbs': 'sike434_nlimbs'}
+  )
+
+, ( "fp_mont"
+  , { 'qual': 'FPM'
+    , 'qualBN': 'BN'
+    , 'qualFP': 'FPM'
+    , 'nlimbs': 'sike434_nlimbs'
+    , 'glob_P': 'sike434_glob_P'
+    , 'glob_mP': 'sike434_glob_mP'
+    , 'glob_P0i': 'sike434_glob_P0i'
+    , 'glob_exp0': 'sike434_glob_oneMP'
+    , 'glob_Pm2': 'sike434_glob_Pm2'
+    , 'glob_rMP': 'sike434_glob_rMP'
+    }
+  )
+
+, ( "fp_base"
+  , { 'qual': 'FPM'
+    , 'qualBN': 'BN'
+    , 'qualBNE': 'FPM'
+    , 'nlimbs': 'sike434_nlimbs'
+    , 'nlimbsexp': 'modp2048_nlimbs'
+    , 'glob_P': 'sike434_glob_P'
+    , 'glob_mP': 'sike434_glob_mP'
+    , 'glob_exp0': 'sike434_glob_oneMP'
+    , 'glob_Pm2': 'sike434_glob_Pm2'
+    , 'fun_red': 'FPM_redM' }
+  )
+
+, ( "bn_exp"
+  , { 'qual': 'FPM'
+    , 'qualBN': 'BN'
+    , 'nlimbs': 'sike434_nlimbs'
+    , 'nlimbsexp': 'sike434_nlimbs'
+    , 'glob_exp0': 'sike434_glob_oneMP'
+    , 'fun_mulU': 'FPM_mulmU'
+    , 'fun_sqrU': 'FPM_sqrmU'}
+  )
+
+, ( "bn_base_export"
+  , { 'qualBN': 'BN'
+    , 'nlimbs': 'sike434_nlimbs'}
+  )
+
+, ( "fp_mont_export"
+  , { 'qualFPM': 'FPM'
+    , 'qualBN': 'BN'
+    , 'nlimbs': 'sike434_nlimbs'
+    }
+  )
+) 
+
+
+

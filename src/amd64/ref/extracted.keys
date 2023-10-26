@@ -1,0 +1,47 @@
+( ( "bn_base"
+  , { 'qual': 'BN'
+    , 'nlimbs': 'nlimbs'
+    } )
+
+, ( "fp_mont"
+  , { 'qual': 'FPM'
+    , 'qualBN': 'BN'
+    , 'qualFP': 'FP'
+    , 'nlimbs': 'nlimbs'
+    , 'glob_P': 'glob_P'
+    , 'glob_mP': 'glob_mP'
+    , 'glob_P0i': 'glob_P0i'
+    , 'glob_exp0': 'glob_exp0'
+    , 'glob_Pm2': 'glob_Pm2'
+    , 'glob_rMP': 'glob_rMP'
+    }   
+  )
+
+, ( "fp_base"
+  , { 'qual': 'FP'
+    , 'qualBN': 'BN'
+    , 'qualBNE': 'BNE'
+    , 'nlimbs': 'nlimbs'
+    , 'nlimbsexp': 'nlimbsexp'
+    , 'glob_P': 'glob_P'
+    , 'glob_mP': 'glob_mP'
+    , 'glob_exp0': 'glob_exp0'
+    , 'glob_Pm2': 'glob_Pm2'
+    , 'fun_red': 'fun_red'
+    }
+  )
+
+, ( "bn_exp"
+  , { 'qual': 'BNE'
+    , 'qualBN': 'BN'
+    , 'nlimbs': 'nlimbs'
+    , 'nlimbsexp': 'nlimbsexp'
+    , 'glob_exp0': 'glob_exp0'
+    , 'fun_mulU': 'fun_mulU'
+    , 'fun_sqrU': 'fun_sqrU'}
+  )
+
+) 
+
+
+

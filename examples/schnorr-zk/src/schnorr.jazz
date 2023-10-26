@@ -1,0 +1,192 @@
+
+require "bn_modp2048.jinc"
+
+param int nlimbs = modp2048_nlimbs;
+
+
+inline fn __commitment(
+) -> stack u64[nlimbs], stack u64[nlimbs] {
+ stack u64[nlimbs] _secret_power _commitment;
+ reg ptr u64[nlimbs] secret_power commitment order;
+ secret_power = _secret_power;
+ commitment = _commitment;
+ order = modp2048_glob_Q;
+ secret_power = BN__rsample(secret_power, order);
+ commitment = FPM_gexp(secret_power, commitment);
+ _secret_power = secret_power;
+ _commitment = commitment; //OBS: in Montgomery form
+ return _commitment, _secret_power;
+}
+
+inline fn __challenge(
+) -> stack u64[nlimbs] {
+ stack u64[nlimbs] _challenge;
+ reg ptr u64[nlimbs] challenge order;
+ challenge = _challenge;
+ order = modp2048_glob_Q;
+ challenge = BN__rsample(challenge, order);
+ _challenge = challenge;
+ return _challenge;
+}
+
+inline fn __response
+( stack u64[nlimbs] _witness _secret_power _challenge
+) -> stack u64[nlimbs] {
+ stack u64[nlimbs] _t;
+ reg ptr u64[nlimbs] t witness secret_power challenge;
+ stack u64 _err;
+
+ // Check miss-representation errors
+ _err = 0;
+ witness = _witness;
+ _err = FQM__chk_bnds(witness, _err);
+ secret_power = _secret_power;
+ _err = FQM__chk_bnds(secret_power, _err);
+ challenge = _challenge;
+ _err = FQM__chk_bnds(challenge, _err);
+
+ // actual prover code
+ t = _t;
+ t = BN__copy2(witness, t);
+ t = FQM__toM(t);
+ challenge = _challenge;
+ t = FQM_mulmU(t, challenge);
+ secret_power = _secret_power;
+ t = FQM_addmU(t, secret_power);
+
+ // set ERR on error
+ t = BN__set_err(_err, t);
+ _t = t;
+ return _t;
+}
+
+inline fn __verify
+( stack u64[nlimbs] _statement _commitment _challenge _response
+) -> reg u64 {
+ stack u64[nlimbs] _t1 _t2;
+ reg ptr u64[nlimbs] t1 t2 statement commitment challenge response;
+ reg u64 r err;
+ stack u64  _err;
+
+ // Check miss-representation errors (0: no-err; -1: err)
+ _err = 0;
+ statement = _statement;
+ _err = FPM__chk_bnds(statement, _err);
+ commitment = _commitment;
+ _err = FPM__chk_bnds(commitment, _err);
+ challenge = _challenge;
+ _err = FQM__chk_bnds(challenge, _err);
+ response = _response;
+ _err = FQM__chk_bnds(response, _err);
+
+ // actual verifier code
+ t2 = _t2;
+ statement = _statement;
+
+ t2 = BN__copy2(statement, t2);
+ t2 = FPM__toM(t2); // statM
+
+ challenge = _challenge;
+ t2 = t2;
+ t1 = _t1;
+ t1 = FPM_expm(t2, challenge, t1); // statM ^ chall
+
+ t1 = t1;
+ commitment = _commitment;
+ t1 = FPM_mulmU(t1, commitment); // commM *M statM ^ chall
+ _t1 = t1;
+ t2 = _t2;
+ response = _response;
+ t2 = FPM_gexp(response, t2); // gM ^ resp
+ _t2 = t2;
+ t1 = _t1;
+ r = BN__eq(t1, t2); // gM ^ resp  ==  commM *M statM ^ chall
+
+ // fail on ERR
+ err = _err;
+ err = #NOT(err);
+ r &= err;
+
+ return r;
+}
+ 
+ 
+export fn commitment
+( reg u64 commitment_p random_power_p
+) { 
+  stack u64[nlimbs] _commitment _random_power;
+  reg ptr u64[nlimbs] commitment random_power;
+
+  commitment_p   = commitment_p;   // relax ABI contraints
+  random_power_p = random_power_p; // relax ABI contraints
+
+  _commitment, _random_power = __commitment();
+
+  commitment = _commitment;
+  BN__store(commitment_p, commitment);
+  random_power = _random_power;
+  BN__store(random_power_p, random_power);
+}
+
+
+export fn response
+( reg u64 witness_p random_power_p challenge_p response_p
+) { 
+  stack u64[nlimbs] _witness _commitment _random_power _challenge _response;
+  reg ptr u64[nlimbs] witness commitment random_power challenge response;
+
+  witness       = _witness;
+  witness       = BN__load(witness_p, witness);
+  random_power  = _random_power;
+  random_power  = BN__load(random_power_p, random_power);
+  challenge     = _challenge;
+  challenge     = BN__load(challenge_p, challenge);
+  response      = _response;
+  _response     = __response(witness,random_power,challenge);
+  response      = _response;
+  BN__store(response_p, response);
+}
+
+
+export fn verify
+( reg u64 statement_p commitment_p challenge_p response_p result_p
+) { 
+  stack u64[nlimbs] _statement _commitment _challenge _response
+_rT;
+  reg ptr u64[nlimbs] statement commitment challenge response rT;
+  reg u64 result;
+  stack u64 _result_p;
+  
+  _result_p = result_p;
+
+  statement  = _statement;
+  statement  = BN__load(statement_p, statement);
+  _statement  = statement;
+  commitment = _commitment;
+  commitment = BN__load(commitment_p, commitment);
+  _commitment = commitment;
+  challenge  = _challenge;
+  challenge  = BN__load(challenge_p, challenge);
+  _challenge  = challenge;
+  response   = _response;
+  response   = BN__load(response_p, response);
+  _response  = response;
+
+  result = __verify(statement,commitment,challenge,response);
+
+  result_p = _result_p;
+  [result_p] = result; 
+}
+
+export fn challenge(reg u64 challenge_p) 
+{ 
+  stack u64[nlimbs] _challenge;
+  reg ptr u64[nlimbs] challenge;
+
+  challenge_p = challenge_p;
+  _challenge = __challenge();
+
+  challenge = _challenge;
+  BN__store(challenge_p, challenge);
+}
+

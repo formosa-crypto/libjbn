@@ -1,0 +1,288 @@
+param int modp1536_nlimbs = 24;
+
+// glob_p = P
+u64[modp1536_nlimbs] modp1536_glob_P = {
+  0xffffffffffffffff,
+  0xf1746c08ca237327,
+  0x670c354e4abc9804,
+  0x9ed529077096966d,
+  0x1c62f356208552bb,
+  0x83655d23dca3ad96,
+  0x69163fa8fd24cf5f,
+  0x98da48361c55d39a,
+  0xc2007cb8a163bf05,
+  0x49286651ece45b3d,
+  0xae9f24117c4b1fe6,
+  0xee386bfb5a899fa5,
+  0x0bff5cb6f406b7ed,
+  0xf44c42e9a637ed6b,
+  0xe485b576625e7ec6,
+  0x4fe1356d6d51c245,
+  0x302b0a6df25f1437,
+  0xef9519b3cd3a431b,
+  0x514a08798e3404dd,
+  0x020bbea63b139b22,
+  0x29024e088a67cc74,
+  0xc4c6628b80dc1cd1,
+  0xc90fdaa22168c234,
+  0xffffffffffffffff
+};
+
+// glob_mp = R - P == 2^(NLIMBS*64) - P
+u64[modp1536_nlimbs] modp1536_glob_mP = {
+  0x0000000000000001,
+  0x0e8b93f735dc8cd8,
+  0x98f3cab1b54367fb,
+  0x612ad6f88f696992,
+  0xe39d0ca9df7aad44,
+  0x7c9aa2dc235c5269,
+  0x96e9c05702db30a0,
+  0x6725b7c9e3aa2c65,
+  0x3dff83475e9c40fa,
+  0xb6d799ae131ba4c2,
+  0x5160dbee83b4e019,
+  0x11c79404a576605a,
+  0xf400a3490bf94812,
+  0x0bb3bd1659c81294,
+  0x1b7a4a899da18139,
+  0xb01eca9292ae3dba,
+  0xcfd4f5920da0ebc8,
+  0x106ae64c32c5bce4,
+  0xaeb5f78671cbfb22,
+  0xfdf44159c4ec64dd,
+  0xd6fdb1f77598338b,
+  0x3b399d747f23e32e,
+  0x36f0255dde973dcb,
+  0x0000000000000000
+};
+
+// glob_pm2 = P - 2
+u64[modp1536_nlimbs] modp1536_glob_Pm2 = {
+  0xfffffffffffffffd,
+  0xf1746c08ca237327,
+  0x670c354e4abc9804,
+  0x9ed529077096966d,
+  0x1c62f356208552bb,
+  0x83655d23dca3ad96,
+  0x69163fa8fd24cf5f,
+  0x98da48361c55d39a,
+  0xc2007cb8a163bf05,
+  0x49286651ece45b3d,
+  0xae9f24117c4b1fe6,
+  0xee386bfb5a899fa5,
+  0x0bff5cb6f406b7ed,
+  0xf44c42e9a637ed6b,
+  0xe485b576625e7ec6,
+  0x4fe1356d6d51c245,
+  0x302b0a6df25f1437,
+  0xef9519b3cd3a431b,
+  0x514a08798e3404dd,
+  0x020bbea63b139b22,
+  0x29024e088a67cc74,
+  0xc4c6628b80dc1cd1,
+  0xc90fdaa22168c234,
+  0xffffffffffffffff
+};
+
+// (glob_u0 * P[0]) mod 2^64 == -1
+u64 modp1536_glob_P0i = 0x1;
+
+// glob_oneM = R mod P == 2^(NLIMBS*64) mod P
+u64[modp1536_nlimbs] modp1536_glob_oneMP = {
+  0x0000000000000001,
+  0x0e8b93f735dc8cd8,
+  0x98f3cab1b54367fb,
+  0x612ad6f88f696992,
+  0xe39d0ca9df7aad44,
+  0x7c9aa2dc235c5269,
+  0x96e9c05702db30a0,
+  0x6725b7c9e3aa2c65,
+  0x3dff83475e9c40fa,
+  0xb6d799ae131ba4c2,
+  0x5160dbee83b4e019,
+  0x11c79404a576605a,
+  0xf400a3490bf94812,
+  0x0bb3bd1659c81294,
+  0x1b7a4a899da18139,
+  0xb01eca9292ae3dba,
+  0xcfd4f5920da0ebc8,
+  0x106ae64c32c5bce4,
+  0xaeb5f78671cbfb22,
+  0xfdf44159c4ec64dd,
+  0xd6fdb1f77598338b,
+  0x3b399d747f23e32e,
+  0x36f0255dde973dcb,
+  0x0000000000000000
+};
+
+// glob_rM = R^2 mod P == 2^(2*NLIMBS*64) mod P
+u64[modp1536_nlimbs] modp1536_glob_rMP = {
+  0xf115d27d32c695e0,
+  0x8e0e3e2167478c73,
+  0xd0ab92e18397f245,
+  0xf466ee5fbcd49d68,
+  0x8f2331b13b01e018,
+  0x7e8cd2ac98b5fb62,
+  0xb9052bb47a58f170,
+  0xb004a750db102d39,
+  0x04a541ff93ae1ceb,
+  0x07cd0a628e434130,
+  0x1c729c7e04b9f796,
+  0xb8fe6121196b7e88,
+  0x8e1abd780223b76b,
+  0x22c296e9d46fec23,
+  0xd62a0eeab270521b,
+  0xdc541a4ed4053f54,
+  0xf8056564969b7f02,
+  0x0be49647a87c7b37,
+  0x57b5934867984460,
+  0x102630fa9a36a51f,
+  0xe9c3fa02cc2456ef,
+  0xae5941047929a1c7,
+  0xee9c9a216cc1ebd2,
+  0xe3b33c7259541c01
+};
+
+// glob_q = Q
+u64[modp1536_nlimbs] modp1536_glob_Q = {
+  0xffffffffffffffff,
+  0x78ba36046511b993,
+  0xb3861aa7255e4c02,
+  0xcf6a9483b84b4b36,
+  0x0e3179ab1042a95d,
+  0xc1b2ae91ee51d6cb,
+  0x348b1fd47e9267af,
+  0xcc6d241b0e2ae9cd,
+  0xe1003e5c50b1df82,
+  0x24943328f6722d9e,
+  0xd74f9208be258ff3,
+  0xf71c35fdad44cfd2,
+  0x85ffae5b7a035bf6,
+  0x7a262174d31bf6b5,
+  0xf242dabb312f3f63,
+  0xa7f09ab6b6a8e122,
+  0x98158536f92f8a1b,
+  0xf7ca8cd9e69d218d,
+  0x28a5043cc71a026e,
+  0x0105df531d89cd91,
+  0x948127044533e63a,
+  0x62633145c06e0e68,
+  0xe487ed5110b4611a,
+  0x7fffffffffffffff
+};
+
+// glob_mp = R - P == 2^(NLIMBS*64) - P
+u64[modp1536_nlimbs] modp1536_glob_mQ = {
+  0x0000000000000001,
+  0x8745c9fb9aee466c,
+  0x4c79e558daa1b3fd,
+  0x30956b7c47b4b4c9,
+  0xf1ce8654efbd56a2,
+  0x3e4d516e11ae2934,
+  0xcb74e02b816d9850,
+  0x3392dbe4f1d51632,
+  0x1effc1a3af4e207d,
+  0xdb6bccd7098dd261,
+  0x28b06df741da700c,
+  0x08e3ca0252bb302d,
+  0x7a0051a485fca409,
+  0x85d9de8b2ce4094a,
+  0x0dbd2544ced0c09c,
+  0x580f654949571edd,
+  0x67ea7ac906d075e4,
+  0x083573261962de72,
+  0xd75afbc338e5fd91,
+  0xfefa20ace276326e,
+  0x6b7ed8fbbacc19c5,
+  0x9d9cceba3f91f197,
+  0x1b7812aeef4b9ee5,
+  0x8000000000000000
+};
+
+// glob_pm2 = P - 2
+u64[modp1536_nlimbs] modp1536_glob_Qm2 = {
+  0xfffffffffffffffd,
+  0x78ba36046511b993,
+  0xb3861aa7255e4c02,
+  0xcf6a9483b84b4b36,
+  0x0e3179ab1042a95d,
+  0xc1b2ae91ee51d6cb,
+  0x348b1fd47e9267af,
+  0xcc6d241b0e2ae9cd,
+  0xe1003e5c50b1df82,
+  0x24943328f6722d9e,
+  0xd74f9208be258ff3,
+  0xf71c35fdad44cfd2,
+  0x85ffae5b7a035bf6,
+  0x7a262174d31bf6b5,
+  0xf242dabb312f3f63,
+  0xa7f09ab6b6a8e122,
+  0x98158536f92f8a1b,
+  0xf7ca8cd9e69d218d,
+  0x28a5043cc71a026e,
+  0x0105df531d89cd91,
+  0x948127044533e63a,
+  0x62633145c06e0e68,
+  0xe487ed5110b4611a,
+  0x7fffffffffffffff
+};
+
+// (glob_u0 * P[0]) mod 2^64 == -1
+u64 modp1536_glob_Q0i = 0x1;
+
+// glob_oneM = R mod P == 2^(NLIMBS*64) mod P
+u64[modp1536_nlimbs] modp1536_glob_oneMQ = {
+  0x0000000000000002,
+  0x0e8b93f735dc8cd8,
+  0x98f3cab1b54367fb,
+  0x612ad6f88f696992,
+  0xe39d0ca9df7aad44,
+  0x7c9aa2dc235c5269,
+  0x96e9c05702db30a0,
+  0x6725b7c9e3aa2c65,
+  0x3dff83475e9c40fa,
+  0xb6d799ae131ba4c2,
+  0x5160dbee83b4e019,
+  0x11c79404a576605a,
+  0xf400a3490bf94812,
+  0x0bb3bd1659c81294,
+  0x1b7a4a899da18139,
+  0xb01eca9292ae3dba,
+  0xcfd4f5920da0ebc8,
+  0x106ae64c32c5bce4,
+  0xaeb5f78671cbfb22,
+  0xfdf44159c4ec64dd,
+  0xd6fdb1f77598338b,
+  0x3b399d747f23e32e,
+  0x36f0255dde973dcb,
+  0x0000000000000000
+};
+
+// glob_rM = R^2 mod P == 2^(2*NLIMBS*64) mod P
+u64[modp1536_nlimbs] modp1536_glob_rMQ = {
+  0xe22ba4fa658d2bc3,
+  0xe302cdfe0154f72b,
+  0xe1e7813da4359fe9,
+  0x973d20f93adc3281,
+  0x5a73b52ac2ec6ae3,
+  0x20c4f4262d2af267,
+  0x8b2bc6dfb15f84fd,
+  0xf34a482f2936ea5c,
+  0x265cfa876038b70d,
+  0xb40c967524a8d9ce,
+  0x255f144553dc88f3,
+  0x4e4f8b68f1bd4468,
+  0x82e133dbdbca2c58,
+  0x105e465cc320a3bf,
+  0x53d759ecfa5e17ac,
+  0xad4c1e03d2f96a86,
+  0x044505787e3635bd,
+  0xbb0eebc2f84d1873,
+  0x8fc08247d16138fa,
+  0x71e45dc733206abd,
+  0xd31b944e80d15a52,
+  0xce337bb16660c825,
+  0x77f4f78c193c064e,
+  0x63b33c7259541c02
+};
+

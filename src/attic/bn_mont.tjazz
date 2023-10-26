@@ -1,0 +1,72 @@
+/* (emulation of https://github.com/jasmin-lang/jasmin/issues/519)
+
+// Definitions are parametric on the following signature:
+```
+modsignature {
+  int nlimbs;
+  u64[nlimbs] glob_P glob_mP;
+  u64 glob_P0i;
+}
+
+require "bn_base" as "BN"
+ with { nlimbs = nlimbs; }
+
+```
+*/
+
+require "bn_base.jinc"
+
+/*
+   MONTGOMERY REDUCTION 
+
+   Name Conventions for functions:
+     _* <- local (non-exported) jasmin functions
+     __* <- inlined functions
+     *M <- dealing with Montgomery representation
+
+   Name Conventions for parameters:
+     _* <- passed on "stack" (ptr)
+     * <- passed on "reg" (ptr)
+
+*/
+
+
+// ////////////////////////////////////
+// regs: params(2) + call(3) + 4 = 9
+fn ${qual}_redM
+( reg ptr u64[2*${nlimbs}] a
+, reg ptr u64[${nlimbs}] r
+) -> reg ptr u64[${nlimbs}] {
+  a = a;
+  r = ${qualBN}__mont_redM(a, r, ${glob_P}, ${glob_mP}, ${glob_P0i});
+  r = r;
+  return r;
+}
+
+/* Conversion-out from Montgomery form */
+fn ${qual}__fromM
+( reg mut ptr u64[${nlimbs}] a
+) -> reg ptr u64[${nlimbs}] {
+  stack u64[2*${nlimbs}] _tmp;
+  reg ptr u64[2*${nlimbs}] tmp;
+  reg ptr u64[${nlimbs}] tmp2;
+  reg u64 t;
+  inline int i;
+
+  tmp2 = _tmp[0:${nlimbs}];
+  tmp2 = ${qualBN}__copy2(a, tmp2);
+  _tmp[0:${nlimbs}] = tmp2;
+  tmp2 = _tmp[${nlimbs}:${nlimbs}];
+  tmp2 = ${qualBN}__set0(tmp2);
+  _tmp[${nlimbs}:${nlimbs}] = tmp2;
+  tmp = _tmp;
+  a = ${qual}_redM(tmp, a);
+  return a;
+}
+
+inline fn ${qual}__toec() {
+  stack u64[2*${nlimbs}] a;
+  stack u64[${nlimbs}] b;
+  b = ${qual}_redM(a,b);
+  b = ${qual}__fromM(b);
+}

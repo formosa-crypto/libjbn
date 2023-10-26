@@ -1,0 +1,101 @@
+require import AllCore Int IntDiv.
+
+
+from Jasmin require import JModel_x86.
+import SLH64.
+
+require JBigNumber BN_base Bn_exp.
+
+
+(* Parameters *)
+op nlimbs: int.
+axiom gt0_nlimbs: 0 < nlimbs.
+
+clone import JBigNumber.BigN
+ with op nlimbs <- nlimbs
+      proof gt0_nlimbs by exact gt0_nlimbs.
+
+op glob_P: BN.t.
+op glob_mP: BN.t.
+op glob_exp0: BN.t.
+op glob_Pm2: BN.t.
+op red_op: BN2.t -> BN.t.
+
+op mul_op (x y: BN.t): BN.t =
+ red_op (BN2.bn_ofint (BN.bn x * BN.bn y)).
+
+clone BN_base as BNB
+ with op nlimbs <- nlimbs,
+      theory BigN <- BigN
+      proof gt0_nlimbs by exact gt0_nlimbs.
+
+clone Bn_exp as BNE
+ with op nlimbs <- nlimbs,
+      op nlimbsexp <- nlimbs,
+      op glob_exp0 <- glob_exp0,
+      op mul_op <- mul_op,
+      theory BigN <- BigN,
+      theory BNexp <- BN,
+      theory BNB <= BNB
+      proof gt0_nlimbs by exact gt0_nlimbs
+      proof gt0_nlimbsexp by exact gt0_nlimbs.
+
+from JPExtract require Fp_base_extr.
+clone import Fp_base_extr as FPbase_extr
+ with op nlimbs <- nlimbs,
+      op glob_P <- glob_P,
+      op glob_mP <- glob_mP,
+      op glob_exp0 <- glob_exp0,
+      op glob_Pm2 <- glob_Pm2,
+      theory Ap1 <- BN.A,
+      theory Ap2 <- BN2.A,
+      theory BNbase_extr <- BNB.BNbase_extr,
+      theory BNexp_extr <- BNE.BNexp_extr.
+
+
+section.
+
+declare module P <: MParam.
+declare axiom red_ph _a:
+ phoare [ P.fun_red : a=_a ==> res = red_op _a ] = 1%r.
+
+local lemma red_ll: islossless P.fun_red.
+proof.
+proc*; exlim a => _a.
+by call (red_ph _a).
+qed.
+
+local lemma red_h _a:
+ hoare [ P.fun_red : a=_a ==> res = red_op _a ].
+proof.
+bypr => &m Ha.
+rewrite Pr [mu_not].
+have ->: Pr[P.fun_red(a{m}, r{m}) @ &m : true] = 1%r.
+ byphoare => //.
+ by apply red_ll.
+have ->//: Pr[P.fun_red(a{m}, r{m}) @ &m : res = red_op _a] = 1%r.
+byphoare (: a=_a ==> _) => //.
+by apply red_ph. 
+qed.
+
+lemma __chk_bnds_ll: islossless M(P).__chk_bnds.
+proof.
+proc; wp.
+call BNB.bNUTIL__cf_mask_ll.
+call BNB.__lt_cf_ll.
+by auto.
+qed.
+
+hoare _mulmU_h _a _b:
+ M(P)._mulmU: a=_a /\ b=_b ==> res = mul_op _a _b.
+proof.
+proc; simplify.
+wp; ecall (red_h tmp).
+wp; ecall (BNB.__muln_h a b).
+auto => /> r H; rewrite /mul_op.
+by rewrite -H BN2.bnK.
+qed.
+
+end section.
+
+

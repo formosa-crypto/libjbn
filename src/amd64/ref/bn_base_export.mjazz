@@ -1,0 +1,110 @@
+/*
+from Libjbn require "bn_base.mjazz" as "BN"
+ with { nlimbs = modp2048_nlimbs; }
+*/
+from MJazz require "${qualBN}_bn_base.jinc"
+
+export fn bn_eq(reg u64 ap bp) -> reg u64
+{
+  stack u64[${nlimbs}] _a _b;
+  reg ptr u64[${nlimbs}] a b;
+  reg u64 r;
+
+  a = _a;
+  b = _b;
+  a = ${qualBN}__load(ap, a);
+  b = ${qualBN}__load(bp, b);
+  r = ${qualBN}_eq_(a, b);
+  return r;
+}
+
+export fn bn_test0(reg u64 ap) -> reg u64
+{
+  stack u64[${nlimbs}] _a;
+  reg ptr u64[${nlimbs}] a;
+  reg u64 r;
+  a = _a;
+  a = ${qualBN}__load(ap, a);
+  r = ${qualBN}__test0(a);
+  r = r; // avoid extra assignment warning
+  return r;
+}
+
+export fn bn_copy(reg u64 rp ap)
+{
+  inline int i;
+  reg u64 t;
+
+  for i = 0 to ${nlimbs} {
+    t = [ap + 8*i];
+    [rp + 8*i] = t;
+  }
+}
+
+export fn bn_set0(reg u64 rp)
+{
+  inline int i;
+
+  for i = 0 to ${nlimbs} {
+    [rp + 8*i] = 0;
+  }
+}
+
+export fn bn_addU(reg u64 rp ap bp)
+{
+  stack u64[${nlimbs}] _a _b;
+  reg ptr u64[${nlimbs}] a b;
+
+  a = _a;
+  b = _b;
+  _a = ${qualBN}__load(ap, a);
+  _b = ${qualBN}__load(bp, b);
+  _, a = ${qualBN}_addU(a, b);
+  ${qualBN}__store(rp, a);
+}
+
+export fn bn_subU(reg u64 rp ap bp)
+{
+ stack u64[${nlimbs}] _a _b;
+ reg ptr u64[${nlimbs}] a b;
+
+ a = _a;
+ a = ${qualBN}__load(ap,a);
+ b = _b;
+ b = ${qualBN}__load(bp,b);
+ _, a = ${qualBN}_subU(a, b);
+ ${qualBN}__store(rp, a);
+}
+
+/*
+export fn bn_muln(reg u64 rp ap bp)
+{
+  stack u64[${nlimbs}] _a _b;
+  stack u64[2*${nlimbs}] _r;
+  reg ptr u64[${nlimbs}] a b;
+  reg ptr u64[2*${nlimbs}] r;
+
+  a = _a;
+  a = ${qualBN}__load(ap);
+  b = _b;
+  b = ${qualBN}__load(bp);
+  r = _r;
+  r = ${qualBN}_muln(a, b, r);
+  BN2__store(rp, r);
+}
+
+export fn bn_sqrn(reg u64 rp ap)
+{
+  stack u64[${nlimbs}] _a;
+  stack u64[2*${nlimbs}] _r;
+  reg ptr u64[${nlimbs}] a;
+  reg ptr u64[2*${nlimbs}] r;
+
+  _a = ${qualBN}__load(ap); a = _a;
+                      r = _r;
+  r = ${qualBN}_sqrn(a, r);
+  BN2__store(rp, r);
+}
+*/
+
+

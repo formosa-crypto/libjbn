@@ -1,0 +1,379 @@
+require import AllCore Int IntDiv.
+
+
+from Jasmin require import JModel_x86.
+import SLH64.
+
+require JBigNumber.
+
+(* Parameters *)
+op nlimbs: int.
+axiom gt0_nlimbs: 0 < nlimbs.
+
+clone export JBigNumber.BigN
+ with op nlimbs <- nlimbs
+      proof gt0_nlimbs by exact gt0_nlimbs.
+
+import BN2.
+
+from JPExtract require Bn_base_extr.
+
+clone import Bn_base_extr as BNbase_extr
+ with op nlimbs <- nlimbs,
+      theory Ap1 <- BN.A,
+      theory Ap2 <- BN2.A.
+
+(** LOSSLESS lemmas *)
+lemma bNUTIL__cf_mask_ll: islossless M.bNUTIL__cf_mask
+by islossless.
+
+lemma __load_ll: islossless M.__load.
+proof.
+proc; while (0 <= i <= nlimbs) (nlimbs - i).
+ by move=> z; auto => /> &m /#.
+by auto => />; smt(gt0_nlimbs).
+qed.
+
+lemma __store_ll: islossless M.__store.
+proof.
+proc; while (0 <= i <= nlimbs) (nlimbs - i).
+ by move=> z; auto => /> &m /#.
+by auto => />; smt(gt0_nlimbs).
+qed.
+
+lemma __eq_zf_ll: islossless M.__eq_zf.
+proof.
+proc; wp; while (0 <= i <= nlimbs) (nlimbs - i).
+ by move=> z; auto => /> &m /#.
+by auto => />; smt(gt0_nlimbs).
+qed.
+
+lemma __eq_ll: islossless M.__eq.
+proof. by proc; wp; call __eq_zf_ll. qed.
+
+lemma _eq_ll: islossless M._eq.
+proof. by proc; call __eq_ll. qed.
+
+lemma _eq__ll: islossless M._eq_.
+proof. by proc; wp; call _eq_ll; auto. qed.
+
+lemma __test0_zf_ll: islossless M.__test0_zf.
+proof.
+proc; wp; while (0 <= i <= nlimbs) (nlimbs - i).
+ by move=> z; auto => /> &m /#.
+by auto => />; smt(gt0_nlimbs).
+qed.
+
+lemma __test0_ll: islossless M.__test0.
+proof. by proc; wp; call __test0_zf_ll; auto. qed.
+
+lemma _test0_ll: islossless M._test0.
+proof. by proc; call __test0_ll. qed.
+
+lemma __copy_ll: islossless M.__copy.
+proof.
+proc; wp; while (0 <= i <= nlimbs) (nlimbs - i).
+ by move=> z; auto => /> &m /#.
+by auto => />; smt(gt0_nlimbs).
+qed.
+
+lemma __copy2_ll: islossless M.__copy2.
+proof.
+proc; wp; while (0 <= i <= nlimbs) (nlimbs - i).
+ by move=> z; auto => /> &m /#.
+by auto => />; smt(gt0_nlimbs).
+qed.
+
+lemma __cmov_ll: islossless M.__cmov.
+proof.
+proc; wp; while (0 <= i <= nlimbs) (nlimbs - i).
+ by move=> z; auto => /> &m /#.
+by auto => />; smt(gt0_nlimbs).
+qed.
+
+lemma __set0_ll: islossless M.__set0.
+proof.
+proc.
+admitted (* while (0 <= i <= nlimbs) (nlimbs - i).
+ by move=> z; auto => /> &m /#.
+by auto => />; smt(gt0_nlimbs).
+qed.*).
+
+(*
+lemma __add1U_ll: islossless M.__add1U.
+proof.
+proc; while (0 <= i <= nlimbs) (nlimbs - i).
+ by move=> z; auto => /> &m /#.
+by auto => />; smt(gt0_nlimbs).
+qed.
+*)
+
+lemma __addU_ll: islossless M.__addU.
+proof.
+proc; while (0 <= i <= nlimbs) (nlimbs - i).
+ by move=> z; auto => /> &m /#.
+by auto => />; smt(gt0_nlimbs).
+qed.
+
+lemma _addU_ll: islossless M._addU.
+proof. by proc; call __addU_ll. qed.
+
+lemma __subU_ll: islossless M.__subU.
+proof.
+proc; while (0 <= i <= nlimbs) (nlimbs - i).
+ by move=> z; auto => /> &m /#.
+by auto => />; smt(gt0_nlimbs).
+qed.
+
+lemma __lt_cf_ll: islossless M.__lt_cf.
+proof.
+proc; while (0 <= i <= nlimbs) (nlimbs - i).
+ by move=> z; auto => /> &m /#.
+by auto => />; smt(gt0_nlimbs).
+qed.
+
+lemma _subU_ll: islossless M._subU.
+proof. by proc; call __subU_ll. qed.
+
+
+(* Correctness lemmas *)
+import JBigNumber.
+hoare __eq_zf_h _a _b:
+ M.__eq_zf: a=_a /\ b=_b ==> res =  (_a=_b).
+proof.
+proc; simplify. 
+wp; while ( #pre /\ 0 <= i <= nlimbs /\ ((acc = W64.zero) <=> (bnk i a = bnk i b))).
+ wp; skip => /> &hr Hi1 Hi2 [HL HR] Hi3.
+ split; first smt().
+ split.
+  rewrite W64_orw_eq0 W64_xorw_eq0; move => [E1 E2].
+  by rewrite !bnkS 1..2:/# /= E2 (HL E1) /#.
+ move => /(BN.bnkS_eq _ _ _ Hi1) [E1 E2].
+ by rewrite W64_orw_eq0 (HR E2) E1.
+wp; skip => />; split; first smt(gt0_nlimbs BN.bnk0).
+move=> acc i ???; rewrite (_:i=nlimbs) 1:/#.
+move=> [H1 H2].
+rewrite /AND_64 /rflags_of_bwop_w /flags_w /rflags_of_bwop /ZF_of /=.
+by case: (acc = W64.zero) => C; smt(BN.bn_inj).
+qed.
+
+phoare __eq_zf_ph _a _b:
+ [M.__eq_zf: a=_a /\ b=_b ==> res = (_a=_b)] = 1%r.
+proof. by conseq __eq_zf_ll (__eq_zf_h _a _b). qed.
+
+hoare __eq_h _a _b:
+ M.__eq: a=_a /\ b=_b ==> to_uint res =  b2i (_a=_b).
+proof.
+proc; wp; call (__eq_zf_h _a _b); skip => />.
+by case: (_a=_b) => C /#.
+qed.
+
+phoare __eq_ph _a _b:
+ [M.__eq: a=_a /\ b=_b ==> to_uint res =  b2i (_a=_b)] = 1%r.
+proof. by conseq __eq_ll (__eq_h _a _b). qed.
+
+hoare _eq_h _a _b:
+ M._eq: a=_a /\ b=_b ==> to_uint res = b2i (_a=_b).
+proof. by proc; ecall (__eq_h a b). qed.
+
+phoare _eq_ph _a _b:
+ [M._eq: a=_a /\ b=_b ==> to_uint res = b2i (_a=_b)] = 1%r.
+proof. by conseq _eq_ll (_eq_h _a _b). qed.
+ 
+hoare _eq__h _a _b:
+ M._eq_: _a=a /\ _b=b ==> to_uint res = b2i (_a=_b).
+proof. by proc; wp; ecall (_eq_h a b); auto. qed.
+ 
+phoare _eq__ph _a _b:
+ [M._eq_: _a=a /\ _b=b ==> to_uint res = b2i (_a=_b) ] = 1%r.
+proof. by conseq _eq__ll (_eq__h _a _b). qed.
+
+hoare __test0_zf_h _a:
+ M.__test0_zf: a=_a ==> res = (bn _a=0).
+proof.
+proc.
+wp; while ( #pre /\ 0 <= i <= nlimbs /\ ((acc = W64.zero) <=> (bnk i a = 0))).
+ wp; skip; progress; first 2 smt().
+  move: H3; rewrite W64_orw_eq0 => [[E1 E2]].
+  by rewrite bnkS 1:/# /= E2 to_uint0 /= -H1 E1.
+ move: (BN.bnkS_eq0 _ _ H H3) => {H3} [H31 H32].
+ by rewrite W64_orw_eq0 H1 H32 /= to_uint_eq /#.
+wp; skip => />; progress.
+   smt(gt0_nlimbs).
+  by rewrite bnk1 /= H to_uint0.
+ by move: H; rewrite bnk1 /= to_uint_eq /=.
+move: H2; rewrite (_:i0=nlimbs) 1:/# => <-.
+by rewrite /AND_64 /#.
+qed.
+
+phoare __test0_zf_ph _a:
+ [M.__test0_zf: a=_a ==> res = (bn _a=0)] = 1%r.
+proof. by conseq __test0_zf_ll (__test0_zf_h _a). qed.
+
+hoare __test0_h _a:
+ M.__test0: a=_a ==> to_uint res = b2i (bn _a=0).
+proof.
+proc; wp; call (__test0_zf_h _a); auto => />.
+case (bnk nlimbs _a = 0) => _; smt().
+qed.
+
+phoare __test0_ph _a:
+ [M.__test0: a=_a ==> to_uint res = b2i (bn _a=0)] = 1%r.
+proof. by conseq __test0_ll (__test0_h _a). qed.
+
+hoare _test0_h _a:
+ M._test0: a=_a ==> to_uint res = b2i (bn _a=0).
+proof. by proc; ecall (__test0_h a). qed.
+ 
+phoare _test0_ph _a:
+ [M._test0: a=_a ==> to_uint res = b2i (bn _a=0)] = 1%r.
+proof. by conseq _test0_ll (_test0_h _a). qed.
+
+hoare __copy_h _a:
+ M.__copy: a=_a ==> res = _a.
+proof.
+proc; while (0 <= i <= nlimbs /\ _a = a /\ (forall j, 0 <= j < i => r.[j] = _a.[j])).
+ by wp; skip; progress; [smt() | smt() | rewrite get_setE => /#]. 
+wp; skip; progress; first 2 smt(gt0_nlimbs).  
+by rewrite tP /#.
+qed.
+
+phoare __copy_ph _a:
+ [M.__copy: a=_a ==> res = _a] = 1%r.
+proof. by conseq __copy_ll (__copy_h _a). qed.
+
+hoare __copy2_h _a:
+ M.__copy2: a=_a ==> res = _a.
+proof.
+proc; while (0 <= i <= nlimbs /\ _a = a /\ (forall j, 0 <= j < i => r.[j] = _a.[j])).
+ by wp; skip; progress; [smt() | smt() | rewrite get_setE => /#]. 
+wp; skip; progress; first 2 smt(gt0_nlimbs).  
+by rewrite tP /#.
+qed.
+
+phoare __copy2_ph _a:
+ [M.__copy2: a=_a ==> res = _a] = 1%r.
+proof. by conseq __copy2_ll (__copy2_h _a). qed.
+
+hoare __cmov_h _cond _a _b:
+ M.__cmov: cond=_cond /\ a=_a /\ b=_b
+              ==> res = if _cond then _b else _a.
+proof.
+proc => //=. 
+while (0 <= i <= nlimbs /\ _cond = cond /\ _b = b /\
+       (forall j, i <= j < nlimbs => a.[j] = _a.[j]) /\
+       forall j, 0 <= j < i => a.[j] = if _cond then _b.[j] else _a.[j]).
+ wp; skip => /> &hr *; split; first smt().
+ split.
+  move=> j Hj1 Hj2; rewrite get_setE 1:/#.
+  by rewrite ifF 1:/# /#.
+ by move=> j Hj1 Hj2; rewrite get_setE 1:/# /#.
+wp; skip => />. split; first smt(gt0_nlimbs).
+move=> a i ???; rewrite (:i=nlimbs) 1:/# => H1 H2.
+by rewrite tP /#.
+qed.
+
+phoare __cmov_ph _cond _a _b:
+ [M.__cmov: cond=_cond /\ a=_a /\ b=_b
+              ==> res = if _cond then _b else _a] = 1%r.
+proof. by conseq __cmov_ll (__cmov_h _cond _a _b). qed.
+
+hoare __set0_h:
+ M.__set0 : true ==> bn res = 0.
+proof.
+proc.
+admitted(*
+while (bnk i a = 0 /\ 0 <= i <= nlimbs /\ to_uint t = 0).
+ auto => /> *.
+ by rewrite bnkS 1:/# /= get_setE 1:/# bnk_setO /#.
+by auto => /> &m; smt(bnk0 gt0_nlimbs).
+qed.
+*).
+
+phoare __set0_ph:
+ [M.__set0 : true ==> bn res = 0] = 1%r.
+proof. by conseq __set0_ll __set0_h. qed.
+
+(*
+hoare __add1U_h _a _b:
+ M.__add1U :
+ a=_a /\ b=_b
+ ==> withcarry res = bn _a + to_uint _b.
+proof.
+have Hlimbs:= gt0_nlimbs; proc; simplify.
+while (1 <= i <= nlimbs /\ _b = b /\
+       (forall j, i <= j < nlimbs => a.[j] = _a.[j]) /\
+       bnk_withcarry i (cf, a) = bnk i _a + to_uint b).
+ wp; skip => &hr [[[Hi1 Hi2]]] /> Ha H Hc.
+ split; [smt() | split].
+  by move=> j Hj1 Hj2; rewrite get_setE 1:/# ifF /#.
+ rewrite -/(bnk_addc i{hr} cf{hr} a{hr} W64.zero).
+ rewrite bnk_withcarryS 1:/# bnkS 1:/# /=. 
+ by rewrite -addzA -H /#.
+auto => />; split.
+ split; first smt().
+ split.
+  by move=> j Hj1 Hj2; rewrite get_setE /#.
+ rewrite -/(bnk_addc 0 false _a _b).
+ rewrite {1}(:1=0+1) 1:/# bnk_withcarryS 1:/# expr0 bnk1 /=.
+ by rewrite /bnk_withcarry /= b2i0 bnk0 /=.
+by move=> a cf i ??? _; rewrite (:i=nlimbs) 1:/#.
+qed.
+*)
+
+hoare __addU_h _a _b:
+ M.__addU : 
+ a=_a /\ b=_b ==> bn_withcarry res = bn _a + bn _b.
+proof.
+have Hlimbs:= gt0_nlimbs; proc; simplify.
+while (1 <= i <= nlimbs /\ _b = b /\
+       (forall j, i <= j < nlimbs => a.[j] = _a.[j]) /\
+       bnk_withcarry i (cf, a) = bnk i _a + bnk i _b).
+ wp; skip => &hr [[[Hi1 Hi2]]] /> Ha H Hc.
+ split; [smt() | split].
+  by move=> j Hj1 Hj2; rewrite get_setE 1:/# ifF /#.
+ rewrite -/(bnk_addc i{hr} cf{hr} a{hr} b{hr}.[i{hr}]).
+ rewrite bnk_withcarryS 1:/# !bnkS 1..2:/# /=.
+ rewrite Ha 1:/#. 
+ by ring H.
+auto => />; split.
+ split; first smt().
+ split.
+  by move=> j Hj1 Hj2; rewrite get_setE /#.
+ rewrite -/(bnk_addc 0 false _a _b.[0]).
+ rewrite {1}(:1=0+1) 1:/# bnk_withcarryS 1:/# expr0 !bnk1 /=.
+ by rewrite /bnk_withcarry /= b2i0 bnk0 /=.
+by move=> a cf i ??? _; rewrite (:i=nlimbs) 1:/#.
+qed.
+
+phoare __addU_ph _a _b:
+ [ M.__addU : 
+   a=_a /\ b=_b 
+   ==> bn_withcarry res = bn _a + bn _b] = 1%r.
+proof. by conseq __addU_ll (__addU_h _a _b). qed.
+
+hoare _addU_h _a _b:
+ M._addU : 
+ a=_a /\ b=_b
+ ==> bn_withcarry res = bn _a + bn _b.
+proof. by proc; ecall (__addU_h a b). qed.
+
+phoare _addU_ph _a _b:
+ [ M._addU : 
+   a=_a /\ b=_b 
+   ==> bn_withcarry res = bn _a + bn _b] = 1%r.
+proof. by conseq _addU_ll (_addU_h _a _b). qed.
+
+
+
+
+hoare __muln_h _a _b:
+ M.__muln :
+  a=_a /\ b=_b ==> BN2.bn res = bn _a * bn _b.
+admitted.
+
+phoare __muln_ph _a _b:
+ [ M.__muln
+ : a=_a /\ b=_b ==> bn res = bn _a * bn _b
+ ] = 1%r.
+admitted.

@@ -1,0 +1,99 @@
+require import AllCore Int IntDiv.
+
+
+from Jasmin require import JModel_x86.
+import SLH64.
+
+require JBigNumber BN_base.
+
+(* Parameters *)
+op nlimbs: int.
+axiom gt0_nlimbs: 0 < nlimbs.
+op nlimbsexp: int.
+axiom gt0_nlimbsexp: 0 < nlimbsexp.
+
+clone import JBigNumber.BigN
+ with op nlimbs <- nlimbs
+      proof gt0_nlimbs by exact gt0_nlimbs.
+
+clone JBigNumber.BN as BNexp
+ with op nlimbs <- nlimbsexp
+      proof gt0_nlimbs by exact gt0_nlimbsexp.
+
+op glob_exp0: BN.t.
+op mul_op: BN.t -> BN.t -> BN.t.
+
+clone BN_base as BNB
+ with op nlimbs <- nlimbs,
+      theory BigN <- BigN
+      proof gt0_nlimbs by exact gt0_nlimbs.
+
+from JPExtract require Bn_exp_extr.
+clone import Bn_exp_extr as BNexp_extr
+ with op nlimbs <- nlimbs,
+      op nlimbsexp <- nlimbsexp,
+      op glob_exp0 <= glob_exp0,
+      theory Ap1 <- BN.A,
+      theory Ap2 <- BN2.A,
+      theory Apexp <- BNexp.A,
+      theory BNbase_extr <= BNB.BNbase_extr.
+
+section.
+
+declare module P <: MParam.
+
+declare axiom sqr_mul_eq:
+ equiv [ P.fun_sqrU ~ P.fun_mulU
+       : ={r} /\ a{2}=r{2} ==> ={res} ].
+
+declare axiom mul_sem_ph _x _y:
+ phoare [ P.fun_mulU
+        : r=_x /\ a=_y ==> res = mul_op _x _y
+        ] = 1%r.
+
+local lemma mulU_ll: islossless P.fun_mulU.
+proof.
+proc*; exlim r => _x; exlim a => _y.
+by call (mul_sem_ph _x _y).
+qed.
+
+local lemma sqrU_ll: islossless P.fun_sqrU.
+proof.
+conseq sqr_mul_eq mulU_ll => /> &1.
+by exists (arg{1},arg{1}).
+qed.
+
+lemma _expm_noct_ll: islossless M(P)._expm_noct.
+proof.
+proc; wp.
+seq 7: (true).
+ admit.
+exlim exp0 => _exp0.
+call (BNB.__copy2_ph _exp0).
+admit.
+admit.
+admit.
+admit.
+qed.
+
+lemma _expm_ll: islossless M(P)._expm.
+proof.
+proc; wp.
+admit.
+qed.
+
+lemma _expm_noct_ph _a _b:
+ phoare [ M(P)._expm_noct
+        : a=_a /\ b=_b ==> res = iterop (BNexp.bn _b) mul_op _a glob_exp0
+        ] = 1%r.
+admitted.
+
+lemma _expm_ph _a _b:
+ phoare [ M(P)._expm
+        : a=_a /\ b=_b ==> res = iterop (BNexp.bn _b) mul_op _a glob_exp0
+        ] = 1%r.
+admitted.
+
+end section.
+
+

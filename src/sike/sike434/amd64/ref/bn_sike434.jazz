@@ -1,7 +1,0 @@
-/*
-   SPECIFIC SIKE-P434 CODE
-*/
-
-require "bn_sike434.jinc"
-from Libjbn require "common/fp/amd64/ref/fp_generic_export.jinc"
-

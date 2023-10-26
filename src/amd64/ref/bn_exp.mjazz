@@ -1,0 +1,111 @@
+/*
+   GENERIC EXPONENTIATION
+
+*/
+
+/*
+modsignature {
+  int nlimbs;		// num. limbs
+  int nlimbsexp;	// num. limbs
+  u64[nlimbs] glob_exp0;
+  fn fun_mulU ( reg mut ptr u64[nlimbs]
+              , reg const ptr u64[nlimbs)
+              ) -> reg ptr u64[nlimbs]
+  fn fun_sqrU ( reg mut ptr u64[nlimbs]
+              ) -> reg ptr u64[nlimbs]
+}
+
+require "bn_base.jinc" as "BN"
+  with { nlimbs = nlimbs; }
+
+*/
+from MJazz require "${qualBN}_bn_base.jinc"
+
+// ////////////////////////////////////
+
+/* Modular exponentiation
+  obs: naive square-multiply algorithm. Not Constant-Time!!!
+  (good enough to use with public exponents, such as in inversion) */
+fn ${qual}_expm_noct
+( reg const ptr u64[${nlimbs}] a
+, reg const ptr u64[${nlimbsexp}] b
+, reg mut ptr u64[${nlimbs}] r
+) -> reg ptr u64[${nlimbs}] {
+  inline int j;
+  reg u64 t;
+  reg bool cf zf;
+  stack u64[${nlimbs}] _x;
+  reg ptr u64[${nlimbs}] x exp0;
+  stack u64 _k;
+  stack ptr u64[${nlimbsexp}] _b;
+  stack ptr u64[${nlimbs}] _P _mP;
+
+  _b = b;
+  exp0 = ${glob_exp0};
+  r = ${qualBN}__copy2(exp0, r);
+  x = _x;
+  x = ${qualBN}__copy2(a, x);
+  _x = x;
+
+  for j = 0 to ${nlimbsexp} {
+    b = _b;
+    t = b[(int) j];
+    _k = 64;
+    while {
+      _, cf, _, _, _, t = #SHR(t, 1);
+      x = _x;
+      if (cf) {
+	r = r; x = x;
+        r = ${fun_mulU}(r, x);
+      }
+      x = x;
+      x = ${fun_sqrU}(x);
+      _x = x;
+      _, _, _, zf, _k = #DEC(_k);
+    } (!zf)
+  }
+  return r;
+}
+
+/* Modular exponentiation (constant-time) */
+fn ${qual}_expm
+( reg ptr u64[${nlimbs}] a
+, reg ptr u64[${nlimbsexp}] b
+, reg mut ptr u64[${nlimbs}] x0
+) -> reg ptr u64[${nlimbs}] {
+  inline int j;
+  reg u64 t mask;
+  stack u64 _k _mask _t;
+  reg bool cf zf;
+  stack u64[${nlimbs}] _x1;
+  reg ptr u64[${nlimbs}] x1 exp0;
+  stack ptr u64[${nlimbsexp}] _b;
+
+  _b = b;
+  exp0 = ${glob_exp0};
+  x0 = ${qualBN}__copy2(exp0, x0);
+  x1 = _x1;
+  x1 = ${qualBN}__copy2(a, x1);
+
+  for j = ${nlimbsexp}-1 downto -1  {
+    b = _b;
+    t = b[(int) j];
+    _k = 64;
+    while {
+      _, cf, _, _, _, t = #SHL(t, 1);
+      _t = t;
+      mask = BNUTIL__cf_mask(cf);
+      x0, x1 = ${qualBN}__cswap_mask(mask, x0, x1);
+      _mask = mask;
+      x0 = x0; x1 = x1;
+      x1 = ${fun_mulU}(x1, x0);
+      x0 = x0;
+      x0 = ${fun_sqrU}(x0);
+      mask = _mask;
+      x0, x1 = ${qualBN}__cswap_mask(mask, x0, x1);
+      t = _t;
+      _, _, _, zf, _k = #DEC(_k);
+    } (!zf)
+  }
+  return x0;
+}

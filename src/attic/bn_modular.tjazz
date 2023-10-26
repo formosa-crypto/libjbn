@@ -1,0 +1,34 @@
+#[returnaddress="stack"]
+fn _${bn}_mulm
+( reg ptr u64[${nlimbs}] a b
+, reg mut ptr u64[${nlimbs}] r
+, reg ptr u64[${nlimbs}] P mP
+, reg u64 U0
+) -> reg ptr u64[${nlimbs}] {
+  stack u64[2*${nlimbs}] _tmp;
+  stack ptr u64[${nlimbs}] _P _mP;
+  stack u64 _U0;
+  reg ptr u64[2*${nlimbs}] tmp;
+
+  tmp = _tmp;
+  tmp = __${bn}_muln(a, b, tmp);
+  r = __${bn_fun_redm}(tmp, r);
+  return r;
+}
+
+#[returnaddress="stack"]
+fn _${bn}_mulmU // update inplace
+( reg mut ptr u64[${nlimbs}] a
+, reg ptr u64[${nlimbs}] b
+) -> reg ptr u64[${nlimbs}] {
+  stack u64[2*${nlimbs}] _tmp;
+  reg ptr u64[2*${nlimbs}] tmp;
+
+  _P = P;
+  _mP = mP;
+  _U0 = U0;
+  tmp = _tmp;
+  tmp = __${bn}_muln(a, b, tmp);
+  a = __${bn_fun_redm}(tmp, a);
+  return a;
+}
