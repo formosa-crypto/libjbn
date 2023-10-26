@@ -155,7 +155,7 @@ void bn_print(char* str, uint64_t x[]) {
  if (str!=NULL) printf("%s = [ ", str);
  for (i=0; i<NLIMBS; i++) {
    if (0 < i) printf(", ");
-   printf("0x%016llx", x[i]);
+   printf("0x%016" PRIx64 "", x[i]);
  }
  printf("]\n");
 }
