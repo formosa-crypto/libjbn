@@ -25,8 +25,8 @@ module type MParam = {
 from JPExtract require Bn_base_extr.
 clone Bn_base_extr as BNbase_extr
  with op nlimbs <- nlimbs,
-      theory Ap1 <= Ap1,
-      theory Ap2 <= Ap2.
+      theory Ap1 <- Ap1,
+      theory Ap2 <- Ap2.
 module BN = BNbase_extr.M. 
 
 from JPExtract require Bn_exp_extr.

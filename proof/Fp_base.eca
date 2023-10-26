@@ -4,7 +4,7 @@ require import AllCore Int IntDiv.
 from Jasmin require import JModel_x86.
 import SLH64.
 
-require JBigNumber BN_base Bn_exp.
+require JBigNumber Bn_base Bn_exp.
 
 
 (* Parameters *)
@@ -24,7 +24,8 @@ op red_op: BN2.t -> BN.t.
 op mul_op (x y: BN.t): BN.t =
  red_op (BN2.bn_ofint (BN.bn x * BN.bn y)).
 
-clone BN_base as BNB
+
+clone Bn_base as BNB
  with op nlimbs <- nlimbs,
       theory BigN <- BigN
       proof gt0_nlimbs by exact gt0_nlimbs.
@@ -36,21 +37,157 @@ clone Bn_exp as BNE
       op mul_op <- mul_op,
       theory BigN <- BigN,
       theory BNexp <- BN,
-      theory BNB <= BNB
+      theory BNB <- BNB
       proof gt0_nlimbs by exact gt0_nlimbs
       proof gt0_nlimbsexp by exact gt0_nlimbs.
 
-from JPExtract require Fp_base_extr.
-clone import Fp_base_extr as FPbase_extr
- with op nlimbs <- nlimbs,
-      op glob_P <- glob_P,
-      op glob_mP <- glob_mP,
-      op glob_exp0 <- glob_exp0,
-      op glob_Pm2 <- glob_Pm2,
-      theory Ap1 <- BN.A,
-      theory Ap2 <- BN2.A,
-      theory BNbase_extr <- BNB.BNbase_extr,
-      theory BNexp_extr <- BNE.BNexp_extr.
+(******************************************************************************
+ **                inclusion of the (parametric) extracted module            **
+ ** (collected from "extracted_ths/Fp_base_extr.ec)                          **
+ ******************************************************************************)
+
+
+module type MParam = {
+  proc fun_red (a:BN2.t, r:BN.t) : BN.t
+}.
+
+module BN_M = BNB.M. 
+module BNE_M = BNE.M.
+
+module M(P: MParam) = {
+  proc __chk_bnds (a:BN.t, err:W64.t) : W64.t = {
+    
+    var p:BN.t;
+    var cf:bool;
+    var t:W64.t;
+    p <- witness;
+    p <- glob_P;
+    cf <@ BN_M.__lt_cf (a, p);
+    t <@ BN_M.bNUTIL__cf_mask (cf);
+    t <- NOT_64 t;
+    err <- (err `|` t);
+    return (err);
+  }
+  
+  proc __addmU (a:BN.t, b:BN.t) : BN.t = {
+    
+    var cf:bool;
+    var lastbit:W64.t;
+    var tmp:BN.t;
+    var  _0:bool;
+    tmp <- witness;
+    (cf, a) <@ BN_M.__addU (a, b);
+    lastbit <- (W64.of_int 0);
+    ( _0, lastbit) <- adc_64 lastbit (W64.of_int 0) cf;
+    tmp <- glob_mP;
+    a <@ BN_M.__cminusP (lastbit, a, tmp);
+    return (a);
+  }
+  
+  proc _addmU (a:BN.t, b:BN.t) : BN.t = {
+    
+    
+    
+    a <@ __addmU (a, b);
+    return (a);
+  }
+  
+  proc __submU (a:BN.t, b:BN.t) : BN.t = {
+    
+    var cf:bool;
+    var tmp:BN.t;
+    tmp <- witness;
+    (cf, a) <@ BN_M.__subU (a, b);
+    tmp <- glob_P;
+    a <@ BN_M.__caddU (cf, a, tmp);
+    return (a);
+  }
+  
+  proc _submU (a:BN.t, b:BN.t) : BN.t = {
+    
+    
+    
+    a <@ __submU (a, b);
+    return (a);
+  }
+  
+  proc _mulm (a:BN.t, b:BN.t, r:BN.t) : 
+  BN.t = {
+    
+    var _tmp:BN2.t;
+    var tmp:BN2.t;
+    _tmp <- witness;
+    tmp <- witness;
+    tmp <- _tmp;
+    tmp <@ BN_M.__muln (a, b, tmp);
+    r <@ P.fun_red (tmp, r);
+    return (r);
+  }
+  
+  proc _mulmU (a:BN.t, b:BN.t) : BN.t = {
+    
+    var _tmp:BN2.t;
+    var tmp:BN2.t;
+    _tmp <- witness;
+    tmp <- witness;
+    tmp <- _tmp;
+    tmp <@ BN_M.__muln (a, b, tmp);
+    tmp <- tmp;
+    a <- a;
+    a <@ P.fun_red (tmp, a);
+    a <- a;
+    return (a);
+  }
+  
+  proc _sqrm (a:BN.t, r:BN.t) : BN.t = {
+    
+    var _tmp:BN2.t;
+    var tmp:BN2.t;
+    _tmp <- witness;
+    tmp <- witness;
+    tmp <- _tmp;
+    tmp <@ BN_M.__sqrn (a, tmp);
+    tmp <- tmp;
+    a <- a;
+    r <@ P.fun_red (tmp, r);
+    a <- a;
+    return (r);
+  }
+  
+  proc _sqrmU (a:BN.t) : BN.t = {
+    
+    var _tmp:BN2.t;
+    var tmp:BN2.t;
+    _tmp <- witness;
+    tmp <- witness;
+    tmp <- _tmp;
+    tmp <@ BN_M.__sqrn (a, tmp);
+    a <@ P.fun_red (tmp, a);
+    return (a);
+  }
+
+  module Pexp = {
+   proc fun_mulU = _mulmU
+   proc fun_sqrU = _sqrmU
+  }
+
+  proc __invm (a:BN.t, r:BN.t) : BN.t = {
+    
+    var pm2:BN.t;
+    pm2 <- witness;
+    pm2 <- glob_Pm2;
+    r <@ BNE_M(Pexp)._expm_noct (a, pm2, r);
+    return (r);
+  }
+}.
+
+
+(******************************************************************************
+ **               Library LEMMAS                                             **
+ **                                                                          **
+ ******************************************************************************)
+
+
 
 
 section.

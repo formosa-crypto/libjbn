@@ -38,7 +38,7 @@ clone Fp_base_extr as FPbase_extr
       op glob_exp0 <- glob_exp0,
       theory Ap1 <- Ap1,
       theory Ap2 <- Ap2,
-      theory BNbase_extr <= BNbase_extr.
+      theory BNbase_extr <- BNbase_extr.
 module FP = FPbase_extr.M.
 
 

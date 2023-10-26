@@ -5,7 +5,7 @@ from Jasmin require import JModel_x86.
 import SLH64.
 
 require ZModP.
-require JBigNumber BN_base Bn_exp Fp_base.
+require JBigNumber Bn_base Bn_exp Fp_base.
 
 (* Parameters *)
 op nlimbs: int.
@@ -63,23 +63,10 @@ axiom glob_P0i_val:
  W64.to_uint glob_P0i * W64.to_uint glob_P.[0] %% W64.modulus = (-1) %% W64.modulus.
 
 
-clone BN_base as BNB
+clone Bn_base as BNB
  with op nlimbs <- nlimbs,
       theory BigN <- BigN
       proof gt0_nlimbs by exact gt0_nlimbs.
-
-(*
-clone Bn_exp as BNE
- with op nlimbs <- nlimbs,
-      op nlimbsexp <- nlimbs,
-      op glob_exp0 <- glob_exp0,
-      op mul_op <- mul_op,
-      theory BigN <- BigN,
-      theory BNexp <- BN,
-      theory BNB <= BNB
-      proof gt0_nlimbs by exact gt0_nlimbs
-      proof gt0_nlimbsexp by exact gt0_nlimbs.
-*)
 
 clone Fp_base as FPB
  with op nlimbs <- nlimbs,
@@ -89,38 +76,82 @@ clone Fp_base as FPB
       op glob_exp0 <- glob_exp0,
       op glob_Pm2 <- glob_Pm2,
       op red_op <- red_op,
-      theory BNB <= BNB,
-      theory FPbase_extr.BNbase_extr <- BNB.BNbase_extr
+      theory BNB <- BNB
       proof gt0_nlimbs by exact gt0_nlimbs.
 
-from JPExtract require Fp_mont_extr.
-clone import Fp_mont_extr as FPmont_extr
- with op nlimbs <- nlimbs,
-      op glob_P <- glob_P,
-      op glob_mP <- glob_mP,
-      op glob_P0i <- glob_P0i,
-      op glob_exp0 <- glob_exp0,
-      op glob_Pm2 <- glob_Pm2,
-      op glob_rMP <- glob_rMP,
-      theory Ap1 <- BN.A,
-      theory Ap2 <- BN2.A,
-      theory BNbase_extr <- BNB.BNbase_extr,
-      theory FPbase_extr <- FPB.FPbase_extr.
+(******************************************************************************
+ **                inclusion of the (parametric) extracted module            **
+ ** (collected from "extracted_ths/Bn_exp_extr.ec)                           **
+ ******************************************************************************)
+
+module BN_M = BNB.M. 
+module FP_M = FPB.M.
+
+import BN.A.
+import BN2.A.
+module M = {
+  proc _redM (a:BN2.t, r:BN.t) : BN.t = {
+    
+    var _P0i:W64.t;
+    
+    _P0i <- glob_P0i;
+    a <- a;
+    r <@ BN_M.__mont_redM (a, r, glob_P, glob_mP, _P0i);
+    r <- r;
+    return (r);
+  }
+  
+  proc __fromM (a:BN.t) : BN.t = {
+    
+    var _tmp:BN2.t;
+    var tmp2:BN.t;
+    var tmp:BN2.t;
+    _tmp <- witness;
+    tmp <- witness;
+    tmp2 <- witness;
+    tmp2 <- (BN.A.init (fun i => _tmp.[0 + i]));
+    tmp2 <@ BN_M.__copy2 (a, tmp2);
+    _tmp <- BN2.A.init
+            (fun i => if 0 <= i < 0 + 11 then tmp2.[i-0] else _tmp.[i]);
+    tmp2 <- (BN.A.init (fun i => _tmp.[11 + i]));
+    tmp2 <@ BN_M.__set0 (tmp2);
+    _tmp <- BN2.A.init
+            (fun i => if 11 <= i < 11 + 11 then tmp2.[i-11] else _tmp.[i]);
+    tmp <- _tmp;
+    a <@ _redM (tmp, a);
+    return (a);
+  }
+
+  module Pfp = { proc fun_red = _redM }
+  proc __toM (a:BN.t) : BN.t = {
+    
+    var rMP:BN.t;
+    rMP <- witness;
+    rMP <- glob_rMP;
+    a <- a;
+    a <@ FP_M(Pfp)._mulmU (a, rMP);
+    a <- a;
+    return (a);
+  }
+}.
 
 
-print M.
-print M.Pfp.
+(******************************************************************************
+ **               Library LEMMAS                                             **
+ **                                                                          **
+ ******************************************************************************)
+
 
 lemma redM_prop _a:
  phoare[ M._redM : a = _a ==> res = red_op _a] = 1%r.
 admitted.
 
-print FPB._mulmU_h.
 hoare _mulmU_h _a _b:
- FP(M.Pfp)._mulmU:
+ FP_M(M.Pfp)._mulmU:
   a=_a /\ b=_b ==>
  bn res = asint (inzp (bn _a) * inzp (bn _b)).
 conseq (FPB._mulmU_h M.Pfp _ _a _b).
+admitted.
 
 hoare __toM_h _a:
  M.__toM:
@@ -128,5 +159,8 @@ hoare __toM_h _a:
 proof.
 proc.
 wp.
-ecall (FPB._mulmU_h a rMP).
+ecall (_mulmU_h a rMP).
+admitted.
+
+
 

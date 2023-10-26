@@ -4,7 +4,7 @@ require import AllCore Int IntDiv.
 from Jasmin require import JModel_x86.
 import SLH64.
 
-require JBigNumber BN_base.
+require JBigNumber Bn_base.
 
 (* Parameters *)
 op nlimbs: int.
@@ -12,31 +12,185 @@ axiom gt0_nlimbs: 0 < nlimbs.
 op nlimbsexp: int.
 axiom gt0_nlimbsexp: 0 < nlimbsexp.
 
-clone import JBigNumber.BigN
- with op nlimbs <- nlimbs
-      proof gt0_nlimbs by exact gt0_nlimbs.
-
 clone JBigNumber.BN as BNexp
  with op nlimbs <- nlimbsexp
       proof gt0_nlimbs by exact gt0_nlimbsexp.
 
+import BNexp.A.
+
+clone import JBigNumber.BigN
+ with op nlimbs <- nlimbs
+      proof gt0_nlimbs by exact gt0_nlimbs.
+
+
 op glob_exp0: BN.t.
 op mul_op: BN.t -> BN.t -> BN.t.
 
-clone BN_base as BNB
+clone Bn_base as BNB
  with op nlimbs <- nlimbs,
       theory BigN <- BigN
       proof gt0_nlimbs by exact gt0_nlimbs.
 
-from JPExtract require Bn_exp_extr.
-clone import Bn_exp_extr as BNexp_extr
- with op nlimbs <- nlimbs,
-      op nlimbsexp <- nlimbsexp,
-      op glob_exp0 <= glob_exp0,
-      theory Ap1 <- BN.A,
-      theory Ap2 <- BN2.A,
-      theory Apexp <- BNexp.A,
-      theory BNbase_extr <= BNB.BNbase_extr.
+(******************************************************************************
+ **                inclusion of the (parametric) extracted module            **
+ ** (collected from "extracted_ths/Bn_exp_extr.ec)                           **
+ ******************************************************************************)
+
+module type MParam = {
+  proc fun_mulU (r:BN.t, a:BN.t) : BN.t
+  proc fun_sqrU (r:BN.t) : BN.t
+}.
+
+module BN_M = BNB.M. 
+
+module M(P: MParam) = {
+  proc _expm_noct (a:BN.t, b:BNexp.t, r:BN.t) : 
+  BN.t = {
+    var aux: int;
+    
+    var _b:BNexp.t;
+    var exp0:BN.t;
+    var _x:BN.t;
+    var x:BN.t;
+    var j:int;
+    var t:W64.t;
+    var _k:W64.t;
+    var zf:bool;
+    var cf:bool;
+    var  _0:bool;
+    var  _1:bool;
+    var  _2:bool;
+    var  _3:bool;
+    var  _4:bool;
+    var  _5:bool;
+    var  _6:bool;
+    _b <- witness;
+    _x <- witness;
+    exp0 <- witness;
+    x <- witness;
+    _b <- b;
+    exp0 <- glob_exp0;
+    r <@ BN_M.__copy2 (exp0, r);
+    x <- _x;
+    x <@ BN_M.__copy2 (a, x);
+    _x <- x;
+    j <- 0;
+    while (j < nlimbsexp) {
+      b <- _b;
+      t <- b.[j];
+      _k <- (W64.of_int 64);
+      ( _0, cf,  _1,  _2,  _3, t) <- SHR_64 t (W8.of_int 1);
+      x <- _x;
+      if (cf) {
+        r <- r;
+        x <- x;
+        r <@ P.fun_mulU (r, x);
+      } else {
+        
+      }
+      x <- x;
+      x <@ P.fun_sqrU (x);
+      _x <- x;
+      ( _4,  _5,  _6, zf, _k) <- DEC_64 _k;
+      while ((! zf)) {
+        ( _0, cf,  _1,  _2,  _3, t) <- SHR_64 t (W8.of_int 1);
+        x <- _x;
+        if (cf) {
+          r <- r;
+          x <- x;
+          r <@ P.fun_mulU (r, x);
+        } else {
+          
+        }
+        x <- x;
+        x <@ P.fun_sqrU (x);
+        _x <- x;
+        ( _4,  _5,  _6, zf, _k) <- DEC_64 _k;
+      }
+      j <- j + 1;
+    }
+    return (r);
+  }
+  
+  proc _expm (a:BN.t, b:BNexp.t, x0:BN.t) : 
+  BN.t = {
+    var aux: int;
+    
+    var _b:BNexp.t;
+    var exp0:BN.t;
+    var _x1:BN.t;
+    var x1:BN.t;
+    var j:int;
+    var t:W64.t;
+    var _k:W64.t;
+    var zf:bool;
+    var cf:bool;
+    var _t:W64.t;
+    var mask:W64.t;
+    var _mask:W64.t;
+    var  _0:bool;
+    var  _1:bool;
+    var  _2:bool;
+    var  _3:bool;
+    var  _4:bool;
+    var  _5:bool;
+    var  _6:bool;
+    _b <- witness;
+    _x1 <- witness;
+    exp0 <- witness;
+    x1 <- witness;
+    _b <- b;
+    exp0 <- glob_exp0;
+    x0 <@ BN_M.__copy2 (exp0, x0);
+    x1 <- _x1;
+    x1 <@ BN_M.__copy2 (a, x1);
+    aux <- (- 1);
+    j <- (nlimbsexp - 1);
+    while (aux < j) {
+      b <- _b;
+      t <- b.[j];
+      _k <- (W64.of_int 64);
+      ( _0, cf,  _1,  _2,  _3, t) <- SHL_64 t (W8.of_int 1);
+      _t <- t;
+      mask <@ BN_M.bNUTIL__cf_mask (cf);
+      (x0, x1) <@ BN_M.__cswap_mask (mask, x0, x1);
+      _mask <- mask;
+      x0 <- x0;
+      x1 <- x1;
+      x1 <@ P.fun_mulU (x1, x0);
+      x0 <- x0;
+      x0 <@ P.fun_sqrU (x0);
+      mask <- _mask;
+      (x0, x1) <@ BN_M.__cswap_mask (mask, x0, x1);
+      t <- _t;
+      ( _4,  _5,  _6, zf, _k) <- DEC_64 _k;
+      while ((! zf)) {
+        ( _0, cf,  _1,  _2,  _3, t) <- SHL_64 t (W8.of_int 1);
+        _t <- t;
+        mask <@ BN_M.bNUTIL__cf_mask (cf);
+        (x0, x1) <@ BN_M.__cswap_mask (mask, x0, x1);
+        _mask <- mask;
+        x0 <- x0;
+        x1 <- x1;
+        x1 <@ P.fun_mulU (x1, x0);
+        x0 <- x0;
+        x0 <@ P.fun_sqrU (x0);
+        mask <- _mask;
+        (x0, x1) <@ BN_M.__cswap_mask (mask, x0, x1);
+        t <- _t;
+        ( _4,  _5,  _6, zf, _k) <- DEC_64 _k;
+      }
+      j <- j - 1;
+    }
+    return (x0);
+  }
+}.
+
+(******************************************************************************
+ **               Library LEMMAS                                             **
+ **                                                                          **
+ ******************************************************************************)
+
 
 section.
 

@@ -9,10 +9,10 @@ from JExtract require export Array3.
 op nlimbs: int.
 clone export PolyArray as Ap1
  with op size <- nlimbs.
-(*type bignum = W64.t Ap1.t.*)
+type bignum = W64.t Ap1.t.
 clone export PolyArray as Ap2
  with op size <- 2*nlimbs.
-(*abbrev bignum2 = W64.t Ap2.t.*)
+type bignum2 = W64.t Ap2.t.
 
 (** REMOVED...
 require import Array3 Array11 Array13 Array22 Array88.
@@ -136,7 +136,7 @@ module M(*SC:Syscall_t*) = {
     return (a);
   }
   
-  proc __load (ap:W64.t, a:W64.t Ap1.t) : W64.t Ap1.t = {
+  proc __load (ap:W64.t, a:bignum) : bignum = {
     var aux: int;
     
     var i:int;
@@ -151,7 +151,7 @@ module M(*SC:Syscall_t*) = {
     return (a);
   }
   
-  proc __store (ap:W64.t, a:W64.t Ap1.t) : unit = {
+  proc __store (ap:W64.t, a:bignum) : unit = {
     var aux: int;
     
     var i:int;
@@ -167,7 +167,7 @@ module M(*SC:Syscall_t*) = {
     return ();
   }
   
-  proc __eq_zf (a:W64.t Ap1.t, b:W64.t Ap1.t) : bool = {
+  proc __eq_zf (a:bignum, b:bignum) : bool = {
     var aux: int;
     
     var zf:bool;
@@ -192,7 +192,7 @@ module M(*SC:Syscall_t*) = {
     return (zf);
   }
   
-  proc __eq (a:W64.t Ap1.t, b:W64.t Ap1.t) : W64.t = {
+  proc __eq (a:bignum, b:bignum) : W64.t = {
     
     var res_0:W64.t;
     var zf:bool;
@@ -205,7 +205,7 @@ module M(*SC:Syscall_t*) = {
     return (res_0);
   }
   
-  proc _eq (a:W64.t Ap1.t, b:W64.t Ap1.t) : W64.t = {
+  proc _eq (a:bignum, b:bignum) : W64.t = {
     
     var r:W64.t;
     
@@ -213,7 +213,7 @@ module M(*SC:Syscall_t*) = {
     return (r);
   }
   
-  proc _eq_ (a:W64.t Ap1.t, b:W64.t Ap1.t) : W64.t = {
+  proc _eq_ (a:bignum, b:bignum) : W64.t = {
     
     var r:W64.t;
     
@@ -224,7 +224,7 @@ module M(*SC:Syscall_t*) = {
     return (r);
   }
   
-  proc __test0_zf (a:W64.t Ap1.t) : bool = {
+  proc __test0_zf (a:bignum) : bool = {
     var aux: int;
     
     var zf:bool;
@@ -246,7 +246,7 @@ module M(*SC:Syscall_t*) = {
     return (zf);
   }
   
-  proc __test0 (a:W64.t Ap1.t) : W64.t = {
+  proc __test0 (a:bignum) : W64.t = {
     
     var res_0:W64.t;
     var is_zero:W64.t;
@@ -259,7 +259,7 @@ module M(*SC:Syscall_t*) = {
     return (res_0);
   }
   
-  proc _test0 (a:W64.t Ap1.t) : W64.t = {
+  proc _test0 (a:bignum) : W64.t = {
     
     var r:W64.t;
     
@@ -267,10 +267,10 @@ module M(*SC:Syscall_t*) = {
     return (r);
   }
   
-  proc __copy (a:W64.t Ap1.t) : W64.t Ap1.t = {
+  proc __copy (a:bignum) : bignum = {
     var aux: int;
     
-    var r:W64.t Ap1.t;
+    var r:bignum;
     var i:int;
     var t:W64.t;
     r <- witness;
@@ -283,7 +283,7 @@ module M(*SC:Syscall_t*) = {
     return (r);
   }
   
-  proc __copy2 (a:W64.t Ap1.t, r:W64.t Ap1.t) : W64.t Ap1.t = {
+  proc __copy2 (a:bignum, r:bignum) : bignum = {
     var aux: int;
     
     var i:int;
@@ -298,7 +298,7 @@ module M(*SC:Syscall_t*) = {
     return (r);
   }
   
-  proc __cmov (cond:bool, a:W64.t Ap1.t, b:W64.t Ap1.t) : W64.t Ap1.t = {
+  proc __cmov (cond:bool, a:bignum, b:bignum) : bignum = {
     var aux: int;
     
     var i:int;
@@ -314,8 +314,8 @@ module M(*SC:Syscall_t*) = {
     return (a);
   }
 
-  proc __cswap_mask (mask:W64.t, x:W64.t Ap1.t, y:W64.t Ap1.t) : 
-  W64.t Ap1.t * W64.t Ap1.t = {
+  proc __cswap_mask (mask:W64.t, x:bignum, y:bignum) : 
+  bignum * bignum = {
     var aux: int;
     
     var i:int;
@@ -333,7 +333,7 @@ module M(*SC:Syscall_t*) = {
     return (x, y);
   }
     
-  proc __fill (x:W64.t, a:W64.t Ap1.t) : W64.t Ap1.t = {
+  proc __fill (x:W64.t, a:bignum) : bignum = {
     var aux: int;
     
     var i:int;
@@ -346,7 +346,7 @@ module M(*SC:Syscall_t*) = {
     return (a);
   }
   
-  proc __set0 (a:W64.t Ap1.t) : W64.t Ap1.t = {
+  proc __set0 (a:bignum) : bignum = {
     
     var t:W64.t;
     
@@ -355,7 +355,7 @@ module M(*SC:Syscall_t*) = {
     return (a);
   }
   
-  proc __cfill (b:bool, x:W64.t, a:W64.t Ap1.t) : W64.t Ap1.t = {
+  proc __cfill (b:bool, x:W64.t, a:bignum) : bignum = {
     var aux: int;
     
     var i:int;
@@ -368,7 +368,7 @@ module M(*SC:Syscall_t*) = {
     return (a);
   }
   
-  proc __set_err (_err:W64.t, a:W64.t Ap1.t) : W64.t Ap1.t = {
+  proc __set_err (_err:W64.t, a:bignum) : bignum = {
     var aux: int;
     
     var err:W64.t;
@@ -383,8 +383,8 @@ module M(*SC:Syscall_t*) = {
     return (a);
   }
   
-  proc __carrypropU (a:W64.t Ap1.t, cf:bool, k:int) : bool *
-                                                            W64.t Ap1.t = {
+  proc __carrypropU (a:bignum, cf:bool, k:int) : bool *
+                                                            bignum = {
     var aux_0: bool;
     var aux: int;
     var aux_1: W64.t;
@@ -401,8 +401,8 @@ module M(*SC:Syscall_t*) = {
     return (cf, a);
   }
   
-  proc __addU (a:W64.t Ap1.t, b:W64.t Ap1.t) : bool *
-                                                         W64.t Ap1.t = {
+  proc __addU (a:bignum, b:bignum) : bool *
+                                                         bignum = {
     var aux: bool;
     var aux_1: int;
     var aux_0: W64.t;
@@ -426,8 +426,8 @@ module M(*SC:Syscall_t*) = {
     return (cf, a);
   }
   
-  proc __add (a:W64.t Ap1.t, b:W64.t Ap1.t, r:W64.t Ap1.t) : 
-  bool * W64.t Ap1.t = {
+  proc __add (a:bignum, b:bignum, r:bignum) : 
+  bool * bignum = {
     var aux: int;
     
     var cf:bool;
@@ -447,8 +447,8 @@ module M(*SC:Syscall_t*) = {
     return (cf, r);
   }
   
-  proc _addU (a:W64.t Ap1.t, b:W64.t Ap1.t) : bool *
-                                                        W64.t Ap1.t = {
+  proc _addU (a:bignum, b:bignum) : bool *
+                                                        bignum = {
     
     var cf:bool;
     
@@ -456,8 +456,8 @@ module M(*SC:Syscall_t*) = {
     return (cf, a);
   }
   
-  proc _add (a:W64.t Ap1.t, b:W64.t Ap1.t, r:W64.t Ap1.t) : 
-  bool * W64.t Ap1.t = {
+  proc _add (a:bignum, b:bignum, r:bignum) : 
+  bool * bignum = {
     
     var cf:bool;
     
@@ -465,8 +465,8 @@ module M(*SC:Syscall_t*) = {
     return (cf, r);
   }
   
-  proc __subU (a:W64.t Ap1.t, b:W64.t Ap1.t) : bool *
-                                                         W64.t Ap1.t = {
+  proc __subU (a:bignum, b:bignum) : bool *
+                                                         bignum = {
     var aux: bool;
     var aux_1: int;
     var aux_0: W64.t;
@@ -490,8 +490,8 @@ module M(*SC:Syscall_t*) = {
     return (cf, a);
   }
   
-  proc __sub (a:W64.t Ap1.t, b:W64.t Ap1.t, r:W64.t Ap1.t) : 
-  bool * W64.t Ap1.t = {
+  proc __sub (a:bignum, b:bignum, r:bignum) : 
+  bool * bignum = {
     var aux: int;
     
     var cf:bool;
@@ -511,7 +511,7 @@ module M(*SC:Syscall_t*) = {
     return (cf, r);
   }
   
-  proc __lt_cf (a:W64.t Ap1.t, b:W64.t Ap1.t) : bool = {
+  proc __lt_cf (a:bignum, b:bignum) : bool = {
     var aux: int;
     
     var cf:bool;
@@ -529,7 +529,7 @@ module M(*SC:Syscall_t*) = {
     return (cf);
   }
   
-  proc __negU (a:W64.t Ap1.t) : W64.t Ap1.t = {
+  proc __negU (a:bignum) : bignum = {
     var aux: int;
     
     var t:W64.t;
@@ -549,7 +549,7 @@ module M(*SC:Syscall_t*) = {
     return (a);
   }
   
-  proc __neg (a:W64.t Ap1.t, r:W64.t Ap1.t) : W64.t Ap1.t = {
+  proc __neg (a:bignum, r:bignum) : bignum = {
     var aux: int;
     
     var t:W64.t;
@@ -569,8 +569,8 @@ module M(*SC:Syscall_t*) = {
     return (r);
   }
   
-  proc _subU (a:W64.t Ap1.t, b:W64.t Ap1.t) : bool *
-                                                        W64.t Ap1.t = {
+  proc _subU (a:bignum, b:bignum) : bool *
+                                                        bignum = {
     
     var cf:bool;
     
@@ -578,8 +578,8 @@ module M(*SC:Syscall_t*) = {
     return (cf, a);
   }
   
-  proc _sub (a:W64.t Ap1.t, b:W64.t Ap1.t, r:W64.t Ap1.t) : 
-  bool * W64.t Ap1.t = {
+  proc _sub (a:bignum, b:bignum, r:bignum) : 
+  bool * bignum = {
     
     var cf:bool;
     
@@ -587,7 +587,7 @@ module M(*SC:Syscall_t*) = {
     return (cf, r);
   }
   
-  proc __rnd (a:W64.t Ap1.t) : W64.t Ap1.t = {
+  proc __rnd (a:bignum) : bignum = {
 (* (for now...)
     var aux: W8.t Array88.t;
     a <- a;
@@ -600,7 +600,7 @@ module M(*SC:Syscall_t*) = {
     return (a);
   }
   
-  proc __rsample (a:W64.t Ap1.t, bnd:W64.t Ap1.t) : W64.t Ap1.t = {
+  proc __rsample (a:bignum, bnd:bignum) : bignum = {
     
     var cf:bool;
     
@@ -613,11 +613,11 @@ module M(*SC:Syscall_t*) = {
     return (a);
   }
   
-  proc __subU_signabs (a:W64.t Ap1.t, b:W64.t Ap1.t) : bool *
-                                                                 W64.t Ap1.t = {
+  proc __subU_signabs (a:bignum, b:bignum) : bool *
+                                                                 bignum = {
     
     var cf:bool;
-    var tmp:W64.t Ap1.t;
+    var tmp:bignum;
     var  _0:bool;
     tmp <- witness;
     ( _0, tmp) <@ __sub (b, a, tmp);
@@ -626,9 +626,9 @@ module M(*SC:Syscall_t*) = {
     return (cf, a);
   }
   
-  proc __cnegU (cond:W64.t, a:W64.t Ap1.t) : W64.t Ap1.t = {
+  proc __cnegU (cond:W64.t, a:bignum) : bignum = {
     
-    var x:W64.t Ap1.t;
+    var x:bignum;
     var cf:bool;
     x <- witness;
     x <@ __neg (a, x);
@@ -637,14 +637,14 @@ module M(*SC:Syscall_t*) = {
     return (a);
   }
   
-  proc __caddU (cf:bool, x:W64.t Ap1.t, y:W64.t Ap1.t) : W64.t Ap1.t = {
+  proc __caddU (cf:bool, x:bignum, y:bignum) : bignum = {
     var aux: int;
     
-    var _tmp:W64.t Ap1.t;
+    var _tmp:bignum;
     var t0:W64.t;
     var i:int;
     var t:W64.t;
-    var tmp:W64.t Ap1.t;
+    var tmp:bignum;
     var  _0:bool;
     _tmp <- witness;
     tmp <- witness;
@@ -662,8 +662,8 @@ module M(*SC:Syscall_t*) = {
     return (x);
   }
   
-  proc __muln_innerloop (k:int, istart:int, iend:int, a:W64.t Ap1.t,
-                           b:W64.t Ap1.t, x:W64.t Array3.t) : W64.t Array3.t = {
+  proc __muln_innerloop (k:int, istart:int, iend:int, a:bignum,
+                           b:bignum, x:W64.t Array3.t) : W64.t Array3.t = {
     var aux: int;
     
     var i:int;
@@ -683,8 +683,8 @@ module M(*SC:Syscall_t*) = {
     return (x);
   }
   
-  proc __muln (a:W64.t Ap1.t, b:W64.t Ap1.t, r:W64.t Ap2.t) : 
-  W64.t Ap2.t = {
+  proc __muln (a:bignum, b:bignum, r:bignum2) : 
+  bignum2 = {
     var aux: int;
     
     var t0:W64.t;
@@ -719,8 +719,8 @@ module M(*SC:Syscall_t*) = {
     return (r);
   }
   
-  proc _muln (a:W64.t Ap1.t, b:W64.t Ap1.t, r:W64.t Ap2.t) : 
-  W64.t Ap2.t = {
+  proc _muln (a:bignum, b:bignum, r:bignum2) : 
+  bignum2 = {
     
     
     
@@ -728,7 +728,7 @@ module M(*SC:Syscall_t*) = {
     return (r);
   }
   
-  proc __sqrn_innerloop (k:int, istart:int, iend:int, a:W64.t Ap1.t,
+  proc __sqrn_innerloop (k:int, istart:int, iend:int, a:bignum,
                            x:W64.t Array3.t) : W64.t Array3.t = {
     var aux: int;
     
@@ -749,7 +749,7 @@ module M(*SC:Syscall_t*) = {
     return (x);
   }
   
-  proc __sqrn (a:W64.t Ap1.t, r:W64.t Ap2.t) : W64.t Ap2.t = {
+  proc __sqrn (a:bignum, r:bignum2) : bignum2 = {
     var aux: int;
     
     var t0:W64.t;
@@ -798,7 +798,7 @@ module M(*SC:Syscall_t*) = {
     return (r);
   }
   
-  proc _sqrn (a:W64.t Ap1.t, r:W64.t Ap2.t) : W64.t Ap2.t = {
+  proc _sqrn (a:bignum, r:bignum2) : bignum2 = {
     
     
     
@@ -806,11 +806,11 @@ module M(*SC:Syscall_t*) = {
     return (r);
   }
   
-  proc __cminusP (lastbit:W64.t, x:W64.t Ap1.t, mP:W64.t Ap1.t) : 
-  W64.t Ap1.t = {
+  proc __cminusP (lastbit:W64.t, x:bignum, mP:bignum) : 
+  bignum = {
     
-    var _tmp:W64.t Ap1.t;
-    var tmp:W64.t Ap1.t;
+    var _tmp:bignum;
+    var tmp:bignum;
     var _cf:bool;
     var  _0:bool;
     var  _1:bool;
@@ -829,22 +829,22 @@ module M(*SC:Syscall_t*) = {
     return (x);
   }
   
-  proc __mont_redM (a:W64.t Ap2.t, r:W64.t Ap1.t,
-                      _P:W64.t Ap1.t, _mP:W64.t Ap1.t, _U0:W64.t) : 
-  W64.t Ap1.t = {
+  proc __mont_redM (a:bignum2, r:bignum,
+                      _P:bignum, _mP:bignum, _U0:W64.t) : 
+  bignum = {
     var aux_0: bool;
     var aux: int;
     var aux_1: W64.t;
     
     var x:W64.t Array3.t;
-    var p:W64.t Ap1.t;
+    var p:bignum;
     var k:int;
     var zero:W64.t;
     var t0:W64.t;
     var t1:W64.t;
     var lastbit:W64.t;
     var cf:bool;
-    var mP:W64.t Ap1.t;
+    var mP:bignum;
     var  _0:W64.t;
     var  _1:bool;
     p <- witness;
@@ -892,8 +892,8 @@ module M(*SC:Syscall_t*) = {
     return (r);
   }
   
-  proc __pack2 (lo:W64.t Ap1.t, hi:W64.t Ap1.t, r:W64.t Ap2.t) : 
-  W64.t Ap2.t = {
+  proc __pack2 (lo:bignum, hi:bignum, r:bignum2) : 
+  bignum2 = {
     var aux: int;
     
     var i:int;
