@@ -1,4 +1,4 @@
-require import AllCore Int IntDiv.
+require import AllCore Int IntDiv List.
 
 
 from Jasmin require import JModel_x86.
@@ -25,10 +25,17 @@ op mul_op (x y: BN.t): BN.t =
  red_op (BN2.bn_ofint (BN.bn x * BN.bn y)).
 
 
+clone Bn_util as BNUTIL.
+module BNUTIL_M = BNUTIL.M.
+module BNUTIL_MLeak = BNUTIL.MLeak.
+
 clone Bn_base as BNB
  with op nlimbs <- nlimbs,
-      theory BigN <- BigN
+      theory BigN <- BigN,
+      theory BNUTIL <- BNUTIL
       proof gt0_nlimbs by exact gt0_nlimbs.
+module BN_M = BNB.M. 
+module BN_MLeak = BNB.MLeak. 
 
 clone Bn_exp as BNE
  with op nlimbs <- nlimbs,
@@ -37,81 +44,96 @@ clone Bn_exp as BNE
       op mul_op <- mul_op,
       theory BigN <- BigN,
       theory BNexp <- BN,
+      theory BNUTIL <- BNUTIL,
       theory BNB <- BNB
       proof gt0_nlimbs by exact gt0_nlimbs
       proof gt0_nlimbsexp by exact gt0_nlimbs.
+module BNE_M = BNE.M.
+module BNE_MLeak = BNE.MLeak.
 
 (******************************************************************************
  **                inclusion of the (parametric) extracted module            **
  ** (collected from "extracted_ths/Fp_base_extr.ec)                          **
  ******************************************************************************)
 
+from JExtract require export MLeakage.
 
 module type MParam = {
-  proc fun_red (a:BN2.t, r:BN.t) : BN.t
+  proc fun_red (r:BN.t, a:BN2.t) : BN.t
 }.
 
-module BN_M = BNB.M. 
-module BNE_M = BNE.M.
 
 module M(P: MParam) = {
-  proc __chk_bnds (a:BN.t, err:W64.t) : W64.t = {
+
+  proc _chk_bnds_ (err:W64.t, a:BN.t) : W64.t = {
     
     var p:BN.t;
     var cf:bool;
     var t:W64.t;
     p <- witness;
     p <- glob_P;
-    cf <@ BN_M.__lt_cf (a, p);
-    t <@ BN_M.bNUTIL__cf_mask (cf);
+    cf <@ BN_M._lt_cf_ (a, p);
+    t <@ BNUTIL_M.__cf_mask (cf);
     t <- NOT_64 t;
     err <- (err `|` t);
     return (err);
   }
   
-  proc __addmU (a:BN.t, b:BN.t) : BN.t = {
+  proc _addm_ (r:BN.t, a:BN.t, b:BN.t) : 
+  BN.t = {
     
     var cf:bool;
     var lastbit:W64.t;
     var tmp:BN.t;
     var  _0:bool;
     tmp <- witness;
-    (cf, a) <@ BN_M.__addU (a, b);
+    (cf, r) <@ BN_M._add_ (r, a, b);
     lastbit <- (W64.of_int 0);
     ( _0, lastbit) <- adc_64 lastbit (W64.of_int 0) cf;
     tmp <- glob_mP;
-    a <@ BN_M.__cminusP (lastbit, a, tmp);
+    r <@ BN_M._cminusP_ (r, tmp, lastbit);
+    return (r);
+  }
+  
+  proc _addmU_ (a:BN.t, b:BN.t) : BN.t = {
+    
+    var cf:bool;
+    var lastbit:W64.t;
+    var tmp:BN.t;
+    var  _0:bool;
+    tmp <- witness;
+    (cf, a) <@ BN_M._addU_ (a, b);
+    lastbit <- (W64.of_int 0);
+    ( _0, lastbit) <- adc_64 lastbit (W64.of_int 0) cf;
+    tmp <- glob_mP;
+    a <@ BN_M._cminusP_ (a, tmp, lastbit);
     return (a);
   }
   
-  proc _addmU (a:BN.t, b:BN.t) : BN.t = {
-    
-    
-    
-    a <@ __addmU (a, b);
-    return (a);
-  }
-  
-  proc __submU (a:BN.t, b:BN.t) : BN.t = {
+  proc _subm_ (r:BN.t, a:BN.t, b:BN.t) : 
+  BN.t = {
     
     var cf:bool;
     var tmp:BN.t;
     tmp <- witness;
-    (cf, a) <@ BN_M.__subU (a, b);
+    (cf, r) <@ BN_M._sub_ (r, a, b);
     tmp <- glob_P;
-    a <@ BN_M.__caddU (cf, a, tmp);
+    r <@ BN_M._caddU_ (r, cf, tmp);
+    return (r);
+  }
+  
+  proc _submU_ (a:BN.t, b:BN.t) : BN.t = {
+    
+    var cf:bool;
+    var tmp:BN.t;
+    tmp <- witness;
+    (cf, a) <@ BN_M._subU_ (a, b);
+    tmp <- glob_P;
+    a <@ BN_M._caddU_ (a, cf, tmp);
     return (a);
   }
   
-  proc _submU (a:BN.t, b:BN.t) : BN.t = {
-    
-    
-    
-    a <@ __submU (a, b);
-    return (a);
-  }
-  
-  proc _mulm (a:BN.t, b:BN.t, r:BN.t) : 
+  proc _mulm_ (r:BN.t, a:BN.t, b:BN.t) : 
   BN.t = {
     
     var _tmp:BN2.t;
@@ -119,65 +141,289 @@ module M(P: MParam) = {
     _tmp <- witness;
     tmp <- witness;
     tmp <- _tmp;
-    tmp <@ BN_M.__muln (a, b, tmp);
-    r <@ P.fun_red (tmp, r);
+    tmp <@ BN_M._muln_ (tmp, a, b);
+    r <@ P.fun_red (r, tmp);
     return (r);
   }
   
-  proc _mulmU (a:BN.t, b:BN.t) : BN.t = {
+  proc _mulmU_ (a:BN.t, b:BN.t) : BN.t = {
     
     var _tmp:BN2.t;
     var tmp:BN2.t;
     _tmp <- witness;
     tmp <- witness;
     tmp <- _tmp;
-    tmp <@ BN_M.__muln (a, b, tmp);
-    tmp <- tmp;
-    a <- a;
-    a <@ P.fun_red (tmp, a);
-    a <- a;
+    tmp <@ BN_M._muln_ (tmp, a, b);
+    a <@ P.fun_red (a, tmp);
     return (a);
   }
   
-  proc _sqrm (a:BN.t, r:BN.t) : BN.t = {
+  proc _sqrm_ (r:BN.t, a:BN.t) : BN.t = {
     
     var _tmp:BN2.t;
     var tmp:BN2.t;
     _tmp <- witness;
     tmp <- witness;
     tmp <- _tmp;
-    tmp <@ BN_M.__sqrn (a, tmp);
-    tmp <- tmp;
-    a <- a;
-    r <@ P.fun_red (tmp, r);
-    a <- a;
+    tmp <@ BN_M._sqrn_ (tmp, a);
+    r <@ P.fun_red (r, tmp);
     return (r);
   }
   
-  proc _sqrmU (a:BN.t) : BN.t = {
+  proc _sqrmU_ (a:BN.t) : BN.t = {
     
     var _tmp:BN2.t;
     var tmp:BN2.t;
     _tmp <- witness;
     tmp <- witness;
     tmp <- _tmp;
-    tmp <@ BN_M.__sqrn (a, tmp);
-    a <@ P.fun_red (tmp, a);
+    tmp <@ BN_M._sqrn_ (tmp, a);
+    a <@ P.fun_red (a, tmp);
     return (a);
   }
-
-  module Pexp = {
-   proc fun_mulU = _mulmU
-   proc fun_sqrU = _sqrmU
-  }
-
-  proc __invm (a:BN.t, r:BN.t) : BN.t = {
+  
+  module P_BNEXP = { proc fun_mulU = _mulmU_ 
+                     proc fun_sqrU = _sqrmU_ }
+  
+  proc _invmU_ (a:BN.t) : BN.t = {
     
     var pm2:BN.t;
     pm2 <- witness;
     pm2 <- glob_Pm2;
-    r <@ BNE_M(Pexp)._expm_noct (a, pm2, r);
+    a <@ BNE_M(P_BNEXP)._expmU_noct_ (a, pm2);
+    return (a);
+  }
+}.
+
+
+
+module MLeak(P: MParam) = {
+  proc _chk_bnds_ (err:W64.t, a:BN.t) : W64.t = {
+    var aux_0: bool;
+    var aux_1: W64.t;
+    var aux: BN.t;
+    
+    var p:BN.t;
+    var cf:bool;
+    var t:W64.t;
+    p <- witness;
+    LEAK.leakages <- LeakAddr([]) :: LEAK.leakages;
+    aux <- glob_P;
+    p <- aux;
+    LEAK.leakages <- LeakAddr([]) :: LEAK.leakages;
+    aux_0 <@ BN_MLeak._lt_cf_ (a, p);
+    cf <- aux_0;
+    LEAK.leakages <- LeakAddr([]) :: LEAK.leakages;
+    aux_1 <@ BNUTIL_MLeak.__cf_mask (cf);
+    t <- aux_1;
+    LEAK.leakages <- LeakAddr([]) :: LEAK.leakages;
+    aux_1 <- NOT_64 t;
+    t <- aux_1;
+    LEAK.leakages <- LeakAddr([]) :: LEAK.leakages;
+    aux_1 <- (err `|` t);
+    err <- aux_1;
+    return (err);
+  }
+  
+  proc _addm_ (r:BN.t, a:BN.t, b:BN.t) : 
+  BN.t = {
+    var aux: bool;
+    var aux_1: W64.t;
+    var aux_0: BN.t;
+    
+    var cf:bool;
+    var lastbit:W64.t;
+    var tmp:BN.t;
+    var  _0:bool;
+    tmp <- witness;
+    LEAK.leakages <- LeakAddr([]) :: LEAK.leakages;
+    (aux, aux_0) <@ BN_MLeak._add_ (r, a, b);
+    cf <- aux;
+    r <- aux_0;
+    LEAK.leakages <- LeakAddr([]) :: LEAK.leakages;
+    aux_1 <- (W64.of_int 0);
+    lastbit <- aux_1;
+    LEAK.leakages <- LeakAddr([]) :: LEAK.leakages;
+    (aux, aux_1) <- adc_64 lastbit (W64.of_int 0) cf;
+     _0 <- aux;
+    lastbit <- aux_1;
+    LEAK.leakages <- LeakAddr([]) :: LEAK.leakages;
+    aux_0 <- glob_mP;
+    tmp <- aux_0;
+    LEAK.leakages <- LeakAddr([]) :: LEAK.leakages;
+    aux_0 <@ BN_MLeak._cminusP_ (r, tmp, lastbit);
+    r <- aux_0;
     return (r);
+  }
+  
+  proc _addmU_ (a:BN.t, b:BN.t) : BN.t = {
+    var aux: bool;
+    var aux_1: W64.t;
+    var aux_0: BN.t;
+    
+    var cf:bool;
+    var lastbit:W64.t;
+    var tmp:BN.t;
+    var  _0:bool;
+    tmp <- witness;
+    LEAK.leakages <- LeakAddr([]) :: LEAK.leakages;
+    (aux, aux_0) <@ BN_MLeak._addU_ (a, b);
+    cf <- aux;
+    a <- aux_0;
+    LEAK.leakages <- LeakAddr([]) :: LEAK.leakages;
+    aux_1 <- (W64.of_int 0);
+    lastbit <- aux_1;
+    LEAK.leakages <- LeakAddr([]) :: LEAK.leakages;
+    (aux, aux_1) <- adc_64 lastbit (W64.of_int 0) cf;
+     _0 <- aux;
+    lastbit <- aux_1;
+    LEAK.leakages <- LeakAddr([]) :: LEAK.leakages;
+    aux_0 <- glob_mP;
+    tmp <- aux_0;
+    LEAK.leakages <- LeakAddr([]) :: LEAK.leakages;
+    aux_0 <@ BN_MLeak._cminusP_ (a, tmp, lastbit);
+    a <- aux_0;
+    return (a);
+  }
+  
+  proc _subm_ (r:BN.t, a:BN.t, b:BN.t) : 
+  BN.t = {
+    var aux: bool;
+    var aux_0: BN.t;
+    
+    var cf:bool;
+    var tmp:BN.t;
+    tmp <- witness;
+    LEAK.leakages <- LeakAddr([]) :: LEAK.leakages;
+    (aux, aux_0) <@ BN_MLeak._sub_ (r, a, b);
+    cf <- aux;
+    r <- aux_0;
+    LEAK.leakages <- LeakAddr([]) :: LEAK.leakages;
+    aux_0 <- glob_P;
+    tmp <- aux_0;
+    LEAK.leakages <- LeakAddr([]) :: LEAK.leakages;
+    aux_0 <@ BN_MLeak._caddU_ (r, cf, tmp);
+    r <- aux_0;
+    return (r);
+  }
+  
+  proc _submU_ (a:BN.t, b:BN.t) : BN.t = {
+    var aux: bool;
+    var aux_0: BN.t;
+    
+    var cf:bool;
+    var tmp:BN.t;
+    tmp <- witness;
+    LEAK.leakages <- LeakAddr([]) :: LEAK.leakages;
+    (aux, aux_0) <@ BN_MLeak._subU_ (a, b);
+    cf <- aux;
+    a <- aux_0;
+    LEAK.leakages <- LeakAddr([]) :: LEAK.leakages;
+    aux_0 <- glob_P;
+    tmp <- aux_0;
+    LEAK.leakages <- LeakAddr([]) :: LEAK.leakages;
+    aux_0 <@ BN_MLeak._caddU_ (a, cf, tmp);
+    a <- aux_0;
+    return (a);
+  }
+  
+  proc _mulm_ (r:BN.t, a:BN.t, b:BN.t) : 
+  BN.t = {
+    var aux_0: BN.t;
+    var aux: BN2.t;
+    
+    var _tmp:BN2.t;
+    var tmp:BN2.t;
+    _tmp <- witness;
+    tmp <- witness;
+    LEAK.leakages <- LeakAddr([]) :: LEAK.leakages;
+    aux <- _tmp;
+    tmp <- aux;
+    LEAK.leakages <- LeakAddr([]) :: LEAK.leakages;
+    aux <@ BN_MLeak._muln_ (tmp, a, b);
+    tmp <- aux;
+    LEAK.leakages <- LeakAddr([]) :: LEAK.leakages;
+    aux_0 <@ P.fun_red (r, tmp);
+    r <- aux_0;
+    return (r);
+  }
+  
+  proc _mulmU_ (a:BN.t, b:BN.t) : BN.t = {
+    var aux_0: BN.t;
+    var aux: BN2.t;
+    
+    var _tmp:BN2.t;
+    var tmp:BN2.t;
+    _tmp <- witness;
+    tmp <- witness;
+    LEAK.leakages <- LeakAddr([]) :: LEAK.leakages;
+    aux <- _tmp;
+    tmp <- aux;
+    LEAK.leakages <- LeakAddr([]) :: LEAK.leakages;
+    aux <@ BN_MLeak._muln_ (tmp, a, b);
+    tmp <- aux;
+    LEAK.leakages <- LeakAddr([]) :: LEAK.leakages;
+    aux_0 <@ P.fun_red (a, tmp);
+    a <- aux_0;
+    return (a);
+  }
+  
+  proc _sqrm_ (r:BN.t, a:BN.t) : BN.t = {
+    var aux_0: BN.t;
+    var aux: BN2.t;
+    
+    var _tmp:BN2.t;
+    var tmp:BN2.t;
+    _tmp <- witness;
+    tmp <- witness;
+    LEAK.leakages <- LeakAddr([]) :: LEAK.leakages;
+    aux <- _tmp;
+    tmp <- aux;
+    LEAK.leakages <- LeakAddr([]) :: LEAK.leakages;
+    aux <@ BN_MLeak._sqrn_ (tmp, a);
+    tmp <- aux;
+    LEAK.leakages <- LeakAddr([]) :: LEAK.leakages;
+    aux_0 <@ P.fun_red (r, tmp);
+    r <- aux_0;
+    return (r);
+  }
+  
+  proc _sqrmU_ (a:BN.t) : BN.t = {
+    var aux_0: BN.t;
+    var aux: BN2.t;
+    
+    var _tmp:BN2.t;
+    var tmp:BN2.t;
+    _tmp <- witness;
+    tmp <- witness;
+    LEAK.leakages <- LeakAddr([]) :: LEAK.leakages;
+    aux <- _tmp;
+    tmp <- aux;
+    LEAK.leakages <- LeakAddr([]) :: LEAK.leakages;
+    aux <@ BN_MLeak._sqrn_ (tmp, a);
+    tmp <- aux;
+    LEAK.leakages <- LeakAddr([]) :: LEAK.leakages;
+    aux_0 <@ P.fun_red (a, tmp);
+    a <- aux_0;
+    return (a);
+  }
+  
+  module P_BNEXP = { proc fun_mulU = _mulmU_
+                     proc fun_sqrU = _sqrmU_ }
+
+  proc _invmU_ (a:BN.t) : BN.t = {
+    var aux_0: BN.t;
+    var aux: BN.t;
+    
+    var pm2:BN.t;
+    pm2 <- witness;
+    LEAK.leakages <- LeakAddr([]) :: LEAK.leakages;
+    aux <- glob_Pm2;
+    pm2 <- aux;
+    LEAK.leakages <- LeakAddr([]) :: LEAK.leakages;
+    aux_0 <@ BNE_MLeak(P_BNEXP)._expmU_noct_ (a, pm2);
+    a <- aux_0;
+    return (a);
   }
 }.
 
@@ -207,28 +453,28 @@ local lemma red_h _a:
 proof.
 bypr => &m Ha.
 rewrite Pr [mu_not].
-have ->: Pr[P.fun_red(a{m}, r{m}) @ &m : true] = 1%r.
+have ->: Pr[P.fun_red(r{m}, a{m}) @ &m : true] = 1%r.
  byphoare => //.
  by apply red_ll.
-have ->//: Pr[P.fun_red(a{m}, r{m}) @ &m : res = red_op _a] = 1%r.
+have ->//: Pr[P.fun_red(r{m}, a{m}) @ &m : res = red_op _a] = 1%r.
 byphoare (: a=_a ==> _) => //.
 by apply red_ph. 
 qed.
 
-lemma __chk_bnds_ll: islossless M(P).__chk_bnds.
+lemma _chk_bnds__ll: islossless M(P)._chk_bnds_.
 proof.
 proc; wp.
-call BNB.bNUTIL__cf_mask_ll.
-call BNB.__lt_cf_ll.
+call BNUTIL.__cf_mask_ll.
+call BNB._lt_cf__ll.
 by auto.
 qed.
 
 hoare _mulmU_h _a _b:
- M(P)._mulmU: a=_a /\ b=_b ==> res = mul_op _a _b.
+ M(P)._mulmU_: a=_a /\ b=_b ==> res = mul_op _a _b.
 proof.
 proc; simplify.
 wp; ecall (red_h tmp).
-wp; ecall (BNB.__muln_h a b).
+wp; ecall (BNB._muln__h a b).
 auto => /> r H; rewrite /mul_op.
 by rewrite -H BN2.bnK.
 qed.

@@ -1,4 +1,4 @@
-require import AllCore Int IntDiv.
+require import AllCore Int IntDiv List.
 
 
 from Jasmin require import JModel_x86.
@@ -18,88 +18,23 @@ clone export JBigNumber.BigN
       proof gt0_nlimbs by exact gt0_nlimbs.
 
 import BN2.
+import BN.
 
+require Bn_util.
+clone Bn_util as BNUTIL.
+
+module BNUTIL_M = BNUTIL.M. 
+module BNUTIL_MLeak = BNUTIL.MLeak. 
 
 (******************************************************************************
  **                inclusion of the (parametric) extracted module            **
  ** (collected from "extracted_ths/Bn_base_extr.ec)                          **
  ******************************************************************************)
 
-from JExtract require import Array3.
+from JExtract require export Array3 MLeakage.
 
 module M = {
-  proc bNUTIL__cf_mask (cf:bool) : W64.t = {
-    
-    var mask:W64.t;
-    
-    mask <- (W64.of_int 0);
-    (cf, mask) <- adc_64 mask (W64.of_int 0) cf;
-    mask <- (- mask);
-    return (mask);
-  }
-  proc bNUTIL__mask_cf (mask:W64.t) : bool = {
-    
-    var cf:bool;
-    var t:W64.t;
-    
-    t <- (W64.of_int 0);
-    (cf, t) <- sbb_64 t mask false;
-    return (cf);
-  }
-  
-  proc bNUTIL__addacc3 (b1:W64.t, b0:W64.t, a:W64.t Array3.t, k:int) : 
-  W64.t Array3.t = {
-    var aux: bool;
-    var aux_0: W64.t;
-    
-    var cf:bool;
-    
-    (aux, aux_0) <- adc_64 a.[(k %% 3)] b0 false;
-    cf <- aux;
-    a.[(k %% 3)] <- aux_0;
-    (aux, aux_0) <- adc_64 a.[((k + 1) %% 3)] b1 cf;
-    cf <- aux;
-    a.[((k + 1) %% 3)] <- aux_0;
-    (aux, aux_0) <- adc_64 a.[((k + 2) %% 3)] (W64.of_int 0) cf;
-    cf <- aux;
-    a.[((k + 2) %% 3)] <- aux_0;
-    return (a);
-  }
-  
-  proc bNUTIL__addacc3x2 (x:W64.t, y:W64.t, a:W64.t Array3.t, k:int) : 
-  W64.t Array3.t = {
-    var aux: bool;
-    var aux_0: W64.t;
-    
-    var b1:W64.t;
-    var b0:W64.t;
-    var t:W64.t;
-    var cf:bool;
-    var b2:W64.t;
-    var  _0:bool;
-    var  _1:bool;
-    var  _2:bool;
-    var  _3:bool;
-    
-    (b1, b0) <- mulu_64 x y;
-    t <- b0;
-    b0 <- (b0 `<<` (W8.of_int 1));
-    ( _0, cf,  _1,  _2,  _3, b1) <- SHLD_64 b1 t (W8.of_int 1);
-    b2 <- MOV_64 (W64.of_int 0);
-    (cf, b2) <- adc_64 b2 b2 cf;
-    (aux, aux_0) <- adc_64 a.[(k %% 3)] b0 false;
-    cf <- aux;
-    a.[(k %% 3)] <- aux_0;
-    (aux, aux_0) <- adc_64 a.[((k + 1) %% 3)] b1 cf;
-    cf <- aux;
-    a.[((k + 1) %% 3)] <- aux_0;
-    (aux, aux_0) <- adc_64 a.[((k + 2) %% 3)] b2 cf;
-    cf <- aux;
-    a.[((k + 2) %% 3)] <- aux_0;
-    return (a);
-  }
-  
-  proc __load (ap:W64.t, a:BN.t) : BN.t = {
+  proc __load (a:BN.t, ap:W64.t) : BN.t = {
     var aux: int;
     
     var i:int;
@@ -111,6 +46,25 @@ module M = {
       a.[i] <- t;
       i <- i + 1;
     }
+    return (a);
+  }
+  
+  proc _load (a:BN.t, ap:W64.t) : BN.t = {
+    
+    
+    
+    a <@ __load (a, ap);
+    return (a);
+  }
+  
+  proc _load_ (a:BN.t, ap:W64.t) : BN.t = {
+    
+    
+    
+    a <- a;
+    ap <- ap;
+    a <@ _load (a, ap);
+    a <- a;
     return (a);
   }
   
@@ -127,6 +81,16 @@ module M = {
       storeW64 Glob.mem (W64.to_uint (ap + (W64.of_int (8 * i)))) (t);
       i <- i + 1;
     }
+    return ();
+  }
+  
+  proc _store_ (ap:W64.t, a:BN.t) : unit = {
+    
+    
+    
+    ap <- ap;
+    a <- a;
+    __store (ap, a);
     return ();
   }
   
@@ -155,36 +119,35 @@ module M = {
     return (zf);
   }
   
-  proc __eq (a:BN.t, b:BN.t) : W64.t = {
+  proc _eq_zf (a:BN.t, b:BN.t) : bool = {
+    
+    var zf:bool;
+    
+    zf <@ __eq_zf (a, b);
+    return (zf);
+  }
+  
+  proc _eq_zf_ (a:BN.t, b:BN.t) : bool = {
+    
+    var zf:bool;
+    
+    a <- a;
+    b <- b;
+    zf <@ _eq_zf (a, b);
+    return (zf);
+  }
+  
+  proc _eq_ (a:BN.t, b:BN.t) : W64.t = {
     
     var res_0:W64.t;
     var zf:bool;
     var are_equal:W64.t;
     
-    zf <@ __eq_zf (a, b);
+    zf <@ _eq_zf_ (a, b);
     res_0 <- (W64.of_int 0);
     are_equal <- (W64.of_int 1);
     res_0 <- (zf ? are_equal : res_0);
     return (res_0);
-  }
-  
-  proc _eq (a:BN.t, b:BN.t) : W64.t = {
-    
-    var r:W64.t;
-    
-    r <@ __eq (a, b);
-    return (r);
-  }
-  
-  proc _eq_ (a:BN.t, b:BN.t) : W64.t = {
-    
-    var r:W64.t;
-    
-    a <- a;
-    b <- b;
-    r <@ _eq (a, b);
-    r <- r;
-    return (r);
   }
   
   proc __test0_zf (a:BN.t) : bool = {
@@ -209,7 +172,16 @@ module M = {
     return (zf);
   }
   
-  proc __test0 (a:BN.t) : W64.t = {
+  proc _test0_zf_ (a:BN.t) : bool = {
+    
+    var zf:bool;
+    
+    a <- a;
+    zf <@ __test0_zf (a);
+    return (zf);
+  }
+  
+  proc _test0_ (a:BN.t) : W64.t = {
     
     var res_0:W64.t;
     var is_zero:W64.t;
@@ -217,17 +189,9 @@ module M = {
     
     res_0 <- (W64.of_int 0);
     is_zero <- (W64.of_int 1);
-    zf <@ __test0_zf (a);
+    zf <@ _test0_zf_ (a);
     res_0 <- (zf ? is_zero : res_0);
     return (res_0);
-  }
-  
-  proc _test0 (a:BN.t) : W64.t = {
-    
-    var r:W64.t;
-    
-    r <@ __test0 (a);
-    return (r);
   }
   
   proc __copy (a:BN.t) : BN.t = {
@@ -246,7 +210,7 @@ module M = {
     return (r);
   }
   
-  proc __copy2 (a:BN.t, r:BN.t) : BN.t = {
+  proc __mov (r:BN.t, a:BN.t) : BN.t = {
     var aux: int;
     
     var i:int;
@@ -261,7 +225,26 @@ module M = {
     return (r);
   }
   
-  proc __cmov (cond:bool, a:BN.t, b:BN.t) : BN.t = {
+  proc _mov (r:BN.t, a:BN.t) : BN.t = {
+    
+    
+    
+    r <@ __mov (r, a);
+    return (r);
+  }
+  
+  proc _mov_ (r:BN.t, a:BN.t) : BN.t = {
+    
+    
+    
+    r <- r;
+    a <- a;
+    r <@ _mov (r, a);
+    r <- r;
+    return (r);
+  }
+  
+  proc __cmov (a:BN.t, cond:bool, b:BN.t) : BN.t = {
     var aux: int;
     
     var i:int;
@@ -276,8 +259,27 @@ module M = {
     }
     return (a);
   }
-
-  proc __cswap_mask (mask:W64.t, x:BN.t, y:BN.t) : 
+  
+  proc _cmov (a:BN.t, cond:bool, b:BN.t) : BN.t = {
+    
+    
+    
+    a <@ __cmov (a, cond, b);
+    return (a);
+  }
+  
+  proc _cmov_ (a:BN.t, cond:bool, b:BN.t) : BN.t = {
+    
+    
+    
+    a <- a;
+    b <- b;
+    a <@ _cmov (a, cond, b);
+    a <- a;
+    return (a);
+  }
+  
+  proc __cswap_mask (x:BN.t, y:BN.t, mask:W64.t) : 
   BN.t * BN.t = {
     var aux: int;
     
@@ -295,8 +297,40 @@ module M = {
     }
     return (x, y);
   }
+  
+  proc _cswap_mask (x:BN.t, y:BN.t, mask:W64.t) : 
+  BN.t * BN.t = {
     
-  proc __fill (x:W64.t, a:BN.t) : BN.t = {
+    
+    
+    (x, y) <@ __cswap_mask (x, y, mask);
+    return (x, y);
+  }
+  
+  proc _cswap_mask_ (x:BN.t, y:BN.t, mask:W64.t) : 
+  BN.t * BN.t = {
+    
+    
+    
+    x <- x;
+    y <- y;
+    (x, y) <@ _cswap_mask (x, y, mask);
+    x <- x;
+    y <- y;
+    return (x, y);
+  }
+  
+  proc _cswap_cf_ (x:BN.t, y:BN.t, cf:bool) : 
+  BN.t * BN.t = {
+    
+    var mask:W64.t;
+    
+    mask <@ BNUTIL_M.__cf_mask (cf);
+    (x, y) <@ _cswap_mask_ (x, y, mask);
+    return (x, y);
+  }
+  
+  proc __fill (a:BN.t, x:W64.t) : BN.t = {
     var aux: int;
     
     var i:int;
@@ -309,40 +343,112 @@ module M = {
     return (a);
   }
   
-  proc __set0 (a:BN.t) : BN.t = {
+  proc _fill_ (a:BN.t, x:W64.t) : BN.t = {
+    
+    
+    
+    a <- a;
+    x <- x;
+    a <@ __fill (a, x);
+    a <- a;
+    return (a);
+  }
+  
+  proc _set0_ (a:BN.t) : BN.t = {
     
     var t:W64.t;
     
     t <- (W64.of_int 0);
-    a <@ __fill (t, a);
+    a <@ _fill_ (a, t);
     return (a);
   }
   
-  proc __cfill (b:bool, x:W64.t, a:BN.t) : BN.t = {
+  proc __cfill (a:BN.t, b:bool, x:W64.t) : BN.t = {
+    var aux: int;
+    
+    var i:int;
+    var t:W64.t;
+    
+    i <- 0;
+    while (i < nlimbs) {
+      t <- a.[i];
+      t <- (b ? x : t);
+      a.[i] <- t;
+      i <- i + 1;
+    }
+    return (a);
+  }
+  
+  proc __or_mask (a:BN.t, mask:W64.t) : BN.t = {
     var aux: int;
     
     var i:int;
     
     i <- 0;
     while (i < nlimbs) {
-      a.[i] <- x;
+      a.[i] <- (a.[i] `|` mask);
       i <- i + 1;
     }
     return (a);
   }
   
-  proc __set_err (_err:W64.t, a:BN.t) : BN.t = {
-    var aux: int;
+  proc _or_mask (a:BN.t, mask:W64.t) : BN.t = {
+    
+    
+    
+    a <@ __or_mask (a, mask);
+    return (a);
+  }
+  
+  proc _or_mask_ (a:BN.t, mask:W64.t) : BN.t = {
+    
+    
+    
+    a <- a;
+    mask <- mask;
+    a <@ _or_mask (a, mask);
+    a <- a;
+    return (a);
+  }
+  
+  proc _set_err_ (a:BN.t, _err:W64.t) : BN.t = {
     
     var err:W64.t;
-    var i:int;
     
     err <- _err;
+    a <@ _or_mask_ (a, err);
+    return (a);
+  }
+  
+  proc __and_mask (a:BN.t, mask:W64.t) : BN.t = {
+    var aux: int;
+    
+    var i:int;
+    
     i <- 0;
     while (i < nlimbs) {
-      a.[i] <- (a.[i] `|` err);
+      a.[i] <- (a.[i] `&` mask);
       i <- i + 1;
     }
+    return (a);
+  }
+  
+  proc _and_mask (a:BN.t, mask:W64.t) : BN.t = {
+    
+    
+    
+    a <@ __and_mask (a, mask);
+    return (a);
+  }
+  
+  proc _and_mask_ (a:BN.t, mask:W64.t) : BN.t = {
+    
+    
+    
+    a <- a;
+    mask <- mask;
+    a <@ _and_mask (a, mask);
+    a <- a;
     return (a);
   }
   
@@ -364,42 +470,85 @@ module M = {
     return (cf, a);
   }
   
-  proc __addU (a:BN.t, b:BN.t) : bool *
-                                                         BN.t = {
-    var aux: bool;
-    var aux_1: int;
-    var aux_0: W64.t;
+  proc __addc1U (a:BN.t, b:BN.t, cf:bool) : bool *
+                                                                    BN.t = {
+    var aux_0: bool;
+    var aux: int;
+    var aux_1: W64.t;
     
-    var cf:bool;
-    var t:W64.t;
     var i:int;
+    var t:W64.t;
     
-    t <- b.[0];
-    (aux, aux_0) <- adc_64 a.[0] t false;
-    cf <- aux;
-    a.[0] <- aux_0;
     i <- 1;
     while (i < nlimbs) {
       t <- b.[i];
-      (aux, aux_0) <- adc_64 a.[i] t cf;
-      cf <- aux;
-      a.[i] <- aux_0;
+      (aux_0, aux_1) <- adc_64 a.[i] t cf;
+      cf <- aux_0;
+      a.[i] <- aux_1;
       i <- i + 1;
     }
     return (cf, a);
   }
   
-  proc __add (a:BN.t, b:BN.t, r:BN.t) : 
-  bool * BN.t = {
-    var aux: int;
+  proc _addc1U (a:BN.t, b:BN.t, cf:bool) : bool *
+                                                                   BN.t = {
+    
+    
+    
+    (cf, a) <@ __addc1U (a, b, cf);
+    return (cf, a);
+  }
+  
+  proc _addc1U_ (a:BN.t, b:BN.t, cf:bool) : bool *
+                                                                    BN.t = {
+    
+    
+    
+    a <- a;
+    b <- b;
+    (cf, a) <@ _addc1U (a, b, cf);
+    a <- a;
+    return (cf, a);
+  }
+  
+  proc _addcU_ (a:BN.t, b:BN.t, cf:bool) : bool *
+                                                                   BN.t = {
+    var aux: bool;
+    var aux_0: W64.t;
+    
+    var t:W64.t;
+    
+    t <- b.[0];
+    (aux, aux_0) <- adc_64 a.[0] t cf;
+    cf <- aux;
+    a.[0] <- aux_0;
+    (cf, a) <@ _addc1U_ (a, b, cf);
+    return (cf, a);
+  }
+  
+  proc _addU_ (a:BN.t, b:BN.t) : bool *
+                                                         BN.t = {
+    var aux: bool;
+    var aux_0: W64.t;
     
     var cf:bool;
     var t:W64.t;
-    var i:int;
     
-    t <- a.[0];
-    (cf, t) <- adc_64 t b.[0] false;
-    r.[0] <- t;
+    t <- b.[0];
+    (aux, aux_0) <- adc_64 a.[0] t false;
+    cf <- aux;
+    a.[0] <- aux_0;
+    (cf, a) <@ _addc1U_ (a, b, cf);
+    return (cf, a);
+  }
+  
+  proc __addc1 (r:BN.t, a:BN.t, b:BN.t,
+                  cf:bool) : bool * BN.t = {
+    var aux: int;
+    
+    var i:int;
+    var t:W64.t;
+    
     i <- 1;
     while (i < nlimbs) {
       t <- a.[i];
@@ -410,79 +559,196 @@ module M = {
     return (cf, r);
   }
   
-  proc _addU (a:BN.t, b:BN.t) : bool *
-                                                        BN.t = {
+  proc _addc1 (r:BN.t, a:BN.t, b:BN.t,
+                 cf:bool) : bool * BN.t = {
     
-    var cf:bool;
     
-    (cf, a) <@ __addU (a, b);
-    return (cf, a);
-  }
-  
-  proc _add (a:BN.t, b:BN.t, r:BN.t) : 
-  bool * BN.t = {
     
-    var cf:bool;
-    
-    (cf, r) <@ __add (a, b, r);
+    (cf, r) <@ __addc1 (r, a, b, cf);
     return (cf, r);
   }
   
-  proc __subU (a:BN.t, b:BN.t) : bool *
-                                                         BN.t = {
-    var aux: bool;
-    var aux_1: int;
-    var aux_0: W64.t;
+  proc _addc1_ (r:BN.t, a:BN.t, b:BN.t,
+                  cf:bool) : bool * BN.t = {
+    
+    
+    
+    r <- r;
+    a <- a;
+    b <- b;
+    (cf, r) <@ _addc1 (r, a, b, cf);
+    r <- r;
+    return (cf, r);
+  }
+  
+  proc _add_ (r:BN.t, a:BN.t, b:BN.t) : 
+  bool * BN.t = {
     
     var cf:bool;
     var t:W64.t;
-    var i:int;
     
-    t <- b.[0];
-    (aux, aux_0) <- sbb_64 a.[0] t false;
-    cf <- aux;
-    a.[0] <- aux_0;
+    t <- a.[0];
+    (cf, t) <- adc_64 t b.[0] false;
+    r.[0] <- t;
+    (cf, r) <@ _addc1_ (r, a, b, cf);
+    return (cf, a);
+  }
+  
+  proc _addc_ (r:BN.t, a:BN.t, b:BN.t,
+                 cf:bool) : bool * BN.t = {
+    
+    var t:W64.t;
+    
+    t <- a.[0];
+    (cf, t) <- adc_64 t b.[0] cf;
+    r.[0] <- t;
+    (cf, r) <@ _addc1_ (r, a, b, cf);
+    return (cf, a);
+  }
+  
+  proc __subc1U (a:BN.t, b:BN.t, cf:bool) : bool *
+                                                                    BN.t = {
+    var aux_0: bool;
+    var aux: int;
+    var aux_1: W64.t;
+    
+    var i:int;
+    var t:W64.t;
+    
     i <- 1;
     while (i < nlimbs) {
       t <- b.[i];
-      (aux, aux_0) <- sbb_64 a.[i] t cf;
-      cf <- aux;
-      a.[i] <- aux_0;
+      (aux_0, aux_1) <- sbb_64 a.[i] t cf;
+      cf <- aux_0;
+      a.[i] <- aux_1;
       i <- i + 1;
     }
     return (cf, a);
   }
   
-  proc __sub (a:BN.t, b:BN.t, r:BN.t) : 
-  bool * BN.t = {
-    var aux: int;
+  proc _subc1U (a:BN.t, b:BN.t, cf:bool) : bool *
+                                                                   BN.t = {
+    
+    
+    
+    (cf, a) <@ __subc1U (a, b, cf);
+    return (cf, a);
+  }
+  
+  proc _subc1U_ (a:BN.t, b:BN.t, cf:bool) : bool *
+                                                                    BN.t = {
+    
+    
+    
+    a <- a;
+    b <- b;
+    (cf, a) <@ _subc1U (a, b, cf);
+    a <- a;
+    return (cf, a);
+  }
+  
+  proc _subU_ (a:BN.t, b:BN.t) : bool *
+                                                         BN.t = {
+    var aux: bool;
+    var aux_0: W64.t;
     
     var cf:bool;
     var t:W64.t;
-    var i:int;
     
-    t <- a.[0];
-    (cf, t) <- sbb_64 t b.[0] false;
-    r.[0] <- t;
+    t <- b.[0];
+    (aux, aux_0) <- sbb_64 a.[0] t false;
+    cf <- aux;
+    a.[0] <- aux_0;
+    (cf, a) <@ _subc1U_ (a, b, cf);
+    return (cf, a);
+  }
+  
+  proc _subcU_ (a:BN.t, b:BN.t, cf:bool) : bool *
+                                                                   BN.t = {
+    var aux: bool;
+    var aux_0: W64.t;
+    
+    var t:W64.t;
+    
+    t <- b.[0];
+    (aux, aux_0) <- sbb_64 a.[0] t cf;
+    cf <- aux;
+    a.[0] <- aux_0;
+    (cf, a) <@ _subc1U_ (a, b, cf);
+    return (cf, a);
+  }
+  
+  proc __subc1 (r:BN.t, a:BN.t, b:BN.t,
+                  cf:bool) : bool * BN.t = {
+    var aux: int;
+    
+    var i:int;
+    var t:W64.t;
+    
     i <- 1;
     while (i < nlimbs) {
       t <- a.[i];
-      (cf, t) <- sbb_64 t a.[i] cf;
+      (cf, t) <- sbb_64 t b.[i] cf;
       r.[i] <- t;
       i <- i + 1;
     }
     return (cf, r);
   }
   
-  proc __lt_cf (a:BN.t, b:BN.t) : bool = {
-    var aux: int;
+  proc _subc1 (r:BN.t, a:BN.t, b:BN.t,
+                 cf:bool) : bool * BN.t = {
+    
+    
+    
+    (cf, r) <@ __subc1 (r, a, b, cf);
+    return (cf, r);
+  }
+  
+  proc _subc1_ (r:BN.t, a:BN.t, b:BN.t,
+                  cf:bool) : bool * BN.t = {
+    
+    
+    
+    r <- r;
+    a <- a;
+    b <- b;
+    (cf, r) <@ _subc1 (r, a, b, cf);
+    r <- r;
+    return (cf, r);
+  }
+  
+  proc _sub_ (r:BN.t, a:BN.t, b:BN.t) : 
+  bool * BN.t = {
     
     var cf:bool;
     var t:W64.t;
-    var i:int;
     
     t <- a.[0];
     (cf, t) <- sbb_64 t b.[0] false;
+    r.[0] <- t;
+    (cf, r) <@ _subc1_ (r, a, b, cf);
+    return (cf, r);
+  }
+  
+  proc _subc_ (r:BN.t, a:BN.t, b:BN.t,
+                 cf:bool) : bool * BN.t = {
+    
+    var t:W64.t;
+    
+    t <- a.[0];
+    (cf, t) <- sbb_64 t b.[0] cf;
+    r.[0] <- t;
+    (cf, r) <@ _subc1_ (r, a, b, cf);
+    return (cf, r);
+  }
+  
+  proc __ltc1_cf (a:BN.t, b:BN.t, cf:bool) : 
+  bool = {
+    var aux: int;
+    
+    var i:int;
+    var t:W64.t;
+    
     i <- 1;
     while (i < nlimbs) {
       t <- a.[i];
@@ -492,16 +758,52 @@ module M = {
     return (cf);
   }
   
-  proc __negU (a:BN.t) : BN.t = {
+  proc _ltc1_cf (a:BN.t, b:BN.t, cf:bool) : bool = {
+    
+    
+    
+    cf <@ __ltc1_cf (a, b, cf);
+    return (cf);
+  }
+  
+  proc _ltc1_cf_ (a:BN.t, b:BN.t, cf:bool) : 
+  bool = {
+    
+    
+    
+    a <- a;
+    b <- b;
+    cf <@ _ltc1_cf (a, b, cf);
+    return (cf);
+  }
+  
+  proc _lt_cf_ (a:BN.t, b:BN.t) : bool = {
+    
+    var cf:bool;
+    var t:W64.t;
+    
+    t <- a.[0];
+    (cf, t) <- sbb_64 t b.[0] false;
+    cf <@ _ltc1_cf_ (a, b, cf);
+    return (cf);
+  }
+  
+  proc _ltc_cf_ (a:BN.t, b:BN.t, cf:bool) : bool = {
+    
+    var t:W64.t;
+    
+    t <- a.[0];
+    (cf, t) <- sbb_64 t b.[0] cf;
+    cf <@ _ltc1_cf_ (a, b, cf);
+    return (cf);
+  }
+  
+  proc __negc1U (a:BN.t, cf:bool) : bool * BN.t = {
     var aux: int;
     
     var t:W64.t;
-    var cf:bool;
     var i:int;
     
-    t <- (W64.of_int 0);
-    (cf, t) <- sbb_64 t a.[0] false;
-    a.[0] <- t;
     i <- 1;
     while (i < nlimbs) {
       t <- (W64.of_int 0);
@@ -509,19 +811,57 @@ module M = {
       a.[i] <- t;
       i <- i + 1;
     }
-    return (a);
+    return (cf, a);
   }
   
-  proc __neg (a:BN.t, r:BN.t) : BN.t = {
-    var aux: int;
+  proc _negc1U (a:BN.t, cf:bool) : bool * BN.t = {
     
-    var t:W64.t;
+    
+    
+    (cf, a) <@ __negc1U (a, cf);
+    return (cf, a);
+  }
+  
+  proc _negc1U_ (a:BN.t, cf:bool) : bool * BN.t = {
+    
+    
+    
+    a <- a;
+    (cf, a) <@ _negc1U (a, cf);
+    a <- a;
+    return (cf, a);
+  }
+  
+  proc _negU_ (a:BN.t) : bool * BN.t = {
+    
     var cf:bool;
-    var i:int;
+    var t:W64.t;
     
     t <- (W64.of_int 0);
     (cf, t) <- sbb_64 t a.[0] false;
-    r.[0] <- t;
+    a.[0] <- t;
+    (cf, a) <@ _negc1U_ (a, cf);
+    return (cf, a);
+  }
+  
+  proc _negcU_ (a:BN.t, cf:bool) : bool * BN.t = {
+    
+    var t:W64.t;
+    
+    t <- (W64.of_int 0);
+    (cf, t) <- sbb_64 t a.[0] cf;
+    a.[0] <- t;
+    (cf, a) <@ _negc1U_ (a, cf);
+    return (cf, a);
+  }
+  
+  proc __negc1 (r:BN.t, a:BN.t, cf:bool) : bool *
+                                                                   BN.t = {
+    var aux: int;
+    
+    var t:W64.t;
+    var i:int;
+    
     i <- 1;
     while (i < nlimbs) {
       t <- (W64.of_int 0);
@@ -529,104 +869,88 @@ module M = {
       r.[i] <- t;
       i <- i + 1;
     }
-    return (r);
-  }
-  
-  proc _subU (a:BN.t, b:BN.t) : bool *
-                                                        BN.t = {
-    
-    var cf:bool;
-    
-    (cf, a) <@ __subU (a, b);
-    return (cf, a);
-  }
-  
-  proc _sub (a:BN.t, b:BN.t, r:BN.t) : 
-  bool * BN.t = {
-    
-    var cf:bool;
-    
-    (cf, r) <@ __sub (a, b, r);
     return (cf, r);
   }
   
-  proc __rnd (a:BN.t) : BN.t = {
-(* (for now...)
-    var aux: W8.t Array88.t;
-    a <- a;
-    aux <@ SC.randombytes_88 ((Array88.init (fun i => get8
-                              (WArray88.init64 (fun i => (a).[i])) i)));
-    a <-
-    (A.init (fun i => get64 (WArray88.init8 (fun i => (aux).[i])) i));
-    a <- a;
-*)
-    return (a);
+  proc _negc1 (r:BN.t, a:BN.t, cf:bool) : bool *
+                                                                  BN.t = {
+    
+    
+    
+    (cf, r) <@ __negc1 (r, a, cf);
+    return (cf, r);
   }
   
-  proc __rsample (a:BN.t, bnd:BN.t) : BN.t = {
+  proc _negc1_ (r:BN.t, a:BN.t, cf:bool) : bool *
+                                                                   BN.t = {
     
-    var cf:bool;
     
-    a <@ __rnd (a);
-    cf <@ __lt_cf (a, bnd);
-    while ((! cf)) {
-      a <@ __rnd (a);
-      cf <@ __lt_cf (a, bnd);
-    }
-    return (a);
+    
+    r <- r;
+    a <- a;
+    (cf, r) <@ _negc1 (r, a, cf);
+    r <- r;
+    return (cf, r);
   }
   
-  proc __subU_signabs (a:BN.t, b:BN.t) : bool *
-                                                                 BN.t = {
+  proc _neg_ (r:BN.t, a:BN.t) : bool *
+                                                        BN.t = {
     
     var cf:bool;
-    var tmp:BN.t;
-    var  _0:bool;
-    tmp <- witness;
-    ( _0, tmp) <@ __sub (b, a, tmp);
-    (cf, a) <@ __subU (a, b);
-    a <@ __cmov (cf, a, tmp);
+    var t:W64.t;
+    
+    t <- (W64.of_int 0);
+    (cf, t) <- sbb_64 t a.[0] false;
+    r.[0] <- t;
+    (cf, r) <@ _negc1_ (r, a, cf);
     return (cf, a);
   }
   
-  proc __cnegU (cond:W64.t, a:BN.t) : BN.t = {
+  proc _negc_ (r:BN.t, a:BN.t, cf:bool) : bool *
+                                                                  BN.t = {
     
+    var t:W64.t;
+    
+    t <- (W64.of_int 0);
+    (cf, t) <- sbb_64 t a.[0] cf;
+    r.[0] <- t;
+    (cf, r) <@ _negc1_ (r, a, cf);
+    return (cf, a);
+  }
+  
+  proc _cnegU_ (a:BN.t, cond:W64.t) : BN.t = {
+    
+    var _x:BN.t;
     var x:BN.t;
     var cf:bool;
+    var  _0:bool;
+    _x <- witness;
     x <- witness;
-    x <@ __neg (a, x);
-    cf <@ bNUTIL__mask_cf (cond);
-    a <@ __cmov (cf, a, x);
+    x <- _x;
+    ( _0, x) <@ _neg_ (x, a);
+    cf <@ BNUTIL_M.__mask_cf (cond);
+    a <@ _cmov_ (a, cf, x);
     return (a);
   }
   
-  proc __caddU (cf:bool, x:BN.t, y:BN.t) : BN.t = {
-    var aux: int;
+  proc _caddU_ (x:BN.t, cf:bool, y:BN.t) : BN.t = {
     
     var _tmp:BN.t;
-    var t0:W64.t;
-    var i:int;
-    var t:W64.t;
     var tmp:BN.t;
+    var mask:W64.t;
     var  _0:bool;
     _tmp <- witness;
     tmp <- witness;
-    _tmp <@ __copy (y);
-    t0 <- (W64.of_int 0);
-    i <- 0;
-    while (i < nlimbs) {
-      t <- _tmp.[i];
-      t <- ((! cf) ? t0 : t);
-      _tmp.[i] <- t;
-      i <- i + 1;
-    }
     tmp <- _tmp;
-    ( _0, x) <@ __addU (x, tmp);
+    tmp <@ _mov_ (tmp, y);
+    mask <@ BNUTIL_M.__cf_mask (cf);
+    tmp <@ _and_mask_ (tmp, mask);
+    ( _0, x) <@ _addU_ (x, tmp);
     return (x);
   }
   
-  proc __muln_innerloop (k:int, istart:int, iend:int, a:BN.t,
-                           b:BN.t, x:W64.t Array3.t) : W64.t Array3.t = {
+  proc __muln_innerloop (x:W64.t Array3.t, k:int, istart:int, iend:int,
+                           a:BN.t, b:BN.t) : W64.t Array3.t = {
     var aux: int;
     
     var i:int;
@@ -640,13 +964,13 @@ module M = {
       j <- (k - i);
       t0 <- a.[i];
       (t1, t0) <- mulu_64 t0 b.[j];
-      x <@ bNUTIL__addacc3 (t1, t0, x, k);
+      x <@ BNUTIL_M.__addacc3 (x, t1, t0, k);
       i <- i + 1;
     }
     return (x);
   }
   
-  proc __muln (a:BN.t, b:BN.t, r:BN2.t) : 
+  proc __muln (r:BN2.t, a:BN.t, b:BN.t) : 
   BN2.t = {
     var aux: int;
     
@@ -663,7 +987,7 @@ module M = {
     x.[0] <- (W64.of_int 0);
     k <- 1;
     while (k < nlimbs) {
-      x <@ __muln_innerloop (k, 0, (k + 1), a, b, x);
+      x <@ __muln_innerloop (x, k, 0, (k + 1), a, b);
       t0 <- x.[(k %% 3)];
       x.[(k %% 3)] <- (W64.of_int 0);
       r.[k] <- t0;
@@ -672,7 +996,7 @@ module M = {
     aux <- ((2 * nlimbs) - 1);
     k <- nlimbs;
     while (k < aux) {
-      x <@ __muln_innerloop (k, ((k - nlimbs) + 1), nlimbs, a, b, x);
+      x <@ __muln_innerloop (x, k, ((k - nlimbs) + 1), nlimbs, a, b);
       t0 <- x.[(k %% 3)];
       x.[(k %% 3)] <- (W64.of_int 0);
       r.[k] <- t0;
@@ -682,17 +1006,30 @@ module M = {
     return (r);
   }
   
-  proc _muln (a:BN.t, b:BN.t, r:BN2.t) : 
+  proc _muln (r:BN2.t, a:BN.t, b:BN.t) : 
   BN2.t = {
     
     
     
-    r <@ __muln (a, b, r);
+    r <@ __muln (r, a, b);
     return (r);
   }
   
-  proc __sqrn_innerloop (k:int, istart:int, iend:int, a:BN.t,
-                           x:W64.t Array3.t) : W64.t Array3.t = {
+  proc _muln_ (r:BN2.t, a:BN.t, b:BN.t) : 
+  BN2.t = {
+    
+    
+    
+    r <- r;
+    a <- a;
+    b <- b;
+    r <@ _muln (r, a, b);
+    r <- r;
+    return (r);
+  }
+  
+  proc __sqrn_innerloop (x:W64.t Array3.t, k:int, istart:int, iend:int,
+                           a:BN.t) : W64.t Array3.t = {
     var aux: int;
     
     var i:int;
@@ -706,13 +1043,13 @@ module M = {
       j <- (k - i);
       ti <- a.[i];
       tj <- a.[j];
-      x <@ bNUTIL__addacc3x2 (ti, tj, x, k);
+      x <@ BNUTIL_M.__addacc3x2 (x, ti, tj, k);
       i <- i + 1;
     }
     return (x);
   }
   
-  proc __sqrn (a:BN.t, r:BN2.t) : BN2.t = {
+  proc __sqrn (r:BN2.t, a:BN.t) : BN2.t = {
     var aux: int;
     
     var t0:W64.t;
@@ -728,11 +1065,11 @@ module M = {
     x.[0] <- (W64.of_int 0);
     k <- 1;
     while (k < nlimbs) {
-      x <@ __sqrn_innerloop (k, 0, ((k + 1) %/ 2), a, x);
+      x <@ __sqrn_innerloop (x, k, 0, ((k + 1) %/ 2), a);
       if (((k %% 2) = 0)) {
         t0 <- a.[(k %/ 2)];
         (t1, t0) <- mulu_64 t0 t0;
-        x <@ bNUTIL__addacc3 (t1, t0, x, k);
+        x <@ BNUTIL_M.__addacc3 (x, t1, t0, k);
       } else {
         
       }
@@ -744,11 +1081,11 @@ module M = {
     aux <- ((2 * nlimbs) - 1);
     k <- nlimbs;
     while (k < aux) {
-      x <@ __sqrn_innerloop (k, ((k - nlimbs) + 1), ((k + 1) %/ 2), a, x);
+      x <@ __sqrn_innerloop (x, k, ((k - nlimbs) + 1), ((k + 1) %/ 2), a);
       if (((k %% 2) = 0)) {
         t0 <- a.[(k %/ 2)];
         (t1, t0) <- mulu_64 t0 t0;
-        x <@ bNUTIL__addacc3 (t1, t0, x, k);
+        x <@ BNUTIL_M.__addacc3 (x, t1, t0, k);
       } else {
         
       }
@@ -761,15 +1098,26 @@ module M = {
     return (r);
   }
   
-  proc _sqrn (a:BN.t, r:BN2.t) : BN2.t = {
+  proc _sqrn (r:BN2.t, a:BN.t) : BN2.t = {
     
     
     
-    r <@ __sqrn (a, r);
+    r <@ __sqrn (r, a);
     return (r);
   }
   
-  proc __cminusP (lastbit:W64.t, x:BN.t, mP:BN.t) : 
+  proc _sqrn_ (r:BN2.t, a:BN.t) : BN2.t = {
+    
+    
+    
+    r <- r;
+    a <- a;
+    r <@ _sqrn (r, a);
+    r <- r;
+    return (r);
+  }
+  
+  proc _cminusP_ (x:BN.t, mP:BN.t, lastbit:W64.t) : 
   BN.t = {
     
     var _tmp:BN.t;
@@ -783,16 +1131,16 @@ module M = {
     var  _5:W64.t;
     _tmp <- witness;
     tmp <- witness;
-    _tmp <@ __copy (x);
     tmp <- _tmp;
-    (_cf, tmp) <@ __addU (tmp, mP);
+    tmp <@ _mov_ (tmp, x);
+    (_cf, tmp) <@ _addU_ (tmp, mP);
     ( _0, lastbit) <- adc_64 lastbit (W64.of_int 0) _cf;
     ( _1, _cf,  _2,  _3,  _4,  _5) <- NEG_64 lastbit;
-    x <@ __cmov (_cf, x, tmp);
+    x <@ _cmov_ (x, _cf, tmp);
     return (x);
   }
   
-  proc __mont_redM (a:BN2.t, r:BN.t,
+  proc __mont_redM (r:BN.t, a:BN2.t,
                       _P:BN.t, _mP:BN.t, _U0:W64.t) : 
   BN.t = {
     var aux_0: bool;
@@ -819,25 +1167,25 @@ module M = {
     k <- 0;
     while (k < nlimbs) {
       p <- _P;
-      x <@ __muln_innerloop (k, 0, k, r, p, x);
+      x <@ __muln_innerloop (x, k, 0, k, r, p);
       zero <- (W64.of_int 0);
       t0 <- a.[k];
-      x <@ bNUTIL__addacc3 (zero, t0, x, k);
+      x <@ BNUTIL_M.__addacc3 (x, zero, t0, k);
       t0 <- x.[(k %% 3)];
       ( _0, t0) <- mulu_64 t0 _U0;
       r.[k] <- t0;
       (t1, t0) <- mulu_64 t0 _P.[0];
-      x <@ bNUTIL__addacc3 (t1, t0, x, k);
+      x <@ BNUTIL_M.__addacc3 (x, t1, t0, k);
       k <- k + 1;
     }
     aux <- ((2 * nlimbs) - 1);
     k <- nlimbs;
     while (k < aux) {
       p <- _P;
-      x <@ __muln_innerloop (k, ((k - nlimbs) + 1), nlimbs, r, p, x);
+      x <@ __muln_innerloop (x, k, ((k - nlimbs) + 1), nlimbs, r, p);
       zero <- (W64.of_int 0);
       t0 <- a.[k];
-      x <@ bNUTIL__addacc3 (zero, t0, x, k);
+      x <@ BNUTIL_M.__addacc3 (x, zero, t0, k);
       t0 <- x.[(k %% 3)];
       r.[(k - nlimbs)] <- t0;
       x.[(k %% 3)] <- (W64.of_int 0);
@@ -851,11 +1199,11 @@ module M = {
     ( _1, lastbit) <- adc_64 lastbit (W64.of_int 0) cf;
     r.[(nlimbs - 1)] <- x.[(((2 * nlimbs) - 1) %% 3)];
     mP <- _mP;
-    r <@ __cminusP (lastbit, r, mP);
+    r <@ _cminusP_ (r, mP, lastbit);
     return (r);
   }
   
-  proc __pack2 (lo:BN.t, hi:BN.t, r:BN2.t) : 
+  proc __pack2 (r:BN2.t, lo:BN.t, hi:BN.t) : 
   BN2.t = {
     var aux: int;
     
@@ -876,129 +1224,2516 @@ module M = {
     }
     return (r);
   }
+  
+  proc _pack2_ (r:BN2.t, lo:BN.t, hi:BN.t) : 
+  BN2.t = {
+    
+    
+    
+    r <- r;
+    lo <- lo;
+    hi <- hi;
+    r <@ __pack2 (r, lo, hi);
+    r <- r;
+    return (r);
+  }
 }.
+
+
+
+
+module MLeak = {
+  proc __load (a:BN.t, ap:W64.t) : BN.t = {
+    var aux: int;
+    var aux_0: W64.t;
+    
+    var i:int;
+    var t:W64.t;
+    
+    LEAK.leakages <- LeakFor(0,nlimbs) :: LeakAddr([]) :: LEAK.leakages;
+    i <- 0;
+    while (i < nlimbs) {
+      LEAK.leakages <- LeakAddr([(W64.to_uint (ap + (W64.of_int (8 * i))))]) :: LEAK.leakages;
+      aux_0 <- (loadW64 Glob.mem (W64.to_uint (ap + (W64.of_int (8 * i)))));
+      t <- aux_0;
+      LEAK.leakages <- LeakAddr([]) :: LEAK.leakages;
+      aux_0 <- t;
+      LEAK.leakages <- LeakAddr([i]) :: LEAK.leakages;
+      a.[i] <- aux_0;
+      i <- i + 1;
+    }
+    return (a);
+  }
+  
+  proc _load (a:BN.t, ap:W64.t) : BN.t = {
+    var aux: BN.t;
+    
+    
+    
+    LEAK.leakages <- LeakAddr([]) :: LEAK.leakages;
+    aux <@ __load (a, ap);
+    a <- aux;
+    return (a);
+  }
+  
+  proc _load_ (a:BN.t, ap:W64.t) : BN.t = {
+    var aux_0: W64.t;
+    var aux: BN.t;
+    
+    
+    
+    LEAK.leakages <- LeakAddr([]) :: LEAK.leakages;
+    aux <- a;
+    a <- aux;
+    LEAK.leakages <- LeakAddr([]) :: LEAK.leakages;
+    aux_0 <- ap;
+    ap <- aux_0;
+    LEAK.leakages <- LeakAddr([]) :: LEAK.leakages;
+    aux <@ _load (a, ap);
+    a <- aux;
+    LEAK.leakages <- LeakAddr([]) :: LEAK.leakages;
+    aux <- a;
+    a <- aux;
+    return (a);
+  }
+  
+  proc __store (ap:W64.t, a:BN.t) : unit = {
+    var aux: int;
+    var aux_0: W64.t;
+    
+    var i:int;
+    var t:W64.t;
+    
+    LEAK.leakages <- LeakFor(0,nlimbs) :: LeakAddr([]) :: LEAK.leakages;
+    i <- 0;
+    while (i < nlimbs) {
+      LEAK.leakages <- LeakAddr([i]) :: LEAK.leakages;
+      aux_0 <- a.[i];
+      t <- aux_0;
+      LEAK.leakages <- LeakAddr([]) :: LEAK.leakages;
+      aux_0 <- t;
+      LEAK.leakages <- LeakAddr([(W64.to_uint (ap + (W64.of_int (8 * i))))]) :: LEAK.leakages;
+      Glob.mem <-
+      storeW64 Glob.mem (W64.to_uint (ap + (W64.of_int (8 * i)))) (aux_0);
+      i <- i + 1;
+    }
+    return ();
+  }
+  
+  proc _store_ (ap:W64.t, a:BN.t) : unit = {
+    var aux: W64.t;
+    var aux_0: BN.t;
+    
+    
+    
+    LEAK.leakages <- LeakAddr([]) :: LEAK.leakages;
+    aux <- ap;
+    ap <- aux;
+    LEAK.leakages <- LeakAddr([]) :: LEAK.leakages;
+    aux_0 <- a;
+    a <- aux_0;
+    LEAK.leakages <- LeakAddr([]) :: LEAK.leakages;
+    __store (ap, a);
+    return ();
+  }
+  
+  proc __eq_zf (a:BN.t, b:BN.t) : bool = {
+    var aux_5: bool;
+    var aux_4: bool;
+    var aux_3: bool;
+    var aux_2: bool;
+    var aux_1: bool;
+    var aux_0: int;
+    var aux: W64.t;
+    
+    var zf:bool;
+    var acc:W64.t;
+    var i:int;
+    var t:W64.t;
+    var  _0:bool;
+    var  _1:bool;
+    var  _2:bool;
+    var  _3:bool;
+    var  _4:W64.t;
+    
+    LEAK.leakages <- LeakAddr([]) :: LEAK.leakages;
+    aux <- (W64.of_int 0);
+    acc <- aux;
+    LEAK.leakages <- LeakFor(0,nlimbs) :: LeakAddr([]) :: LEAK.leakages;
+    i <- 0;
+    while (i < nlimbs) {
+      LEAK.leakages <- LeakAddr([i]) :: LEAK.leakages;
+      aux <- a.[i];
+      t <- aux;
+      LEAK.leakages <- LeakAddr([i]) :: LEAK.leakages;
+      aux <- (t `^` b.[i]);
+      t <- aux;
+      LEAK.leakages <- LeakAddr([]) :: LEAK.leakages;
+      aux <- (acc `|` t);
+      acc <- aux;
+      i <- i + 1;
+    }
+    LEAK.leakages <- LeakAddr([]) :: LEAK.leakages;
+    (aux_5, aux_4, aux_3, aux_2, aux_1, aux) <- AND_64 acc acc;
+     _0 <- aux_5;
+     _1 <- aux_4;
+     _2 <- aux_3;
+     _3 <- aux_2;
+    zf <- aux_1;
+     _4 <- aux;
+    return (zf);
+  }
+  
+  proc _eq_zf (a:BN.t, b:BN.t) : bool = {
+    var aux: bool;
+    
+    var zf:bool;
+    
+    LEAK.leakages <- LeakAddr([]) :: LEAK.leakages;
+    aux <@ __eq_zf (a, b);
+    zf <- aux;
+    return (zf);
+  }
+  
+  proc _eq_zf_ (a:BN.t, b:BN.t) : bool = {
+    var aux_0: bool;
+    var aux: BN.t;
+    
+    var zf:bool;
+    
+    LEAK.leakages <- LeakAddr([]) :: LEAK.leakages;
+    aux <- a;
+    a <- aux;
+    LEAK.leakages <- LeakAddr([]) :: LEAK.leakages;
+    aux <- b;
+    b <- aux;
+    LEAK.leakages <- LeakAddr([]) :: LEAK.leakages;
+    aux_0 <@ _eq_zf (a, b);
+    zf <- aux_0;
+    return (zf);
+  }
+  
+  proc _eq_ (a:BN.t, b:BN.t) : W64.t = {
+    var aux: bool;
+    var aux_0: W64.t;
+    
+    var res_0:W64.t;
+    var zf:bool;
+    var are_equal:W64.t;
+    
+    LEAK.leakages <- LeakAddr([]) :: LEAK.leakages;
+    aux <@ _eq_zf_ (a, b);
+    zf <- aux;
+    LEAK.leakages <- LeakAddr([]) :: LEAK.leakages;
+    aux_0 <- (W64.of_int 0);
+    res_0 <- aux_0;
+    LEAK.leakages <- LeakAddr([]) :: LEAK.leakages;
+    aux_0 <- (W64.of_int 1);
+    are_equal <- aux_0;
+    LEAK.leakages <- LeakAddr([]) :: LEAK.leakages;
+    aux_0 <- (zf ? are_equal : res_0);
+    res_0 <- aux_0;
+    return (res_0);
+  }
+  
+  proc __test0_zf (a:BN.t) : bool = {
+    var aux_5: bool;
+    var aux_4: bool;
+    var aux_3: bool;
+    var aux_2: bool;
+    var aux_1: bool;
+    var aux_0: int;
+    var aux: W64.t;
+    
+    var zf:bool;
+    var acc:W64.t;
+    var i:int;
+    var  _0:bool;
+    var  _1:bool;
+    var  _2:bool;
+    var  _3:bool;
+    var  _4:W64.t;
+    
+    LEAK.leakages <- LeakAddr([0]) :: LEAK.leakages;
+    aux <- a.[0];
+    acc <- aux;
+    LEAK.leakages <- LeakFor(1,nlimbs) :: LeakAddr([]) :: LEAK.leakages;
+    i <- 1;
+    while (i < nlimbs) {
+      LEAK.leakages <- LeakAddr([i]) :: LEAK.leakages;
+      aux <- (acc `|` a.[i]);
+      acc <- aux;
+      i <- i + 1;
+    }
+    LEAK.leakages <- LeakAddr([]) :: LEAK.leakages;
+    (aux_5, aux_4, aux_3, aux_2, aux_1, aux) <- AND_64 acc acc;
+     _0 <- aux_5;
+     _1 <- aux_4;
+     _2 <- aux_3;
+     _3 <- aux_2;
+    zf <- aux_1;
+     _4 <- aux;
+    return (zf);
+  }
+  
+  proc _test0_zf_ (a:BN.t) : bool = {
+    var aux_0: bool;
+    var aux: BN.t;
+    
+    var zf:bool;
+    
+    LEAK.leakages <- LeakAddr([]) :: LEAK.leakages;
+    aux <- a;
+    a <- aux;
+    LEAK.leakages <- LeakAddr([]) :: LEAK.leakages;
+    aux_0 <@ __test0_zf (a);
+    zf <- aux_0;
+    return (zf);
+  }
+  
+  proc _test0_ (a:BN.t) : W64.t = {
+    var aux_0: bool;
+    var aux: W64.t;
+    
+    var res_0:W64.t;
+    var is_zero:W64.t;
+    var zf:bool;
+    
+    LEAK.leakages <- LeakAddr([]) :: LEAK.leakages;
+    aux <- (W64.of_int 0);
+    res_0 <- aux;
+    LEAK.leakages <- LeakAddr([]) :: LEAK.leakages;
+    aux <- (W64.of_int 1);
+    is_zero <- aux;
+    LEAK.leakages <- LeakAddr([]) :: LEAK.leakages;
+    aux_0 <@ _test0_zf_ (a);
+    zf <- aux_0;
+    LEAK.leakages <- LeakAddr([]) :: LEAK.leakages;
+    aux <- (zf ? is_zero : res_0);
+    res_0 <- aux;
+    return (res_0);
+  }
+  
+  proc __copy (a:BN.t) : BN.t = {
+    var aux: int;
+    var aux_0: W64.t;
+    
+    var r:BN.t;
+    var i:int;
+    var t:W64.t;
+    r <- witness;
+    LEAK.leakages <- LeakFor(0,nlimbs) :: LeakAddr([]) :: LEAK.leakages;
+    i <- 0;
+    while (i < nlimbs) {
+      LEAK.leakages <- LeakAddr([i]) :: LEAK.leakages;
+      aux_0 <- a.[i];
+      t <- aux_0;
+      LEAK.leakages <- LeakAddr([]) :: LEAK.leakages;
+      aux_0 <- t;
+      LEAK.leakages <- LeakAddr([i]) :: LEAK.leakages;
+      r.[i] <- aux_0;
+      i <- i + 1;
+    }
+    return (r);
+  }
+  
+  proc __mov (r:BN.t, a:BN.t) : BN.t = {
+    var aux: int;
+    var aux_0: W64.t;
+    
+    var i:int;
+    var t:W64.t;
+    
+    LEAK.leakages <- LeakFor(0,nlimbs) :: LeakAddr([]) :: LEAK.leakages;
+    i <- 0;
+    while (i < nlimbs) {
+      LEAK.leakages <- LeakAddr([i]) :: LEAK.leakages;
+      aux_0 <- a.[i];
+      t <- aux_0;
+      LEAK.leakages <- LeakAddr([]) :: LEAK.leakages;
+      aux_0 <- t;
+      LEAK.leakages <- LeakAddr([i]) :: LEAK.leakages;
+      r.[i] <- aux_0;
+      i <- i + 1;
+    }
+    return (r);
+  }
+  
+  proc _mov (r:BN.t, a:BN.t) : BN.t = {
+    var aux: BN.t;
+    
+    
+    
+    LEAK.leakages <- LeakAddr([]) :: LEAK.leakages;
+    aux <@ __mov (r, a);
+    r <- aux;
+    return (r);
+  }
+  
+  proc _mov_ (r:BN.t, a:BN.t) : BN.t = {
+    var aux: BN.t;
+    
+    
+    
+    LEAK.leakages <- LeakAddr([]) :: LEAK.leakages;
+    aux <- r;
+    r <- aux;
+    LEAK.leakages <- LeakAddr([]) :: LEAK.leakages;
+    aux <- a;
+    a <- aux;
+    LEAK.leakages <- LeakAddr([]) :: LEAK.leakages;
+    aux <@ _mov (r, a);
+    r <- aux;
+    LEAK.leakages <- LeakAddr([]) :: LEAK.leakages;
+    aux <- r;
+    r <- aux;
+    return (r);
+  }
+  
+  proc __cmov (a:BN.t, cond:bool, b:BN.t) : BN.t = {
+    var aux: int;
+    var aux_0: W64.t;
+    
+    var i:int;
+    var t:W64.t;
+    
+    LEAK.leakages <- LeakFor(0,nlimbs) :: LeakAddr([]) :: LEAK.leakages;
+    i <- 0;
+    while (i < nlimbs) {
+      LEAK.leakages <- LeakAddr([i]) :: LEAK.leakages;
+      aux_0 <- a.[i];
+      t <- aux_0;
+      LEAK.leakages <- LeakAddr([i]) :: LEAK.leakages;
+      aux_0 <- (cond ? b.[i] : t);
+      t <- aux_0;
+      LEAK.leakages <- LeakAddr([]) :: LEAK.leakages;
+      aux_0 <- t;
+      LEAK.leakages <- LeakAddr([i]) :: LEAK.leakages;
+      a.[i] <- aux_0;
+      i <- i + 1;
+    }
+    return (a);
+  }
+  
+  proc _cmov (a:BN.t, cond:bool, b:BN.t) : BN.t = {
+    var aux: BN.t;
+    
+    
+    
+    LEAK.leakages <- LeakAddr([]) :: LEAK.leakages;
+    aux <@ __cmov (a, cond, b);
+    a <- aux;
+    return (a);
+  }
+  
+  proc _cmov_ (a:BN.t, cond:bool, b:BN.t) : BN.t = {
+    var aux: BN.t;
+    
+    
+    
+    LEAK.leakages <- LeakAddr([]) :: LEAK.leakages;
+    aux <- a;
+    a <- aux;
+    LEAK.leakages <- LeakAddr([]) :: LEAK.leakages;
+    aux <- b;
+    b <- aux;
+    LEAK.leakages <- LeakAddr([]) :: LEAK.leakages;
+    aux <@ _cmov (a, cond, b);
+    a <- aux;
+    LEAK.leakages <- LeakAddr([]) :: LEAK.leakages;
+    aux <- a;
+    a <- aux;
+    return (a);
+  }
+  
+  proc __cswap_mask (x:BN.t, y:BN.t, mask:W64.t) : 
+  BN.t * BN.t = {
+    var aux: int;
+    var aux_0: W64.t;
+    
+    var i:int;
+    var tmp1:W64.t;
+    
+    LEAK.leakages <- LeakFor(0,nlimbs) :: LeakAddr([]) :: LEAK.leakages;
+    i <- 0;
+    while (i < nlimbs) {
+      LEAK.leakages <- LeakAddr([i]) :: LEAK.leakages;
+      aux_0 <- x.[i];
+      tmp1 <- aux_0;
+      LEAK.leakages <- LeakAddr([i]) :: LEAK.leakages;
+      aux_0 <- (tmp1 `^` y.[i]);
+      tmp1 <- aux_0;
+      LEAK.leakages <- LeakAddr([]) :: LEAK.leakages;
+      aux_0 <- (tmp1 `&` mask);
+      tmp1 <- aux_0;
+      LEAK.leakages <- LeakAddr([i]) :: LEAK.leakages;
+      aux_0 <- (x.[i] `^` tmp1);
+      LEAK.leakages <- LeakAddr([i]) :: LEAK.leakages;
+      x.[i] <- aux_0;
+      LEAK.leakages <- LeakAddr([i]) :: LEAK.leakages;
+      aux_0 <- (y.[i] `^` tmp1);
+      LEAK.leakages <- LeakAddr([i]) :: LEAK.leakages;
+      y.[i] <- aux_0;
+      i <- i + 1;
+    }
+    return (x, y);
+  }
+  
+  proc _cswap_mask (x:BN.t, y:BN.t, mask:W64.t) : 
+  BN.t * BN.t = {
+    var aux_0: BN.t;
+    var aux: BN.t;
+    
+    
+    
+    LEAK.leakages <- LeakAddr([]) :: LEAK.leakages;
+    (aux_0, aux) <@ __cswap_mask (x, y, mask);
+    x <- aux_0;
+    y <- aux;
+    return (x, y);
+  }
+  
+  proc _cswap_mask_ (x:BN.t, y:BN.t, mask:W64.t) : 
+  BN.t * BN.t = {
+    var aux_0: BN.t;
+    var aux: BN.t;
+    
+    
+    
+    LEAK.leakages <- LeakAddr([]) :: LEAK.leakages;
+    aux_0 <- x;
+    x <- aux_0;
+    LEAK.leakages <- LeakAddr([]) :: LEAK.leakages;
+    aux_0 <- y;
+    y <- aux_0;
+    LEAK.leakages <- LeakAddr([]) :: LEAK.leakages;
+    (aux_0, aux) <@ _cswap_mask (x, y, mask);
+    x <- aux_0;
+    y <- aux;
+    LEAK.leakages <- LeakAddr([]) :: LEAK.leakages;
+    aux_0 <- x;
+    x <- aux_0;
+    LEAK.leakages <- LeakAddr([]) :: LEAK.leakages;
+    aux_0 <- y;
+    y <- aux_0;
+    return (x, y);
+  }
+  
+  proc _cswap_cf_ (x:BN.t, y:BN.t, cf:bool) : 
+  BN.t * BN.t = {
+    var aux: W64.t;
+    var aux_1: BN.t;
+    var aux_0: BN.t;
+    
+    var mask:W64.t;
+    
+    LEAK.leakages <- LeakAddr([]) :: LEAK.leakages;
+    aux <@ BNUTIL_MLeak.__cf_mask (cf);
+    mask <- aux;
+    LEAK.leakages <- LeakAddr([]) :: LEAK.leakages;
+    (aux_1, aux_0) <@ _cswap_mask_ (x, y, mask);
+    x <- aux_1;
+    y <- aux_0;
+    return (x, y);
+  }
+  
+  proc __fill (a:BN.t, x:W64.t) : BN.t = {
+    var aux: int;
+    var aux_0: W64.t;
+    
+    var i:int;
+    
+    LEAK.leakages <- LeakFor(0,nlimbs) :: LeakAddr([]) :: LEAK.leakages;
+    i <- 0;
+    while (i < nlimbs) {
+      LEAK.leakages <- LeakAddr([]) :: LEAK.leakages;
+      aux_0 <- x;
+      LEAK.leakages <- LeakAddr([i]) :: LEAK.leakages;
+      a.[i] <- aux_0;
+      i <- i + 1;
+    }
+    return (a);
+  }
+  
+  proc _fill_ (a:BN.t, x:W64.t) : BN.t = {
+    var aux_0: W64.t;
+    var aux: BN.t;
+    
+    
+    
+    LEAK.leakages <- LeakAddr([]) :: LEAK.leakages;
+    aux <- a;
+    a <- aux;
+    LEAK.leakages <- LeakAddr([]) :: LEAK.leakages;
+    aux_0 <- x;
+    x <- aux_0;
+    LEAK.leakages <- LeakAddr([]) :: LEAK.leakages;
+    aux <@ __fill (a, x);
+    a <- aux;
+    LEAK.leakages <- LeakAddr([]) :: LEAK.leakages;
+    aux <- a;
+    a <- aux;
+    return (a);
+  }
+  
+  proc _set0_ (a:BN.t) : BN.t = {
+    var aux: W64.t;
+    var aux_0: BN.t;
+    
+    var t:W64.t;
+    
+    LEAK.leakages <- LeakAddr([]) :: LEAK.leakages;
+    aux <- (W64.of_int 0);
+    t <- aux;
+    LEAK.leakages <- LeakAddr([]) :: LEAK.leakages;
+    aux_0 <@ _fill_ (a, t);
+    a <- aux_0;
+    return (a);
+  }
+  
+  proc __cfill (a:BN.t, b:bool, x:W64.t) : BN.t = {
+    var aux: int;
+    var aux_0: W64.t;
+    
+    var i:int;
+    var t:W64.t;
+    
+    LEAK.leakages <- LeakFor(0,nlimbs) :: LeakAddr([]) :: LEAK.leakages;
+    i <- 0;
+    while (i < nlimbs) {
+      LEAK.leakages <- LeakAddr([i]) :: LEAK.leakages;
+      aux_0 <- a.[i];
+      t <- aux_0;
+      LEAK.leakages <- LeakAddr([]) :: LEAK.leakages;
+      aux_0 <- (b ? x : t);
+      t <- aux_0;
+      LEAK.leakages <- LeakAddr([]) :: LEAK.leakages;
+      aux_0 <- t;
+      LEAK.leakages <- LeakAddr([i]) :: LEAK.leakages;
+      a.[i] <- aux_0;
+      i <- i + 1;
+    }
+    return (a);
+  }
+  
+  proc __or_mask (a:BN.t, mask:W64.t) : BN.t = {
+    var aux: int;
+    var aux_0: W64.t;
+    
+    var i:int;
+    
+    LEAK.leakages <- LeakFor(0,nlimbs) :: LeakAddr([]) :: LEAK.leakages;
+    i <- 0;
+    while (i < nlimbs) {
+      LEAK.leakages <- LeakAddr([i]) :: LEAK.leakages;
+      aux_0 <- (a.[i] `|` mask);
+      LEAK.leakages <- LeakAddr([i]) :: LEAK.leakages;
+      a.[i] <- aux_0;
+      i <- i + 1;
+    }
+    return (a);
+  }
+  
+  proc _or_mask (a:BN.t, mask:W64.t) : BN.t = {
+    var aux: BN.t;
+    
+    
+    
+    LEAK.leakages <- LeakAddr([]) :: LEAK.leakages;
+    aux <@ __or_mask (a, mask);
+    a <- aux;
+    return (a);
+  }
+  
+  proc _or_mask_ (a:BN.t, mask:W64.t) : BN.t = {
+    var aux_0: W64.t;
+    var aux: BN.t;
+    
+    
+    
+    LEAK.leakages <- LeakAddr([]) :: LEAK.leakages;
+    aux <- a;
+    a <- aux;
+    LEAK.leakages <- LeakAddr([]) :: LEAK.leakages;
+    aux_0 <- mask;
+    mask <- aux_0;
+    LEAK.leakages <- LeakAddr([]) :: LEAK.leakages;
+    aux <@ _or_mask (a, mask);
+    a <- aux;
+    LEAK.leakages <- LeakAddr([]) :: LEAK.leakages;
+    aux <- a;
+    a <- aux;
+    return (a);
+  }
+  
+  proc _set_err_ (a:BN.t, _err:W64.t) : BN.t = {
+    var aux: W64.t;
+    var aux_0: BN.t;
+    
+    var err:W64.t;
+    
+    LEAK.leakages <- LeakAddr([]) :: LEAK.leakages;
+    aux <- _err;
+    err <- aux;
+    LEAK.leakages <- LeakAddr([]) :: LEAK.leakages;
+    aux_0 <@ _or_mask_ (a, err);
+    a <- aux_0;
+    return (a);
+  }
+  
+  proc __and_mask (a:BN.t, mask:W64.t) : BN.t = {
+    var aux: int;
+    var aux_0: W64.t;
+    
+    var i:int;
+    
+    LEAK.leakages <- LeakFor(0,nlimbs) :: LeakAddr([]) :: LEAK.leakages;
+    i <- 0;
+    while (i < nlimbs) {
+      LEAK.leakages <- LeakAddr([i]) :: LEAK.leakages;
+      aux_0 <- (a.[i] `&` mask);
+      LEAK.leakages <- LeakAddr([i]) :: LEAK.leakages;
+      a.[i] <- aux_0;
+      i <- i + 1;
+    }
+    return (a);
+  }
+  
+  proc _and_mask (a:BN.t, mask:W64.t) : BN.t = {
+    var aux: BN.t;
+    
+    
+    
+    LEAK.leakages <- LeakAddr([]) :: LEAK.leakages;
+    aux <@ __and_mask (a, mask);
+    a <- aux;
+    return (a);
+  }
+  
+  proc _and_mask_ (a:BN.t, mask:W64.t) : BN.t = {
+    var aux_0: W64.t;
+    var aux: BN.t;
+    
+    
+    
+    LEAK.leakages <- LeakAddr([]) :: LEAK.leakages;
+    aux <- a;
+    a <- aux;
+    LEAK.leakages <- LeakAddr([]) :: LEAK.leakages;
+    aux_0 <- mask;
+    mask <- aux_0;
+    LEAK.leakages <- LeakAddr([]) :: LEAK.leakages;
+    aux <@ _and_mask (a, mask);
+    a <- aux;
+    LEAK.leakages <- LeakAddr([]) :: LEAK.leakages;
+    aux <- a;
+    a <- aux;
+    return (a);
+  }
+  
+  proc __carrypropU (a:BN.t, cf:bool, k:int) : bool *
+                                                            BN.t = {
+    var aux_0: bool;
+    var aux: int;
+    var aux_1: W64.t;
+    
+    var i:int;
+    
+    LEAK.leakages <- LeakFor(k,nlimbs) :: LeakAddr([]) :: LEAK.leakages;
+    i <- k;
+    while (i < nlimbs) {
+      LEAK.leakages <- LeakAddr([i]) :: LEAK.leakages;
+      (aux_0, aux_1) <- adc_64 a.[i] (W64.of_int 0) cf;
+      cf <- aux_0;
+      LEAK.leakages <- LeakAddr([i]) :: LEAK.leakages;
+      a.[i] <- aux_1;
+      i <- i + 1;
+    }
+    return (cf, a);
+  }
+  
+  proc __addc1U (a:BN.t, b:BN.t, cf:bool) : bool *
+                                                                    BN.t = {
+    var aux_1: bool;
+    var aux: int;
+    var aux_0: W64.t;
+    
+    var i:int;
+    var t:W64.t;
+    
+    LEAK.leakages <- LeakFor(1,nlimbs) :: LeakAddr([]) :: LEAK.leakages;
+    i <- 1;
+    while (i < nlimbs) {
+      LEAK.leakages <- LeakAddr([i]) :: LEAK.leakages;
+      aux_0 <- b.[i];
+      t <- aux_0;
+      LEAK.leakages <- LeakAddr([i]) :: LEAK.leakages;
+      (aux_1, aux_0) <- adc_64 a.[i] t cf;
+      cf <- aux_1;
+      LEAK.leakages <- LeakAddr([i]) :: LEAK.leakages;
+      a.[i] <- aux_0;
+      i <- i + 1;
+    }
+    return (cf, a);
+  }
+  
+  proc _addc1U (a:BN.t, b:BN.t, cf:bool) : bool *
+                                                                   BN.t = {
+    var aux: bool;
+    var aux_0: BN.t;
+    
+    
+    
+    LEAK.leakages <- LeakAddr([]) :: LEAK.leakages;
+    (aux, aux_0) <@ __addc1U (a, b, cf);
+    cf <- aux;
+    a <- aux_0;
+    return (cf, a);
+  }
+  
+  proc _addc1U_ (a:BN.t, b:BN.t, cf:bool) : bool *
+                                                                    BN.t = {
+    var aux_0: bool;
+    var aux: BN.t;
+    
+    
+    
+    LEAK.leakages <- LeakAddr([]) :: LEAK.leakages;
+    aux <- a;
+    a <- aux;
+    LEAK.leakages <- LeakAddr([]) :: LEAK.leakages;
+    aux <- b;
+    b <- aux;
+    LEAK.leakages <- LeakAddr([]) :: LEAK.leakages;
+    (aux_0, aux) <@ _addc1U (a, b, cf);
+    cf <- aux_0;
+    a <- aux;
+    LEAK.leakages <- LeakAddr([]) :: LEAK.leakages;
+    aux <- a;
+    a <- aux;
+    return (cf, a);
+  }
+  
+  proc _addcU_ (a:BN.t, b:BN.t, cf:bool) : bool *
+                                                                   BN.t = {
+    var aux_0: bool;
+    var aux: W64.t;
+    var aux_1: BN.t;
+    
+    var t:W64.t;
+    
+    LEAK.leakages <- LeakAddr([0]) :: LEAK.leakages;
+    aux <- b.[0];
+    t <- aux;
+    LEAK.leakages <- LeakAddr([0]) :: LEAK.leakages;
+    (aux_0, aux) <- adc_64 a.[0] t cf;
+    cf <- aux_0;
+    LEAK.leakages <- LeakAddr([0]) :: LEAK.leakages;
+    a.[0] <- aux;
+    LEAK.leakages <- LeakAddr([]) :: LEAK.leakages;
+    (aux_0, aux_1) <@ _addc1U_ (a, b, cf);
+    cf <- aux_0;
+    a <- aux_1;
+    return (cf, a);
+  }
+  
+  proc _addU_ (a:BN.t, b:BN.t) : bool *
+                                                         BN.t = {
+    var aux_0: bool;
+    var aux: W64.t;
+    var aux_1: BN.t;
+    
+    var cf:bool;
+    var t:W64.t;
+    
+    LEAK.leakages <- LeakAddr([0]) :: LEAK.leakages;
+    aux <- b.[0];
+    t <- aux;
+    LEAK.leakages <- LeakAddr([0]) :: LEAK.leakages;
+    (aux_0, aux) <- adc_64 a.[0] t false;
+    cf <- aux_0;
+    LEAK.leakages <- LeakAddr([0]) :: LEAK.leakages;
+    a.[0] <- aux;
+    LEAK.leakages <- LeakAddr([]) :: LEAK.leakages;
+    (aux_0, aux_1) <@ _addc1U_ (a, b, cf);
+    cf <- aux_0;
+    a <- aux_1;
+    return (cf, a);
+  }
+  
+  proc __addc1 (r:BN.t, a:BN.t, b:BN.t,
+                  cf:bool) : bool * BN.t = {
+    var aux_1: bool;
+    var aux: int;
+    var aux_0: W64.t;
+    
+    var i:int;
+    var t:W64.t;
+    
+    LEAK.leakages <- LeakFor(1,nlimbs) :: LeakAddr([]) :: LEAK.leakages;
+    i <- 1;
+    while (i < nlimbs) {
+      LEAK.leakages <- LeakAddr([i]) :: LEAK.leakages;
+      aux_0 <- a.[i];
+      t <- aux_0;
+      LEAK.leakages <- LeakAddr([i]) :: LEAK.leakages;
+      (aux_1, aux_0) <- adc_64 t b.[i] cf;
+      cf <- aux_1;
+      t <- aux_0;
+      LEAK.leakages <- LeakAddr([]) :: LEAK.leakages;
+      aux_0 <- t;
+      LEAK.leakages <- LeakAddr([i]) :: LEAK.leakages;
+      r.[i] <- aux_0;
+      i <- i + 1;
+    }
+    return (cf, r);
+  }
+  
+  proc _addc1 (r:BN.t, a:BN.t, b:BN.t,
+                 cf:bool) : bool * BN.t = {
+    var aux: bool;
+    var aux_0: BN.t;
+    
+    
+    
+    LEAK.leakages <- LeakAddr([]) :: LEAK.leakages;
+    (aux, aux_0) <@ __addc1 (r, a, b, cf);
+    cf <- aux;
+    r <- aux_0;
+    return (cf, r);
+  }
+  
+  proc _addc1_ (r:BN.t, a:BN.t, b:BN.t,
+                  cf:bool) : bool * BN.t = {
+    var aux_0: bool;
+    var aux: BN.t;
+    
+    
+    
+    LEAK.leakages <- LeakAddr([]) :: LEAK.leakages;
+    aux <- r;
+    r <- aux;
+    LEAK.leakages <- LeakAddr([]) :: LEAK.leakages;
+    aux <- a;
+    a <- aux;
+    LEAK.leakages <- LeakAddr([]) :: LEAK.leakages;
+    aux <- b;
+    b <- aux;
+    LEAK.leakages <- LeakAddr([]) :: LEAK.leakages;
+    (aux_0, aux) <@ _addc1 (r, a, b, cf);
+    cf <- aux_0;
+    r <- aux;
+    LEAK.leakages <- LeakAddr([]) :: LEAK.leakages;
+    aux <- r;
+    r <- aux;
+    return (cf, r);
+  }
+  
+  proc _add_ (r:BN.t, a:BN.t, b:BN.t) : 
+  bool * BN.t = {
+    var aux_0: bool;
+    var aux: W64.t;
+    var aux_1: BN.t;
+    
+    var cf:bool;
+    var t:W64.t;
+    
+    LEAK.leakages <- LeakAddr([0]) :: LEAK.leakages;
+    aux <- a.[0];
+    t <- aux;
+    LEAK.leakages <- LeakAddr([0]) :: LEAK.leakages;
+    (aux_0, aux) <- adc_64 t b.[0] false;
+    cf <- aux_0;
+    t <- aux;
+    LEAK.leakages <- LeakAddr([]) :: LEAK.leakages;
+    aux <- t;
+    LEAK.leakages <- LeakAddr([0]) :: LEAK.leakages;
+    r.[0] <- aux;
+    LEAK.leakages <- LeakAddr([]) :: LEAK.leakages;
+    (aux_0, aux_1) <@ _addc1_ (r, a, b, cf);
+    cf <- aux_0;
+    r <- aux_1;
+    return (cf, a);
+  }
+  
+  proc _addc_ (r:BN.t, a:BN.t, b:BN.t,
+                 cf:bool) : bool * BN.t = {
+    var aux_0: bool;
+    var aux: W64.t;
+    var aux_1: BN.t;
+    
+    var t:W64.t;
+    
+    LEAK.leakages <- LeakAddr([0]) :: LEAK.leakages;
+    aux <- a.[0];
+    t <- aux;
+    LEAK.leakages <- LeakAddr([0]) :: LEAK.leakages;
+    (aux_0, aux) <- adc_64 t b.[0] cf;
+    cf <- aux_0;
+    t <- aux;
+    LEAK.leakages <- LeakAddr([]) :: LEAK.leakages;
+    aux <- t;
+    LEAK.leakages <- LeakAddr([0]) :: LEAK.leakages;
+    r.[0] <- aux;
+    LEAK.leakages <- LeakAddr([]) :: LEAK.leakages;
+    (aux_0, aux_1) <@ _addc1_ (r, a, b, cf);
+    cf <- aux_0;
+    r <- aux_1;
+    return (cf, a);
+  }
+  
+  proc __subc1U (a:BN.t, b:BN.t, cf:bool) : bool *
+                                                                    BN.t = {
+    var aux_1: bool;
+    var aux: int;
+    var aux_0: W64.t;
+    
+    var i:int;
+    var t:W64.t;
+    
+    LEAK.leakages <- LeakFor(1,nlimbs) :: LeakAddr([]) :: LEAK.leakages;
+    i <- 1;
+    while (i < nlimbs) {
+      LEAK.leakages <- LeakAddr([i]) :: LEAK.leakages;
+      aux_0 <- b.[i];
+      t <- aux_0;
+      LEAK.leakages <- LeakAddr([i]) :: LEAK.leakages;
+      (aux_1, aux_0) <- sbb_64 a.[i] t cf;
+      cf <- aux_1;
+      LEAK.leakages <- LeakAddr([i]) :: LEAK.leakages;
+      a.[i] <- aux_0;
+      i <- i + 1;
+    }
+    return (cf, a);
+  }
+  
+  proc _subc1U (a:BN.t, b:BN.t, cf:bool) : bool *
+                                                                   BN.t = {
+    var aux: bool;
+    var aux_0: BN.t;
+    
+    
+    
+    LEAK.leakages <- LeakAddr([]) :: LEAK.leakages;
+    (aux, aux_0) <@ __subc1U (a, b, cf);
+    cf <- aux;
+    a <- aux_0;
+    return (cf, a);
+  }
+  
+  proc _subc1U_ (a:BN.t, b:BN.t, cf:bool) : bool *
+                                                                    BN.t = {
+    var aux_0: bool;
+    var aux: BN.t;
+    
+    
+    
+    LEAK.leakages <- LeakAddr([]) :: LEAK.leakages;
+    aux <- a;
+    a <- aux;
+    LEAK.leakages <- LeakAddr([]) :: LEAK.leakages;
+    aux <- b;
+    b <- aux;
+    LEAK.leakages <- LeakAddr([]) :: LEAK.leakages;
+    (aux_0, aux) <@ _subc1U (a, b, cf);
+    cf <- aux_0;
+    a <- aux;
+    LEAK.leakages <- LeakAddr([]) :: LEAK.leakages;
+    aux <- a;
+    a <- aux;
+    return (cf, a);
+  }
+  
+  proc _subU_ (a:BN.t, b:BN.t) : bool *
+                                                         BN.t = {
+    var aux_0: bool;
+    var aux: W64.t;
+    var aux_1: BN.t;
+    
+    var cf:bool;
+    var t:W64.t;
+    
+    LEAK.leakages <- LeakAddr([0]) :: LEAK.leakages;
+    aux <- b.[0];
+    t <- aux;
+    LEAK.leakages <- LeakAddr([0]) :: LEAK.leakages;
+    (aux_0, aux) <- sbb_64 a.[0] t false;
+    cf <- aux_0;
+    LEAK.leakages <- LeakAddr([0]) :: LEAK.leakages;
+    a.[0] <- aux;
+    LEAK.leakages <- LeakAddr([]) :: LEAK.leakages;
+    (aux_0, aux_1) <@ _subc1U_ (a, b, cf);
+    cf <- aux_0;
+    a <- aux_1;
+    return (cf, a);
+  }
+  
+  proc _subcU_ (a:BN.t, b:BN.t, cf:bool) : bool *
+                                                                   BN.t = {
+    var aux_0: bool;
+    var aux: W64.t;
+    var aux_1: BN.t;
+    
+    var t:W64.t;
+    
+    LEAK.leakages <- LeakAddr([0]) :: LEAK.leakages;
+    aux <- b.[0];
+    t <- aux;
+    LEAK.leakages <- LeakAddr([0]) :: LEAK.leakages;
+    (aux_0, aux) <- sbb_64 a.[0] t cf;
+    cf <- aux_0;
+    LEAK.leakages <- LeakAddr([0]) :: LEAK.leakages;
+    a.[0] <- aux;
+    LEAK.leakages <- LeakAddr([]) :: LEAK.leakages;
+    (aux_0, aux_1) <@ _subc1U_ (a, b, cf);
+    cf <- aux_0;
+    a <- aux_1;
+    return (cf, a);
+  }
+  
+  proc __subc1 (r:BN.t, a:BN.t, b:BN.t,
+                  cf:bool) : bool * BN.t = {
+    var aux_1: bool;
+    var aux: int;
+    var aux_0: W64.t;
+    
+    var i:int;
+    var t:W64.t;
+    
+    LEAK.leakages <- LeakFor(1,nlimbs) :: LeakAddr([]) :: LEAK.leakages;
+    i <- 1;
+    while (i < nlimbs) {
+      LEAK.leakages <- LeakAddr([i]) :: LEAK.leakages;
+      aux_0 <- a.[i];
+      t <- aux_0;
+      LEAK.leakages <- LeakAddr([i]) :: LEAK.leakages;
+      (aux_1, aux_0) <- sbb_64 t b.[i] cf;
+      cf <- aux_1;
+      t <- aux_0;
+      LEAK.leakages <- LeakAddr([]) :: LEAK.leakages;
+      aux_0 <- t;
+      LEAK.leakages <- LeakAddr([i]) :: LEAK.leakages;
+      r.[i] <- aux_0;
+      i <- i + 1;
+    }
+    return (cf, r);
+  }
+  
+  proc _subc1 (r:BN.t, a:BN.t, b:BN.t,
+                 cf:bool) : bool * BN.t = {
+    var aux: bool;
+    var aux_0: BN.t;
+    
+    
+    
+    LEAK.leakages <- LeakAddr([]) :: LEAK.leakages;
+    (aux, aux_0) <@ __subc1 (r, a, b, cf);
+    cf <- aux;
+    r <- aux_0;
+    return (cf, r);
+  }
+  
+  proc _subc1_ (r:BN.t, a:BN.t, b:BN.t,
+                  cf:bool) : bool * BN.t = {
+    var aux_0: bool;
+    var aux: BN.t;
+    
+    
+    
+    LEAK.leakages <- LeakAddr([]) :: LEAK.leakages;
+    aux <- r;
+    r <- aux;
+    LEAK.leakages <- LeakAddr([]) :: LEAK.leakages;
+    aux <- a;
+    a <- aux;
+    LEAK.leakages <- LeakAddr([]) :: LEAK.leakages;
+    aux <- b;
+    b <- aux;
+    LEAK.leakages <- LeakAddr([]) :: LEAK.leakages;
+    (aux_0, aux) <@ _subc1 (r, a, b, cf);
+    cf <- aux_0;
+    r <- aux;
+    LEAK.leakages <- LeakAddr([]) :: LEAK.leakages;
+    aux <- r;
+    r <- aux;
+    return (cf, r);
+  }
+  
+  proc _sub_ (r:BN.t, a:BN.t, b:BN.t) : 
+  bool * BN.t = {
+    var aux_0: bool;
+    var aux: W64.t;
+    var aux_1: BN.t;
+    
+    var cf:bool;
+    var t:W64.t;
+    
+    LEAK.leakages <- LeakAddr([0]) :: LEAK.leakages;
+    aux <- a.[0];
+    t <- aux;
+    LEAK.leakages <- LeakAddr([0]) :: LEAK.leakages;
+    (aux_0, aux) <- sbb_64 t b.[0] false;
+    cf <- aux_0;
+    t <- aux;
+    LEAK.leakages <- LeakAddr([]) :: LEAK.leakages;
+    aux <- t;
+    LEAK.leakages <- LeakAddr([0]) :: LEAK.leakages;
+    r.[0] <- aux;
+    LEAK.leakages <- LeakAddr([]) :: LEAK.leakages;
+    (aux_0, aux_1) <@ _subc1_ (r, a, b, cf);
+    cf <- aux_0;
+    r <- aux_1;
+    return (cf, r);
+  }
+  
+  proc _subc_ (r:BN.t, a:BN.t, b:BN.t,
+                 cf:bool) : bool * BN.t = {
+    var aux_0: bool;
+    var aux: W64.t;
+    var aux_1: BN.t;
+    
+    var t:W64.t;
+    
+    LEAK.leakages <- LeakAddr([0]) :: LEAK.leakages;
+    aux <- a.[0];
+    t <- aux;
+    LEAK.leakages <- LeakAddr([0]) :: LEAK.leakages;
+    (aux_0, aux) <- sbb_64 t b.[0] cf;
+    cf <- aux_0;
+    t <- aux;
+    LEAK.leakages <- LeakAddr([]) :: LEAK.leakages;
+    aux <- t;
+    LEAK.leakages <- LeakAddr([0]) :: LEAK.leakages;
+    r.[0] <- aux;
+    LEAK.leakages <- LeakAddr([]) :: LEAK.leakages;
+    (aux_0, aux_1) <@ _subc1_ (r, a, b, cf);
+    cf <- aux_0;
+    r <- aux_1;
+    return (cf, r);
+  }
+  
+  proc __ltc1_cf (a:BN.t, b:BN.t, cf:bool) : 
+  bool = {
+    var aux_1: bool;
+    var aux: int;
+    var aux_0: W64.t;
+    
+    var i:int;
+    var t:W64.t;
+    
+    LEAK.leakages <- LeakFor(1,nlimbs) :: LeakAddr([]) :: LEAK.leakages;
+    i <- 1;
+    while (i < nlimbs) {
+      LEAK.leakages <- LeakAddr([i]) :: LEAK.leakages;
+      aux_0 <- a.[i];
+      t <- aux_0;
+      LEAK.leakages <- LeakAddr([i]) :: LEAK.leakages;
+      (aux_1, aux_0) <- sbb_64 t b.[i] cf;
+      cf <- aux_1;
+      t <- aux_0;
+      i <- i + 1;
+    }
+    return (cf);
+  }
+  
+  proc _ltc1_cf (a:BN.t, b:BN.t, cf:bool) : bool = {
+    var aux: bool;
+    
+    
+    
+    LEAK.leakages <- LeakAddr([]) :: LEAK.leakages;
+    aux <@ __ltc1_cf (a, b, cf);
+    cf <- aux;
+    return (cf);
+  }
+  
+  proc _ltc1_cf_ (a:BN.t, b:BN.t, cf:bool) : 
+  bool = {
+    var aux_0: bool;
+    var aux: BN.t;
+    
+    
+    
+    LEAK.leakages <- LeakAddr([]) :: LEAK.leakages;
+    aux <- a;
+    a <- aux;
+    LEAK.leakages <- LeakAddr([]) :: LEAK.leakages;
+    aux <- b;
+    b <- aux;
+    LEAK.leakages <- LeakAddr([]) :: LEAK.leakages;
+    aux_0 <@ _ltc1_cf (a, b, cf);
+    cf <- aux_0;
+    return (cf);
+  }
+  
+  proc _lt_cf_ (a:BN.t, b:BN.t) : bool = {
+    var aux_0: bool;
+    var aux: W64.t;
+    
+    var cf:bool;
+    var t:W64.t;
+    
+    LEAK.leakages <- LeakAddr([0]) :: LEAK.leakages;
+    aux <- a.[0];
+    t <- aux;
+    LEAK.leakages <- LeakAddr([0]) :: LEAK.leakages;
+    (aux_0, aux) <- sbb_64 t b.[0] false;
+    cf <- aux_0;
+    t <- aux;
+    LEAK.leakages <- LeakAddr([]) :: LEAK.leakages;
+    aux_0 <@ _ltc1_cf_ (a, b, cf);
+    cf <- aux_0;
+    return (cf);
+  }
+  
+  proc _ltc_cf_ (a:BN.t, b:BN.t, cf:bool) : bool = {
+    var aux_0: bool;
+    var aux: W64.t;
+    
+    var t:W64.t;
+    
+    LEAK.leakages <- LeakAddr([0]) :: LEAK.leakages;
+    aux <- a.[0];
+    t <- aux;
+    LEAK.leakages <- LeakAddr([0]) :: LEAK.leakages;
+    (aux_0, aux) <- sbb_64 t b.[0] cf;
+    cf <- aux_0;
+    t <- aux;
+    LEAK.leakages <- LeakAddr([]) :: LEAK.leakages;
+    aux_0 <@ _ltc1_cf_ (a, b, cf);
+    cf <- aux_0;
+    return (cf);
+  }
+  
+  proc __negc1U (a:BN.t, cf:bool) : bool * BN.t = {
+    var aux_1: bool;
+    var aux: int;
+    var aux_0: W64.t;
+    
+    var t:W64.t;
+    var i:int;
+    
+    LEAK.leakages <- LeakFor(1,nlimbs) :: LeakAddr([]) :: LEAK.leakages;
+    i <- 1;
+    while (i < nlimbs) {
+      LEAK.leakages <- LeakAddr([]) :: LEAK.leakages;
+      aux_0 <- (W64.of_int 0);
+      t <- aux_0;
+      LEAK.leakages <- LeakAddr([i]) :: LEAK.leakages;
+      (aux_1, aux_0) <- sbb_64 t a.[i] cf;
+      cf <- aux_1;
+      t <- aux_0;
+      LEAK.leakages <- LeakAddr([]) :: LEAK.leakages;
+      aux_0 <- t;
+      LEAK.leakages <- LeakAddr([i]) :: LEAK.leakages;
+      a.[i] <- aux_0;
+      i <- i + 1;
+    }
+    return (cf, a);
+  }
+  
+  proc _negc1U (a:BN.t, cf:bool) : bool * BN.t = {
+    var aux: bool;
+    var aux_0: BN.t;
+    
+    
+    
+    LEAK.leakages <- LeakAddr([]) :: LEAK.leakages;
+    (aux, aux_0) <@ __negc1U (a, cf);
+    cf <- aux;
+    a <- aux_0;
+    return (cf, a);
+  }
+  
+  proc _negc1U_ (a:BN.t, cf:bool) : bool * BN.t = {
+    var aux_0: bool;
+    var aux: BN.t;
+    
+    
+    
+    LEAK.leakages <- LeakAddr([]) :: LEAK.leakages;
+    aux <- a;
+    a <- aux;
+    LEAK.leakages <- LeakAddr([]) :: LEAK.leakages;
+    (aux_0, aux) <@ _negc1U (a, cf);
+    cf <- aux_0;
+    a <- aux;
+    LEAK.leakages <- LeakAddr([]) :: LEAK.leakages;
+    aux <- a;
+    a <- aux;
+    return (cf, a);
+  }
+  
+  proc _negU_ (a:BN.t) : bool * BN.t = {
+    var aux_0: bool;
+    var aux: W64.t;
+    var aux_1: BN.t;
+    
+    var cf:bool;
+    var t:W64.t;
+    
+    LEAK.leakages <- LeakAddr([]) :: LEAK.leakages;
+    aux <- (W64.of_int 0);
+    t <- aux;
+    LEAK.leakages <- LeakAddr([0]) :: LEAK.leakages;
+    (aux_0, aux) <- sbb_64 t a.[0] false;
+    cf <- aux_0;
+    t <- aux;
+    LEAK.leakages <- LeakAddr([]) :: LEAK.leakages;
+    aux <- t;
+    LEAK.leakages <- LeakAddr([0]) :: LEAK.leakages;
+    a.[0] <- aux;
+    LEAK.leakages <- LeakAddr([]) :: LEAK.leakages;
+    (aux_0, aux_1) <@ _negc1U_ (a, cf);
+    cf <- aux_0;
+    a <- aux_1;
+    return (cf, a);
+  }
+  
+  proc _negcU_ (a:BN.t, cf:bool) : bool * BN.t = {
+    var aux_0: bool;
+    var aux: W64.t;
+    var aux_1: BN.t;
+    
+    var t:W64.t;
+    
+    LEAK.leakages <- LeakAddr([]) :: LEAK.leakages;
+    aux <- (W64.of_int 0);
+    t <- aux;
+    LEAK.leakages <- LeakAddr([0]) :: LEAK.leakages;
+    (aux_0, aux) <- sbb_64 t a.[0] cf;
+    cf <- aux_0;
+    t <- aux;
+    LEAK.leakages <- LeakAddr([]) :: LEAK.leakages;
+    aux <- t;
+    LEAK.leakages <- LeakAddr([0]) :: LEAK.leakages;
+    a.[0] <- aux;
+    LEAK.leakages <- LeakAddr([]) :: LEAK.leakages;
+    (aux_0, aux_1) <@ _negc1U_ (a, cf);
+    cf <- aux_0;
+    a <- aux_1;
+    return (cf, a);
+  }
+  
+  proc __negc1 (r:BN.t, a:BN.t, cf:bool) : bool *
+                                                                   BN.t = {
+    var aux_1: bool;
+    var aux: int;
+    var aux_0: W64.t;
+    
+    var t:W64.t;
+    var i:int;
+    
+    LEAK.leakages <- LeakFor(1,nlimbs) :: LeakAddr([]) :: LEAK.leakages;
+    i <- 1;
+    while (i < nlimbs) {
+      LEAK.leakages <- LeakAddr([]) :: LEAK.leakages;
+      aux_0 <- (W64.of_int 0);
+      t <- aux_0;
+      LEAK.leakages <- LeakAddr([i]) :: LEAK.leakages;
+      (aux_1, aux_0) <- sbb_64 t a.[i] cf;
+      cf <- aux_1;
+      t <- aux_0;
+      LEAK.leakages <- LeakAddr([]) :: LEAK.leakages;
+      aux_0 <- t;
+      LEAK.leakages <- LeakAddr([i]) :: LEAK.leakages;
+      r.[i] <- aux_0;
+      i <- i + 1;
+    }
+    return (cf, r);
+  }
+  
+  proc _negc1 (r:BN.t, a:BN.t, cf:bool) : bool *
+                                                                  BN.t = {
+    var aux: bool;
+    var aux_0: BN.t;
+    
+    
+    
+    LEAK.leakages <- LeakAddr([]) :: LEAK.leakages;
+    (aux, aux_0) <@ __negc1 (r, a, cf);
+    cf <- aux;
+    r <- aux_0;
+    return (cf, r);
+  }
+  
+  proc _negc1_ (r:BN.t, a:BN.t, cf:bool) : bool *
+                                                                   BN.t = {
+    var aux_0: bool;
+    var aux: BN.t;
+    
+    
+    
+    LEAK.leakages <- LeakAddr([]) :: LEAK.leakages;
+    aux <- r;
+    r <- aux;
+    LEAK.leakages <- LeakAddr([]) :: LEAK.leakages;
+    aux <- a;
+    a <- aux;
+    LEAK.leakages <- LeakAddr([]) :: LEAK.leakages;
+    (aux_0, aux) <@ _negc1 (r, a, cf);
+    cf <- aux_0;
+    r <- aux;
+    LEAK.leakages <- LeakAddr([]) :: LEAK.leakages;
+    aux <- r;
+    r <- aux;
+    return (cf, r);
+  }
+  
+  proc _neg_ (r:BN.t, a:BN.t) : bool *
+                                                        BN.t = {
+    var aux_0: bool;
+    var aux: W64.t;
+    var aux_1: BN.t;
+    
+    var cf:bool;
+    var t:W64.t;
+    
+    LEAK.leakages <- LeakAddr([]) :: LEAK.leakages;
+    aux <- (W64.of_int 0);
+    t <- aux;
+    LEAK.leakages <- LeakAddr([0]) :: LEAK.leakages;
+    (aux_0, aux) <- sbb_64 t a.[0] false;
+    cf <- aux_0;
+    t <- aux;
+    LEAK.leakages <- LeakAddr([]) :: LEAK.leakages;
+    aux <- t;
+    LEAK.leakages <- LeakAddr([0]) :: LEAK.leakages;
+    r.[0] <- aux;
+    LEAK.leakages <- LeakAddr([]) :: LEAK.leakages;
+    (aux_0, aux_1) <@ _negc1_ (r, a, cf);
+    cf <- aux_0;
+    r <- aux_1;
+    return (cf, a);
+  }
+  
+  proc _negc_ (r:BN.t, a:BN.t, cf:bool) : bool *
+                                                                  BN.t = {
+    var aux_0: bool;
+    var aux: W64.t;
+    var aux_1: BN.t;
+    
+    var t:W64.t;
+    
+    LEAK.leakages <- LeakAddr([]) :: LEAK.leakages;
+    aux <- (W64.of_int 0);
+    t <- aux;
+    LEAK.leakages <- LeakAddr([0]) :: LEAK.leakages;
+    (aux_0, aux) <- sbb_64 t a.[0] cf;
+    cf <- aux_0;
+    t <- aux;
+    LEAK.leakages <- LeakAddr([]) :: LEAK.leakages;
+    aux <- t;
+    LEAK.leakages <- LeakAddr([0]) :: LEAK.leakages;
+    r.[0] <- aux;
+    LEAK.leakages <- LeakAddr([]) :: LEAK.leakages;
+    (aux_0, aux_1) <@ _negc1_ (r, a, cf);
+    cf <- aux_0;
+    r <- aux_1;
+    return (cf, a);
+  }
+  
+  proc _cnegU_ (a:BN.t, cond:W64.t) : BN.t = {
+    var aux_0: bool;
+    var aux: BN.t;
+    
+    var _x:BN.t;
+    var x:BN.t;
+    var cf:bool;
+    var  _0:bool;
+    _x <- witness;
+    x <- witness;
+    LEAK.leakages <- LeakAddr([]) :: LEAK.leakages;
+    aux <- _x;
+    x <- aux;
+    LEAK.leakages <- LeakAddr([]) :: LEAK.leakages;
+    (aux_0, aux) <@ _neg_ (x, a);
+     _0 <- aux_0;
+    x <- aux;
+    LEAK.leakages <- LeakAddr([]) :: LEAK.leakages;
+    aux_0 <@ BNUTIL_MLeak.__mask_cf (cond);
+    cf <- aux_0;
+    LEAK.leakages <- LeakAddr([]) :: LEAK.leakages;
+    aux <@ _cmov_ (a, cf, x);
+    a <- aux;
+    return (a);
+  }
+  
+  proc _caddU_ (x:BN.t, cf:bool, y:BN.t) : BN.t = {
+    var aux_1: bool;
+    var aux_0: W64.t;
+    var aux: BN.t;
+    
+    var _tmp:BN.t;
+    var tmp:BN.t;
+    var mask:W64.t;
+    var  _0:bool;
+    _tmp <- witness;
+    tmp <- witness;
+    LEAK.leakages <- LeakAddr([]) :: LEAK.leakages;
+    aux <- _tmp;
+    tmp <- aux;
+    LEAK.leakages <- LeakAddr([]) :: LEAK.leakages;
+    aux <@ _mov_ (tmp, y);
+    tmp <- aux;
+    LEAK.leakages <- LeakAddr([]) :: LEAK.leakages;
+    aux_0 <@ BNUTIL_MLeak.__cf_mask (cf);
+    mask <- aux_0;
+    LEAK.leakages <- LeakAddr([]) :: LEAK.leakages;
+    aux <@ _and_mask_ (tmp, mask);
+    tmp <- aux;
+    LEAK.leakages <- LeakAddr([]) :: LEAK.leakages;
+    (aux_1, aux) <@ _addU_ (x, tmp);
+     _0 <- aux_1;
+    x <- aux;
+    return (x);
+  }
+  
+  proc __muln_innerloop (x:W64.t Array3.t, k:int, istart:int, iend:int,
+                           a:BN.t, b:BN.t) : W64.t Array3.t = {
+    var aux: int;
+    var aux_1: W64.t;
+    var aux_0: W64.t;
+    var aux_2: W64.t Array3.t;
+    
+    var i:int;
+    var j:int;
+    var t0:W64.t;
+    var t1:W64.t;
+    
+    LEAK.leakages <- LeakFor(istart,iend) :: LeakAddr([]) :: LEAK.leakages;
+    aux <- iend;
+    i <- istart;
+    while (i < aux) {
+      LEAK.leakages <- LeakAddr([]) :: LEAK.leakages;
+      aux <- (k - i);
+      j <- aux;
+      LEAK.leakages <- LeakAddr([i]) :: LEAK.leakages;
+      aux_1 <- a.[i];
+      t0 <- aux_1;
+      LEAK.leakages <- LeakAddr([j]) :: LEAK.leakages;
+      (aux_1, aux_0) <- mulu_64 t0 b.[j];
+      t1 <- aux_1;
+      t0 <- aux_0;
+      LEAK.leakages <- LeakAddr([]) :: LEAK.leakages;
+      aux_2 <@ BNUTIL_MLeak.__addacc3 (x, t1, t0, k);
+      x <- aux_2;
+      i <- i + 1;
+    }
+    return (x);
+  }
+  
+  proc __muln (r:BN2.t, a:BN.t, b:BN.t) : 
+  BN2.t = {
+    var aux_1: int;
+    var aux_0: W64.t;
+    var aux: W64.t;
+    var aux_2: W64.t Array3.t;
+    
+    var t0:W64.t;
+    var t1:W64.t;
+    var x:W64.t Array3.t;
+    var k:int;
+    x <- witness;
+    LEAK.leakages <- LeakAddr([0]) :: LEAK.leakages;
+    aux_0 <- a.[0];
+    t0 <- aux_0;
+    LEAK.leakages <- LeakAddr([0]) :: LEAK.leakages;
+    (aux_0, aux) <- mulu_64 t0 b.[0];
+    t1 <- aux_0;
+    t0 <- aux;
+    LEAK.leakages <- LeakAddr([]) :: LEAK.leakages;
+    aux_0 <- t0;
+    LEAK.leakages <- LeakAddr([0]) :: LEAK.leakages;
+    r.[0] <- aux_0;
+    LEAK.leakages <- LeakAddr([]) :: LEAK.leakages;
+    aux_0 <- t1;
+    LEAK.leakages <- LeakAddr([1]) :: LEAK.leakages;
+    x.[1] <- aux_0;
+    LEAK.leakages <- LeakAddr([]) :: LEAK.leakages;
+    aux_0 <- (W64.of_int 0);
+    LEAK.leakages <- LeakAddr([2]) :: LEAK.leakages;
+    x.[2] <- aux_0;
+    LEAK.leakages <- LeakAddr([]) :: LEAK.leakages;
+    aux_0 <- (W64.of_int 0);
+    LEAK.leakages <- LeakAddr([0]) :: LEAK.leakages;
+    x.[0] <- aux_0;
+    LEAK.leakages <- LeakFor(1,nlimbs) :: LeakAddr([]) :: LEAK.leakages;
+    k <- 1;
+    while (k < nlimbs) {
+      LEAK.leakages <- LeakAddr([]) :: LEAK.leakages;
+      aux_2 <@ __muln_innerloop (x, k, 0, (k + 1), a, b);
+      x <- aux_2;
+      LEAK.leakages <- LeakAddr([(k %% 3)]) :: LEAK.leakages;
+      aux_0 <- x.[(k %% 3)];
+      t0 <- aux_0;
+      LEAK.leakages <- LeakAddr([]) :: LEAK.leakages;
+      aux_0 <- (W64.of_int 0);
+      LEAK.leakages <- LeakAddr([(k %% 3)]) :: LEAK.leakages;
+      x.[(k %% 3)] <- aux_0;
+      LEAK.leakages <- LeakAddr([]) :: LEAK.leakages;
+      aux_0 <- t0;
+      LEAK.leakages <- LeakAddr([k]) :: LEAK.leakages;
+      r.[k] <- aux_0;
+      k <- k + 1;
+    }
+    LEAK.leakages <- LeakFor(nlimbs,((2 * nlimbs) - 1)) :: LeakAddr([]) :: LEAK.leakages;
+    aux_1 <- ((2 * nlimbs) - 1);
+    k <- nlimbs;
+    while (k < aux_1) {
+      LEAK.leakages <- LeakAddr([]) :: LEAK.leakages;
+      aux_2 <@ __muln_innerloop (x, k, ((k - nlimbs) + 1), nlimbs, a, b);
+      x <- aux_2;
+      LEAK.leakages <- LeakAddr([(k %% 3)]) :: LEAK.leakages;
+      aux_0 <- x.[(k %% 3)];
+      t0 <- aux_0;
+      LEAK.leakages <- LeakAddr([]) :: LEAK.leakages;
+      aux_0 <- (W64.of_int 0);
+      LEAK.leakages <- LeakAddr([(k %% 3)]) :: LEAK.leakages;
+      x.[(k %% 3)] <- aux_0;
+      LEAK.leakages <- LeakAddr([]) :: LEAK.leakages;
+      aux_0 <- t0;
+      LEAK.leakages <- LeakAddr([k]) :: LEAK.leakages;
+      r.[k] <- aux_0;
+      k <- k + 1;
+    }
+    LEAK.leakages <- LeakAddr([(((2 * nlimbs) - 1) %% 3)]) :: LEAK.leakages;
+    aux_0 <- x.[(((2 * nlimbs) - 1) %% 3)];
+    LEAK.leakages <- LeakAddr([((2 * nlimbs) - 1)]) :: LEAK.leakages;
+    r.[((2 * nlimbs) - 1)] <- aux_0;
+    return (r);
+  }
+  
+  proc _muln (r:BN2.t, a:BN.t, b:BN.t) : 
+  BN2.t = {
+    var aux: BN2.t;
+    
+    
+    
+    LEAK.leakages <- LeakAddr([]) :: LEAK.leakages;
+    aux <@ __muln (r, a, b);
+    r <- aux;
+    return (r);
+  }
+  
+  proc _muln_ (r:BN2.t, a:BN.t, b:BN.t) : 
+  BN2.t = {
+    var aux_0: BN.t;
+    var aux: BN2.t;
+    
+    
+    
+    LEAK.leakages <- LeakAddr([]) :: LEAK.leakages;
+    aux <- r;
+    r <- aux;
+    LEAK.leakages <- LeakAddr([]) :: LEAK.leakages;
+    aux_0 <- a;
+    a <- aux_0;
+    LEAK.leakages <- LeakAddr([]) :: LEAK.leakages;
+    aux_0 <- b;
+    b <- aux_0;
+    LEAK.leakages <- LeakAddr([]) :: LEAK.leakages;
+    aux <@ _muln (r, a, b);
+    r <- aux;
+    LEAK.leakages <- LeakAddr([]) :: LEAK.leakages;
+    aux <- r;
+    r <- aux;
+    return (r);
+  }
+  
+  proc __sqrn_innerloop (x:W64.t Array3.t, k:int, istart:int, iend:int,
+                           a:BN.t) : W64.t Array3.t = {
+    var aux: int;
+    var aux_0: W64.t;
+    var aux_1: W64.t Array3.t;
+    
+    var i:int;
+    var j:int;
+    var ti:W64.t;
+    var tj:W64.t;
+    
+    LEAK.leakages <- LeakFor(istart,iend) :: LeakAddr([]) :: LEAK.leakages;
+    aux <- iend;
+    i <- istart;
+    while (i < aux) {
+      LEAK.leakages <- LeakAddr([]) :: LEAK.leakages;
+      aux <- (k - i);
+      j <- aux;
+      LEAK.leakages <- LeakAddr([i]) :: LEAK.leakages;
+      aux_0 <- a.[i];
+      ti <- aux_0;
+      LEAK.leakages <- LeakAddr([j]) :: LEAK.leakages;
+      aux_0 <- a.[j];
+      tj <- aux_0;
+      LEAK.leakages <- LeakAddr([]) :: LEAK.leakages;
+      aux_1 <@ BNUTIL_MLeak.__addacc3x2 (x, ti, tj, k);
+      x <- aux_1;
+      i <- i + 1;
+    }
+    return (x);
+  }
+  
+  proc __sqrn (r:BN2.t, a:BN.t) : BN2.t = {
+    var aux_1: int;
+    var aux_0: W64.t;
+    var aux: W64.t;
+    var aux_2: W64.t Array3.t;
+    
+    var t0:W64.t;
+    var t1:W64.t;
+    var x:W64.t Array3.t;
+    var k:int;
+    x <- witness;
+    LEAK.leakages <- LeakAddr([0]) :: LEAK.leakages;
+    aux_0 <- a.[0];
+    t0 <- aux_0;
+    LEAK.leakages <- LeakAddr([]) :: LEAK.leakages;
+    (aux_0, aux) <- mulu_64 t0 t0;
+    t1 <- aux_0;
+    t0 <- aux;
+    LEAK.leakages <- LeakAddr([]) :: LEAK.leakages;
+    aux_0 <- t0;
+    LEAK.leakages <- LeakAddr([0]) :: LEAK.leakages;
+    r.[0] <- aux_0;
+    LEAK.leakages <- LeakAddr([]) :: LEAK.leakages;
+    aux_0 <- t1;
+    LEAK.leakages <- LeakAddr([1]) :: LEAK.leakages;
+    x.[1] <- aux_0;
+    LEAK.leakages <- LeakAddr([]) :: LEAK.leakages;
+    aux_0 <- (W64.of_int 0);
+    LEAK.leakages <- LeakAddr([2]) :: LEAK.leakages;
+    x.[2] <- aux_0;
+    LEAK.leakages <- LeakAddr([]) :: LEAK.leakages;
+    aux_0 <- (W64.of_int 0);
+    LEAK.leakages <- LeakAddr([0]) :: LEAK.leakages;
+    x.[0] <- aux_0;
+    LEAK.leakages <- LeakFor(1,nlimbs) :: LeakAddr([]) :: LEAK.leakages;
+    k <- 1;
+    while (k < nlimbs) {
+      LEAK.leakages <- LeakAddr([]) :: LEAK.leakages;
+      aux_2 <@ __sqrn_innerloop (x, k, 0, ((k + 1) %/ 2), a);
+      x <- aux_2;
+      LEAK.leakages <- LeakCond(((k %% 2) = 0)) :: LeakAddr([]) :: LEAK.leakages;
+      if (((k %% 2) = 0)) {
+        LEAK.leakages <- LeakAddr([(k %/ 2)]) :: LEAK.leakages;
+        aux_0 <- a.[(k %/ 2)];
+        t0 <- aux_0;
+        LEAK.leakages <- LeakAddr([]) :: LEAK.leakages;
+        (aux_0, aux) <- mulu_64 t0 t0;
+        t1 <- aux_0;
+        t0 <- aux;
+        LEAK.leakages <- LeakAddr([]) :: LEAK.leakages;
+        aux_2 <@ BNUTIL_MLeak.__addacc3 (x, t1, t0, k);
+        x <- aux_2;
+      } else {
+        
+      }
+      LEAK.leakages <- LeakAddr([(k %% 3)]) :: LEAK.leakages;
+      aux_0 <- x.[(k %% 3)];
+      t0 <- aux_0;
+      LEAK.leakages <- LeakAddr([]) :: LEAK.leakages;
+      aux_0 <- (W64.of_int 0);
+      LEAK.leakages <- LeakAddr([(k %% 3)]) :: LEAK.leakages;
+      x.[(k %% 3)] <- aux_0;
+      LEAK.leakages <- LeakAddr([]) :: LEAK.leakages;
+      aux_0 <- t0;
+      LEAK.leakages <- LeakAddr([k]) :: LEAK.leakages;
+      r.[k] <- aux_0;
+      k <- k + 1;
+    }
+    LEAK.leakages <- LeakFor(nlimbs,((2 * nlimbs) - 1)) :: LeakAddr([]) :: LEAK.leakages;
+    aux_1 <- ((2 * nlimbs) - 1);
+    k <- nlimbs;
+    while (k < aux_1) {
+      LEAK.leakages <- LeakAddr([]) :: LEAK.leakages;
+      aux_2 <@ __sqrn_innerloop (x, k, ((k - nlimbs) + 1), ((k + 1) %/ 2), a);
+      x <- aux_2;
+      LEAK.leakages <- LeakCond(((k %% 2) = 0)) :: LeakAddr([]) :: LEAK.leakages;
+      if (((k %% 2) = 0)) {
+        LEAK.leakages <- LeakAddr([(k %/ 2)]) :: LEAK.leakages;
+        aux_0 <- a.[(k %/ 2)];
+        t0 <- aux_0;
+        LEAK.leakages <- LeakAddr([]) :: LEAK.leakages;
+        (aux_0, aux) <- mulu_64 t0 t0;
+        t1 <- aux_0;
+        t0 <- aux;
+        LEAK.leakages <- LeakAddr([]) :: LEAK.leakages;
+        aux_2 <@ BNUTIL_MLeak.__addacc3 (x, t1, t0, k);
+        x <- aux_2;
+      } else {
+        
+      }
+      LEAK.leakages <- LeakAddr([(k %% 3)]) :: LEAK.leakages;
+      aux_0 <- x.[(k %% 3)];
+      t0 <- aux_0;
+      LEAK.leakages <- LeakAddr([]) :: LEAK.leakages;
+      aux_0 <- (W64.of_int 0);
+      LEAK.leakages <- LeakAddr([(k %% 3)]) :: LEAK.leakages;
+      x.[(k %% 3)] <- aux_0;
+      LEAK.leakages <- LeakAddr([]) :: LEAK.leakages;
+      aux_0 <- t0;
+      LEAK.leakages <- LeakAddr([k]) :: LEAK.leakages;
+      r.[k] <- aux_0;
+      k <- k + 1;
+    }
+    LEAK.leakages <- LeakAddr([(((2 * nlimbs) - 1) %% 3)]) :: LEAK.leakages;
+    aux_0 <- x.[(((2 * nlimbs) - 1) %% 3)];
+    LEAK.leakages <- LeakAddr([((2 * nlimbs) - 1)]) :: LEAK.leakages;
+    r.[((2 * nlimbs) - 1)] <- aux_0;
+    return (r);
+  }
+  
+  proc _sqrn (r:BN2.t, a:BN.t) : BN2.t = {
+    var aux: BN2.t;
+    
+    
+    
+    LEAK.leakages <- LeakAddr([]) :: LEAK.leakages;
+    aux <@ __sqrn (r, a);
+    r <- aux;
+    return (r);
+  }
+  
+  proc _sqrn_ (r:BN2.t, a:BN.t) : BN2.t = {
+    var aux_0: BN.t;
+    var aux: BN2.t;
+    
+    
+    
+    LEAK.leakages <- LeakAddr([]) :: LEAK.leakages;
+    aux <- r;
+    r <- aux;
+    LEAK.leakages <- LeakAddr([]) :: LEAK.leakages;
+    aux_0 <- a;
+    a <- aux_0;
+    LEAK.leakages <- LeakAddr([]) :: LEAK.leakages;
+    aux <@ _sqrn (r, a);
+    r <- aux;
+    LEAK.leakages <- LeakAddr([]) :: LEAK.leakages;
+    aux <- r;
+    r <- aux;
+    return (r);
+  }
+  
+  proc _cminusP_ (x:BN.t, mP:BN.t, lastbit:W64.t) : 
+  BN.t = {
+    var aux_5: bool;
+    var aux_4: bool;
+    var aux_3: bool;
+    var aux_2: bool;
+    var aux_0: bool;
+    var aux_1: W64.t;
+    var aux: BN.t;
+    
+    var _tmp:BN.t;
+    var tmp:BN.t;
+    var _cf:bool;
+    var  _0:bool;
+    var  _1:bool;
+    var  _2:bool;
+    var  _3:bool;
+    var  _4:bool;
+    var  _5:W64.t;
+    _tmp <- witness;
+    tmp <- witness;
+    LEAK.leakages <- LeakAddr([]) :: LEAK.leakages;
+    aux <- _tmp;
+    tmp <- aux;
+    LEAK.leakages <- LeakAddr([]) :: LEAK.leakages;
+    aux <@ _mov_ (tmp, x);
+    tmp <- aux;
+    LEAK.leakages <- LeakAddr([]) :: LEAK.leakages;
+    (aux_5, aux) <@ _addU_ (tmp, mP);
+    _cf <- aux_5;
+    tmp <- aux;
+    LEAK.leakages <- LeakAddr([]) :: LEAK.leakages;
+    (aux_5, aux_1) <- adc_64 lastbit (W64.of_int 0) _cf;
+     _0 <- aux_5;
+    lastbit <- aux_1;
+    LEAK.leakages <- LeakAddr([]) :: LEAK.leakages;
+    (aux_5, aux_4, aux_3, aux_2, aux_0, aux_1) <- NEG_64 lastbit;
+     _1 <- aux_5;
+    _cf <- aux_4;
+     _2 <- aux_3;
+     _3 <- aux_2;
+     _4 <- aux_0;
+     _5 <- aux_1;
+    LEAK.leakages <- LeakAddr([]) :: LEAK.leakages;
+    aux <@ _cmov_ (x, _cf, tmp);
+    x <- aux;
+    return (x);
+  }
+  
+  proc __mont_redM (r:BN.t, a:BN2.t,
+                      _P:BN.t, _mP:BN.t, _U0:W64.t) : 
+  BN.t = {
+    var aux_4: bool;
+    var aux_0: int;
+    var aux_3: W64.t;
+    var aux: W64.t;
+    var aux_2: W64.t Array3.t;
+    var aux_1: BN.t;
+    
+    var x:W64.t Array3.t;
+    var p:BN.t;
+    var k:int;
+    var zero:W64.t;
+    var t0:W64.t;
+    var t1:W64.t;
+    var lastbit:W64.t;
+    var cf:bool;
+    var mP:BN.t;
+    var  _0:W64.t;
+    var  _1:bool;
+    p <- witness;
+    mP <- witness;
+    x <- witness;
+    LEAK.leakages <- LeakAddr([]) :: LEAK.leakages;
+    aux_3 <- (W64.of_int 0);
+    LEAK.leakages <- LeakAddr([0]) :: LEAK.leakages;
+    x.[0] <- aux_3;
+    LEAK.leakages <- LeakAddr([]) :: LEAK.leakages;
+    aux_3 <- (W64.of_int 0);
+    LEAK.leakages <- LeakAddr([1]) :: LEAK.leakages;
+    x.[1] <- aux_3;
+    LEAK.leakages <- LeakAddr([]) :: LEAK.leakages;
+    aux_3 <- (W64.of_int 0);
+    LEAK.leakages <- LeakAddr([2]) :: LEAK.leakages;
+    x.[2] <- aux_3;
+    LEAK.leakages <- LeakFor(0,nlimbs) :: LeakAddr([]) :: LEAK.leakages;
+    k <- 0;
+    while (k < nlimbs) {
+      LEAK.leakages <- LeakAddr([]) :: LEAK.leakages;
+      aux_1 <- _P;
+      p <- aux_1;
+      LEAK.leakages <- LeakAddr([]) :: LEAK.leakages;
+      aux_2 <@ __muln_innerloop (x, k, 0, k, r, p);
+      x <- aux_2;
+      LEAK.leakages <- LeakAddr([]) :: LEAK.leakages;
+      aux_3 <- (W64.of_int 0);
+      zero <- aux_3;
+      LEAK.leakages <- LeakAddr([k]) :: LEAK.leakages;
+      aux_3 <- a.[k];
+      t0 <- aux_3;
+      LEAK.leakages <- LeakAddr([]) :: LEAK.leakages;
+      aux_2 <@ BNUTIL_MLeak.__addacc3 (x, zero, t0, k);
+      x <- aux_2;
+      LEAK.leakages <- LeakAddr([(k %% 3)]) :: LEAK.leakages;
+      aux_3 <- x.[(k %% 3)];
+      t0 <- aux_3;
+      LEAK.leakages <- LeakAddr([]) :: LEAK.leakages;
+      (aux_3, aux) <- mulu_64 t0 _U0;
+       _0 <- aux_3;
+      t0 <- aux;
+      LEAK.leakages <- LeakAddr([]) :: LEAK.leakages;
+      aux_3 <- t0;
+      LEAK.leakages <- LeakAddr([k]) :: LEAK.leakages;
+      r.[k] <- aux_3;
+      LEAK.leakages <- LeakAddr([0]) :: LEAK.leakages;
+      (aux_3, aux) <- mulu_64 t0 _P.[0];
+      t1 <- aux_3;
+      t0 <- aux;
+      LEAK.leakages <- LeakAddr([]) :: LEAK.leakages;
+      aux_2 <@ BNUTIL_MLeak.__addacc3 (x, t1, t0, k);
+      x <- aux_2;
+      k <- k + 1;
+    }
+    LEAK.leakages <- LeakFor(nlimbs,((2 * nlimbs) - 1)) :: LeakAddr([]) :: LEAK.leakages;
+    aux_0 <- ((2 * nlimbs) - 1);
+    k <- nlimbs;
+    while (k < aux_0) {
+      LEAK.leakages <- LeakAddr([]) :: LEAK.leakages;
+      aux_1 <- _P;
+      p <- aux_1;
+      LEAK.leakages <- LeakAddr([]) :: LEAK.leakages;
+      aux_2 <@ __muln_innerloop (x, k, ((k - nlimbs) + 1), nlimbs, r, p);
+      x <- aux_2;
+      LEAK.leakages <- LeakAddr([]) :: LEAK.leakages;
+      aux_3 <- (W64.of_int 0);
+      zero <- aux_3;
+      LEAK.leakages <- LeakAddr([k]) :: LEAK.leakages;
+      aux_3 <- a.[k];
+      t0 <- aux_3;
+      LEAK.leakages <- LeakAddr([]) :: LEAK.leakages;
+      aux_2 <@ BNUTIL_MLeak.__addacc3 (x, zero, t0, k);
+      x <- aux_2;
+      LEAK.leakages <- LeakAddr([(k %% 3)]) :: LEAK.leakages;
+      aux_3 <- x.[(k %% 3)];
+      t0 <- aux_3;
+      LEAK.leakages <- LeakAddr([]) :: LEAK.leakages;
+      aux_3 <- t0;
+      LEAK.leakages <- LeakAddr([(k - nlimbs)]) :: LEAK.leakages;
+      r.[(k - nlimbs)] <- aux_3;
+      LEAK.leakages <- LeakAddr([]) :: LEAK.leakages;
+      aux_3 <- (W64.of_int 0);
+      LEAK.leakages <- LeakAddr([(k %% 3)]) :: LEAK.leakages;
+      x.[(k %% 3)] <- aux_3;
+      k <- k + 1;
+    }
+    LEAK.leakages <- LeakAddr([]) :: LEAK.leakages;
+    aux_3 <- (W64.of_int 0);
+    lastbit <- aux_3;
+    LEAK.leakages <- LeakAddr([((2 * nlimbs) - 1); (((2 * nlimbs) - 1) %% 3)]) :: LEAK.leakages;
+    (aux_4, aux_3) <- adc_64 x.[(((2 * nlimbs) - 1) %% 3)] a.[((2 * nlimbs) - 1)]
+    false;
+    cf <- aux_4;
+    LEAK.leakages <- LeakAddr([(((2 * nlimbs) - 1) %% 3)]) :: LEAK.leakages;
+    x.[(((2 * nlimbs) - 1) %% 3)] <- aux_3;
+    LEAK.leakages <- LeakAddr([]) :: LEAK.leakages;
+    (aux_4, aux_3) <- adc_64 lastbit (W64.of_int 0) cf;
+     _1 <- aux_4;
+    lastbit <- aux_3;
+    LEAK.leakages <- LeakAddr([(((2 * nlimbs) - 1) %% 3)]) :: LEAK.leakages;
+    aux_3 <- x.[(((2 * nlimbs) - 1) %% 3)];
+    LEAK.leakages <- LeakAddr([(nlimbs - 1)]) :: LEAK.leakages;
+    r.[(nlimbs - 1)] <- aux_3;
+    LEAK.leakages <- LeakAddr([]) :: LEAK.leakages;
+    aux_1 <- _mP;
+    mP <- aux_1;
+    LEAK.leakages <- LeakAddr([]) :: LEAK.leakages;
+    aux_1 <@ _cminusP_ (r, mP, lastbit);
+    r <- aux_1;
+    return (r);
+  }
+  
+  proc __pack2 (r:BN2.t, lo:BN.t, hi:BN.t) : 
+  BN2.t = {
+    var aux: int;
+    var aux_0: W64.t;
+    
+    var i:int;
+    var t:W64.t;
+    
+    LEAK.leakages <- LeakFor(0,nlimbs) :: LeakAddr([]) :: LEAK.leakages;
+    i <- 0;
+    while (i < nlimbs) {
+      LEAK.leakages <- LeakAddr([i]) :: LEAK.leakages;
+      aux_0 <- lo.[i];
+      t <- aux_0;
+      LEAK.leakages <- LeakAddr([]) :: LEAK.leakages;
+      aux_0 <- t;
+      LEAK.leakages <- LeakAddr([i]) :: LEAK.leakages;
+      r.[i] <- aux_0;
+      i <- i + 1;
+    }
+    LEAK.leakages <- LeakFor(0,nlimbs) :: LeakAddr([]) :: LEAK.leakages;
+    i <- 0;
+    while (i < nlimbs) {
+      LEAK.leakages <- LeakAddr([i]) :: LEAK.leakages;
+      aux_0 <- hi.[i];
+      t <- aux_0;
+      LEAK.leakages <- LeakAddr([]) :: LEAK.leakages;
+      aux_0 <- t;
+      LEAK.leakages <- LeakAddr([(nlimbs + i)]) :: LEAK.leakages;
+      r.[(nlimbs + i)] <- aux_0;
+      i <- i + 1;
+    }
+    return (r);
+  }
+  
+  proc _pack2_ (r:BN2.t, lo:BN.t, hi:BN.t) : 
+  BN2.t = {
+    var aux_0: BN.t;
+    var aux: BN2.t;
+    
+    
+    
+    LEAK.leakages <- LeakAddr([]) :: LEAK.leakages;
+    aux <- r;
+    r <- aux;
+    LEAK.leakages <- LeakAddr([]) :: LEAK.leakages;
+    aux_0 <- lo;
+    lo <- aux_0;
+    LEAK.leakages <- LeakAddr([]) :: LEAK.leakages;
+    aux_0 <- hi;
+    hi <- aux_0;
+    LEAK.leakages <- LeakAddr([]) :: LEAK.leakages;
+    aux <@ __pack2 (r, lo, hi);
+    r <- aux;
+    LEAK.leakages <- LeakAddr([]) :: LEAK.leakages;
+    aux <- r;
+    r <- aux;
+    return (r);
+  }
+}.
+
+
 
 (******************************************************************************
  **               Library LEMMAS                                             **
  **                                                                          **
+ ** for each (user-callable) library procedure [ppp], we have the following  **
+ ** lemmas:                                                                  **
+ **   - ppp_ll: islossless M.ppp.                                            **
+ **   - ppp_h : hoare [ M.ppp: PRE ==> POST ].                               **
+ **   - ppp_ph: phoare [ M.ppp: PRE ==> POST ] = 1%r.                        **
+ **   - ppp_ct: equiv [ MLeak.ppp ~ MLeak.ppp                                **
+ **                   : ={glob LEAK} ==> ={glob LEAK} ].                     **
+ **   - ppp_lproj: equiv [ M.ppp ~ MLeak.ppp                                 **
+ **                      : ={arg} ==> ={res} ].                              **
+ **                                                                          **
  ******************************************************************************)
 
-
 (** LOSSLESS lemmas *)
-lemma bNUTIL__cf_mask_ll: islossless M.bNUTIL__cf_mask
-by islossless.
 
-lemma __load_ll: islossless M.__load.
+lemma _load__ll: islossless M._load_.
 proof.
-proc; while (0 <= i <= nlimbs) (nlimbs - i).
+have ?:= gt0_nlimbs.
+proc; inline*.
+wp; while (0 <= i <= nlimbs) (nlimbs - i).
  by move=> z; auto => /> &m /#.
-by auto => />; smt(gt0_nlimbs).
+by auto => /> /#.
 qed.
 
-lemma __store_ll: islossless M.__store.
+lemma _store__ll: islossless M._store_.
 proof.
-proc; while (0 <= i <= nlimbs) (nlimbs - i).
+have ?:= gt0_nlimbs.
+proc; inline*.
+wp; while (0 <= i <= nlimbs) (nlimbs - i).
  by move=> z; auto => /> &m /#.
-by auto => />; smt(gt0_nlimbs).
+by auto => /> /#.
 qed.
 
-lemma __eq_zf_ll: islossless M.__eq_zf.
+lemma _eq_zf__ll: islossless M._eq_zf_.
 proof.
-proc; wp; while (0 <= i <= nlimbs) (nlimbs - i).
+have ?:= gt0_nlimbs.
+proc; inline*.
+wp; while (0 <= i <= nlimbs) (nlimbs - i).
  by move=> z; auto => /> &m /#.
-by auto => />; smt(gt0_nlimbs).
+by auto => /> /#.
 qed.
-
-lemma __eq_ll: islossless M.__eq.
-proof. by proc; wp; call __eq_zf_ll. qed.
-
-lemma _eq_ll: islossless M._eq.
-proof. by proc; call __eq_ll. qed.
 
 lemma _eq__ll: islossless M._eq_.
-proof. by proc; wp; call _eq_ll; auto. qed.
-
-lemma __test0_zf_ll: islossless M.__test0_zf.
 proof.
-proc; wp; while (0 <= i <= nlimbs) (nlimbs - i).
+have ?:= gt0_nlimbs.
+proc; inline*.
+wp; while (0 <= i <= nlimbs) (nlimbs - i).
  by move=> z; auto => /> &m /#.
-by auto => />; smt(gt0_nlimbs).
+by auto => /> /#.
 qed.
 
-lemma __test0_ll: islossless M.__test0.
-proof. by proc; wp; call __test0_zf_ll; auto. qed.
+lemma _test0_zf__ll: islossless M._test0_zf_.
+proof.
+have ?:= gt0_nlimbs.
+proc; inline*.
+wp; while (0 <= i <= nlimbs) (nlimbs - i).
+ by move=> z; auto => /> &m /#.
+by auto => /> /#.
+qed.
 
-lemma _test0_ll: islossless M._test0.
-proof. by proc; call __test0_ll. qed.
+lemma _test0__ll: islossless M._test0_.
+proof.
+have ?:= gt0_nlimbs.
+proc; inline*.
+wp; while (0 <= i <= nlimbs) (nlimbs - i).
+ by move=> z; auto => /> &m /#.
+by auto => /> /#.
+qed.
 
 lemma __copy_ll: islossless M.__copy.
 proof.
-proc; wp; while (0 <= i <= nlimbs) (nlimbs - i).
+have ?:= gt0_nlimbs.
+proc; inline*.
+wp; while (0 <= i <= nlimbs) (nlimbs - i).
  by move=> z; auto => /> &m /#.
-by auto => />; smt(gt0_nlimbs).
+by auto => /> /#.
 qed.
 
-lemma __copy2_ll: islossless M.__copy2.
+lemma _mov__ll: islossless M._mov_.
 proof.
-proc; wp; while (0 <= i <= nlimbs) (nlimbs - i).
+have ?:= gt0_nlimbs.
+proc; inline*.
+wp; while (0 <= i <= nlimbs) (nlimbs - i).
  by move=> z; auto => /> &m /#.
-by auto => />; smt(gt0_nlimbs).
+by auto => /> /#.
 qed.
 
-lemma __cmov_ll: islossless M.__cmov.
+lemma _cmov__ll: islossless M._cmov_.
 proof.
-proc; wp; while (0 <= i <= nlimbs) (nlimbs - i).
+have ?:= gt0_nlimbs.
+proc; inline*.
+wp; while (0 <= i <= nlimbs) (nlimbs - i).
  by move=> z; auto => /> &m /#.
-by auto => />; smt(gt0_nlimbs).
+by auto => /> /#.
 qed.
 
-lemma __set0_ll: islossless M.__set0.
+lemma _cswap_mask__ll: islossless M._cswap_mask_.
 proof.
-proc.
-admitted (* while (0 <= i <= nlimbs) (nlimbs - i).
+have ?:= gt0_nlimbs.
+proc; inline*.
+wp; while (0 <= i <= nlimbs) (nlimbs - i).
  by move=> z; auto => /> &m /#.
-by auto => />; smt(gt0_nlimbs).
-qed.*).
-
-(*
-lemma __add1U_ll: islossless M.__add1U.
-proof.
-proc; while (0 <= i <= nlimbs) (nlimbs - i).
- by move=> z; auto => /> &m /#.
-by auto => />; smt(gt0_nlimbs).
-qed.
-*)
-
-lemma __addU_ll: islossless M.__addU.
-proof.
-proc; while (0 <= i <= nlimbs) (nlimbs - i).
- by move=> z; auto => /> &m /#.
-by auto => />; smt(gt0_nlimbs).
+by auto => /> /#.
 qed.
 
-lemma _addU_ll: islossless M._addU.
-proof. by proc; call __addU_ll. qed.
-
-lemma __subU_ll: islossless M.__subU.
+lemma _cswap_cf__ll: islossless M._cswap_cf_.
 proof.
-proc; while (0 <= i <= nlimbs) (nlimbs - i).
+have ?:= gt0_nlimbs.
+proc; inline*.
+wp; while (0 <= i <= nlimbs) (nlimbs - i).
  by move=> z; auto => /> &m /#.
-by auto => />; smt(gt0_nlimbs).
+by auto => /> /#.
 qed.
 
-lemma __lt_cf_ll: islossless M.__lt_cf.
+lemma _fill__ll: islossless M._fill_.
 proof.
-proc; while (0 <= i <= nlimbs) (nlimbs - i).
+have ?:= gt0_nlimbs.
+proc; inline*.
+wp; while (0 <= i <= nlimbs) (nlimbs - i).
  by move=> z; auto => /> &m /#.
-by auto => />; smt(gt0_nlimbs).
+by auto => /> /#.
 qed.
 
-lemma _subU_ll: islossless M._subU.
-proof. by proc; call __subU_ll. qed.
+lemma _set0__ll: islossless M._set0_.
+proof.
+have ?:= gt0_nlimbs.
+proc; inline*.
+wp; while (0 <= i <= nlimbs) (nlimbs - i).
+ by move=> z; auto => /> &m /#.
+by auto => /> /#.
+qed.
+
+lemma __cfill_ll: islossless M.__cfill.
+proof.
+have ?:= gt0_nlimbs.
+proc; inline*.
+wp; while (0 <= i <= nlimbs) (nlimbs - i).
+ by move=> z; auto => /> &m /#.
+by auto => /> /#.
+qed.
+
+lemma _or_mask__ll: islossless M._or_mask_.
+proof.
+have ?:= gt0_nlimbs.
+proc; inline*.
+wp; while (0 <= i <= nlimbs) (nlimbs - i).
+ by move=> z; auto => /> &m /#.
+by auto => /> /#.
+qed.
+
+lemma _and_mask__ll: islossless M._and_mask_.
+proof.
+have ?:= gt0_nlimbs.
+proc; inline*.
+wp; while (0 <= i <= nlimbs) (nlimbs - i).
+ by move=> z; auto => /> &m /#.
+by auto => /> /#.
+qed.
+
+lemma _set_err__ll: islossless M._set_err_.
+proof.
+have ?:= gt0_nlimbs.
+proc; inline*.
+wp; while (0 <= i <= nlimbs) (nlimbs - i).
+ by move=> z; auto => /> &m /#.
+by auto => /> /#.
+qed.
+
+lemma __carrypropU_ll: islossless M.__carrypropU.
+proof.
+have ?:= gt0_nlimbs.
+proc; inline*.
+wp; while (true) (nlimbs - i).
+ by move=> z; auto => /> &m /#.
+auto => /> /#.
+qed.
+
+lemma _addcU__ll: islossless M._addcU_.
+proof.
+have ?:= gt0_nlimbs.
+proc; inline*.
+wp; while (0 <= i <= nlimbs) (nlimbs - i).
+ by move=> z; auto => /> &m /#.
+by auto => /> /#.
+qed.
+
+lemma _addU__ll: islossless M._addU_.
+proof.
+have ?:= gt0_nlimbs.
+proc; inline*.
+wp; while (0 <= i <= nlimbs) (nlimbs - i).
+ by move=> z; auto => /> &m /#.
+by auto => /> /#.
+qed.
+
+lemma _addc__ll: islossless M._addc_.
+proof.
+have ?:= gt0_nlimbs.
+proc; inline*.
+wp; while (0 <= i <= nlimbs) (nlimbs - i).
+ by move=> z; auto => /> &m /#.
+by auto => /> /#.
+qed.
+
+lemma _add__ll: islossless M._add_.
+proof.
+have ?:= gt0_nlimbs.
+proc; inline*.
+wp; while (0 <= i <= nlimbs) (nlimbs - i).
+ by move=> z; auto => /> &m /#.
+by auto => /> /#.
+qed.
+
+lemma _subcU__ll: islossless M._subcU_.
+proof.
+have ?:= gt0_nlimbs.
+proc; inline*.
+wp; while (0 <= i <= nlimbs) (nlimbs - i).
+ by move=> z; auto => /> &m /#.
+by auto => /> /#.
+qed.
+
+lemma _subU__ll: islossless M._subU_.
+proof.
+have ?:= gt0_nlimbs.
+proc; inline*.
+wp; while (0 <= i <= nlimbs) (nlimbs - i).
+ by move=> z; auto => /> &m /#.
+by auto => /> /#.
+qed.
+
+lemma _subc__ll: islossless M._subc_.
+proof.
+have ?:= gt0_nlimbs.
+proc; inline*.
+wp; while (0 <= i <= nlimbs) (nlimbs - i).
+ by move=> z; auto => /> &m /#.
+by auto => /> /#.
+qed.
+
+lemma _sub__ll: islossless M._sub_.
+proof.
+have ?:= gt0_nlimbs.
+proc; inline*.
+wp; while (0 <= i <= nlimbs) (nlimbs - i).
+ by move=> z; auto => /> &m /#.
+by auto => /> /#.
+qed.
+
+lemma _lt_cf__ll: islossless M._lt_cf_.
+proof.
+have ?:= gt0_nlimbs.
+proc; inline*.
+wp; while (0 <= i <= nlimbs) (nlimbs - i).
+ by move=> z; auto => /> &m /#.
+by auto => /> /#.
+qed.
+
+lemma _ltc_cf__ll: islossless M._ltc_cf_.
+proof.
+have ?:= gt0_nlimbs.
+proc; inline*.
+wp; while (0 <= i <= nlimbs) (nlimbs - i).
+ by move=> z; auto => /> &m /#.
+by auto => /> /#.
+qed.
+
+lemma _negU__ll: islossless M._negU_.
+proof.
+have ?:= gt0_nlimbs.
+proc; inline*.
+wp; while (0 <= i <= nlimbs) (nlimbs - i).
+ by move=> z; auto => /> &m /#.
+by auto => /> /#.
+qed.
+
+lemma _negcU__ll: islossless M._negcU_.
+proof.
+have ?:= gt0_nlimbs.
+proc; inline*.
+wp; while (0 <= i <= nlimbs) (nlimbs - i).
+ by move=> z; auto => /> &m /#.
+by auto => /> /#.
+qed.
+
+lemma _neg__ll: islossless M._neg_.
+proof.
+have ?:= gt0_nlimbs.
+proc; inline*.
+wp; while (0 <= i <= nlimbs) (nlimbs - i).
+ by move=> z; auto => /> &m /#.
+by auto => /> /#.
+qed.
+
+lemma _negc__ll: islossless M._negc_.
+proof.
+have ?:= gt0_nlimbs.
+proc; inline*.
+wp; while (0 <= i <= nlimbs) (nlimbs - i).
+ by move=> z; auto => /> &m /#.
+by auto => /> /#.
+qed.
+
+lemma _cnegU__ll: islossless M._cnegU_.
+proof.
+have ?:= gt0_nlimbs.
+proc; inline*.
+wp; while (true) (nlimbs - i).
+ by move=> z; auto => /> &m /#.
+wp; while (true) (nlimbs - i0).
+ by move=> z; auto => /> &m /#.
+by auto => /> /#.
+qed.
+
+lemma _caddU__ll: islossless M._caddU_.
+proof.
+have ?:= gt0_nlimbs.
+proc; inline*.
+wp; while (true) (nlimbs - i1).
+ by move=> z; auto => /> &m /#.
+wp; while (true) (nlimbs - i0).
+ by move=> z; auto => /> &m /#.
+wp; while (true) (nlimbs - i).
+ by move=> z; auto => /> &m /#.
+by auto => /> /#.
+qed.
+
+lemma _muln__ll: islossless M._muln_.
+admitted.
+
+lemma _sqrn__ll: islossless M._sqrn_.
+admitted.
+
+lemma _cminusP__ll: islossless M._cminusP_.
+proof.
+have ?:= gt0_nlimbs.
+proc; inline*.
+wp; while (true) (nlimbs - i0).
+ by move=> z; auto => /> &m /#.
+wp; while (true) (nlimbs - i1).
+ by move=> z; auto => /> &m /#.
+wp; while (true) (nlimbs - i).
+ by move=> z; auto => /> &m /#.
+by auto => /> /#.
+qed.
+
+lemma __mont_redM_ll: islossless M.__mont_redM.
+admitted.
+
+lemma _pack2__ll: islossless M._pack2_.
+proof.
+have ?:= gt0_nlimbs.
+proc; inline*.
+wp; while (true) (nlimbs - i).
+ by move=> z; auto => /> &m /#.
+wp; while (true) (nlimbs - i).
+ by move=> z; auto => /> &m /#.
+by auto => /> /#.
+qed.
+
 
 
 (* Correctness lemmas *)
 import JBigNumber.
+
+hoare _load__h:
+ M._load_ :  true  ==>  true.
+admitted.
+
+hoare _store__h:
+ M._store_ :  true  ==>  true.
+admitted.
+
 hoare __eq_zf_h _a _b:
  M.__eq_zf: a=_a /\ b=_b ==> res =  (_a=_b).
 proof.
@@ -1018,39 +3753,19 @@ rewrite /AND_64 /rflags_of_bwop_w /flags_w /rflags_of_bwop /ZF_of /=.
 by case: (acc = W64.zero) => C; smt(BN.bn_inj).
 qed.
 
-phoare __eq_zf_ph _a _b:
- [M.__eq_zf: a=_a /\ b=_b ==> res = (_a=_b)] = 1%r.
-proof. by conseq __eq_zf_ll (__eq_zf_h _a _b). qed.
+hoare _eq_zf__h _a _b:
+ M._eq_zf_: a=_a /\ b=_b ==> res =  (_a=_b).
+proof. by proc; inline _eq_zf; wp; ecall (__eq_zf_h a b); auto. qed.
 
-hoare __eq_h _a _b:
- M.__eq: a=_a /\ b=_b ==> to_uint res =  b2i (_a=_b).
+hoare _eq__h _a _b:
+ M._eq_ : a=_a /\ b=_b ==> to_uint res = b2i (_a=_b).
 proof.
-proc; wp; call (__eq_zf_h _a _b); skip => />.
-by case: (_a=_b) => C /#.
+proc; wp; ecall (_eq_zf__h a b); auto => />.
+by case: (_a=_b) => /> E.
 qed.
 
-phoare __eq_ph _a _b:
- [M.__eq: a=_a /\ b=_b ==> to_uint res =  b2i (_a=_b)] = 1%r.
-proof. by conseq __eq_ll (__eq_h _a _b). qed.
-
-hoare _eq_h _a _b:
- M._eq: a=_a /\ b=_b ==> to_uint res = b2i (_a=_b).
-proof. by proc; ecall (__eq_h a b). qed.
-
-phoare _eq_ph _a _b:
- [M._eq: a=_a /\ b=_b ==> to_uint res = b2i (_a=_b)] = 1%r.
-proof. by conseq _eq_ll (_eq_h _a _b). qed.
- 
-hoare _eq__h _a _b:
- M._eq_: _a=a /\ _b=b ==> to_uint res = b2i (_a=_b).
-proof. by proc; wp; ecall (_eq_h a b); auto. qed.
- 
-phoare _eq__ph _a _b:
- [M._eq_: _a=a /\ _b=b ==> to_uint res = b2i (_a=_b) ] = 1%r.
-proof. by conseq _eq__ll (_eq__h _a _b). qed.
-
 hoare __test0_zf_h _a:
- M.__test0_zf: a=_a ==> res = (bn _a=0).
+ M.__test0_zf : a=_a ==> res = (bn _a=0).
 proof.
 proc.
 wp; while ( #pre /\ 0 <= i <= nlimbs /\ ((acc = W64.zero) <=> (bnk i a = 0))).
@@ -1067,31 +3782,19 @@ move: H2; rewrite (_:i0=nlimbs) 1:/# => <-.
 by rewrite /AND_64 /#.
 qed.
 
-phoare __test0_zf_ph _a:
- [M.__test0_zf: a=_a ==> res = (bn _a=0)] = 1%r.
-proof. by conseq __test0_zf_ll (__test0_zf_h _a). qed.
+hoare _test0_zf__h _a:
+ M._test0_zf_: a=_a ==> res =  (bn _a=0).
+proof. by proc; inline _eq_zf; wp; ecall (__test0_zf_h a); auto. qed.
 
-hoare __test0_h _a:
- M.__test0: a=_a ==> to_uint res = b2i (bn _a=0).
+hoare _test0__h _a:
+ M._test0_ : a=_a ==> to_uint res = b2i (bn _a=0).
 proof.
-proc; wp; call (__test0_zf_h _a); auto => />.
-case (bnk nlimbs _a = 0) => _; smt().
+proc; wp; ecall (_test0_zf__h a); auto => />.
+case (bn _a = 0) => _; smt().
 qed.
-
-phoare __test0_ph _a:
- [M.__test0: a=_a ==> to_uint res = b2i (bn _a=0)] = 1%r.
-proof. by conseq __test0_ll (__test0_h _a). qed.
-
-hoare _test0_h _a:
- M._test0: a=_a ==> to_uint res = b2i (bn _a=0).
-proof. by proc; ecall (__test0_h a). qed.
- 
-phoare _test0_ph _a:
- [M._test0: a=_a ==> to_uint res = b2i (bn _a=0)] = 1%r.
-proof. by conseq _test0_ll (_test0_h _a). qed.
 
 hoare __copy_h _a:
- M.__copy: a=_a ==> res = _a.
+ M.__copy : a=_a ==> res = _a.
 proof.
 proc; while (0 <= i <= nlimbs /\ _a = a /\ (forall j, 0 <= j < i => r.[j] = _a.[j])).
  by wp; skip; progress; [smt() | smt() | rewrite get_setE => /#]. 
@@ -1099,61 +3802,93 @@ wp; skip; progress; first 2 smt(gt0_nlimbs).
 by rewrite tP /#.
 qed.
 
-phoare __copy_ph _a:
- [M.__copy: a=_a ==> res = _a] = 1%r.
-proof. by conseq __copy_ll (__copy_h _a). qed.
-
-hoare __copy2_h _a:
- M.__copy2: a=_a ==> res = _a.
+hoare _mov__h _a:
+ M._mov_ : a=_a ==> res = _a.
 proof.
-proc; while (0 <= i <= nlimbs /\ _a = a /\ (forall j, 0 <= j < i => r.[j] = _a.[j])).
- by wp; skip; progress; [smt() | smt() | rewrite get_setE => /#]. 
+proc; inline*.
+wp; while (0 <= i <= nlimbs /\ _a = a1 /\ (forall j, 0 <= j < i => r1.[j] = _a.[j])).
+ by wp; skip; progress; [smt() | smt() | rewrite get_setE /#].
 wp; skip; progress; first 2 smt(gt0_nlimbs).  
 by rewrite tP /#.
 qed.
 
-phoare __copy2_ph _a:
- [M.__copy2: a=_a ==> res = _a] = 1%r.
-proof. by conseq __copy2_ll (__copy2_h _a). qed.
-
-hoare __cmov_h _cond _a _b:
- M.__cmov: cond=_cond /\ a=_a /\ b=_b
+hoare _cmov__h _a _b _cond :
+ M._cmov_ : cond=_cond /\ a=_a /\ b=_b
               ==> res = if _cond then _b else _a.
 proof.
-proc => //=. 
-while (0 <= i <= nlimbs /\ _cond = cond /\ _b = b /\
-       (forall j, i <= j < nlimbs => a.[j] = _a.[j]) /\
-       forall j, 0 <= j < i => a.[j] = if _cond then _b.[j] else _a.[j]).
+proc; inline*.
+wp; while (0 <= i <= nlimbs /\ _cond = cond1 /\ _b = b1 /\
+       (forall j, i <= j < nlimbs => a1.[j] = _a.[j]) /\
+       forall j, 0 <= j < i => a1.[j] = if _cond then _b.[j] else _a.[j]).
  wp; skip => /> &hr *; split; first smt().
  split.
   move=> j Hj1 Hj2; rewrite get_setE 1:/#.
   by rewrite ifF 1:/# /#.
  by move=> j Hj1 Hj2; rewrite get_setE 1:/# /#.
-wp; skip => />. split; first smt(gt0_nlimbs).
+wp; skip => />; split; first smt(gt0_nlimbs).
 move=> a i ???; rewrite (:i=nlimbs) 1:/# => H1 H2.
 by rewrite tP /#.
 qed.
 
-phoare __cmov_ph _cond _a _b:
- [M.__cmov: cond=_cond /\ a=_a /\ b=_b
-              ==> res = if _cond then _b else _a] = 1%r.
-proof. by conseq __cmov_ll (__cmov_h _cond _a _b). qed.
+hoare _cswap_mask__h _x _y _cond:
+ M._cswap_mask_ : mask=W64.of_int (- b2i _cond) /\ x=_x /\ y=_y
+                   ==> res = if _cond then (_y,_x) else (_x, _y).
+proof.
+proc; inline*.
+admitted.
 
-hoare __set0_h:
- M.__set0 : true ==> bn res = 0.
+hoare _cswap_cf__h _x _y _cf:
+ M._cswap_cf_ : cf=_cf /\ x=_x /\ y=_y
+                  ==> res = if _cf then (_y,_x) else (_x, _y).
 proof.
 proc.
-admitted(*
-while (bnk i a = 0 /\ 0 <= i <= nlimbs /\ to_uint t = 0).
- auto => /> *.
- by rewrite bnkS 1:/# /= get_setE 1:/# bnk_setO /#.
-by auto => /> &m; smt(bnk0 gt0_nlimbs).
+ecall (_cswap_mask__h x y cf).
+ecall (BNUTIL.__cf_mask_h cf).
+by auto => /> /#.
 qed.
-*).
 
-phoare __set0_ph:
- [M.__set0 : true ==> bn res = 0] = 1%r.
-proof. by conseq __set0_ll __set0_h. qed.
+hoare _fill__h _x:
+ M._fill_ : x = _x ==> forall k, 0 <= k < nlimbs => res.[k] = _x.
+proof.
+have ?:= BN.gt0_nlimbs.
+proc; inline*.
+wp; while (0 <= i <= nlimbs /\ x0=_x /\
+           forall j, 0 <= j < i => a0.[j] = _x).
+ auto => /> &m *. split; first smt().
+ move=> j Hj1 Hj2; rewrite get_setE 1:/#. 
+ by case: (j=i{m}) => E /#.
+by auto => /> &m /#.
+qed.
+
+hoare _set0__h:
+ M._set0_ : true ==> bn res = 0.
+proof.
+proc.
+ecall (_fill__h t); auto => /> a Ha.
+search (BN.bnk _ _ = 0).
+admit.
+qed.
+
+hoare __cfill_h _a _cond _x:
+ M.__cfill : b=_cond /\ x=_x /\ a=_a
+              ==> if _cond then (forall k, 0 <= k < nlimbs => res.[k] = _x) else res = _a.
+admitted.
+
+hoare _or_mask__h _a _mask:
+ M._or_mask_ : a=_a /\ mask=_mask  ==> forall k, 0 <= k < nlimbs => res.[k] = _a.[k] `|` _mask.
+admitted.
+
+hoare _and_mask__h _a _mask:
+ M._and_mask_ : a=_a /\ mask=_mask  ==> forall k, 0 <= k < nlimbs => res.[k] = _a.[k] `&` _mask.
+admitted.
+
+(* moveto JBigNum: "bn_err" = bn_modulus - 1 *)
+op bn_err: BN.t.
+
+hoare _set_err__h _a _cond:
+ M._set_err_ : _err=W64.of_int (- b2i _cond) /\ a=_a
+                  ==> if _cond then res=bn_err else res=_a.
+admitted.
 
 (*
 hoare __add1U_h _a _b:
@@ -1180,7 +3915,6 @@ auto => />; split.
  by rewrite /bnk_withcarry /= b2i0 bnk0 /=.
 by move=> a cf i ??? _; rewrite (:i=nlimbs) 1:/#.
 qed.
-*)
 
 hoare __addU_h _a _b:
  M.__addU : 
@@ -1207,34 +3941,373 @@ auto => />; split.
 by move=> a cf i ??? _; rewrite (:i=nlimbs) 1:/#.
 qed.
 
-phoare __addU_ph _a _b:
- [ M.__addU : 
-   a=_a /\ b=_b 
-   ==> bn_withcarry res = bn _a + bn _b] = 1%r.
-proof. by conseq __addU_ll (__addU_h _a _b). qed.
-
 hoare _addU_h _a _b:
  M._addU : 
  a=_a /\ b=_b
  ==> bn_withcarry res = bn _a + bn _b.
 proof. by proc; ecall (__addU_h a b). qed.
 
-phoare _addU_ph _a _b:
- [ M._addU : 
-   a=_a /\ b=_b 
-   ==> bn_withcarry res = bn _a + bn _b] = 1%r.
-proof. by conseq _addU_ll (_addU_h _a _b). qed.
+*)
 
-
-
-
-hoare __muln_h _a _b:
- M.__muln :
-  a=_a /\ b=_b ==> BN2.bn res = bn _a * bn _b.
+hoare __carrypropU_h _a _cf:
+ M.__carrypropU : a=_a /\ cf=_cf ==> bn_withcarry res = bn _a + b2i _cf.
+proc.
 admitted.
 
-phoare __muln_ph _a _b:
- [ M.__muln
+hoare _addcU__h _a _b _cf:
+ M._addcU_ : a=_a /\ b=_b /\ cf=_cf  ==> bn_withcarry res = bn _a + bn _b + b2i _cf.
+admitted.
+
+hoare _addU__h _a _b:
+ M._addU_ : a=_a /\ b=_b  ==> bn_withcarry res = bn _a + bn _b.
+admitted.
+
+hoare _addc__h _a _b _cf:
+ M._addc_ : a=_a /\ b=_b /\ cf=_cf ==> bn_withcarry res = bn _a + bn _b + b2i _cf.
+admitted.
+
+hoare _add__h _a _b:
+ M._add_ : a=_a /\ b=_b  ==> bn_withcarry res = bn _a + bn _b.
+admitted.
+
+hoare _subcU__h _a _b _cf:
+ M._subcU_ : a=_a /\ b=_b /\ cf=_cf ==> bn_withborrow res = bn _a - bn _b - b2i _cf.
+admitted.
+
+hoare _subU__h _a _b:
+ M._subU_ : a=_a /\ b=_b ==> bn_withborrow res = bn _a - bn _b.
+admitted.
+
+hoare _subc__h _a _b _cf:
+ M._subc_ : a=_a /\ b=_b /\ cf=_cf ==> bn_withborrow res = bn _a - bn _b - b2i _cf.
+admitted.
+
+hoare _sub__h _a _b:
+ M._sub_ : a=_a /\ b=_b ==> bn_withborrow res = bn _a - bn _b.
+admitted.
+
+hoare _lt_cf__h _a _b:
+ M._lt_cf_ : a=_a /\ b=_b ==> res = bn _a < bn _b.
+admitted.
+
+hoare _ltc_cf__h _a _b _cf:
+ M._ltc_cf_ : a=_a /\ b=_b /\ cf=_cf ==> res = bn _a < (bn _b + b2i _cf).
+admitted.
+
+hoare _negU__h _a:
+ M._negU_ : a=_a ==> bn_withborrow res = 0 - bn _a.
+admitted.
+
+hoare _negcU__h _a _cf:
+ M._negcU_ : a=_a /\ cf=_cf ==> bn_withborrow res = 0 - (bn _a + b2i _cf).
+admitted.
+
+hoare _neg__h _a:
+ M._neg_ : a=_a ==> bn_withborrow res = 0 - bn _a.
+admitted.
+
+hoare _negc__h _a _cf:
+ M._negc_ : a=_a /\ cf=_cf ==> bn_withborrow res = 0 - (bn _a + b2i _cf).
+admitted.
+
+hoare _cnegU__h _a _cond:
+ M._cnegU_ : a=_a /\ cond=_cond 
+              ==> res = if to_uint _cond = 0 then _a else BN.bn_ofint (- bn _a).
+admitted.
+
+hoare _caddU__h _x _y _cf:
+ M._caddU_ : x=_x /\ y=_y /\ cf=_cf 
+              ==> res = if _cf then BN.bn_ofint (bn _x + bn _y) else _x.
+admitted.
+
+hoare _muln__h _a _b:
+ M._muln_ : a=_a /\ b=_b ==> bn res = bn _a * bn _b.
+admitted.
+
+hoare _sqrn__h _a:
+ M._sqrn_ : a=_a ==> bn res = bn _a * bn _a.
+admitted.
+
+hoare _cminusP__h _x _mP _lastbit _cf:
+ M._cminusP_ : x=_x /\ mP=_mP /\ lastbit=_lastbit /\ to_uint lastbit<=1
+                ==> res = if _cf then BN.bn_ofint (bn _x + bn _mP + to_uint _lastbit) else _x.
+admitted.
+
+lemma __mont_redM_h rInv __P __mP __U0 _a:
+ (rInv * BN.bn_modulus) %% BN.bn __P = 1 =>
+ bn __P + BN.bn __mP = BN.bn_modulus =>
+ __U0 * __P.[0] = W64.of_int (-1) =>
+ hoare [ M.__mont_redM
+       : _P=__P /\ _mP=__mP /\ _U0=__U0 /\ a=_a ==> bn res = (bn _a * rInv) %% bn __P
+       ].
+proof.
+move => rInv_r P_mP U0_P0.
+admitted.
+
+hoare _pack2__h _lo _hi:
+ M._pack2_ : lo=_lo /\ hi=_hi ==> bn res = bn _lo + bn _hi * BN.bn_modulus.
+proof.
+proc; inline*.
+admitted.
+
+
+(** PHoare statements *)
+
+phoare _load__ph:
+ [ M._load_
+ : true ==> true
+ ] = 1%r.
+proof. by conseq _load__ll (_load__h). qed.
+
+phoare _store__ph:
+ [ M._store_
+ : true ==> true
+ ] = 1%r.
+proof. by conseq _store__ll (_store__h). qed.
+
+phoare _eq_zf__ph _a _b:
+ [ M._eq_zf_
+ : a=_a /\ b=_b ==> res = (_a=_b)
+ ] = 1%r.
+proof. by conseq _eq_zf__ll (_eq_zf__h _a _b). qed.
+
+phoare _eq__ph _a _b:
+ [ M._eq_
+ : a=_a /\ b=_b ==> to_uint res = b2i (_a=_b)
+ ] = 1%r.
+proof. by conseq _eq__ll (_eq__h _a _b). qed.
+
+phoare _test0_zf__ph _a:
+ [ M._test0_zf_
+ : a=_a ==> res =  (bn _a=0)
+ ] = 1%r.
+proof. by conseq _test0_zf__ll (_test0_zf__h _a). qed.
+
+phoare _test0__ph _a:
+ [ M._test0_
+ : a=_a ==> to_uint res = b2i (bn _a=0)
+ ] = 1%r.
+proof. by conseq _test0__ll (_test0__h _a). qed.
+
+phoare __copy_ph _a:
+ [ M.__copy
+ : a=_a ==> res = _a
+ ] = 1%r.
+proof. by conseq __copy_ll (__copy_h _a). qed.
+
+phoare _mov__ph _a:
+ [ M._mov_
+ : a=_a ==> res = _a
+ ] = 1%r.
+proof. by conseq _mov__ll (_mov__h _a). qed.
+
+phoare _cmov__ph _a _b _cond :
+ [ M._cmov_
+ : cond=_cond /\ a=_a /\ b=_b ==> res = if _cond then _b else _a
+ ] = 1%r.
+proof. by conseq _cmov__ll (_cmov__h _a _b _cond). qed.
+
+phoare _cswap_mask__ph _x _y _cond:
+ [ M._cswap_mask_
+ : mask=W64.of_int (- b2i _cond) /\ x=_x /\ y=_y
+                   ==> res = if _cond then (_y,_x) else (_x, _y)
+ ] = 1%r.
+proof. by conseq _cswap_mask__ll (_cswap_mask__h _x _y _cond). qed.
+
+phoare _cswap_cf__ph _x _y _cf:
+ [ M._cswap_cf_
+ : cf=_cf /\ x=_x /\ y=_y
+                   ==> res = if _cf then (_y,_x) else (_x, _y)
+ ] = 1%r.
+proof. by conseq _cswap_cf__ll (_cswap_cf__h _x _y _cf). qed.
+
+phoare _fill__ph _x:
+ [ M._fill_
+ : x = _x ==> forall k, 0 <= k < nlimbs => res.[k] = _x
+ ] = 1%r.
+proof. by conseq _fill__ll (_fill__h _x). qed.
+
+phoare _set0__ph:
+ [ M._set0_
+ : true ==> bn res = 0
+ ] = 1%r.
+proof. by conseq _set0__ll (_set0__h). qed.
+
+phoare __cfill_ph _a _cond _x:
+ [ M.__cfill
+ : b=_cond /\ x=_x /\ a=_a
+              ==> if _cond then (forall k, 0 <= k < nlimbs => res.[k] = _x) else res = _a
+ ] = 1%r.
+proof. by conseq __cfill_ll (__cfill_h _a _cond _x). qed.
+
+phoare _or_mask__ph _a _mask:
+ [ M._or_mask_
+ : a=_a /\ mask=_mask  ==> forall k, 0 <= k < nlimbs => res.[k] = _a.[k] `|` _mask
+ ] = 1%r.
+proof. by conseq _or_mask__ll (_or_mask__h _a _mask). qed.
+
+phoare _and_mask__ph _a _mask:
+ [ M._and_mask_
+ : a=_a /\ mask=_mask  ==> forall k, 0 <= k < nlimbs => res.[k] = _a.[k] `&` _mask
+ ] = 1%r.
+proof. by conseq _and_mask__ll (_and_mask__h _a _mask). qed.
+
+phoare _set_err__ph _a _cond:
+ [ M._set_err_
+ : _err=W64.of_int (- b2i _cond) /\ a=_a
+                  ==> if _cond then res=bn_err else res=_a
+ ] = 1%r.
+proof. by conseq _set_err__ll (_set_err__h _a _cond). qed.
+
+phoare __carrypropU_ph _a _cf:
+ [ M.__carrypropU
+ : a=_a /\ cf=_cf ==> bn_withcarry res = bn _a + b2i _cf
+ ] = 1%r.
+proof. by conseq __carrypropU_ll (__carrypropU_h _a _cf). qed.
+
+phoare _addcU__ph _a _b _cf:
+ [ M._addcU_
+ : a=_a /\ b=_b /\ cf=_cf  ==> bn_withcarry res = bn _a + bn _b + b2i _cf
+ ] = 1%r.
+proof. by conseq _addcU__ll (_addcU__h _a _b _cf). qed.
+
+phoare _addU__ph _a _b:
+ [ M._addU_
+ : a=_a /\ b=_b  ==> bn_withcarry res = bn _a + bn _b
+ ] = 1%r.
+proof. by conseq _addU__ll (_addU__h _a _b). qed.
+
+phoare _addc__ph _a _b _cf:
+ [ M._addc_
+ : a=_a /\ b=_b /\ cf=_cf ==> bn_withcarry res = bn _a + bn _b + b2i _cf
+ ] = 1%r.
+proof. by conseq _addc__ll (_addc__h _a _b _cf). qed.
+
+phoare _add__ph _a _b:
+ [ M._add_
+ : a=_a /\ b=_b  ==> bn_withcarry res = bn _a + bn _b
+ ] = 1%r.
+proof. by conseq _add__ll (_add__h _a _b). qed.
+
+phoare _subcU__ph _a _b _cf:
+ [ M._subcU_
+ : a=_a /\ b=_b /\ cf=_cf ==> bn_withborrow res = bn _a - bn _b - b2i _cf
+ ] = 1%r.
+proof. by conseq _subcU__ll (_subcU__h _a _b _cf). qed.
+
+phoare _subU__ph _a _b:
+ [ M._subU_
+ : a=_a /\ b=_b ==> bn_withborrow res = bn _a - bn _b
+ ] = 1%r.
+proof. by conseq _subU__ll (_subU__h _a _b). qed.
+
+phoare _subc__ph _a _b _cf:
+ [ M._subc_
+ : a=_a /\ b=_b /\ cf=_cf ==> bn_withborrow res = bn _a - bn _b - b2i _cf
+ ] = 1%r.
+proof. by conseq _subc__ll (_subc__h _a _b _cf). qed.
+
+phoare _sub__ph _a _b:
+ [ M._sub_
+ : a=_a /\ b=_b ==> bn_withborrow res = bn _a - bn _b
+ ] = 1%r.
+proof. by conseq _sub__ll (_sub__h _a _b). qed.
+
+phoare _lt_cf__ph _a _b:
+ [ M._lt_cf_
+ : a=_a /\ b=_b ==> res = bn _a < bn _b
+ ] = 1%r.
+proof. by conseq _lt_cf__ll (_lt_cf__h _a _b). qed.
+
+phoare _ltc_cf__ph _a _b _cf:
+ [ M._ltc_cf_
+ : a=_a /\ b=_b /\ cf=_cf ==> res = bn _a < (bn _b + b2i _cf)
+ ] = 1%r.
+proof. by conseq _ltc_cf__ll (_ltc_cf__h _a _b _cf). qed.
+
+phoare _negU__ph _a:
+ [ M._negU_
+ : a=_a ==> bn_withborrow res = 0 - bn _a
+ ] = 1%r.
+proof. by conseq _negU__ll (_negU__h _a). qed.
+
+phoare _negcU__ph _a _cf:
+ [ M._negcU_
+ : a=_a /\ cf=_cf ==> bn_withborrow res = 0 - (bn _a + b2i _cf)
+ ] = 1%r.
+proof. by conseq _negcU__ll (_negcU__h _a _cf). qed.
+
+phoare _neg__ph _a:
+ [ M._neg_
+ : a=_a ==> bn_withborrow res = 0 - bn _a
+ ] = 1%r.
+proof. by conseq _neg__ll (_neg__h _a). qed.
+
+phoare _negc__ph _a _cf:
+ [ M._negc_
+ : a=_a /\ cf=_cf ==> bn_withborrow res = 0 - (bn _a + b2i _cf)
+ ] = 1%r.
+proof. by conseq _negc__ll (_negc__h _a _cf). qed.
+
+phoare _cnegU__ph _a _cond:
+ [ M._cnegU_
+ : a=_a /\ cond=_cond 
+              ==> res = if to_uint _cond = 0 then _a else BN.bn_ofint (- bn _a)
+ ] = 1%r.
+proof. by conseq _cnegU__ll (_cnegU__h _a _cond). qed.
+
+phoare _caddU__ph _x _y _cf:
+ [ M._caddU_
+ : x=_x /\ y=_y /\ cf=_cf 
+              ==> res = if _cf then BN.bn_ofint (bn _x + bn _y) else _x
+ ] = 1%r.
+proof. by conseq _caddU__ll (_caddU__h _x _y _cf). qed.
+
+phoare _muln__ph _a _b:
+ [ M._muln_
  : a=_a /\ b=_b ==> bn res = bn _a * bn _b
  ] = 1%r.
-admitted.
+proof. by conseq _muln__ll (_muln__h _a _b). qed.
+
+phoare _sqrn__ph _a:
+ [ M._sqrn_
+ : a=_a ==> bn res = bn _a * bn _a
+ ] = 1%r.
+proof. by conseq _sqrn__ll (_sqrn__h _a). qed.
+
+phoare _cminusP__ph _x _mP _lastbit _cf:
+ [ M._cminusP_
+ : x=_x /\ mP=_mP /\ lastbit=_lastbit /\ to_uint lastbit<=1
+                ==> res = if _cf then BN.bn_ofint (bn _x + bn _mP + to_uint _lastbit) else _x
+ ] = 1%r.
+proof. by conseq _cminusP__ll (_cminusP__h _x _mP _lastbit _cf). qed.
+
+lemma __mont_redM_ph rInv __P __mP __U0 _a:
+ (rInv * BN.bn_modulus) %% BN.bn __P = 1 =>
+ bn __P + BN.bn __mP = BN.bn_modulus =>
+ __U0 * __P.[0] = W64.of_int (-1) =>
+ phoare [ M.__mont_redM
+        : _P=__P /\ _mP=__mP /\ _U0=__U0 /\ a=_a ==> bn res = (bn _a * rInv) %% bn __P
+        ] = 1%r.
+proof.
+move => rInv_r P_mP U0_P0.
+by conseq __mont_redM_ll (__mont_redM_h rInv __P __mP __U0 _a rInv_r P_mP U0_P0).
+qed.
+
+phoare _pack2__ph _lo _hi:
+ [ M._pack2_
+ : lo=_lo /\ hi=_hi ==> bn res = bn _lo + bn _hi * BN.bn_modulus
+ ] = 1%r.
+proof. by conseq _pack2__ll (_pack2__h _lo _hi). qed.
+
+
+(** CT-property *)
+
+
+(* to be added... *)
+
+
+
+(** LProj property *)
+
+(* to be added... *)

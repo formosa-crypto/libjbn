@@ -1,5 +1,23 @@
-( ( "bn_base"
+( ( "bn_util"
+  , { 'qual': 'BNUTIL'
+    } )
+
+, ( "bn_base"
   , { 'qual': 'BN'
+    , 'qualUTIL': 'BNUTIL'
+    , 'nlimbs': 'nlimbs'
+    } )
+
+, ( "bn_rnd"
+  , { 'qual': 'BNRND'
+    , 'qualBN': 'BN'
+    , 'nlimbs': 'nlimbs'
+    } )
+
+, ( "bn_karatsuba"
+  , { 'qual': 'BNKAR'
+    , 'qualBN': 'BN'
+    , 'qualUTIL': 'BNUTIL'
     , 'nlimbs': 'nlimbs'
     } )
 
@@ -19,6 +37,7 @@
 
 , ( "fp_base"
   , { 'qual': 'FP'
+    , 'qualUTIL': 'BNUTIL'
     , 'qualBN': 'BN'
     , 'qualBNE': 'BNE'
     , 'nlimbs': 'nlimbs'
@@ -33,6 +52,7 @@
 
 , ( "bn_exp"
   , { 'qual': 'BNE'
+    , 'qualUTIL': 'BNUTIL'
     , 'qualBN': 'BN'
     , 'nlimbs': 'nlimbs'
     , 'nlimbsexp': 'nlimbsexp'

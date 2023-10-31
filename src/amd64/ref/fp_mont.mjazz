@@ -20,19 +20,27 @@ from MJazz require "${qualBN}_bn_base.jinc"
 
 // regs: params(2) + call(3) + 4 = 9
 fn ${qual}_redM
-( reg const ptr u64[2*${nlimbs}] a
-, reg mut ptr u64[${nlimbs}] r
+( reg mut ptr u64[${nlimbs}] r
+, reg const ptr u64[2*${nlimbs}] a
 ) -> reg ptr u64[${nlimbs}] {
   stack u64 _P0i;
   _P0i = ${glob_P0i};
-  a = a;
-  r = ${qualBN}__mont_redM(a, r, ${glob_P}, ${glob_mP}, _P0i);
+  r = ${qualBN}__mont_redM(r, a, ${glob_P}, ${glob_mP}, _P0i);
+  return r;
+}
+
+inline fn ${qual}_redM_
+( reg mut ptr u64[${nlimbs}] r
+, reg const ptr u64[2*${nlimbs}] a
+) -> reg ptr u64[${nlimbs}] {
+  r = r; a = a;
+  r = ${qual}_redM( r, a);
   r = r;
   return r;
 }
 
 /* Conversion-out from Montgomery form */
-fn ${qual}__fromM
+inline fn ${qual}_fromM_
 ( reg mut ptr u64[${nlimbs}] a
 ) -> reg ptr u64[${nlimbs}] {
   stack u64[2*${nlimbs}] _tmp;
@@ -42,13 +50,13 @@ fn ${qual}__fromM
   inline int i;
 
   tmp2 = _tmp[0:${nlimbs}];
-  tmp2 = ${qualBN}__copy2(a, tmp2);
+  tmp2 = ${qualBN}_mov_(tmp2, a);
   _tmp[0:${nlimbs}] = tmp2;
   tmp2 = _tmp[${nlimbs}:${nlimbs}];
-  tmp2 = ${qualBN}__set0(tmp2);
+  tmp2 = ${qualBN}_set0_(tmp2);
   _tmp[${nlimbs}:${nlimbs}] = tmp2;
   tmp = _tmp;
-  a = ${qual}_redM(tmp, a);
+  a = ${qual}_redM_(a, tmp);
   return a;
 }
 
@@ -68,13 +76,12 @@ from MJazz require "${qualFP}_fp_base.jinc"
 // ////////////////////////////////////
 
 /* Conversion into Montgomery form */
-inline fn ${qual}__toM
+inline fn ${qual}_toM_
 ( reg mut ptr u64[${nlimbs}] a
 ) -> reg ptr u64[${nlimbs}] {
   reg ptr u64[${nlimbs}] rMP;
-  rMP =${glob_rMP};
-  a = a;
-  a = ${qualFP}_mulmU(a, rMP);
+  rMP = ${glob_rMP};
+  a = ${qualFP}_mulmU_(a, rMP);
   a = a;
   return a;
 }

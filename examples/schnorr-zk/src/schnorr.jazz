@@ -11,8 +11,8 @@ inline fn __commitment(
  secret_power = _secret_power;
  commitment = _commitment;
  order = modp2048_glob_Q;
- secret_power = BN__rsample(secret_power, order);
- commitment = FPM_gexp(secret_power, commitment);
+ secret_power = BN_rsample_(secret_power, order);
+ commitment = FPM_gexp_(commitment, secret_power);
  _secret_power = secret_power;
  _commitment = commitment; //OBS: in Montgomery form
  return _commitment, _secret_power;
@@ -24,7 +24,7 @@ inline fn __challenge(
  reg ptr u64[nlimbs] challenge order;
  challenge = _challenge;
  order = modp2048_glob_Q;
- challenge = BN__rsample(challenge, order);
+ challenge = BN_rsample_(challenge, order);
  _challenge = challenge;
  return _challenge;
 }
@@ -39,23 +39,23 @@ inline fn __response
  // Check miss-representation errors
  _err = 0;
  witness = _witness;
- _err = FQM__chk_bnds(witness, _err);
+ _err = FQM_chk_bnds_(_err, witness);
  secret_power = _secret_power;
- _err = FQM__chk_bnds(secret_power, _err);
+ _err = FQM_chk_bnds_(_err, secret_power);
  challenge = _challenge;
- _err = FQM__chk_bnds(challenge, _err);
+ _err = FQM_chk_bnds_(_err, challenge);
 
  // actual prover code
  t = _t;
- t = BN__copy2(witness, t);
- t = FQM__toM(t);
+ t = BN_mov_(t, witness);
+ t = FQM_toM_(t);
  challenge = _challenge;
- t = FQM_mulmU(t, challenge);
+ t = FQM_mulmU_(t, challenge);
  secret_power = _secret_power;
- t = FQM_addmU(t, secret_power);
+ t = FQM_addmU_(t, secret_power);
 
  // set ERR on error
- t = BN__set_err(_err, t);
+ t = BN_set_err_(t, _err);
  _t = t;
  return _t;
 }
@@ -71,36 +71,36 @@ inline fn __verify
  // Check miss-representation errors (0: no-err; -1: err)
  _err = 0;
  statement = _statement;
- _err = FPM__chk_bnds(statement, _err);
+ _err = FPM_chk_bnds_(_err, statement);
  commitment = _commitment;
- _err = FPM__chk_bnds(commitment, _err);
+ _err = FPM_chk_bnds_(_err, commitment);
  challenge = _challenge;
- _err = FQM__chk_bnds(challenge, _err);
+ _err = FQM_chk_bnds_(_err, challenge);
  response = _response;
- _err = FQM__chk_bnds(response, _err);
+ _err = FQM_chk_bnds_(_err, response);
 
  // actual verifier code
  t2 = _t2;
  statement = _statement;
 
- t2 = BN__copy2(statement, t2);
- t2 = FPM__toM(t2); // statM
+ t2 = BN_mov_(t2, statement);
+ t2 = FPM_toM_(t2); // statM
 
  challenge = _challenge;
  t2 = t2;
  t1 = _t1;
- t1 = FPM_expm(t2, challenge, t1); // statM ^ chall
+ t1 = FPM_expm_(t1, t2, challenge); // statM ^ chall
 
  t1 = t1;
  commitment = _commitment;
- t1 = FPM_mulmU(t1, commitment); // commM *M statM ^ chall
+ t1 = FPM_mulmU_(t1, commitment); // commM *M statM ^ chall
  _t1 = t1;
  t2 = _t2;
  response = _response;
- t2 = FPM_gexp(response, t2); // gM ^ resp
+ t2 = FPM_gexp_(t2, response); // gM ^ resp
  _t2 = t2;
  t1 = _t1;
- r = BN__eq(t1, t2); // gM ^ resp  ==  commM *M statM ^ chall
+ r = BN_eq_(t1, t2); // gM ^ resp  ==  commM *M statM ^ chall
 
  // fail on ERR
  err = _err;
@@ -123,9 +123,9 @@ export fn commitment
   _commitment, _random_power = __commitment();
 
   commitment = _commitment;
-  BN__store(commitment_p, commitment);
+  BN_store_(commitment_p, commitment);
   random_power = _random_power;
-  BN__store(random_power_p, random_power);
+  BN_store_(random_power_p, random_power);
 }
 
 
@@ -136,15 +136,15 @@ export fn response
   reg ptr u64[nlimbs] witness commitment random_power challenge response;
 
   witness       = _witness;
-  witness       = BN__load(witness_p, witness);
+  witness       = BN_load_(witness, witness_p);
   random_power  = _random_power;
-  random_power  = BN__load(random_power_p, random_power);
+  random_power  = BN_load_(random_power, random_power_p);
   challenge     = _challenge;
-  challenge     = BN__load(challenge_p, challenge);
+  challenge     = BN_load_(challenge, challenge_p);
   response      = _response;
   _response     = __response(witness,random_power,challenge);
   response      = _response;
-  BN__store(response_p, response);
+  BN_store_(response_p, response);
 }
 
 
@@ -160,16 +160,16 @@ _rT;
   _result_p = result_p;
 
   statement  = _statement;
-  statement  = BN__load(statement_p, statement);
-  _statement  = statement;
+  statement  = BN_load_(statement, statement_p);
+  _statement = statement;
   commitment = _commitment;
-  commitment = BN__load(commitment_p, commitment);
+  commitment = BN_load_(commitment, commitment_p);
   _commitment = commitment;
   challenge  = _challenge;
-  challenge  = BN__load(challenge_p, challenge);
+  challenge  = BN_load_(challenge, challenge_p);
   _challenge  = challenge;
   response   = _response;
-  response   = BN__load(response_p, response);
+  response   = BN_load_(response, response_p);
   _response  = response;
 
   result = __verify(statement,commitment,challenge,response);
@@ -187,6 +187,6 @@ export fn challenge(reg u64 challenge_p)
   _challenge = __challenge();
 
   challenge = _challenge;
-  BN__store(challenge_p, challenge);
+  BN_store_(challenge_p, challenge);
 }
 

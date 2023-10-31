@@ -1,5 +1,11 @@
-( ( "bn_base"
+( ( "bn_util"
   , { 'qual': 'BN'
+    }
+  )
+
+, ( "bn_base"
+  , { 'qual': 'BN'
+    , 'qualUTIL': 'BN'
     , 'nlimbs': 'sike751_nlimbs'}
   )
 
@@ -19,6 +25,7 @@
 
 , ( "fp_base"
   , { 'qual': 'FPM'
+    , 'qualUTIL': 'BN'
     , 'qualBN': 'BN'
     , 'qualBNE': 'FPM'
     , 'nlimbs': 'sike751_nlimbs'
@@ -27,17 +34,18 @@
     , 'glob_mP': 'sike751_glob_mP'
     , 'glob_exp0': 'sike751_glob_oneMP'
     , 'glob_Pm2': 'sike751_glob_Pm2'
-    , 'fun_red': 'FPM_redM' }
+    , 'fun_red': 'FPM_redM_' }
   )
 
 , ( "bn_exp"
   , { 'qual': 'FPM'
+    , 'qualUTIL': 'BN'
     , 'qualBN': 'BN'
     , 'nlimbs': 'sike751_nlimbs'
     , 'nlimbsexp': 'sike751_nlimbs'
     , 'glob_exp0': 'sike751_glob_oneMP'
-    , 'fun_mulU': 'FPM_mulmU'
-    , 'fun_sqrU': 'FPM_sqrmU'}
+    , 'fun_mulU': 'FPM_mulmU_'
+    , 'fun_sqrU': 'FPM_sqrmU_'}
   )
 
 , ( "bn_base_export"

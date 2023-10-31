@@ -1,0 +1,72 @@
+/* This file is indeed a template for a pyhton prototype
+   intended to emulate and exercise the "Parametric Modules"
+   feature propose in https://github.com/jasmin-lang/jasmin/issues/519.
+
+BN_UTIL_FNS = __mask_zf __mask_cf __cf_mask __addacc3 __addacc3x2
+
+*/
+
+/*
+modsignature { int nlimbs; }
+*/
+
+inline fn ${qual}__mask_zf(reg u64 mask) -> reg bool {
+  reg bool zf;
+  (_, _, _, _, zf, _) = #AND(mask, mask);
+  return zf;
+}
+
+//@ ensures: \res = (mask != 0)
+inline fn ${qual}__mask_cf(reg u64 mask) -> reg bool {
+  reg bool cf;
+  reg u64 t;
+  t = 0;
+  cf, t -= mask;
+  return cf;
+}
+
+inline fn ${qual}__cf_mask(reg bool cf) -> reg u64 {
+  reg u64 mask;
+  mask = 0;
+  cf, mask += 0 + cf;
+  mask = -mask;
+  return mask;
+}
+
+// ACCUMULATOR for product-scanning 
+// regs: params(5)
+inline fn ${qual}__addacc3
+( reg u64[3] a
+, reg u64 b1 b0
+, inline int k
+) -> reg u64[3] {
+  reg bool cf;
+  cf, a[k % 3] += b0;
+  cf, a[(k+1) % 3] += b1 + cf;
+  cf, a[(k+2) % 3] += 0 + cf;
+  return a;
+}
+
+// ACCUMULATOR for product-scanning (sqr)
+// regs: params(5) + 3 = 8
+inline fn ${qual}__addacc3x2
+( reg u64[3] a
+, reg u64 x y
+, inline int k
+) -> reg u64[3] {
+  reg bool cf;
+  reg u64 t b2 b1 b0;
+
+  b1, b0 = x * y;
+
+  t = b0; 
+  b0 <<= 1;
+  _, cf, _, _, _, b1 = #SHLD(b1, t, 1);
+
+  b2 = #MOV(0);
+  cf, b2 += b2 + cf;
+  cf, a[k % 3] += b0;
+  cf, a[(k+1) % 3] += b1 + cf;
+  cf, a[(k+2) % 3] += b2 + cf;
+  return a;
+}

@@ -20,9 +20,19 @@ u64[nlimbsexp] glob_Pm2 = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
 u64[nlimbs] glob_exp0 = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
 u64[nlimbs] glob_rMP = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
 
-fn fun_mulU( reg mut ptr u64[nlimbs] r, reg const ptr u64[nlimbs] a) -> reg ptr u64[nlimbs] { return r; }
-fn fun_sqrU( reg mut ptr u64[nlimbs] r) -> reg ptr u64[nlimbs] { return r; }
-fn fun_red( reg const ptr u64[2*nlimbs] a, reg mut ptr u64[nlimbs] r) -> reg ptr u64[nlimbs] { return r; }
+fn fun_mulU
+( reg mut ptr u64[nlimbs] r
+, reg const ptr u64[nlimbs] a
+) -> reg ptr u64[nlimbs] { return r; }
+
+fn fun_sqrU
+( reg mut ptr u64[nlimbs] r
+) -> reg ptr u64[nlimbs] { return r; }
+
+fn fun_red
+( reg const ptr u64[2*nlimbs] a
+, reg mut ptr u64[nlimbs] r
+) -> reg ptr u64[nlimbs] { return r; }
 ```
 
 Upon extraction, `param int` is currently inlined in the extracted
@@ -33,7 +43,7 @@ theories.
 
 Additionally, there might be `SystemCalls` (and specifically for
 random number generation), that again are instantiated for the
-concrete sizes needed that can depend on integer parameters. For now,
+concrete sizes needed, that can depend on integer parameters. For now,
 we choose to avoid this dependency (hence, circumventing some libjbn
 functions such as `bn_rnd` -- these can be handled with a specific theory...)
 

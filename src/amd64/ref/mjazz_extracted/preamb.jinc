@@ -16,6 +16,6 @@ fn fun_sqrU
 ( reg mut ptr u64[nlimbs] r
 ) -> reg ptr u64[nlimbs] { return r; }
 fn fun_red
-( reg const ptr u64[2*nlimbs] a
-, reg mut ptr u64[nlimbs] r
+( reg mut ptr u64[nlimbs] r
+, reg const ptr u64[2*nlimbs] a
 ) -> reg ptr u64[nlimbs] { return r; }

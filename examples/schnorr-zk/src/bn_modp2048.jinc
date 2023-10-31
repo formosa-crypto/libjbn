@@ -10,6 +10,7 @@ from Libjbn require "bn_base.mjazz" as "BN"
 */
 from MJazz require "BN_bn_base.jinc"
 
+from MJazz require "BN_bn_rnd.jinc"
 
 /*
 from Libjbn require "fp_mont.mjazz" as "FPM"
@@ -21,18 +22,15 @@ from Libjbn require "fp_mont.mjazz" as "FPM"
 */
 from MJazz require "FPM_fp_mont.jinc"
 
-inline fn FPM_gexp
-( reg const ptr u64[modp2048_nlimbs] x
-, reg mut ptr u64[modp2048_nlimbs] r
+inline fn FPM_gexp_
+( reg mut ptr u64[modp2048_nlimbs] r
+, reg const ptr u64[modp2048_nlimbs] x
 ) -> reg ptr u64[modp2048_nlimbs] {
   reg ptr u64[modp2048_nlimbs] gM;
   gM = modp2048_glob_gM;
-  x = x; r = r;
-  r = FPM_expm(gM, x, r);
-  r = r;
+  r = FPM_expm_(r, gM, x);
   return r;
 }
-
   
 /*
 from Libjbn require "fp_mont.mjazz" as "FQM"

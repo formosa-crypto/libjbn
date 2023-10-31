@@ -1,4 +1,4 @@
-require import AllCore Int IntDiv.
+require import AllCore Int IntDiv List.
 
 
 from Jasmin require import JModel_x86.
@@ -63,10 +63,17 @@ axiom glob_P0i_val:
  W64.to_uint glob_P0i * W64.to_uint glob_P.[0] %% W64.modulus = (-1) %% W64.modulus.
 
 
+clone Bn_util as BNUTIL.
+module BNUTIL_M = BNUTIL.M. 
+module BNUTIL_MLeak = BNUTIL.MLeak. 
+
 clone Bn_base as BNB
  with op nlimbs <- nlimbs,
-      theory BigN <- BigN
+      theory BigN <- BigN,
+      theory BNUTIL <- BNUTIL
       proof gt0_nlimbs by exact gt0_nlimbs.
+module BN_M = BNB.M. 
+module BN_MLeak = BNB.MLeak. 
 
 clone Fp_base as FPB
  with op nlimbs <- nlimbs,
@@ -76,32 +83,45 @@ clone Fp_base as FPB
       op glob_exp0 <- glob_exp0,
       op glob_Pm2 <- glob_Pm2,
       op red_op <- red_op,
+      theory BNUTIL <- BNUTIL,
       theory BNB <- BNB
       proof gt0_nlimbs by exact gt0_nlimbs.
+module FP_M = FPB.M.
+module FP_MLeak = FPB.MLeak.
+
+import BN2.A.
+import BN.A.
 
 (******************************************************************************
  **                inclusion of the (parametric) extracted module            **
  ** (collected from "extracted_ths/Bn_exp_extr.ec)                           **
  ******************************************************************************)
 
-module BN_M = BNB.M. 
-module FP_M = FPB.M.
+from JExtract require export MLeakage.
 
-import BN.A.
-import BN2.A.
 module M = {
-  proc _redM (a:BN2.t, r:BN.t) : BN.t = {
+
+  proc _redM (r:BN.t, a:BN2.t) : BN.t = {
     
     var _P0i:W64.t;
     
     _P0i <- glob_P0i;
+    r <@ BN_M.__mont_redM (r, a, glob_P, glob_mP, _P0i);
+    return (r);
+  }
+  
+  proc _redM_ (r:BN.t, a:BN2.t) : BN.t = {
+    
+    
+    
+    r <- r;
     a <- a;
-    r <@ BN_M.__mont_redM (a, r, glob_P, glob_mP, _P0i);
+    r <@ _redM (r, a);
     r <- r;
     return (r);
   }
   
-  proc __fromM (a:BN.t) : BN.t = {
+  proc _fromM_ (a:BN.t) : BN.t = {
     
     var _tmp:BN2.t;
     var tmp2:BN.t;
@@ -109,28 +129,128 @@ module M = {
     _tmp <- witness;
     tmp <- witness;
     tmp2 <- witness;
-    tmp2 <- (BN.A.init (fun i => _tmp.[0 + i]));
-    tmp2 <@ BN_M.__copy2 (a, tmp2);
+    tmp2 <- (A.init (fun i => _tmp.[0 + i]));
+    tmp2 <@ BN_M._mov_ (tmp2, a);
     _tmp <- BN2.A.init
-            (fun i => if 0 <= i < 0 + 11 then tmp2.[i-0] else _tmp.[i]);
-    tmp2 <- (BN.A.init (fun i => _tmp.[11 + i]));
-    tmp2 <@ BN_M.__set0 (tmp2);
+            (fun i => if 0 <= i < 0 + nlimbs then tmp2.[i-0] else _tmp.[i]);
+    tmp2 <- (A.init (fun i => _tmp.[nlimbs + i]));
+    tmp2 <@ BN_M._set0_ (tmp2);
     _tmp <- BN2.A.init
-            (fun i => if 11 <= i < 11 + 11 then tmp2.[i-11] else _tmp.[i]);
+            (fun i => if nlimbs <= i < nlimbs + nlimbs then tmp2.[i-nlimbs] else _tmp.[i]);
     tmp <- _tmp;
-    a <@ _redM (tmp, a);
+    a <@ _redM_ (a, tmp);
     return (a);
   }
 
-  module Pfp = { proc fun_red = _redM }
-  proc __toM (a:BN.t) : BN.t = {
+  module P_FP = { proc fun_red = _redM_ }
+  
+  proc _toM_ (a:BN.t) : BN.t = {
     
     var rMP:BN.t;
     rMP <- witness;
     rMP <- glob_rMP;
+    a <@ FP_M(P_FP)._mulmU_ (a, rMP);
     a <- a;
-    a <@ FP_M(Pfp)._mulmU (a, rMP);
-    a <- a;
+    return (a);
+  }
+}.
+
+
+module MLeak = {
+  
+  proc _redM (r:BN.t, a:BN2.t) : BN.t = {
+    var aux: W64.t;
+    var aux_0: BN.t;
+    
+    var _P0i:W64.t;
+    
+    LEAK.leakages <- LeakAddr([]) :: LEAK.leakages;
+    aux <- glob_P0i;
+    _P0i <- aux;
+    LEAK.leakages <- LeakAddr([]) :: LEAK.leakages;
+    aux_0 <@ BN_M.__mont_redM (r, a, glob_P, glob_mP, _P0i);
+    r <- aux_0;
+    return (r);
+  }
+  
+  proc _redM_ (r:BN.t, a:BN2.t) : BN.t = {
+    var aux: BN.t;
+    var aux_0: BN2.t;
+    
+    
+    
+    LEAK.leakages <- LeakAddr([]) :: LEAK.leakages;
+    aux <- r;
+    r <- aux;
+    LEAK.leakages <- LeakAddr([]) :: LEAK.leakages;
+    aux_0 <- a;
+    a <- aux_0;
+    LEAK.leakages <- LeakAddr([]) :: LEAK.leakages;
+    aux <@ _redM (r, a);
+    r <- aux;
+    LEAK.leakages <- LeakAddr([]) :: LEAK.leakages;
+    aux <- r;
+    r <- aux;
+    return (r);
+  }
+  
+  proc _fromM_ (a:BN.t) : BN.t = {
+    var aux: BN.t;
+    var aux_0: BN2.t;
+    
+    var _tmp:BN2.t;
+    var tmp2:BN.t;
+    var tmp:BN2.t;
+    _tmp <- witness;
+    tmp <- witness;
+    tmp2 <- witness;
+    LEAK.leakages <- LeakAddr([0]) :: LEAK.leakages;
+    aux <- (A.init (fun i => _tmp.[0 + i]));
+    tmp2 <- aux;
+    LEAK.leakages <- LeakAddr([]) :: LEAK.leakages;
+    aux <@ BN_MLeak._mov_ (tmp2, a);
+    tmp2 <- aux;
+    LEAK.leakages <- LeakAddr([]) :: LEAK.leakages;
+    aux <- tmp2;
+    LEAK.leakages <- LeakAddr([0]) :: LEAK.leakages;
+    _tmp <- BN2.A.init
+            (fun i => if 0 <= i < 0 + nlimbs then aux.[i-0] else _tmp.[i]);
+    LEAK.leakages <- LeakAddr([nlimbs]) :: LEAK.leakages;
+    aux <- (A.init (fun i => _tmp.[nlimbs + i]));
+    tmp2 <- aux;
+    LEAK.leakages <- LeakAddr([]) :: LEAK.leakages;
+    aux <@ BN_MLeak._set0_ (tmp2);
+    tmp2 <- aux;
+    LEAK.leakages <- LeakAddr([]) :: LEAK.leakages;
+    aux <- tmp2;
+    LEAK.leakages <- LeakAddr([nlimbs]) :: LEAK.leakages;
+    _tmp <- BN2.A.init
+            (fun i => if nlimbs <= i < nlimbs + nlimbs then aux.[i-nlimbs] else _tmp.[i]);
+    LEAK.leakages <- LeakAddr([]) :: LEAK.leakages;
+    aux_0 <- _tmp;
+    tmp <- aux_0;
+    LEAK.leakages <- LeakAddr([]) :: LEAK.leakages;
+    aux <@ _redM_ (a, tmp);
+    a <- aux;
+    return (a);
+  }
+  
+  module P_FP = { proc fun_red = _redM_ }
+  
+  proc _toM_ (a:BN.t) : BN.t = {
+    var aux: BN.t;
+    
+    var rMP:BN.t;
+    rMP <- witness;
+    LEAK.leakages <- LeakAddr([]) :: LEAK.leakages;
+    aux <- glob_rMP;
+    rMP <- aux;
+    LEAK.leakages <- LeakAddr([]) :: LEAK.leakages;
+    aux <@ FP_MLeak(P_FP)._mulmU_ (a, rMP);
+    a <- aux;
+    LEAK.leakages <- LeakAddr([]) :: LEAK.leakages;
+    aux <- a;
+    a <- aux;
     return (a);
   }
 }.
@@ -147,14 +267,14 @@ lemma redM_prop _a:
 admitted.
 
 hoare _mulmU_h _a _b:
- FP_M(M.Pfp)._mulmU:
+ FP_M(M.P_FP)._mulmU_:
   a=_a /\ b=_b ==>
  bn res = asint (inzp (bn _a) * inzp (bn _b)).
-conseq (FPB._mulmU_h M.Pfp _ _a _b).
+(* conseq (FPB._mulmU__h M.Pfp _ _a _b). *)
 admitted.
 
-hoare __toM_h _a:
- M.__toM:
+hoare _toM__h _a:
+ M._toM_:
   a = _a ==> bn res = asint (inzpM (bn _a)).
 proof.
 proc.

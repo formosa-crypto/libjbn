@@ -1,17 +1,17 @@
 
 ## Usability & conventions
 
-- parameter order convention: change to "results first".
-- systematic definition of `_xxx_` procedure variants (preferred user access to the library code)
++ parameter order convention: change to "results first".
++ systematic definition of `_xxx_` procedure variants (preferred user access to the library code)
 - ?? `for` vs `while` ?? (e.g. in mult/red innerloops)
 
 
 ## Proof
 
-- add statements for ll and correctness lemmas "for all procedures" (after changes on the conventions...)
++ add statements for ll and correctness lemmas "for all procedures" (after changes on the conventions...)
 - (medium term) port existing proofs to the new framework
 - add ct verification (generalize the extraction "heuristics/scripts" to deal with leakage)
-- ? move sampling code/lemmas from `Bn_base
++ ? move sampling code/lemmas from `Bn_base` into `Bn_rnd`
 
 ## Code (nice to have)
 

@@ -5,8 +5,10 @@ SRCDIR = $(PWD)/../../../src/amd64/ref
 PROCMJAZZ = $(PWD)/../../../scripts/mjazz_proc.py
 MJAZZDIR = $(PWD)/mjazz_bn_modp2048
 
+GCC ?= arch -x86_64 gcc
+
 JASMINC = jasminc
-JASMINC_OPT = -I Libjbn:$(SRCDIR)
+JASMINC_OPT = -lazy-regalloc -I Libjbn:$(SRCDIR)
 
 all: test_schnorr
 
@@ -22,7 +24,7 @@ schnorr.s: schnorr.jazz bn_modp2048.jinc $(MJAZZ_FILES)
 
 
 test_schnorr : test_schnorr.c schnorr.s schnorr_protocol.h
-	$(CC) -o test_schnorr test_schnorr.c schnorr.s ./syscalls/jasmin_syscall.c
+	$(GCC) -o test_schnorr test_schnorr.c schnorr.s ./syscalls/jasmin_syscall.c
 
 clean:
 	rm -f schnorr.s test_schnorr

@@ -11,10 +11,11 @@ export fn bn_eq(reg u64 ap bp) -> reg u64
   reg u64 r;
 
   a = _a;
+  a = ${qualBN}_load_(a, ap);
   b = _b;
-  a = ${qualBN}__load(ap, a);
-  b = ${qualBN}__load(bp, b);
+  b = ${qualBN}_load_(b, bp);
   r = ${qualBN}_eq_(a, b);
+  r = r;
   return r;
 }
 
@@ -24,8 +25,8 @@ export fn bn_test0(reg u64 ap) -> reg u64
   reg ptr u64[${nlimbs}] a;
   reg u64 r;
   a = _a;
-  a = ${qualBN}__load(ap, a);
-  r = ${qualBN}__test0(a);
+  a = ${qualBN}_load_(a, ap);
+  r = ${qualBN}_test0_(a);
   r = r; // avoid extra assignment warning
   return r;
 }
@@ -56,11 +57,11 @@ export fn bn_addU(reg u64 rp ap bp)
   reg ptr u64[${nlimbs}] a b;
 
   a = _a;
+  a = ${qualBN}_load_(a, ap);
   b = _b;
-  _a = ${qualBN}__load(ap, a);
-  _b = ${qualBN}__load(bp, b);
-  _, a = ${qualBN}_addU(a, b);
-  ${qualBN}__store(rp, a);
+  b = ${qualBN}_load_(b, bp);
+  _, a = ${qualBN}_addU_(a, b);
+  ${qualBN}_store_(rp, a);
 }
 
 export fn bn_subU(reg u64 rp ap bp)
@@ -69,11 +70,11 @@ export fn bn_subU(reg u64 rp ap bp)
  reg ptr u64[${nlimbs}] a b;
 
  a = _a;
- a = ${qualBN}__load(ap,a);
+ a = ${qualBN}_load_(a,ap);
  b = _b;
- b = ${qualBN}__load(bp,b);
- _, a = ${qualBN}_subU(a, b);
- ${qualBN}__store(rp, a);
+ b = ${qualBN}_load_(b,bp);
+ _, a = ${qualBN}_subU_(a, b);
+ ${qualBN}_store(rp, a);
 }
 
 /*
@@ -85,12 +86,12 @@ export fn bn_muln(reg u64 rp ap bp)
   reg ptr u64[2*${nlimbs}] r;
 
   a = _a;
-  a = ${qualBN}__load(ap);
+  a = ${qualBN}_load_(a,ap);
   b = _b;
-  b = ${qualBN}__load(bp);
+  b = ${qualBN}_load_(b,bp);
   r = _r;
-  r = ${qualBN}_muln(a, b, r);
-  BN2__store(rp, r);
+  r = ${qualBN}_muln(r, a, b);
+  BN2_store(rp, r);
 }
 
 export fn bn_sqrn(reg u64 rp ap)
@@ -100,10 +101,11 @@ export fn bn_sqrn(reg u64 rp ap)
   reg ptr u64[${nlimbs}] a;
   reg ptr u64[2*${nlimbs}] r;
 
-  _a = ${qualBN}__load(ap); a = _a;
-                      r = _r;
-  r = ${qualBN}_sqrn(a, r);
-  BN2__store(rp, r);
+  a = _a;
+  _a = ${qualBN}_load_(a, ap);
+  r = _r;
+  r = ${qualBN}_sqrn_(a, r);
+  BN2_store(rp, r);
 }
 */
 

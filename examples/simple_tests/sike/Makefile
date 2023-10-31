@@ -4,7 +4,7 @@ SRCDIR = $(PWD)/../../../src/amd64/ref
 PROCMJAZZ = $(PWD)/../../../scripts/mjazz_proc.py
 MJAZZDIRPREFIX = $(PWD)/mjazz_
 
-JASMINC ?= jasminc -I Libjbn:$(SRCDIR)
+JASMINC ?= jasminc -lazy-regalloc -I Libjbn:$(SRCDIR)
 GCC ?= arch -x86_64 gcc
 
 .DEFAULT_GOAL := all

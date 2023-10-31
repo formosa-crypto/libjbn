@@ -21,10 +21,10 @@ export fn fp_add(reg u64 rp ap bp)
 
   a = _a;
   b = _b;
-  a = ${qualBN}__load(ap,a);
-  b = ${qualBN}__load(bp,b);
-  a = ${qualFPM}_addmU(a, b);
-  ${qualBN}__store(rp, a);
+  a = ${qualBN}_load_(a,ap);
+  b = ${qualBN}_load_(b,bp);
+  a = ${qualFPM}_addmU_(a, b);
+  ${qualBN}_store_(rp, a);
 }
 
 
@@ -35,10 +35,10 @@ export fn fp_sub( reg u64 rp ap bp)
 
   a = _a;
   b = _b;
-  a = ${qualBN}__load(ap,a);
-  b = ${qualBN}__load(bp,b);
-  a = ${qualFPM}_submU(a, b);
-  ${qualBN}__store(rp, a);
+  a = ${qualBN}_load_(a,ap);
+  b = ${qualBN}_load_(b,bp);
+  a = ${qualFPM}_submU_(a, b);
+  ${qualBN}_store_(rp, a);
 }
 
 export fn fp_mul(reg u64 rp ap bp)
@@ -48,11 +48,11 @@ export fn fp_mul(reg u64 rp ap bp)
 
   a = _a;
   b = _b;
-  a = ${qualBN}__load(ap,a);
-  b = ${qualBN}__load(bp,b);
+  a = ${qualBN}_load_(a,ap);
+  b = ${qualBN}_load_(b,bp);
   r = _r;
-  r = ${qualFPM}_mulm(a, b, r);
-  ${qualBN}__store(rp, r);
+  r = ${qualFPM}_mulm_(r, a, b);
+  ${qualBN}_store_(rp, r);
 }
 
 export fn fp_sqr(reg u64 rp ap)
@@ -61,10 +61,10 @@ export fn fp_sqr(reg u64 rp ap)
   reg ptr u64[${nlimbs}] a r;
 
   a = _a;
-  a = ${qualBN}__load(ap,a);
+  a = ${qualBN}_load_(a,ap);
   r = _r;
-  r = ${qualFPM}_sqrm(a, r);
-  ${qualBN}__store(rp, r);
+  r = ${qualFPM}_sqrm_(r, a);
+  ${qualBN}_store_(rp, r);
 }
 
 export fn fp_exp_noct(reg u64 rp ap bp)
@@ -75,13 +75,13 @@ export fn fp_exp_noct(reg u64 rp ap bp)
 
   _rp = rp;
   a = _a;
-  a = ${qualBN}__load(ap,a);
+  a = ${qualBN}_load_(a,ap);
   b = _b;
-  b = ${qualBN}__load(bp,b);
+  b = ${qualBN}_load_(b,bp);
   r = _r;
-  r = ${qualFPM}_expm_noct(a, b, r);
+  r = ${qualFPM}_expm_noct_(r, a, b);
   rp = _rp;
-  ${qualBN}__store(rp, r);
+  ${qualBN}_store_(rp, r);
 }
 
 export fn fp_exp(reg u64 rp ap bp)
@@ -92,13 +92,13 @@ export fn fp_exp(reg u64 rp ap bp)
 
   _rp = rp;
   a = _a;
-  a = ${qualBN}__load(ap,a);
+  a = ${qualBN}_load_(a,ap);
   b = _b;
-  b = ${qualBN}__load(bp,b);
+  b = ${qualBN}_load_(b,bp);
   r = _r;
-  r = ${qualFPM}_expm(a, b, r);
+  r = ${qualFPM}_expm_(r, a, b);
   rp = _rp;
-  ${qualBN}__store(rp, r);
+  ${qualBN}_store_(rp, r);
 }
 
 export fn fp_inv(reg u64 rp ap)
@@ -109,11 +109,11 @@ export fn fp_inv(reg u64 rp ap)
 
   _rp = rp;
   a = _a;
-  a = ${qualBN}__load(ap, a);
+  a = ${qualBN}_load_(a,ap);
   r = _r;
-  r = ${qualFPM}__invm(a, r);
+  r = ${qualFPM}_invm_(r, a);
   rp = _rp;
-  ${qualBN}__store(rp, r);
+  ${qualBN}_store_(rp, r);
 }
 
 export fn fp_toM(reg u64 rp ap)
@@ -124,10 +124,10 @@ export fn fp_toM(reg u64 rp ap)
 
   _rp = rp;
   a = _a;
-  a = ${qualBN}__load(ap,a);
-  a = ${qualFPM}__toM(a);
+  a = ${qualBN}_load_(a,ap);
+  a = ${qualFPM}_toM_(a);
   rp = _rp;
-  ${qualBN}__store(rp, a);
+  ${qualBN}_store_(rp, a);
 }
 
 export fn fp_fromM(reg u64 rp ap)
@@ -138,8 +138,8 @@ export fn fp_fromM(reg u64 rp ap)
 
   _rp = rp;
   a = _a;
-  a = ${qualBN}__load(ap,a);
-  a = ${qualFPM}__fromM(a);
+  a = ${qualBN}_load_(a,ap);
+  a = ${qualFPM}_fromM_(a);
   rp = _rp;
-  ${qualBN}__store(rp, a);
+  ${qualBN}_store_(rp, a);
 }

@@ -1,0 +1,158 @@
+require import AllCore Distr Int IntDiv List.
+
+
+from Jasmin require import JModel_x86.
+import SLH64.
+
+require JBigNumber Bn_util Bn_base.
+
+(* Parameters *)
+op nlimbs: int.
+axiom gt0_nlimbs: 0 < nlimbs.
+op nlimbsexp: int.
+axiom gt0_nlimbsexp: 0 < nlimbsexp.
+
+clone JBigNumber.BN as BNexp
+ with op nlimbs <- nlimbsexp
+      proof gt0_nlimbs by exact gt0_nlimbsexp.
+
+import BNexp.A.
+
+clone import JBigNumber.BigN
+ with op nlimbs <- nlimbs
+      proof gt0_nlimbs by exact gt0_nlimbs.
+
+clone Bn_base as BNB
+ with op nlimbs <- nlimbs,
+      theory BigN <- BigN
+      proof gt0_nlimbs by exact gt0_nlimbs.
+
+module BN_M = BNB.M. 
+module BN_MLeak = BNB.MLeak. 
+
+clone import PolyArray as Abytes
+ with op size <- 8*nlimbs
+      proof ge0_size by smt(gt0_nlimbs).
+
+clone import WArray as WAbytes
+ with op size <- 8*nlimbs
+      proof ge0_size by smt(gt0_nlimbs).
+
+
+(******************************************************************************
+ **                inclusion of the (parametric) extracted modules            **
+ ** (collected from "extracted_ths/Bn_rnd_extr.ec)                           **
+ ******************************************************************************)
+
+from JExtract require export MLeakage.
+
+module M = {
+
+  proc randombytes_p3(a:W8.t Abytes.t) : W8.t Abytes.t = {
+    a <$ dmap WAbytes.darray
+         (fun a => Abytes.init (fun i => WAbytes.get8 a i));
+    return a;
+  }
+
+  proc _rnd_ (a:BN.t) : BN.t = {
+    var aux: W8.t Abytes.t;
+    
+    
+    
+    a <- a;
+    aux <@ randombytes_p3 ((Abytes.init (fun i => get8
+                              (WAbytes.init64 (fun i => (a).[i])) i)));
+    a <-
+    (A.init (fun i => get64 (WAbytes.init8 (fun i => (aux).[i])) i));
+    a <- a;
+    return (a);
+  }
+  
+  proc _rsample_ (a:BN.t, bnd:BN.t) : BN.t = {
+    
+    var cf:bool;
+    
+    a <@ _rnd_ (a);
+    cf <@ BN_M._lt_cf_ (a, bnd);
+    while ((! cf)) {
+      a <@ _rnd_ (a);
+      cf <@ BN_M._lt_cf_ (a, bnd);
+    }
+    return (a);
+  }
+}.
+
+
+
+module MLeak = {
+
+  proc randombytes_p3(a:W8.t Abytes.t) : W8.t Abytes.t = {
+    a <$ dmap WAbytes.darray
+         (fun a => Abytes.init (fun i => WAbytes.get8 a i));
+    return a;
+  }
+
+  proc _rnd_ (a:BN.t) : BN.t = {
+    var aux_0: W8.t Abytes.t;
+    var aux: BN.t;
+    
+    
+    
+    LEAK.leakages <- LeakAddr([]) :: LEAK.leakages;
+    aux <- a;
+    a <- aux;
+    LEAK.leakages <- LeakAddr([]) :: LEAK.leakages;
+    aux_0 <@ randombytes_p3 ((Abytes.init (fun i => get8
+                                (WAbytes.init64 (fun i => (a).[i])) i)));
+    a <-
+    (A.init (fun i => get64 (WAbytes.init8 (fun i => (aux_0).[i])) i));
+    LEAK.leakages <- LeakAddr([]) :: LEAK.leakages;
+    aux <- a;
+    a <- aux;
+    return (a);
+  }
+  
+  proc _rsample_ (a:BN.t, bnd:BN.t) : BN.t = {
+    var aux_0: bool;
+    var aux: BN.t;
+    
+    var cf:bool;
+    
+    LEAK.leakages <- LeakAddr([]) :: LEAK.leakages;
+    aux <@ _rnd_ (a);
+    a <- aux;
+    LEAK.leakages <- LeakAddr([]) :: LEAK.leakages;
+    aux_0 <@ BN_M._lt_cf_ (a, bnd);
+    cf <- aux_0;
+    LEAK.leakages <- LeakCond((! cf)) :: LeakAddr([]) :: LEAK.leakages;
+    
+    while ((! cf)) {
+      LEAK.leakages <- LeakAddr([]) :: LEAK.leakages;
+      aux <@ _rnd_ (a);
+      a <- aux;
+      LEAK.leakages <- LeakAddr([]) :: LEAK.leakages;
+      aux_0 <@ BN_M._lt_cf_ (a, bnd);
+      cf <- aux_0;
+    LEAK.leakages <- LeakCond((! cf)) :: LeakAddr([]) :: LEAK.leakages;
+    
+    }
+    return (a);
+  }
+}.
+
+(******************************************************************************
+ **               Library LEMMAS                                             **
+ **                                                                          **
+ ******************************************************************************)
+
+lemma _rnd__ll: islossless M._rnd_.
+admitted.
+
+lemma _rsample__ll _bnd: 
+ 0 < bn _bnd =>
+ islossless M._rsample_.
+admitted.
+
+
+(* bring stuff from the rejection sample paper... *)
+

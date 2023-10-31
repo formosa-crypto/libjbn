@@ -1,0 +1,22 @@
+
+/* ensures: res = (sign(a-b), |a-b|)*/
+// MOVETO: bn_karatsuba.mjazz
+inline fn ${qual}__subU_signabs
+( reg mut ptr u64[${nlimbs}] a
+, reg const ptr u64[${nlimbs}] b
+) -> reg u64, reg ptr u64[${nlimbs}]
+{
+  stack u64[${nlimbs}] tmp;
+  reg bool cf;
+  reg u64 sign; // 0/-1
+/*
+  _, tmp = ${qual}_sub_(b, a, tmp);
+  cf, a = ${qual}_subU_(a, b);
+  a = ${qual}_cmov_(a, cf, tmp);
+*/
+  cf, a = ${qual}_subU_(a, b); // a = a-b
+  sign = 0;
+  sign -= 0 - cf; // cf == (sign==-1)
+  a = ${qual}__cnegU(a, sign);
+  return (sign, a);
+}
