@@ -2,7 +2,8 @@ require import AllCore IntDiv CoreMap List Distr.
 from Jasmin require import JModel_x86.
 import SLH64.
 
-
+require import MLeakage.
+ 
 (* Theory Parameters *)
 op nlimbs: int.
 op nlimbsexp: int.
@@ -38,9 +39,6 @@ clone Bn_base_extr as BNbase_extr
 module BN_M = BNbase_extr.M. 
 module BN_MLeak = BNbase_extr.MLeak.
 
-
-from JExtract require export MLeakage.
- 
 
 
 module M(P: MParam) = {
@@ -105,9 +103,10 @@ module M(P: MParam) = {
   proc _expm_noct_ (r:W64.t Ap1.t, a:W64.t Ap1.t,
                        b:W64.t Apexp.t) : W64.t Ap1.t = {
     
-    
-    
-    r <@ BN_M._mov_ (r, glob_exp0);
+    var exp0:W64.t Ap1.t;
+    exp0 <- witness;
+    exp0 <- glob_exp0;
+    r <@ BN_M._mov_ (r, exp0);
     a <- a;
     b <- b;
     r <@ _expm_noct (r, a, b);
@@ -119,10 +118,14 @@ module M(P: MParam) = {
     
     var _tmp:W64.t Ap1.t;
     var tmp:W64.t Ap1.t;
+    var exp0:W64.t Ap1.t;
     _tmp <- witness;
+    exp0 <- witness;
     tmp <- witness;
     tmp <- _tmp;
     tmp <@ BN_M._mov_ (tmp, a);
+    exp0 <- glob_exp0;
+    a <@ BN_M._mov_ (a, exp0);
     a <@ BN_M._mov_ (a, glob_exp0);
     a <@ _expm_noct_ (a, tmp, b);
     return (a);
@@ -262,7 +265,7 @@ module MLeak(P: MParam) = {
     aux_0 <- _x;
     x <- aux_0;
     LEAK.leakages <- LeakAddr([]) :: LEAK.leakages;
-    aux_0 <@ BN_M._mov_ (x, a);
+    aux_0 <@ BN_MLeak._mov_ (x, a);
     x <- aux_0;
     LEAK.leakages <- LeakAddr([]) :: LEAK.leakages;
     aux_0 <- x;
@@ -359,10 +362,13 @@ module MLeak(P: MParam) = {
     var aux: W64.t Ap1.t;
     var aux_0: W64.t Apexp.t;
     
-    
-    
+    var exp0:W64.t Ap1.t;
+    exp0 <- witness;
     LEAK.leakages <- LeakAddr([]) :: LEAK.leakages;
-    aux <@ BN_M._mov_ (r, glob_exp0);
+    aux <- glob_exp0;
+    exp0 <- aux;
+    LEAK.leakages <- LeakAddr([]) :: LEAK.leakages;
+    aux <@ BN_MLeak._mov_ (r, exp0);
     r <- aux;
     LEAK.leakages <- LeakAddr([]) :: LEAK.leakages;
     aux <- a;
@@ -384,16 +390,21 @@ module MLeak(P: MParam) = {
     
     var _tmp:W64.t Ap1.t;
     var tmp:W64.t Ap1.t;
+    var exp0:W64.t Ap1.t;
     _tmp <- witness;
+    exp0 <- witness;
     tmp <- witness;
     LEAK.leakages <- LeakAddr([]) :: LEAK.leakages;
     aux <- _tmp;
     tmp <- aux;
     LEAK.leakages <- LeakAddr([]) :: LEAK.leakages;
-    aux <@ BN_M._mov_ (tmp, a);
+    aux <@ BN_MLeak._mov_ (tmp, a);
     tmp <- aux;
     LEAK.leakages <- LeakAddr([]) :: LEAK.leakages;
-    aux <@ BN_M._mov_ (a, glob_exp0);
+    aux <- glob_exp0;
+    exp0 <- aux;
+    LEAK.leakages <- LeakAddr([]) :: LEAK.leakages;
+    aux <@ BN_MLeak._mov_ (a, exp0);
     a <- aux;
     LEAK.leakages <- LeakAddr([]) :: LEAK.leakages;
     aux <@ _expm_noct_ (a, tmp, b);
@@ -462,7 +473,7 @@ module MLeak(P: MParam) = {
       aux_1 <@ BNUTIL_M.__cf_mask (cf);
       mask <- aux_1;
       LEAK.leakages <- LeakAddr([]) :: LEAK.leakages;
-      (aux_8, aux_7) <@ BN_M._cswap_mask_ (x0, x1, mask);
+      (aux_8, aux_7) <@ BN_MLeak._cswap_mask_ (x0, x1, mask);
       x0 <- aux_8;
       x1 <- aux_7;
       LEAK.leakages <- LeakAddr([]) :: LEAK.leakages;
@@ -478,7 +489,7 @@ module MLeak(P: MParam) = {
       aux_1 <- _mask;
       mask <- aux_1;
       LEAK.leakages <- LeakAddr([]) :: LEAK.leakages;
-      (aux_8, aux_7) <@ BN_M._cswap_mask_ (x0, x1, mask);
+      (aux_8, aux_7) <@ BN_MLeak._cswap_mask_ (x0, x1, mask);
       x0 <- aux_8;
       x1 <- aux_7;
       LEAK.leakages <- LeakAddr([]) :: LEAK.leakages;
@@ -509,7 +520,7 @@ module MLeak(P: MParam) = {
         aux_1 <@ BNUTIL_M.__cf_mask (cf);
         mask <- aux_1;
         LEAK.leakages <- LeakAddr([]) :: LEAK.leakages;
-        (aux_8, aux_7) <@ BN_M._cswap_mask_ (x0, x1, mask);
+        (aux_8, aux_7) <@ BN_MLeak._cswap_mask_ (x0, x1, mask);
         x0 <- aux_8;
         x1 <- aux_7;
         LEAK.leakages <- LeakAddr([]) :: LEAK.leakages;
@@ -525,7 +536,7 @@ module MLeak(P: MParam) = {
         aux_1 <- _mask;
         mask <- aux_1;
         LEAK.leakages <- LeakAddr([]) :: LEAK.leakages;
-        (aux_8, aux_7) <@ BN_M._cswap_mask_ (x0, x1, mask);
+        (aux_8, aux_7) <@ BN_MLeak._cswap_mask_ (x0, x1, mask);
         x0 <- aux_8;
         x1 <- aux_7;
         LEAK.leakages <- LeakAddr([]) :: LEAK.leakages;
@@ -557,10 +568,10 @@ module MLeak(P: MParam) = {
      _0 <- witness;
     x1 <- witness;
     LEAK.leakages <- LeakAddr([]) :: LEAK.leakages;
-    aux_1 <@ BN_M._mov_ (x1, a);
+    aux_1 <@ BN_MLeak._mov_ (x1, a);
     x1 <- aux_1;
     LEAK.leakages <- LeakAddr([]) :: LEAK.leakages;
-    aux_1 <@ BN_M._mov_ (x0, glob_exp0);
+    aux_1 <@ BN_MLeak._mov_ (x0, glob_exp0);
     x0 <- aux_1;
     LEAK.leakages <- LeakAddr([]) :: LEAK.leakages;
     aux_0 <- b;
@@ -585,10 +596,10 @@ module MLeak(P: MParam) = {
      _0 <- witness;
     x1 <- witness;
     LEAK.leakages <- LeakAddr([]) :: LEAK.leakages;
-    aux_1 <@ BN_M._mov_ (x1, a);
+    aux_1 <@ BN_MLeak._mov_ (x1, a);
     x1 <- aux_1;
     LEAK.leakages <- LeakAddr([]) :: LEAK.leakages;
-    aux_1 <@ BN_M._mov_ (a, glob_exp0);
+    aux_1 <@ BN_MLeak._mov_ (a, glob_exp0);
     a <- aux_1;
     LEAK.leakages <- LeakAddr([]) :: LEAK.leakages;
     aux_0 <- b;

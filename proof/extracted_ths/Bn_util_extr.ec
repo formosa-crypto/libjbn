@@ -3,7 +3,8 @@ from Jasmin require import JModel_x86.
 import SLH64.
 
 
-from JExtract require export MLeakage Array3.
+require import MLeakage.
+from JExtract require export Array3.
 
 (* This Theory has no Parameters *)
 

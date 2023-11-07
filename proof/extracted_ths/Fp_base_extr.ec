@@ -2,7 +2,8 @@ require import AllCore IntDiv CoreMap List Distr.
 from Jasmin require import JModel_x86.
 import SLH64.
 
-
+require import MLeakage.
+ 
 (* Theory Parameters *)
 op nlimbs: int.
 clone export PolyArray as Ap1
@@ -47,9 +48,6 @@ clone Bn_exp_extr as BNexp_extr
       theory BNbase_extr <- BNbase_extr.
 module BNE_M = BNexp_extr.M. 
 module BNE_MLeak = BNexp_extr.MLeak. 
-
-
-from JExtract require export MLeakage.
 
 
 module M(P: MParam) = {

@@ -4,6 +4,7 @@ require import AllCore Int IntDiv List.
 from Jasmin require import JModel_x86.
 import SLH64.
 
+require import MLeakage.
 require JBigNumber Bn_util Bn_base.
 
 (* Parameters *)
@@ -44,8 +45,6 @@ module BN_MLeak = BNB.MLeak.
  **                inclusion of the (parametric) extracted module            **
  ** (collected from "extracted_ths/Bn_exp_extr.ec)                           **
  ******************************************************************************)
-
-from JExtract require export MLeakage.
 
 module type MParam = {
   proc fun_mulU (r:BN.t, a:BN.t) : BN.t
@@ -217,12 +216,18 @@ module M(P: MParam) = {
   
   proc _expmU_ (a:BN.t, b:BNexp.t) : BN.t = {
     
+    var _x1:BN.t;
     var x1:BN.t;
+    var exp0:BN.t;
     var  _0:BN.t;
      _0 <- witness;
+    _x1 <- witness;
+    exp0 <- witness;
     x1 <- witness;
+    x1 <- _x1;
     x1 <@ BN_M._mov_ (x1, a);
-    a <@ BN_M._mov_ (a, glob_exp0);
+    exp0 <- glob_exp0;
+    a <@ BN_M._mov_ (a, exp0);
     b <- b;
     (a,  _0) <@ _expm (a, x1, b);
     a <- a;
@@ -271,7 +276,7 @@ module MLeak(P: MParam) = {
     aux_0 <- _x;
     x <- aux_0;
     LEAK.leakages <- LeakAddr([]) :: LEAK.leakages;
-    aux_0 <@ BN_M._mov_ (x, a);
+    aux_0 <@ BN_MLeak._mov_ (x, a);
     x <- aux_0;
     LEAK.leakages <- LeakAddr([]) :: LEAK.leakages;
     aux_0 <- x;
@@ -368,10 +373,13 @@ module MLeak(P: MParam) = {
     var aux: BN.t;
     var aux_0: BNexp.t;
     
-    
-    
+    var exp0:BN.t;
+    exp0 <- witness;
     LEAK.leakages <- LeakAddr([]) :: LEAK.leakages;
-    aux <@ BN_M._mov_ (r, glob_exp0);
+    aux <- glob_exp0;
+    exp0 <- aux;
+    LEAK.leakages <- LeakAddr([]) :: LEAK.leakages;
+    aux <@ BN_MLeak._mov_ (r, exp0);
     r <- aux;
     LEAK.leakages <- LeakAddr([]) :: LEAK.leakages;
     aux <- a;
@@ -393,16 +401,21 @@ module MLeak(P: MParam) = {
     
     var _tmp:BN.t;
     var tmp:BN.t;
+    var exp0:BN.t;
     _tmp <- witness;
+    exp0 <- witness;
     tmp <- witness;
     LEAK.leakages <- LeakAddr([]) :: LEAK.leakages;
     aux <- _tmp;
     tmp <- aux;
     LEAK.leakages <- LeakAddr([]) :: LEAK.leakages;
-    aux <@ BN_M._mov_ (tmp, a);
+    aux <@ BN_MLeak._mov_ (tmp, a);
     tmp <- aux;
     LEAK.leakages <- LeakAddr([]) :: LEAK.leakages;
-    aux <@ BN_M._mov_ (a, glob_exp0);
+    aux <- glob_exp0;
+    exp0 <- aux;
+    LEAK.leakages <- LeakAddr([]) :: LEAK.leakages;
+    aux <@ BN_MLeak._mov_ (a, exp0);
     a <- aux;
     LEAK.leakages <- LeakAddr([]) :: LEAK.leakages;
     aux <@ _expm_noct_ (a, tmp, b);
@@ -471,7 +484,7 @@ module MLeak(P: MParam) = {
       aux_1 <@ BNUTIL_M.__cf_mask (cf);
       mask <- aux_1;
       LEAK.leakages <- LeakAddr([]) :: LEAK.leakages;
-      (aux_8, aux_7) <@ BN_M._cswap_mask_ (x0, x1, mask);
+      (aux_8, aux_7) <@ BN_MLeak._cswap_mask_ (x0, x1, mask);
       x0 <- aux_8;
       x1 <- aux_7;
       LEAK.leakages <- LeakAddr([]) :: LEAK.leakages;
@@ -487,7 +500,7 @@ module MLeak(P: MParam) = {
       aux_1 <- _mask;
       mask <- aux_1;
       LEAK.leakages <- LeakAddr([]) :: LEAK.leakages;
-      (aux_8, aux_7) <@ BN_M._cswap_mask_ (x0, x1, mask);
+      (aux_8, aux_7) <@ BN_MLeak._cswap_mask_ (x0, x1, mask);
       x0 <- aux_8;
       x1 <- aux_7;
       LEAK.leakages <- LeakAddr([]) :: LEAK.leakages;
@@ -518,7 +531,7 @@ module MLeak(P: MParam) = {
         aux_1 <@ BNUTIL_M.__cf_mask (cf);
         mask <- aux_1;
         LEAK.leakages <- LeakAddr([]) :: LEAK.leakages;
-        (aux_8, aux_7) <@ BN_M._cswap_mask_ (x0, x1, mask);
+        (aux_8, aux_7) <@ BN_MLeak._cswap_mask_ (x0, x1, mask);
         x0 <- aux_8;
         x1 <- aux_7;
         LEAK.leakages <- LeakAddr([]) :: LEAK.leakages;
@@ -534,7 +547,7 @@ module MLeak(P: MParam) = {
         aux_1 <- _mask;
         mask <- aux_1;
         LEAK.leakages <- LeakAddr([]) :: LEAK.leakages;
-        (aux_8, aux_7) <@ BN_M._cswap_mask_ (x0, x1, mask);
+        (aux_8, aux_7) <@ BN_MLeak._cswap_mask_ (x0, x1, mask);
         x0 <- aux_8;
         x1 <- aux_7;
         LEAK.leakages <- LeakAddr([]) :: LEAK.leakages;
@@ -665,23 +678,142 @@ conseq sqr_mul_eq mulU_ll => /> &1.
 by exists (arg{1},arg{1}).
 qed.
 
+lemma _expm_noct_ll: islossless M(P)._expm_noct.
+proof.
+proc.
+while (true) (nlimbsexp-j).
+ move=> z.
+ wp; while (0 <= to_uint _k <= 64) (to_uint _k).
+  move=> z0; wp.
+  call sqrU_ll; sp.
+  if => //.
+   call mulU_ll; auto => /> *.
+   admit.
+  auto => /> *.
+  admit.
+ admit.
+by wp; call BNB._mov__ll; auto => /#.
+qed.
+
 lemma _expm_noct__ll: islossless M(P)._expm_noct_.
+proof.
+proc.
+wp; call _expm_noct_ll.
+by wp; call BNB._mov__ll; auto => /#.
+qed.
+
+lemma _expmU_noct__ll: islossless M(P)._expmU_noct_.
+proof.
+proc.
+wp; call _expm_noct__ll.
+wp; call BNB._mov__ll.
+by wp; call BNB._mov__ll; auto.
+qed.
+
+lemma _expm_ll: islossless M(P)._expm.
+proof.
+proc.
 admitted.
 
 lemma _expm__ll: islossless M(P)._expm_.
+proof.
+proc.
+wp; call _expm_ll.
+wp; call BNB._mov__ll.
+by wp; call BNB._mov__ll; auto.
+qed.
+
+lemma _expmU__ll: islossless M(P)._expmU_.
+proof.
+proc.
+wp; call _expm_ll.
+wp; call BNB._mov__ll.
+by wp; call BNB._mov__ll; auto.
+qed.
+
+
+hoare _expm_noct_h _a _b:
+ M(P)._expm_noct :
+ r=glob_exp0 /\ a=_a /\ b=_b ==> res = iterop (BNexp.bn _b) mul_op _a glob_exp0.
 admitted.
 
-lemma _expm_noct__ph _a _b:
- phoare [ M(P)._expm_noct_
-        : a=_a /\ b=_b ==> res = iterop (BNexp.bn _b) mul_op _a glob_exp0
-        ] = 1%r.
+hoare _expm_noct__h _a _b:
+ M(P)._expm_noct_ :
+ a=_a /\ b=_b ==> res = iterop (BNexp.bn _b) mul_op _a glob_exp0.
+proof.
+proc.
+wp; ecall (_expm_noct_h a b).
+by wp; call (BNB._mov__h glob_exp0); auto.
+qed.
+
+hoare _expmU_noct__h _a _b:
+ M(P)._expmU_noct_ :
+ a=_a /\ b=_b ==> res = iterop (BNexp.bn _b) mul_op _a glob_exp0.
+proof.
+proc.
+wp; ecall (_expm_noct__h tmp b).
+call (BNB._mov__h glob_exp0).
+by ecall (BNB._mov__h a); auto.
+qed.
+
+phoare _expm_noct__ph _a _b:
+ [ M(P)._expm_noct_
+ : a=_a /\ b=_b
+   ==> res = iterop (BNexp.bn _b) mul_op _a glob_exp0
+ ] = 1%r.
+proof. by conseq _expm_noct__ll (_expm_noct__h _a _b). qed.
+
+phoare _expmU_noct__ph _a _b:
+ [ M(P)._expmU_noct_
+ : a=_a /\ b=_b
+   ==> res = iterop (BNexp.bn _b) mul_op _a glob_exp0
+ ] = 1%r.
+proof. by conseq _expmU_noct__ll (_expmU_noct__h _a _b). qed.
+
+
+
+hoare _expm_h _a _b:
+ M(P)._expm
+ : x0=glob_exp0 /\ x1=_a /\ b=_b
+   ==> res.`1 = iterop (BNexp.bn _b) mul_op _a glob_exp0.
 admitted.
 
-lemma _expm__ph _a _b:
- phoare [ M(P)._expm_
-        : a=_a /\ b=_b ==> res = iterop (BNexp.bn _b) mul_op _a glob_exp0
-        ] = 1%r.
-admitted.
+hoare _expm__h _a _b:
+ M(P)._expm_
+ : a=_a /\ b=_b
+   ==> res = iterop (BNexp.bn _b) mul_op _a glob_exp0.
+proof.
+proc.
+wp; ecall (_expm_h x1 b).
+wp; ecall (BNB._mov__h exp0).
+by wp; ecall (BNB._mov__h a); auto.
+qed.
+
+hoare _expmU__h _a _b:
+ M(P)._expmU_
+ : a=_a /\ b=_b
+   ==> res = iterop (BNexp.bn _b) mul_op _a glob_exp0.
+proof.
+proc.
+wp; ecall (_expm_h x1 b).
+wp; ecall (BNB._mov__h exp0).
+by wp; ecall (BNB._mov__h a); auto.
+qed.
+
+
+phoare _expm__ph _a _b:
+ [ M(P)._expm_
+ : a=_a /\ b=_b
+   ==> res = iterop (BNexp.bn _b) mul_op _a glob_exp0
+ ] = 1%r.
+proof. by conseq _expm__ll (_expm__h _a _b). qed.
+
+phoare _expmU__ph _a _b:
+ [ M(P)._expmU_
+ : a=_a /\ b=_b
+   ==> res = iterop (BNexp.bn _b) mul_op _a glob_exp0
+ ] = 1%r.
+proof. by conseq _expmU__ll (_expmU__h _a _b). qed.
 
 end section.
 

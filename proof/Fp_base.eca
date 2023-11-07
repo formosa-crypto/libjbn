@@ -4,7 +4,8 @@ require import AllCore Int IntDiv List.
 from Jasmin require import JModel_x86.
 import SLH64.
 
-require JBigNumber Bn_base Bn_exp.
+require import MLeakage.
+require JBigNumber Bn_util Bn_base Bn_exp Bn_rnd.
 
 
 (* Parameters *)
@@ -15,11 +16,17 @@ clone import JBigNumber.BigN
  with op nlimbs <- nlimbs
       proof gt0_nlimbs by exact gt0_nlimbs.
 
+
 op glob_P: BN.t.
 op glob_mP: BN.t.
 op glob_exp0: BN.t.
 op glob_Pm2: BN.t.
 op red_op: BN2.t -> BN.t.
+
+axiom prime_P: prime (bn glob_P).
+axiom def_mP: bn glob_mP = bn_modulus - bn glob_P.
+axiom def_Pm2: bn glob_Pm2 = bn glob_P - 2.
+
 
 op mul_op (x y: BN.t): BN.t =
  red_op (BN2.bn_ofint (BN.bn x * BN.bn y)).
@@ -36,6 +43,15 @@ clone Bn_base as BNB
       proof gt0_nlimbs by exact gt0_nlimbs.
 module BN_M = BNB.M. 
 module BN_MLeak = BNB.MLeak. 
+
+clone Bn_rnd as BNRND
+ with op nlimbs <- nlimbs,
+      theory BigN <- BigN,
+      theory BNUTIL <- BNUTIL,
+      theory BNB <- BNB
+      proof gt0_nlimbs by exact gt0_nlimbs.
+module BNRND_M = BNRND.M. 
+module BNRND_MLeak = BNRND.MLeak. 
 
 clone Bn_exp as BNE
  with op nlimbs <- nlimbs,
@@ -56,8 +72,6 @@ module BNE_MLeak = BNE.MLeak.
  ** (collected from "extracted_ths/Fp_base_extr.ec)                          **
  ******************************************************************************)
 
-from JExtract require export MLeakage.
-
 module type MParam = {
   proc fun_red (r:BN.t, a:BN2.t) : BN.t
 }.
@@ -73,10 +87,18 @@ module M(P: MParam) = {
     p <- witness;
     p <- glob_P;
     cf <@ BN_M._lt_cf_ (a, p);
-    t <@ BNUTIL_M.__cf_mask (cf);
-    t <- NOT_64 t;
+    t <@ BNUTIL_M.__ncf_mask (cf);
     err <- (err `|` t);
     return (err);
+  }
+  
+  proc _rnd_ (a:BN.t) : BN.t = {
+    
+    var p:BN.t;
+    p <- witness;
+    p <- glob_P;
+    a <@ BNRND_M._rsample_ (a, p);
+    return (a);
   }
   
   proc _addm_ (r:BN.t, a:BN.t, b:BN.t) : 
@@ -193,6 +215,15 @@ module M(P: MParam) = {
     a <@ BNE_M(P_BNEXP)._expmU_noct_ (a, pm2);
     return (a);
   }
+
+  proc _invm_ (r a:BN.t) : BN.t = {
+    
+    var pm2:BN.t;
+    pm2 <- witness;
+    pm2 <- glob_Pm2;
+    r <@ BNE_M(P_BNEXP)._expm_noct_ (r, a, pm2);
+    return (r);
+  }
 }.
 
 
@@ -214,15 +245,26 @@ module MLeak(P: MParam) = {
     aux_0 <@ BN_MLeak._lt_cf_ (a, p);
     cf <- aux_0;
     LEAK.leakages <- LeakAddr([]) :: LEAK.leakages;
-    aux_1 <@ BNUTIL_MLeak.__cf_mask (cf);
-    t <- aux_1;
-    LEAK.leakages <- LeakAddr([]) :: LEAK.leakages;
-    aux_1 <- NOT_64 t;
+    aux_1 <@ BNUTIL_MLeak.__ncf_mask (cf);
     t <- aux_1;
     LEAK.leakages <- LeakAddr([]) :: LEAK.leakages;
     aux_1 <- (err `|` t);
     err <- aux_1;
     return (err);
+  }
+  
+  proc _rnd_ (a:BN.t) : BN.t = {
+    var aux: BN.t;
+    
+    var p:BN.t;
+    p <- witness;
+    LEAK.leakages <- LeakAddr([]) :: LEAK.leakages;
+    aux <- glob_P;
+    p <- aux;
+    LEAK.leakages <- LeakAddr([]) :: LEAK.leakages;
+    aux <@ BNRND_MLeak._rsample_ (a, p);
+    a <- aux;
+    return (a);
   }
   
   proc _addm_ (r:BN.t, a:BN.t, b:BN.t) : 
@@ -425,6 +467,21 @@ module MLeak(P: MParam) = {
     a <- aux_0;
     return (a);
   }
+
+  proc _invm_ (r a:BN.t) : BN.t = {
+    var aux_0: BN.t;
+    var aux: BN.t;
+    
+    var pm2:BN.t;
+    pm2 <- witness;
+    LEAK.leakages <- LeakAddr([]) :: LEAK.leakages;
+    aux <- glob_Pm2;
+    pm2 <- aux;
+    LEAK.leakages <- LeakAddr([]) :: LEAK.leakages;
+    aux_0 <@ BNE_MLeak(P_BNEXP)._expm_noct_ (r, a, pm2);
+    r <- aux_0;
+    return (a);
+  }
 }.
 
 
@@ -461,15 +518,92 @@ byphoare (: a=_a ==> _) => //.
 by apply red_ph. 
 qed.
 
+(** Lossless lemmas *)
+
 lemma _chk_bnds__ll: islossless M(P)._chk_bnds_.
 proof.
 proc; wp.
-call BNUTIL.__cf_mask_ll.
+call BNUTIL.__ncf_mask_ll.
 call BNB._lt_cf__ll.
 by auto.
 qed.
 
-hoare _mulmU_h _a _b:
+hoare _chk_bnds__h _err _a:
+ M(P)._chk_bnds_
+ : err=_err /\ a = _a ==> res = _err `|` W64.of_int (-b2i (! bn _a < bn glob_P)).
+proof.
+proc.
+wp; ecall (BNUTIL.__ncf_mask_h cf).
+by ecall (BNB._lt_cf__h a p); auto.
+qed.
+
+phoare _chk_bnds__ph _err _a:
+ [ M(P)._chk_bnds_
+ : err=_err /\ a = _a ==> res = _err `|` W64.of_int (-b2i (! bn _a < bn glob_P))
+ ] = 1%r.
+proof. by conseq _chk_bnds__ll (_chk_bnds__h _err _a). qed.
+
+
+lemma _rnd__ll: islossless M(P)._rnd_.
+proof.
+proc.
+call BNRND._rsample__ll.
+auto => />.
+smt(gt0_prime prime_P).
+qed.
+
+lemma _addm__ll: islossless M(P)._addm_.
+proc.
+call BNB._cminusP__ll.
+by wp; call BNB._add__ll; auto.
+qed.
+
+lemma _addmU__ll: islossless M(P)._addmU_.
+proc.
+call BNB._cminusP__ll.
+by wp; call BNB._addU__ll; auto.
+qed.
+
+lemma _subm__ll: islossless M(P)._subm_.
+proc.
+call BNB._caddU__ll.
+by wp; call BNB._sub__ll; auto.
+qed.
+
+lemma _submU__ll: islossless M(P)._submU_.
+proc.
+call BNB._caddU__ll.
+by wp; call BNB._subU__ll; auto.
+qed.
+
+lemma _mulm__ll: islossless M(P)._mulm_.
+proc.
+call red_ll.
+by call BNB._muln__ll; auto.
+qed.
+
+hoare _mulm__h _a _b:
+ M(P)._mulm_: a=_a /\ b=_b ==> res = mul_op _a _b.
+proof.
+proc; simplify.
+wp; ecall (red_h tmp).
+wp; ecall (BNB._muln__h a b).
+auto => /> r H; rewrite /mul_op.
+by rewrite -H BN2.bnK.
+qed.
+
+phoare _mulm__ph _a _b:
+ [ M(P)._mulm_: a=_a /\ b=_b ==> res = mul_op _a _b ]=1%r.
+proof. by conseq _mulm__ll (_mulm__h _a _b). qed.
+
+
+lemma _mulmU__ll: islossless M(P)._mulmU_.
+proc.
+call red_ll.
+by call BNB._muln__ll; auto.
+qed.
+
+hoare _mulmU__h _a _b:
  M(P)._mulmU_: a=_a /\ b=_b ==> res = mul_op _a _b.
 proof.
 proc; simplify.
@@ -479,6 +613,106 @@ auto => /> r H; rewrite /mul_op.
 by rewrite -H BN2.bnK.
 qed.
 
-end section.
+phoare _mulmU__ph _a _b:
+ [ M(P)._mulmU_: a=_a /\ b=_b ==> res = mul_op _a _b ]=1%r.
+proof. by conseq _mulmU__ll (_mulmU__h _a _b). qed.
 
+
+
+lemma _sqrm__ll: islossless M(P)._sqrm_.
+proc.
+call red_ll.
+by call BNB._sqrn__ll; auto.
+qed.
+
+hoare _sqrm__h _a:
+ M(P)._sqrm_: a=_a ==> res = mul_op _a _a.
+proof.
+proc; simplify.
+wp; ecall (red_h tmp).
+wp; ecall (BNB._sqrn__h a).
+auto => /> r H; rewrite /mul_op.
+by rewrite -H BN2.bnK.
+qed.
+
+phoare _sqrm__ph _a:
+ [ M(P)._sqrm_: a=_a ==> res = mul_op _a _a ] = 1%r.
+proof. by conseq _sqrm__ll (_sqrm__h _a). qed.
+
+
+lemma _sqrmU__ll: islossless M(P)._sqrmU_.
+proc.
+call red_ll.
+by call BNB._sqrn__ll; auto.
+qed.
+
+hoare _sqrmU__h _a:
+ M(P)._sqrmU_: a=_a ==> res = mul_op _a _a.
+proof.
+proc; simplify.
+wp; ecall (red_h tmp).
+wp; ecall (BNB._sqrn__h a).
+auto => /> r H; rewrite /mul_op.
+by rewrite -H BN2.bnK.
+qed.
+
+phoare _sqrmU__ph _a:
+ [ M(P)._sqrmU_: a=_a ==> res = mul_op _a _a ] = 1%r.
+proof. by conseq _sqrmU__ll (_sqrmU__h _a). qed.
+
+
+module MP = M(P).
+
+local equiv sqr_mul_eq:
+  MP._sqrmU_ ~ MP._mulmU_
+       : ={a} /\ b{2}=a{2} ==> ={res}.
+proof.
+proc*.
+ecall{1} (_sqrmU__ph a{1}).
+by ecall{2} (_mulmU__ph a{2} b{2}).
+qed.
+
+lemma _invm__ll: islossless M(P)._invm_.
+proc.
+have H := (BNE._expm_noct__ll MP.P_BNEXP sqr_mul_eq _mulmU__ph).
+by call H; auto.
+qed.
+
+lemma _invmU__ll: islossless M(P)._invmU_.
+proc.
+have H := (BNE._expmU_noct__ll MP.P_BNEXP sqr_mul_eq _mulmU__ph).
+by call H; auto.
+qed.
+
+hoare _invm__h _a:
+ M(P)._invm_ :
+ a=_a ==> res = iterop (bn glob_Pm2) mul_op _a glob_exp0.
+proof.
+proc.
+have H := (BNE._expm_noct__h MP.P_BNEXP sqr_mul_eq _mulmU__ph).
+by ecall (H a pm2); auto.
+qed.
+
+hoare _invmU__h _a:
+ M(P)._invmU_ :
+ a=_a ==> res = iterop (bn glob_Pm2) mul_op _a glob_exp0.
+proof.
+proc.
+have H := (BNE._expmU_noct__h MP.P_BNEXP sqr_mul_eq _mulmU__ph).
+by ecall (H a pm2); auto.
+qed.
+
+phoare _invm__ph _a:
+ [ M(P)._invm_
+ : a=_a ==> res = iterop (bn glob_Pm2) mul_op _a glob_exp0
+ ] =1%r.
+proof. by conseq _invm__ll (_invm__h _a). qed.
+
+phoare _invmU__ph _a:
+ [ M(P)._invmU_
+ : a=_a ==> res = iterop (bn glob_Pm2) mul_op _a glob_exp0
+ ] =1%r.
+proof. by conseq _invmU__ll (_invmU__h _a). qed.
+
+end section.
 

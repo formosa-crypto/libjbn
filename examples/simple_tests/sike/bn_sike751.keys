@@ -9,6 +9,12 @@
     , 'nlimbs': 'sike751_nlimbs'}
   )
 
+, ( "bn_rnd"
+  , { 'qual': 'BN'
+    , 'qualBN': 'BN'
+    , 'nlimbs': 'sike751_nlimbs'
+    } )
+
 , ( "fp_mont"
   , { 'qual': 'FPM'
     , 'qualBN': 'BN'
@@ -27,6 +33,7 @@
   , { 'qual': 'FPM'
     , 'qualUTIL': 'BN'
     , 'qualBN': 'BN'
+    , 'qualBNRND': 'BN'
     , 'qualBNE': 'FPM'
     , 'nlimbs': 'sike751_nlimbs'
     , 'nlimbsexp': 'sike751_nlimbs'

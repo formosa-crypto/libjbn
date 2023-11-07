@@ -39,6 +39,7 @@
   , { 'qual': 'FP'
     , 'qualUTIL': 'BNUTIL'
     , 'qualBN': 'BN'
+    , 'qualBNRND': 'BNRND'
     , 'qualBNE': 'BNE'
     , 'nlimbs': 'nlimbs'
     , 'nlimbsexp': 'nlimbsexp'

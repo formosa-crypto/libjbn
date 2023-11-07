@@ -3,6 +3,9 @@ from Jasmin require import JModel_x86.
 import SLH64.
 
 
+require export MLeakage.
+
+
 (* Theory Parameters *)
 op nlimbs: int.
 clone export PolyArray as Ap1
@@ -47,9 +50,6 @@ clone Fp_base_extr as FPbase_extr
       theory BNbase_extr <- BNbase_extr.
 module FP_M = FPbase_extr.M.
 module FP_MLeak = FPbase_extr.MLeak.
-
-
-from JExtract require export MLeakage.
 
 
 

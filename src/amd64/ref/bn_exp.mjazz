@@ -69,7 +69,9 @@ inline fn ${qual}_expm_noct_
 , reg const ptr u64[${nlimbs}] a
 , reg const ptr u64[${nlimbsexp}] b
 ) -> reg ptr u64[${nlimbs}] {
-  r = ${qualBN}_mov_(r, ${glob_exp0});
+  reg ptr u64[${nlimbs}] exp0;
+  exp0 = ${glob_exp0};
+  r = ${qualBN}_mov_(r, exp0);
   a = a; b = b;
   r = ${qual}_expm_noct(r, a, b);
   r = r;
@@ -81,10 +83,11 @@ inline fn ${qual}_expmU_noct_
 , reg const ptr u64[${nlimbsexp}] b
 ) -> reg ptr u64[${nlimbs}] {
   stack u64[${nlimbs}] _tmp;
-  reg ptr u64[${nlimbs}] tmp;
+  reg ptr u64[${nlimbs}] tmp exp0;
   tmp = _tmp;
   tmp = ${qualBN}_mov_(tmp, a);
-  a = ${qualBN}_mov_(a, ${glob_exp0});
+  exp0 = ${glob_exp0};
+  a = ${qualBN}_mov_(a, exp0);
   a = ${qual}_expm_noct_(a, tmp, b);
   return a;
 }

@@ -5,6 +5,7 @@ from Jasmin require import JModel_x86.
 import SLH64.
 
 require JBigNumber.
+require import MLeakage.
 
 (* Parameters *)
 op nlimbs: int.
@@ -31,7 +32,7 @@ module BNUTIL_MLeak = BNUTIL.MLeak.
  ** (collected from "extracted_ths/Bn_base_extr.ec)                          **
  ******************************************************************************)
 
-from JExtract require export Array3 MLeakage.
+from JExtract require export Array3.
 
 module M = {
   proc __load (a:BN.t, ap:W64.t) : BN.t = {

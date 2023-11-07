@@ -2,8 +2,8 @@ require import AllCore IntDiv CoreMap List Distr.
 from Jasmin require import JModel_x86.
 import SLH64.
 
-
-from JExtract require export Array3 MLeakage.
+require import MLeakage.
+from JExtract require export Array3.
 
 (* Theory Parameters *)
 op nlimbs: int.

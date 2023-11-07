@@ -1,9 +1,8 @@
 require import AllCore IntDiv CoreMap List Distr.
 from Jasmin require import JModel_x86.
-import SLH64.
 
-
-from JExtract require export Array3 MLeakage.
+require import MLeakage.
+from JExtract require export Array3.
 
 (* This Theory has no Parameters *)
 
@@ -38,10 +37,19 @@ module M = {
   proc __cf_mask (cf:bool) : W64.t = {
     
     var mask:W64.t;
+    var  _0:bool;
     
     mask <- (W64.of_int 0);
-    (cf, mask) <- adc_64 mask (W64.of_int 0) cf;
-    mask <- (- mask);
+    ( _0, mask) <- sbb_64 mask (W64.of_int 0) cf;
+    return (mask);
+  }
+  
+  proc __ncf_mask (cf:bool) : W64.t = {
+    
+    var mask:W64.t;
+    
+    mask <@ __cf_mask (cf);
+    mask <- NOT_64 mask;
     return (mask);
   }
   
@@ -148,16 +156,28 @@ module MLeak = {
     var aux: W64.t;
     
     var mask:W64.t;
+    var  _0:bool;
     
     LEAK.leakages <- LeakAddr([]) :: LEAK.leakages;
     aux <- (W64.of_int 0);
     mask <- aux;
     LEAK.leakages <- LeakAddr([]) :: LEAK.leakages;
-    (aux_0, aux) <- adc_64 mask (W64.of_int 0) cf;
-    cf <- aux_0;
+    (aux_0, aux) <- sbb_64 mask (W64.of_int 0) cf;
+     _0 <- aux_0;
+    mask <- aux;
+    return (mask);
+  }
+  
+  proc __ncf_mask (cf:bool) : W64.t = {
+    var aux: W64.t;
+    
+    var mask:W64.t;
+    
+    LEAK.leakages <- LeakAddr([]) :: LEAK.leakages;
+    aux <@ __cf_mask (cf);
     mask <- aux;
     LEAK.leakages <- LeakAddr([]) :: LEAK.leakages;
-    aux <- (- mask);
+    aux <- NOT_64 mask;
     mask <- aux;
     return (mask);
   }
@@ -268,6 +288,9 @@ by islossless.
 lemma __cf_mask_ll: islossless M.__cf_mask
 by islossless.
 
+lemma __ncf_mask_ll: islossless M.__ncf_mask
+by islossless.
+
 lemma __addacc3_ll: islossless M.__addacc3
 by islossless.
 
@@ -285,6 +308,10 @@ admitted.
 
 hoare __cf_mask_h _cf:
  M.__cf_mask : cf=_cf ==> res=(W64.of_int (-b2i _cf)).
+admitted.
+
+hoare __ncf_mask_h _cf:
+ M.__ncf_mask : cf=_cf ==> res=(W64.of_int (-b2i (! _cf))).
 admitted.
 
 (* obs: to be fixed... *)
@@ -315,6 +342,12 @@ phoare __cf_mask_ph _cf:
  ] = 1%r
 by conseq __cf_mask_ll (__cf_mask_h _cf).
 
+phoare __ncf_mask_ph _cf:
+ [ M.__ncf_mask 
+ : cf=_cf ==> res=(W64.of_int (-b2i (! _cf)))
+ ] = 1%r
+by conseq __ncf_mask_ll (__ncf_mask_h _cf).
+
 (* obs: to be fixed... *)
 phoare __addacc3_ph:
  [ M.__addacc3 : true ==> true ] = 1%r
@@ -341,6 +374,11 @@ equiv __cf_mask_ct:
  : ={glob LEAK} ==> ={glob LEAK}
 by proc; sim.
 
+equiv __ncf_mask_ct:
+ MLeak.__ncf_mask ~ MLeak.__ncf_mask
+ : ={glob LEAK} ==> ={glob LEAK}
+by proc; inline*; sim.
+
 equiv __addacc3_ct:
  MLeak.__addacc3 ~ MLeak.__addacc3
  : ={k, glob LEAK} ==> ={glob LEAK}
@@ -365,6 +403,11 @@ by sim.
 
 equiv __cf_mask_Lproj:
  M.__cf_mask ~ MLeak.__cf_mask
+ : ={arg} ==> ={res}
+by sim.
+
+equiv __ncf_mask_Lproj:
+ M.__ncf_mask ~ MLeak.__ncf_mask
  : ={arg} ==> ={res}
 by sim.
 

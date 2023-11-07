@@ -1,6 +1,6 @@
 /* (emulation of https://github.com/jasmin-lang/jasmin/issues/519)
 
-FP_BASE_FNS = _chk_bnds_ _addm_ _addmU_ _subm_ _submU_ _mulm_ _mulmU_ _sqrm_ _sqrmU_ _invmU_
+FP_BASE_FNS = _chk_bnds_ _rnd_ _addm_ _addmU_ _subm_ _submU_ _mulm_ _mulmU_ _sqrm_ _sqrmU_ _invmU_
 */
 
 /*
@@ -17,9 +17,14 @@ modsignature {
 require "bn_base" as "BN"
   with { nlimbs = nlimbs; }
 
+require "bn_rnd" as "BN"
+  with { nlimbs = nlimbs; }
+
 */
 
 from MJazz require "${qualBN}_bn_base.jinc" // BN qualified
+
+from MJazz require "${qualBNRND}_bn_rnd.jinc" // BNRND qualified
 
 inline fn ${qual}_chk_bnds_
 ( stack u64 err
@@ -30,10 +35,18 @@ inline fn ${qual}_chk_bnds_
  reg u64 t;
  P = ${glob_P};
  cf = ${qualBN}_lt_cf_(a, P);
- t = ${qualUTIL}__cf_mask(cf);
- t = #NOT_64(t);
+ t = ${qualUTIL}__ncf_mask(cf);
  err |= t;
  return err;
+}
+
+inline fn ${qual}_rnd_
+( reg mut ptr u64[${nlimbs}] a
+) -> reg ptr u64[${nlimbs}] {
+ reg ptr u64[${nlimbs}] P;
+ P = ${glob_P};
+ a = ${qualBNRND}_rsample_(a, P);
+ return a;
 }
 
 inline fn ${qual}_addm_

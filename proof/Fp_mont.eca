@@ -1,10 +1,25 @@
 require import AllCore Int IntDiv List.
 
+lemma Euclide_pow2 k p:
+ 0 <= k => prime p =>
+ p %| 2^k => p=2.
+proof.
+elim/natind: k => k Hk.
+ by move=> Hk' Hp; rewrite (:k=0) 1:/# expr0 /#.
+move=> IH Hk' Hp; rewrite exprS // => E.
+move: (Euclide p 2 (2^k) E Hp) => [H|/#].
+have := dvdz_le p 2 _ H => //.
+move: Hp; rewrite /prime /#.
+qed.
+
+
 
 from Jasmin require import JModel_x86.
 import SLH64.
 
 require ZModP.
+
+require import MLeakage.
 require JBigNumber Bn_base Bn_exp Fp_base.
 
 (* Parameters *)
@@ -24,24 +39,62 @@ op glob_rMP: BN.t.
 
 op P: int. (* prime modulus *)
 axiom P_prime: prime P.
+axiom P_gt2: 2 < P.
 
 clone import ZModP.ZModField as Zp
  with op p <= P
       rename "zmod" as "zp"
       proof prime_p by exact P_prime.
 
+abbrev zp1M = inzp (bn_modulus).
+abbrev zp1Minv = inv zp1M.
+lemma zp1M_neq0: zp1M <> Zp.zero.
+proof.
+rewrite inzp_eq0P -negP  /bn_modulus -exprM => H.
+move: (Euclide_pow2 (64*nlimbs) P _ P_prime H); smt(gt0_nlimbs P_gt2).
+qed.
+
+
+op inzpM x = inzp x * zp1M.
+op asintM x = asint (x*zp1Minv).
+
+abbrev zprM = inzpM bn_modulus.
+
+
+
+
+(*
 op inzpM x = inzp (x*bn_modulus).
+*)
 op oneM = bn_modulus %% P.
 op oneMinv = invm bn_modulus P.
+(*
 op asintM x = asint x * oneMinv %% P.
+*)
+
+require import StdOrder.
+import IntOrder.
+(*
+lemma prime_2: prime 2.
+proof.
+rewrite /prime /= => q Hq.
+have := dvdz_le q 2 _ Hq => //.
+rewrite (ger0_norm 2) //.
+have ?:=  normr_ge0.
+have ?:= dvd0z 2.
+smt.
+qed.
+*)
 
 lemma oneM_oneMinv:
  oneM * oneMinv %% P = 1.
 proof.
 rewrite /oneM /oneMinv modzMml mulmV//.
  exact P_prime.
-print Euclide.
-admitted.
+rewrite -negP -dvdzE /bn_modulus -exprM => H.
+move: (Euclide_pow2 (64*nlimbs) P _ P_prime H); smt(gt0_nlimbs P_gt2).
+qed.
+
 
 op red_op (x: BN2.t): BN.t =
  BN.bn_ofint (BN2.bn x * bn_modulus %% P).
@@ -96,8 +149,6 @@ import BN.A.
  **                inclusion of the (parametric) extracted module            **
  ** (collected from "extracted_ths/Bn_exp_extr.ec)                           **
  ******************************************************************************)
-
-from JExtract require export MLeakage.
 
 module M = {
 
@@ -263,24 +314,78 @@ module MLeak = {
 
 
 lemma redM_prop _a:
- phoare[ M._redM : a = _a ==> res = red_op _a] = 1%r.
+ phoare[ M._redM_ : a = _a ==> res = red_op _a] = 1%r.
 admitted.
 
-hoare _mulmU_h _a _b:
+abbrev (\zpimpl) (a: BN.t) (_a: zp) =
+ bn a = asint _a.
+
+abbrev (\zpimplM) (a: BN.t) (_a: zp) =
+ bn a = asint (_a*zp1M).
+
+abbrev bn_ofzp x = bn_ofint (asint x).
+abbrev zpbn x = inzp (bn x).
+
+hoare _mulmU__h' _a _b:
  FP_M(M.P_FP)._mulmU_:
-  a=_a /\ b=_b ==>
- bn res = asint (inzp (bn _a) * inzp (bn _b)).
-(* conseq (FPB._mulmU__h M.Pfp _ _a _b). *)
-admitted.
+  a = _a /\ b \zpimpl _b
+  ==> res \zpimpl (zpbn _a * _b * zp1Minv).
+conseq (FPB._mulmU__h M.P_FP _ _a (bn_ofzp _b)) => //.
++ smt.
++ admit.
+by move => />; apply redM_prop.
+qed.
+
+hoare _mulmU__h _a _b:
+ FP_M(M.P_FP)._mulmU_:
+  a \zpimpl _a /\ b \zpimpl _b
+  ==> res \zpimpl (_a * _b * zp1Minv).
+proof.
+conseq (_mulmU__h' (bn_ofzp _a) _b).
+ move=> /> &m.
+ smt.
+move=> />.
+admit.
+qed.
+
+hoare _mulmU__hM _a _b:
+ FP_M(M.P_FP)._mulmU_:
+  a \zpimplM _a /\ b \zpimplM _b
+  ==> res \zpimplM (_a * _b).
+proof.
+conseq (_mulmU__h (_a*zp1M) (_b*zp1M)).
+move=> /> &m ?? r ->; congr. 
+field; smt(zp1M_neq0).
+qed.
+
+import ZModpRing.
+hoare _toM__h' _a:
+ M._toM_:
+  a = _a ==> res \zpimplM (zpbn _a).
+proof.
+proc.
+wp; call (_mulmU__h' _a zprM); auto.
+move=> />; split.
+ admit.
+move=> ?r.
+rewrite /zpM -!mulrA divrr.
+ smt.
+by rewrite mulr1.
+qed.
 
 hoare _toM__h _a:
  M._toM_:
-  a = _a ==> bn res = asint (inzpM (bn _a)).
+  a \zpimpl _a ==> res \zpimplM _a.
 proof.
-proc.
-wp.
-ecall (_mulmU_h a rMP).
-admitted.
+conseq (_toM__h' (bn_ofzp _a)).
+ move=> /> &m.
+ smt.
+move=> /> &m.
+move=> H r.
+admit.
+qed.
+
+
 
 
 

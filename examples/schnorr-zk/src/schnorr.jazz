@@ -7,11 +7,10 @@ param int nlimbs = modp2048_nlimbs;
 inline fn __commitment(
 ) -> stack u64[nlimbs], stack u64[nlimbs] {
  stack u64[nlimbs] _secret_power _commitment;
- reg ptr u64[nlimbs] secret_power commitment order;
+ reg ptr u64[nlimbs] secret_power commitment;
  secret_power = _secret_power;
  commitment = _commitment;
- order = modp2048_glob_Q;
- secret_power = BN_rsample_(secret_power, order);
+ secret_power = FQM_rnd_(secret_power);
  commitment = FPM_gexp_(commitment, secret_power);
  _secret_power = secret_power;
  _commitment = commitment; //OBS: in Montgomery form

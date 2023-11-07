@@ -1,9 +1,8 @@
-
 PWD = $(shell pwd)
 SRCDIR = $(PWD)/../../../src/amd64/ref
 
 PROCMJAZZ = $(PWD)/../../../scripts/mjazz_proc.py
-MJAZZDIR = $(PWD)/mjazz_bn_modp2048
+MJAZZDIR = $(PWD)/bn_modp2048
 
 GCC ?= arch -x86_64 gcc
 

@@ -572,4 +572,12 @@ clone export BN
  with op nlimbs <- nlimbs
       proof gt0_nlimbs by exact gt0_nlimbs.
 
+clone PolyArray as BN_Abytes
+ with op size <- 8*nlimbs
+      proof ge0_size by smt(gt0_nlimbs).
+
+clone WArray as BN_WAbytes
+ with op size <- 8*nlimbs
+      proof ge0_size by smt(gt0_nlimbs).
+
 end BigN.

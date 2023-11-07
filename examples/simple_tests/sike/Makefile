@@ -2,7 +2,7 @@ PWD = $(shell pwd)
 SRCDIR = $(PWD)/../../../src/amd64/ref
 
 PROCMJAZZ = $(PWD)/../../../scripts/mjazz_proc.py
-MJAZZDIRPREFIX = $(PWD)/mjazz_
+MJAZZDIRPREFIX = $(PWD)/
 
 JASMINC ?= jasminc -lazy-regalloc -I Libjbn:$(SRCDIR)
 GCC ?= arch -x86_64 gcc
@@ -34,4 +34,4 @@ clean:
 	rm -f $(PROGS) bn_sike???.s
 
 realclean: clean
-	rm -rf mjazz_bn_sike???
+	rm -rf bn_sike???/

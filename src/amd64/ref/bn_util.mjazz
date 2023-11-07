@@ -2,7 +2,7 @@
    intended to emulate and exercise the "Parametric Modules"
    feature propose in https://github.com/jasmin-lang/jasmin/issues/519.
 
-BN_UTIL_FNS = __mask_zf __mask_cf __cf_mask __addacc3 __addacc3x2
+BN_UTIL_FNS = __mask_zf __mask_cf __cf_mask __ncf_mask __addacc3 __addacc3x2
 
 */
 
@@ -28,8 +28,14 @@ inline fn ${qual}__mask_cf(reg u64 mask) -> reg bool {
 inline fn ${qual}__cf_mask(reg bool cf) -> reg u64 {
   reg u64 mask;
   mask = 0;
-  cf, mask += 0 + cf;
-  mask = -mask;
+  _, mask -= 0 - cf;
+  return mask;
+}
+
+inline fn ${qual}__ncf_mask(reg bool cf) -> reg u64 {
+  reg u64 mask;
+  mask = ${qual}__cf_mask(cf);
+  mask = #NOT_64(mask);
   return mask;
 }
 

@@ -3,7 +3,7 @@ PWD = $(shell pwd)
 SRCDIR = $(PWD)
 
 PROCMJAZZ = $(PWD)/../../../scripts/mjazz_proc.py
-MJAZZDIR = $(PWD)/mjazz_extracted
+MJAZZDIR = $(PWD)/extracted
 
 GCC ?= arch -x86_64 gcc
 JASMINC = jasminc

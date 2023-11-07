@@ -1,35 +1,81 @@
-require import AllCore Distr Int IntDiv List.
+require import AllCore Distr DList Int IntDiv List.
 
 
 from Jasmin require import JModel_x86.
-import SLH64.
 
+require import MLeakage.
 require JBigNumber Bn_util Bn_base.
 
 (* Parameters *)
 op nlimbs: int.
 axiom gt0_nlimbs: 0 < nlimbs.
-op nlimbsexp: int.
-axiom gt0_nlimbsexp: 0 < nlimbsexp.
-
-clone JBigNumber.BN as BNexp
- with op nlimbs <- nlimbsexp
-      proof gt0_nlimbs by exact gt0_nlimbsexp.
-
-import BNexp.A.
 
 clone import JBigNumber.BigN
  with op nlimbs <- nlimbs
       proof gt0_nlimbs by exact gt0_nlimbs.
 
+clone Bn_util as BNUTIL.
+
 clone Bn_base as BNB
  with op nlimbs <- nlimbs,
-      theory BigN <- BigN
+      theory BigN <- BigN,
+      theory BNUTIL <- BNUTIL
       proof gt0_nlimbs by exact gt0_nlimbs.
 
 module BN_M = BNB.M. 
 module BN_MLeak = BNB.MLeak. 
 
+import JBigNumber.
+import BN_Abytes.
+import BN_WAbytes.
+(** type-casts bijections *)
+op w64A_bytes (a:W64.t A.t) =
+ BN_WAbytes.init64 (fun j => a.[j]).
+op w8A_bytes (a:W8.t BN_Abytes.t) =
+ BN_WAbytes.init8 (fun j => a.[j]).
+
+op w8A_w64A (a:W8.t BN_Abytes.t) =
+ A.init (fun i => get64 (w8A_bytes a) i).
+op w64A_w8A (a:W64.t A.t) =
+ BN_Abytes.init (fun i => get8 (w64A_bytes a) i).
+
+lemma w8A_w64AK:
+ cancel w8A_w64A w64A_w8A.
+proof.
+move=> a; apply BN_Abytes.ext_eq => i Hi.
+rewrite initiE //= /get8 initiE //=.
+rewrite initiE 1:/# /= get64E /=.
+by rewrite pack8bE 1:/# initiE 1:/# /= initiE /#.
+qed.
+
+lemma w64A_w8AK:
+ cancel w64A_w8A w8A_w64A.
+proof.
+move=> a; apply A.ext_eq => i Hi.
+rewrite initiE //= get64E /= -(W8u8.unpack8K a.[i]); congr.
+rewrite W8u8.unpack8E; apply W8u8.Pack.ext_eq => x Hx.
+rewrite !initiE //= initiE 1:/# /= initiE 1:/# /=.
+by rewrite /get8 initiE /#.
+qed.
+
+lemma WAbytes_darray1E x:
+ mu1 BN_WAbytes.darray x = inv (W8.modulus^(8*nlimbs))%r.
+proof.
+have nlimbs_gt0:= gt0_nlimbs.
+pose X:= W8.modulus^(8*nlimbs).
+rewrite /BN_WAbytes.darray (dmap1E_can _ _ (BN_WAbytes.to_list)).
+  by move=> y; rewrite to_listK.
+ by move=> a; rewrite supp_dlist 1:/#; move => [H _]; rewrite of_listK.
+rewrite dlist1E 1:/# BN_WAbytes.size_to_list /=.
+rewrite (StdBigop.Bigreal.BRM.eq_bigr _ _ (fun _ => inv W8.modulus%r)).
+ by move=> i _ /=; rewrite W8_dword1E.
+rewrite StdBigop.Bigreal.BRM.big_const count_predT size_to_list.
+rewrite /X eq_sym -RField.fromintXn 1:/#.
+by rewrite -RField.exprVn 1:/# /RField.exp ifF 1:/# RField.MulMonoid.iteropE /=.
+qed.
+
+
+(*
 clone import PolyArray as Abytes
  with op size <- 8*nlimbs
       proof ge0_size by smt(gt0_nlimbs).
@@ -37,33 +83,61 @@ clone import PolyArray as Abytes
 clone import WArray as WAbytes
  with op size <- 8*nlimbs
       proof ge0_size by smt(gt0_nlimbs).
-
+*)
 
 (******************************************************************************
  **                inclusion of the (parametric) extracted modules            **
  ** (collected from "extracted_ths/Bn_rnd_extr.ec)                           **
  ******************************************************************************)
 
-from JExtract require export MLeakage.
+import BigN.BN_Abytes BigN.BN_WAbytes.
 
 module M = {
 
-  proc randombytes_p3(a:W8.t Abytes.t) : W8.t Abytes.t = {
-    a <$ dmap WAbytes.darray
-         (fun a => Abytes.init (fun i => WAbytes.get8 a i));
+  (* idealised version of randombytes *)
+  proc rndspec (a:BN.t) : BN.t = {
+    a <$ BN.bn_rnd;
+    return a;
+  }
+  
+  (* idealised version of rsample *)
+  proc rsamplespec (a:BN.t, bnd: BN.t) : BN.t = {
+    var i;
+    i <$ [0..bn bnd - 1];
+    a <- bn_ofint i;
+    return a;
+  }
+  
+  
+  proc rsampleaux (a:BN.t, bnd:BN.t) : BN.t = {
+    
+    var cf:bool;
+    a <@ rndspec (a);
+    cf <@ BN_M._lt_cf_ (a, bnd);
+    while ((! cf)) {
+      a <@ rndspec (a);
+      cf <@ BN_M._lt_cf_ (a, bnd);
+    }
+    return (a);
+  }
+
+
+  proc randombytes_p3(a:W8.t BN_Abytes.t) : W8.t BN_Abytes.t = {
+    a <$ dmap BN_WAbytes.darray
+         (fun a => BN_Abytes.init (fun i => BN_WAbytes.get8 a i));
     return a;
   }
 
   proc _rnd_ (a:BN.t) : BN.t = {
-    var aux: W8.t Abytes.t;
+    var aux: W8.t BN_Abytes.t;
     
     
     
     a <- a;
-    aux <@ randombytes_p3 ((Abytes.init (fun i => get8
-                              (WAbytes.init64 (fun i => (a).[i])) i)));
+    aux <@ randombytes_p3 ((BN_Abytes.init (fun i => get8
+                              (BN_WAbytes.init64 (fun i => (a).[i])) i)));
     a <-
-    (A.init (fun i => get64 (WAbytes.init8 (fun i => (aux).[i])) i));
+    (A.init (fun i => get64 (BN_WAbytes.init8 (fun i => (aux).[i])) i));
     a <- a;
     return (a);
   }
@@ -86,14 +160,14 @@ module M = {
 
 module MLeak = {
 
-  proc randombytes_p3(a:W8.t Abytes.t) : W8.t Abytes.t = {
-    a <$ dmap WAbytes.darray
-         (fun a => Abytes.init (fun i => WAbytes.get8 a i));
+  proc randombytes_p3(a:W8.t BN_Abytes.t) : W8.t BN_Abytes.t = {
+    a <$ dmap BN_WAbytes.darray
+         (fun a => BN_Abytes.init (fun i => BN_WAbytes.get8 a i));
     return a;
   }
 
   proc _rnd_ (a:BN.t) : BN.t = {
-    var aux_0: W8.t Abytes.t;
+    var aux_0: W8.t BN_Abytes.t;
     var aux: BN.t;
     
     
@@ -102,10 +176,10 @@ module MLeak = {
     aux <- a;
     a <- aux;
     LEAK.leakages <- LeakAddr([]) :: LEAK.leakages;
-    aux_0 <@ randombytes_p3 ((Abytes.init (fun i => get8
-                                (WAbytes.init64 (fun i => (a).[i])) i)));
+    aux_0 <@ randombytes_p3 ((BN_Abytes.init (fun i => get8
+                                (BN_WAbytes.init64 (fun i => (a).[i])) i)));
     a <-
-    (A.init (fun i => get64 (WAbytes.init8 (fun i => (aux_0).[i])) i));
+    (A.init (fun i => get64 (BN_WAbytes.init8 (fun i => (aux_0).[i])) i));
     LEAK.leakages <- LeakAddr([]) :: LEAK.leakages;
     aux <- a;
     a <- aux;
@@ -122,7 +196,7 @@ module MLeak = {
     aux <@ _rnd_ (a);
     a <- aux;
     LEAK.leakages <- LeakAddr([]) :: LEAK.leakages;
-    aux_0 <@ BN_M._lt_cf_ (a, bnd);
+    aux_0 <@ BN_MLeak._lt_cf_ (a, bnd);
     cf <- aux_0;
     LEAK.leakages <- LeakCond((! cf)) :: LeakAddr([]) :: LEAK.leakages;
     
@@ -131,7 +205,7 @@ module MLeak = {
       aux <@ _rnd_ (a);
       a <- aux;
       LEAK.leakages <- LeakAddr([]) :: LEAK.leakages;
-      aux_0 <@ BN_M._lt_cf_ (a, bnd);
+      aux_0 <@ BN_MLeak._lt_cf_ (a, bnd);
       cf <- aux_0;
     LEAK.leakages <- LeakCond((! cf)) :: LeakAddr([]) :: LEAK.leakages;
     
@@ -146,13 +220,161 @@ module MLeak = {
  ******************************************************************************)
 
 lemma _rnd__ll: islossless M._rnd_.
-admitted.
+proof.
+islossless.
+smt(dmap_ll dlist_ll W8.dword_ll).
+qed.
 
-lemma _rsample__ll _bnd: 
- 0 < bn _bnd =>
- islossless M._rsample_.
-admitted.
+(* REJECTION SAMPLING *)
+phoare rndspec_ph _res:
+ [ M.rndspec :
+   true ==> res = _res ] = (mu1 bn_rnd _res).
+proof. by proc; rnd; skip => />. qed.
 
+phoare bn_rsamplespec_ph _bnd _res:
+ [ M.rsamplespec :
+   bnd=_bnd ==> res = _res ] = (mu1 (bn_rnd_bnd bnd) _res).
+proof. 
+proc; wp; rnd; skip => />. 
+by rewrite dmap1E /pred1 /(\o) /=.
+qed.
 
-(* bring stuff from the rejection sample paper... *)
+equiv rndspec_eq:
+ M._rnd_ ~ M.rndspec:
+ true ==> ={res}.
+proof.
+proc; inline*.
+wp.
+rnd w8A_w64A w64A_w8A.
+auto => />.
+split.
+ by move=> a Ha; rewrite w64A_w8AK.
+move=> _; split.
+ move=> a Ha.
+ rewrite bn_rnd1E dmap1E /pred1 /(\o) /=.
+ rewrite (mu_eq _ _ (pred1 (w64A_bytes a))).
+  move => x; rewrite /pred1.
+  rewrite eq_iff; split.
+   move => /(canLR _ _ (BN_Abytes.init (BN_WAbytes.get8 x)) a w64A_w8AK) <-.
+   apply BN_WAbytes.ext_eq => i Hi.
+   by rewrite initiE //= /get8 initiE 1:/# /= get64E pack8bE 1:/# /= initiE 1:/# /= initiE 1:/# /= initiE /#.
+  move => ->; apply BN_Abytes.ext_eq=> i Hi.
+  by rewrite !initiE //.
+ rewrite WAbytes_darray1E; congr; congr.
+ by rewrite bn_modulusE -!exprM /#.
+move=> _ a Ha; split.
+ by apply bn_rnd_fu.
+by move=> *; rewrite w8A_w64AK.
+qed.
+
+phoare bn_rnd_ph _res:
+ [ M._rnd_ :
+   true ==> res = _res ] = (mu1 bn_rnd _res).
+proof.
+by conseq rndspec_eq (rndspec_ph _res) => /#.
+qed.
+
+require import DInterval Dexcepted.
+clone import WhileSampling as RS
+ with type input = unit,
+      type t = BN.t,
+      op dt i = bn_rnd.
+
+equiv _rsample__eq:
+ M._rsample_ ~ M.rsamplespec :
+ ={bnd} ==> ={res}.
+proof.
+admit(*
+exlim bnd{2} => _bnd.
+case: (bn _bnd = 0) => Hbnd.
+ bypr res{1} res{2} => //.
+ move=> &1 &2 _a [Hbnd1 Hbnd2].
+ pose P:= Pr[M.rsamplespec(_, _) @ &2 : res = _].
+ have ->: P = 0%r.
+  rewrite /P; byphoare (: bnd=bnd{2} ==> _) => //; hoare.
+  by proc; auto => /> i; rewrite supp_dinter; smt(bnk_cmp).
+ byphoare (: bnd=_bnd ==> _) => //.
+  hoare; proc; while(bnd=_bnd /\ cf = bnk nlimbs a < bnk nlimbs _bnd).
+   ecall (bn_lt_cf_h a bnd).
+   by inline*; auto => /> &m.
+  ecall (bn_lt_cf_h a bnd).
+  inline*; auto => &m -> a Ha r; rewrite Hbnd.
+  smt(bnk_cmp).
+ smt().
+transitivity XtrI.bn_rsample1pre
+ ( _bnd = bnd{2} /\ ={bnd} ==> ={res} )
+ ( _bnd = bnd{2} /\ ={bnd} ==> ={res} ) => //.
++ move=> /> &1 &2 ? ->.
+  by exists (a{2},bnd{2}).
++ proc; while (={a,cf,bnd}).
+   ecall{1} (bn_lt_cf_ph a{1} bnd{1}).
+   ecall{2} (bn_lt_cf_ph a{2} bnd{2}).
+   by call bn_rndspec_eq; auto => />.
+  ecall{1} (bn_lt_cf_ph a{1} bnd{1}).
+  ecall{2} (bn_lt_cf_ph a{2} bnd{2}).
+  by call bn_rndspec_eq; auto => />.
+transitivity
+ RS.SampleW.sample
+ (bnd{1}=_bnd /\ i{2}=tt /\ test{2}=fun _ n =>! bn n < bn _bnd
+  ==> ={res})
+ (bnd{2}=_bnd /\ i{1}=tt /\ test{1}=fun _ n =>! bn n < bn _bnd
+  ==> ={res}) => //=.
++ move=> &1 &2 [E E2].
+  by exists (tt,fun _ n => !bn n < bn _bnd) => /#.
++ proc; simplify; inline SampleWi.sample.
+  wp; while (#pre /\ test0{2}=test{2} /\ a{1}=r0{2} /\
+             (!cf{1})=(test0 i0 r0){2}).
+   ecall {1} (bn_lt_cf_ph a{1} bnd{1}).
+   by inline*; auto => />.
+  ecall {1} (bn_lt_cf_ph a{1} bnd{1}).
+  by inline*; auto => />.
+transitivity RS.SampleE.sample
+ (={i,test} /\ i{2}=tt /\ test{2}=fun _ n =>! bn n < bn _bnd
+  ==> ={res})
+ (bnd{2}=_bnd /\ i{1}=tt /\ test{1}=fun _ n =>! bn n < bn _bnd
+  ==> ={res}) => //=.
++ move=> &1 &2 [E2 E].
+  by exists (tt,fun _ n => !bn n < bn _bnd) => /#.
++ symmetry; conseq RS.sampleE_sampleW.
+   by move => /> &1 &2 -> _ /=; apply BN.bn_rnd_ll.
+  by move=> />.
+proc; simplify.
+rnd : 0 *0; skip => /> &1; split.
+ move=> a; rewrite supp_dmap => [[i />]].
+ rewrite supp_dinter => Hi.
+ rewrite !dmap1E /pred1 /(\o) /=.
+ rewrite bn_rnd_excepted dmapE.
+ apply mu_eq_support.
+ by move=> x; rewrite supp_dinter /(\o) /=.
+move => H1 r /=.
+rewrite supp_dmap => [[a />]].
+rewrite supp_dexcepted /= => [[HA HB]].
+rewrite supp_dmap; exists (bn a); split.
+ by rewrite supp_dinter; smt(bnk_cmp).
+by rewrite bnK.
+*).
+qed.
+
+phoare _rsample__ph _bnd _res:
+ [ M._rsample_ :
+   bnd=_bnd ==> res = _res ] = (mu1 (bn_rnd_bnd bnd) _res).
+proof.
+conseq _rsample__eq (bn_rsamplespec_ph _bnd _res) => /> &1.
+by exists (bnd{1},bnd{1}); smt().
+qed.
+
+lemma rsamplespec_ll:
+ phoare [ M.rsamplespec : 0 < bn bnd ==> true ] = 1%r.
+proof.
+proc; simplify; auto => /> &m Hbnd.
+by rewrite weight_dinter /#.
+qed.
+
+lemma _rsample__ll:
+ phoare [ M._rsample_ : 0 < bn bnd ==> true ] = 1%r.
+proof.
+conseq _rsample__eq rsamplespec_ll => //=.
+by move=> /> &1 Hbnd; exists (witness, bnd{1}) => /#.
+qed.
+
 

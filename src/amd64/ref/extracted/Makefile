@@ -13,7 +13,7 @@ MJAZZ_EC_CT = BNUTIL_bn_util_CT.ec BN_bn_base_CT.ec BNRND_bn_rnd_CT.ec BNE_bn_ex
 
 all: $(MJAZZ_EC) $(MJAZZ_EC_CT)
 
-BN_UTIL_FNS = __mask_zf __mask_cf __cf_mask __addacc3 __addacc3x2
+BN_UTIL_FNS = __mask_zf __mask_cf __cf_mask __ncf_mask __addacc3 __addacc3x2
 
 BN_BASE_FNS = _load_ _store_ _eq_ _test0_ __copy _mov_ _cmov_ _cswap_cf_ _set0_ __cfill _or_mask_ _and_mask_ _set_err_ __carrypropU _addcU_ _addU_ _addc_ _add_ _subcU_ _subU_ _subc_ _sub_ _lt_cf_ _ltc_cf_ _negU_ _negcU_ _neg_ _negc_ _cnegU_ _caddU_ _muln_ _sqrn_ _cminusP_ __mont_redM _pack2_
 
@@ -21,7 +21,7 @@ BN_RND_FNS = _rnd_ _rsample_
 
 BN_EXP_FNS =  _expm_noct_ _expmU_noct_ _expm_ _expmU_
 
-FP_BASE_FNS = _chk_bnds_ _addm_ _addmU_ _subm_ _submU_ _mulm_ _mulmU_ _sqrm_ _sqrmU_ _invmU_
+FP_BASE_FNS = _chk_bnds_ _rnd_ _addm_ _addmU_ _subm_ _submU_ _mulm_ _mulmU_ _sqrm_ _sqrmU_ _invm_ _invmU_
 
 FP_MONT_FNS = _redM_ _fromM_ _toM_
 
@@ -68,4 +68,4 @@ clean:
 	rm -f *.pjinc Array*.ec WArray*.ec *~
 
 realclean: clean
-	rm -f $(MJAZZ_EC)
+	rm -f $(MJAZZ_EC) $(MJAZZ_EC_CT)

@@ -1,0 +1,9 @@
+param int param_nlimbs = 11;
+
+u64[param_nlimbs] glob_P = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
+u64[param_nlimbs] glob_mP = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
+u64 glob_P0i = 0;
+u64[param_nlimbs] glob_Pm2 = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
+u64[param_nlimbs] glob_exp0 = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
+u64[param_nlimbs] glob_rMP = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
+

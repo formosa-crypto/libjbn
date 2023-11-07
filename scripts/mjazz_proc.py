@@ -26,7 +26,7 @@ def proc_entry(e, srcdir, dstdir):
 def proc_file(mod):
  kfile = mod + ".keys"
  mjazzsrc = bn_mjazz(sys.argv[0])
- mjazzdst = "mjazz_"+mod
+ mjazzdst = mod #was: "mjazz_"+mod
  with open(kfile) as f: 
   kdata = ast.literal_eval(f.read())
   if not os.path.exists(mjazzdst): 
