@@ -3,206 +3,195 @@
 FP_BASE_FNS = _chk_bnds_ _rnd_ _addm_ _addmU_ _subm_ _submU_ _mulm_ _mulmU_ _sqrm_ _sqrmU_ _invmU_
 */
 
-/*
-
 modsignature {
-  int nlimbs;		// num. limbs
-  u64[limbs] glob_exp0;
-  u64[nlimbs] glob_Pm2;
+  param int nlimbs;		// num. of limbs
+  global u64[limbs] glob_P;
+  global u64[limbs] glob_mP;
+  global u64[limbs] glob_exp0;
+  global u64[nlimbs] glob_Pm2;
   fn fun_red ( reg mut ptr u64[nlimbs]
              , reg const ptr u64[2*nlimbs]
-             ) -> reg ptr u64[nlimbs]
+             ) -> reg ptr u64[nlimbs];
 }
 
-require "bn_base" as "BN"
+require "bn_base"
   with { nlimbs = nlimbs; }
 
-require "bn_rnd" as "BN"
+require "bn_rnd"
   with { nlimbs = nlimbs; }
 
-*/
 
-from MJazz require "${qualBN}_bn_base.jinc" // BN qualified
-
-from MJazz require "${qualBNRND}_bn_rnd.jinc" // BNRND qualified
-
-inline fn ${qual}_chk_bnds_
+inline fn _chk_bnds_
 ( stack u64 err
-, reg const ptr u64[${nlimbs}] a
+, reg const ptr u64[nlimbs] a
 ) -> stack u64 {
- reg ptr u64[${nlimbs}] P;
+ reg ptr u64[nlimbs] P;
  reg bool cf;
  reg u64 t;
- P = ${glob_P};
- cf = ${qualBN}_lt_cf_(a, P);
- t = ${qualUTIL}__ncf_mask(cf);
+ P = glob_P;
+ cf = BN._lt_cf_(a, P);
+ t = BN.__ncf_mask(cf); // access to a submodule (bn_util)
  err |= t;
  return err;
 }
 
-inline fn ${qual}_rnd_
-( reg mut ptr u64[${nlimbs}] a
-) -> reg ptr u64[${nlimbs}] {
- reg ptr u64[${nlimbs}] P;
- P = ${glob_P};
- a = ${qualBNRND}_rsample_(a, P);
+inline fn _rnd_
+( reg mut ptr u64[nlimbs] a
+) -> reg ptr u64[nlimbs] {
+ reg ptr u64[nlimbs] P;
+ P = glob_P;
+ a = BN._rsample_(a, P); // access to an overloaded qualifier
  return a;
 }
 
-inline fn ${qual}_addm_
- ( reg mut ptr u64[${nlimbs}] r
- , reg const ptr u64[${nlimbs}] a b
- ) -> reg ptr u64[${nlimbs}]
+inline fn _addm_
+ ( reg mut ptr u64[nlimbs] r
+ , reg const ptr u64[nlimbs] a b
+ ) -> reg ptr u64[nlimbs]
 {
   reg bool cf;
   reg u64 lastbit;
-  reg ptr u64[${nlimbs}] tmp;
+  reg ptr u64[nlimbs] tmp;
 
-  cf, r = ${qualBN}_add_(r, a, b);
+  cf, r = BN._add_(r, a, b);
 
   lastbit = 0;
   _, lastbit += 0 + cf;
-  tmp = ${glob_mP};
-  r = ${qualBN}_cminusP_(r, tmp, lastbit);
+  tmp = glob_mP;
+  r = BN._cminusP_(r, tmp, lastbit);
   return r;
 }
 
-inline fn ${qual}_addmU_
- ( reg mut ptr u64[${nlimbs}] a
- , reg const ptr u64[${nlimbs}] b
- ) -> reg ptr u64[${nlimbs}]
+inline fn _addmU_
+ ( reg mut ptr u64[nlimbs] a
+ , reg const ptr u64[nlimbs] b
+ ) -> reg ptr u64[nlimbs]
 {
   reg bool cf;
   reg u64 lastbit;
-  reg ptr u64[${nlimbs}] tmp;
+  reg ptr u64[nlimbs] tmp;
 
-  cf, a = ${qualBN}_addU_(a, b);
+  cf, a = BN._addU_(a, b);
 
   lastbit = 0;
   _, lastbit += 0 + cf;
-  tmp = ${glob_mP};
-  a = ${qualBN}_cminusP_(a, tmp, lastbit);
+  tmp = glob_mP;
+  a = BN._cminusP_(a, tmp, lastbit);
   return a;
 }
 
 // ////////////////////////////////////
 
-inline fn ${qual}_subm_
-( reg mut ptr u64[${nlimbs}] r
-, reg const ptr u64[${nlimbs}] a b
-) -> reg ptr u64[${nlimbs}] {
+inline fn _subm_
+( reg mut ptr u64[nlimbs] r
+, reg const ptr u64[nlimbs] a b
+) -> reg ptr u64[nlimbs] {
  reg bool cf;
- reg ptr u64[${nlimbs}] tmp;
- cf, r = ${qualBN}_sub_(r, a, b);
- tmp = ${glob_P};
- r = ${qualBN}_caddU_(r, cf, tmp);
+ reg ptr u64[nlimbs] tmp;
+ cf, r = BN._sub_(r, a, b);
+ tmp = glob_P;
+ r = BN._caddU_(r, cf, tmp);
  return r;
 }
 
-inline fn ${qual}_submU_
-( reg mut ptr u64[${nlimbs}] a
-, reg const ptr u64[${nlimbs}] b
-) -> reg ptr u64[${nlimbs}] {
+inline fn _submU_
+( reg mut ptr u64[nlimbs] a
+, reg const ptr u64[nlimbs] b
+) -> reg ptr u64[nlimbs] {
  reg bool cf;
- reg ptr u64[${nlimbs}] tmp;
- cf, a = ${qualBN}_subU_(a, b);
- tmp = ${glob_P};
- a = ${qualBN}_caddU_(a, cf, tmp);
+ reg ptr u64[nlimbs] tmp;
+ cf, a = BN._subU_(a, b);
+ tmp = glob_P;
+ a = BN._caddU_(a, cf, tmp);
  return a;
 }
 
 /* Modular multiplication */
-inline fn ${qual}_mulm_
-( reg mut ptr u64[${nlimbs}] r
-, reg ptr u64[${nlimbs}] a b
-) -> reg ptr u64[${nlimbs}] {
-  stack u64[2*${nlimbs}] _tmp;
-  reg ptr u64[2*${nlimbs}] tmp;
+inline fn _mulm_
+( reg mut ptr u64[nlimbs] r
+, reg ptr u64[nlimbs] a b
+) -> reg ptr u64[nlimbs] {
+  stack u64[2*nlimbs] _tmp;
+  reg ptr u64[2*nlimbs] tmp;
 
   tmp = _tmp;
-  tmp = ${qualBN}_muln_(tmp, a, b);
-  r = ${fun_red}(r, tmp);
+  tmp = BN._muln_(tmp, a, b);
+  r = fun_red(r, tmp);
   return r;
 }
 
 // ////////////////////////////////////
 
-inline fn ${qual}_mulmU_ // update inplace
-( reg mut ptr u64[${nlimbs}] a
-, reg ptr u64[${nlimbs}] b
-) -> reg ptr u64[${nlimbs}] {
-  stack u64[2*${nlimbs}] _tmp;
-  reg ptr u64[2*${nlimbs}] tmp;
+inline fn _mulmU_ // update inplace
+( reg mut ptr u64[nlimbs] a
+, reg ptr u64[nlimbs] b
+) -> reg ptr u64[nlimbs] {
+  stack u64[2*nlimbs] _tmp;
+  reg ptr u64[2*nlimbs] tmp;
   tmp = _tmp;
-  tmp = ${qualBN}_muln_(tmp, a, b);
-  a = ${fun_red}(a, tmp);
+  tmp = BN._muln_(tmp, a, b);
+  a = fun_red(a, tmp);
   return a;
 }
 
 // ////////////////////////////////////
 
-inline fn ${qual}_sqrm_
-( reg mut ptr u64[${nlimbs}] r
-, reg const ptr u64[${nlimbs}] a
-) -> reg ptr u64[${nlimbs}] {
-  stack u64[2*${nlimbs}] _tmp;
-  reg ptr u64[2*${nlimbs}] tmp;
+inline fn _sqrm_
+( reg mut ptr u64[nlimbs] r
+, reg const ptr u64[nlimbs] a
+) -> reg ptr u64[nlimbs] {
+  stack u64[2*nlimbs] _tmp;
+  reg ptr u64[2*nlimbs] tmp;
   tmp = _tmp;
-  tmp = ${qualBN}_sqrn_(tmp, a);
-  r = ${fun_red}(r, tmp);
+  tmp = BN._sqrn_(tmp, a);
+  r = fun_red(r, tmp);
   return r;
 }
 
 // ////////////////////////////////////
 
-inline fn ${qual}_sqrmU_ // update inplace
-( reg mut ptr u64[${nlimbs}] a
-) -> reg ptr u64[${nlimbs}] {
-  stack u64[2*${nlimbs}] _tmp;
-  reg ptr u64[2*${nlimbs}] tmp;
+inline fn _sqrmU_ // update inplace
+( reg mut ptr u64[nlimbs] a
+) -> reg ptr u64[nlimbs] {
+  stack u64[2*nlimbs] _tmp;
+  reg ptr u64[2*nlimbs] tmp;
   tmp = _tmp;
-  tmp = ${qualBN}_sqrn_(tmp, a);
-  a = ${fun_red}(a, tmp);
+  tmp = BN._sqrn_(tmp, a);
+  a = fun_red(a, tmp);
   return a;
 }
 
 // ////////////////////////////////////
 
-/*
-// ???obs: import without qualifier -- declarations
-// are added to the "current" scope
-// ???obs2: alternative: reuse qualifier
 
-require "bn_exp.jinc" // as FPM
+require "bn_exp.jinc"
  with { nlimbs = nlimbs;
         nlimbsexp = nlimbs;
         glob_exp0 = glob_exp0;
         fun_mulU = FPM_mulmU;
         fun_sqrU = FPM_sqrmU;
       }
-*/
-from MJazz require "${qualBNE}_bn_exp.jinc" 
 
 
 /* Modular Inversion (fermat) */
-inline fn ${qual}_invmU_
-( reg mut ptr u64[${nlimbs}] a
-) -> reg ptr u64[${nlimbs}] {
+inline fn _invmU_
+( reg mut ptr u64[nlimbs] a
+) -> reg ptr u64[nlimbs] {
   /* a^{p-2} */
-  reg ptr u64[${nlimbsexp}] Pm2;
-  Pm2 = ${glob_Pm2};
-  a = ${qualBNE}_expmU_noct_(a, Pm2);
+  reg ptr u64[nlimbs] Pm2;
+  Pm2 = glob_Pm2;
+  a = _expmU_noct_(a, Pm2);
   return a;
 }
 
-inline fn ${qual}_invm_
-( reg mut ptr u64[${nlimbs}] r
-, reg const ptr u64[${nlimbs}] a
-) -> reg ptr u64[${nlimbs}] {
+inline fn _invm_
+( reg mut ptr u64[nlimbs] r
+, reg const ptr u64[nlimbs] a
+) -> reg ptr u64[nlimbs] {
   /* a^{p-2} */
-  reg ptr u64[${nlimbsexp}] Pm2;
-  Pm2 = ${glob_Pm2};
-  r = ${qualBNE}_expm_noct_(r, a, Pm2);
+  reg ptr u64[nlimbs] Pm2;
+  Pm2 = glob_Pm2;
+  r = _expm_noct_(r, a, Pm2);
   return r;
 }
 

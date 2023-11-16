@@ -5,7 +5,7 @@ from string import Template
 
 def bn_mjazz(argv0):
  script_directory = os.path.dirname(os.path.abspath(argv0))
- return (script_directory+"/../src/amd64/ref/")
+ return (script_directory+"/../src/amd64/ref/mjazz_templates/")
 
 def proc_entry(e, srcdir, dstdir):
  tfile = e[0] + '.mjazz'

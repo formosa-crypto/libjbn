@@ -6,14 +6,18 @@ BN_UTIL_FNS = __mask_zf __mask_cf __cf_mask __ncf_mask __addacc3 __addacc3x2
 
 */
 
-inline fn __mask_zf(reg u64 mask) -> reg bool {
+/*
+modsignature { int nlimbs; }
+*/
+
+inline fn ${qual}__mask_zf(reg u64 mask) -> reg bool {
   reg bool zf;
   (_, _, _, _, zf, _) = #AND(mask, mask);
   return zf;
 }
 
 //@ ensures: \res = (mask != 0)
-inline fn __mask_cf(reg u64 mask) -> reg bool {
+inline fn ${qual}__mask_cf(reg u64 mask) -> reg bool {
   reg bool cf;
   reg u64 t;
   t = 0;
@@ -21,14 +25,14 @@ inline fn __mask_cf(reg u64 mask) -> reg bool {
   return cf;
 }
 
-inline fn __cf_mask(reg bool cf) -> reg u64 {
+inline fn ${qual}__cf_mask(reg bool cf) -> reg u64 {
   reg u64 mask;
   mask = 0;
   _, mask -= 0 - cf;
   return mask;
 }
 
-inline fn __ncf_mask(reg bool cf) -> reg u64 {
+inline fn ${qual}__ncf_mask(reg bool cf) -> reg u64 {
   reg u64 mask;
   mask = ${qual}__cf_mask(cf);
   mask = #NOT_64(mask);
@@ -37,7 +41,7 @@ inline fn __ncf_mask(reg bool cf) -> reg u64 {
 
 // ACCUMULATOR for product-scanning 
 // regs: params(5)
-inline fn __addacc3
+inline fn ${qual}__addacc3
 ( reg u64[3] a
 , reg u64 b1 b0
 , inline int k
@@ -51,7 +55,7 @@ inline fn __addacc3
 
 // ACCUMULATOR for product-scanning (sqr)
 // regs: params(5) + 3 = 8
-inline fn __addacc3x2
+inline fn ${qual}__addacc3x2
 ( reg u64[3] a
 , reg u64 x y
 , inline int k

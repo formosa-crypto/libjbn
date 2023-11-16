@@ -6,9 +6,7 @@ BN_BASE_FNS = _load_ _store_ _eq_zf_ _eq_ _test0_zf_ _test0_ __copy _mov_ _cmov_
 
 */
 
-/*
-modsignature { int nlimbs; }
-*/
+modsignature { param int nlimbs; }
 
 /*
    GENERIC CODE (parametric on the number of limbs)
@@ -20,22 +18,19 @@ modsignature { int nlimbs; }
 
 */
 
-/*
-require "bn_util.jinc" // as "BN"
-*/
-require "${qualUTIL}_bn_util.jinc"
+from Libjbn require "bn_util.jinc"
 
 /* Loads BN from memory
  */
-inline fn ${qual}__load
-( reg mut ptr u64[${nlimbs}] a
+inline fn __load
+( reg mut ptr u64[nlimbs] a
 , reg u64 ap
-) -> reg ptr u64[${nlimbs}]
+) -> reg ptr u64[nlimbs]
 {
   inline int i;
   reg u64 t;
 
-  for i = 0 to ${nlimbs} {
+  for i = 0 to nlimbs {
     t = [ap + 8*i];
     a[i] = t;
   }
@@ -44,69 +39,69 @@ inline fn ${qual}__load
 }
 
 //#[returnaddress=reg]
-fn ${qual}_load
-( reg mut ptr u64[${nlimbs}] a
+fn _load
+( reg mut ptr u64[nlimbs] a
 , reg u64 ap
-) -> reg ptr u64[${nlimbs}]
+) -> reg ptr u64[nlimbs]
 {
-  a = ${qual}__load(a, ap);
+  a = __load(a, ap);
   return a;
 }
 
-inline fn ${qual}_load_
-( reg mut ptr u64[${nlimbs}] a
+inline fn _load_
+( reg mut ptr u64[nlimbs] a
 , reg u64 ap
-) -> reg ptr u64[${nlimbs}]
+) -> reg ptr u64[nlimbs]
 {
   a = a; ap = ap;
-  a = ${qual}_load(a, ap);
+  a = _load(a, ap);
   a = a;
   return a;
 }
 
 /* Stores a BN into memory */
-inline fn ${qual}__store
+inline fn __store
 ( reg u64 ap,
-  reg const ptr u64[${nlimbs}] a
+  reg const ptr u64[nlimbs] a
 )
 {
   inline int i;
   reg u64 t;
 
-  for i = 0 to ${nlimbs} {
+  for i = 0 to nlimbs {
     t = a[i];
     [ap + 8*i] = t;
   }
 }
 
-fn ${qual}_store
+fn _store
 ( reg u64 ap,
-  reg const ptr u64[${nlimbs}] a
+  reg const ptr u64[nlimbs] a
 ) {
-  ${qual}__store(ap, a);
+  __store(ap, a);
 }
 
-inline fn ${qual}_store_
+inline fn _store_
 ( reg u64 ap,
-  reg const ptr u64[${nlimbs}] a
+  reg const ptr u64[nlimbs] a
 ) {
   ap = ap; a = a;
-  ${qual}__store(ap, a);
+  __store(ap, a);
 }
 
 /**
  * Compares two field elements.
  * If a == b, return 1. Otherwise, return 0.
  */
-inline fn ${qual}__eq_zf
-( reg const ptr u64[${nlimbs}] a b
+inline fn __eq_zf
+( reg const ptr u64[nlimbs] a b
 ) -> reg bool {
   inline int i;
   reg u64 acc t;
   reg bool zf;
 
   acc = 0;
-  for i = 0 to ${nlimbs} {
+  for i = 0 to nlimbs {
     t = a[i];
     t ^= b[i];
     acc |= t;
@@ -116,20 +111,20 @@ inline fn ${qual}__eq_zf
   return zf;
 }
 
-fn ${qual}_eq_zf
-( reg const ptr u64[${nlimbs}] a b
+fn _eq_zf
+( reg const ptr u64[nlimbs] a b
 ) -> reg bool {
   reg bool zf;
-  zf = ${qual}__eq_zf(a, b);
+  zf = __eq_zf(a, b);
   return zf;
 }
 
-inline fn ${qual}_eq_zf_
-( reg const ptr u64[${nlimbs}] a b
+inline fn _eq_zf_
+( reg const ptr u64[nlimbs] a b
 ) -> reg bool {
   reg bool zf;
   a = a; b = b;
-  zf = ${qual}_eq_zf(a, b);
+  zf = _eq_zf(a, b);
   return zf;
 }
 
@@ -137,14 +132,14 @@ inline fn ${qual}_eq_zf_
  * Compares two field elements.
  * If a == b, return 1. Otherwise, return 0.
  */
-inline fn ${qual}_eq_
-( reg const ptr u64[${nlimbs}] a b
+inline fn _eq_
+( reg const ptr u64[nlimbs] a b
 ) -> reg u64 /* 0 or 1 */ {
   inline int i;
   reg u64 are_equal res;
   reg bool zf;
 
-  zf = ${qual}_eq_zf_(a, b);
+  zf = _eq_zf_(a, b);
   res = 0;
   are_equal = 1;
   res = are_equal if zf;
@@ -153,15 +148,15 @@ inline fn ${qual}_eq_
 }
 
 //@ ensures res == if bn(a)=0 then 1 else 0;
-inline fn ${qual}__test0_zf
-( reg const ptr u64[${nlimbs}] a
+inline fn __test0_zf
+( reg const ptr u64[nlimbs] a
 ) -> reg bool {
   inline int i;
   reg u64 acc;
   reg bool zf;
 
   acc = a[0];
-  for i = 1 to ${nlimbs} {
+  for i = 1 to nlimbs {
     acc |= a[i];
   }
   (_, _, _, _, zf, _) = #AND(acc, acc);
@@ -169,47 +164,47 @@ inline fn ${qual}__test0_zf
 }
 
 //@ ensures \result == (bn(a)==0);
-fn ${qual}_test0_zf
-( reg const ptr u64[${nlimbs}] a
+fn _test0_zf
+( reg const ptr u64[nlimbs] a
 ) -> reg bool {
   reg bool zf;
-  zf = ${qual}__test0_zf(a);
+  zf = __test0_zf(a);
   return zf;
 }
 
-inline fn ${qual}_test0_zf_
-( reg const ptr u64[${nlimbs}] a
+inline fn _test0_zf_
+( reg const ptr u64[nlimbs] a
 ) -> reg bool {
   reg bool zf;
   a = a;
-  zf = ${qual}__test0_zf(a);
+  zf = __test0_zf(a);
   return zf;
 }
 
 //@ ensures res == if bn(a)=0 then 1 else 0;
-inline fn ${qual}_test0_
-( reg const ptr u64[${nlimbs}] a
+inline fn _test0_
+( reg const ptr u64[nlimbs] a
 ) -> reg u64 {
   reg u64 is_zero res;
   reg bool zf;
 
   res = 0;
   is_zero = 1;    
-  zf = ${qual}_test0_zf_(a);
+  zf = _test0_zf_(a);
   res = is_zero if zf;
 
   return res;
 }
 
 //@ ensures \result == a;
-inline fn ${qual}__copy
-( reg const ptr u64[${nlimbs}] a
-) -> stack u64[${nlimbs}] {
+inline fn __copy
+( reg const ptr u64[nlimbs] a
+) -> stack u64[nlimbs] {
   inline int i;
   reg u64 t;
-  stack u64[${nlimbs}] r;
+  stack u64[nlimbs] r;
     
-  for i = 0 to ${nlimbs} {
+  for i = 0 to nlimbs {
     t = a[i];
     r[i] = t;
   }
@@ -218,14 +213,14 @@ inline fn ${qual}__copy
 }
 
 //@ ensures \result == a;
-inline fn ${qual}__mov
-( reg mut ptr u64[${nlimbs}] r
-, reg const ptr u64[${nlimbs}] a
-) -> reg ptr u64[${nlimbs}] {
+inline fn __mov
+( reg mut ptr u64[nlimbs] r
+, reg const ptr u64[nlimbs] a
+) -> reg ptr u64[nlimbs] {
   inline int i;
   reg u64 t;
     
-  for i = 0 to ${nlimbs} {
+  for i = 0 to nlimbs {
     t = a[i];
     r[i] = t;
   }
@@ -233,35 +228,35 @@ inline fn ${qual}__mov
   return r;
 }
 
-fn ${qual}_mov
-( reg mut ptr u64[${nlimbs}] r
-, reg const ptr u64[${nlimbs}] a
-) -> reg ptr u64[${nlimbs}] {
-  r = ${qual}__mov(r, a);
+fn _mov
+( reg mut ptr u64[nlimbs] r
+, reg const ptr u64[nlimbs] a
+) -> reg ptr u64[nlimbs] {
+  r = __mov(r, a);
   return r;
 }
 
-inline fn ${qual}_mov_
-( reg mut ptr u64[${nlimbs}] r
-, reg const ptr u64[${nlimbs}] a
-) -> reg ptr u64[${nlimbs}] {
+inline fn _mov_
+( reg mut ptr u64[nlimbs] r
+, reg const ptr u64[nlimbs] a
+) -> reg ptr u64[nlimbs] {
   r = r;
   a = a;
-  r = ${qual}_mov(r, a);
+  r = _mov(r, a);
   r = r;
   return r;
 }
 
 //@ ensures \result = if cond then b else a;
-inline fn ${qual}__cmov
-( reg mut ptr u64[${nlimbs}] a
+inline fn __cmov
+( reg mut ptr u64[nlimbs] a
 , reg bool cond
-, reg const ptr u64[${nlimbs}] b
-) -> reg ptr u64[${nlimbs}] {
+, reg const ptr u64[nlimbs] b
+) -> reg ptr u64[nlimbs] {
   inline int i;
   reg u64 t;
     
-  for i = 0 to ${nlimbs} {
+  for i = 0 to nlimbs {
     t = a[i];
     t = b[i] if cond;
     a[i] = t;
@@ -270,36 +265,36 @@ inline fn ${qual}__cmov
   return a;
 }
 
-fn ${qual}_cmov
-( reg mut ptr u64[${nlimbs}] a
+fn _cmov
+( reg mut ptr u64[nlimbs] a
 , reg bool cond
-, reg const ptr u64[${nlimbs}] b
-) -> reg ptr u64[${nlimbs}] {
-  a = ${qual}__cmov(a, cond, b);
+, reg const ptr u64[nlimbs] b
+) -> reg ptr u64[nlimbs] {
+  a = __cmov(a, cond, b);
   return a;
 }
 
-inline fn ${qual}_cmov_
-( reg mut ptr u64[${nlimbs}] a
+inline fn _cmov_
+( reg mut ptr u64[nlimbs] a
 , reg bool cond
-, reg const ptr u64[${nlimbs}] b
-) -> reg ptr u64[${nlimbs}] {
+, reg const ptr u64[nlimbs] b
+) -> reg ptr u64[nlimbs] {
   a = a;
   b = b;
-  a = ${qual}_cmov(a, cond, b);
+  a = _cmov(a, cond, b);
   a = a;
   return a;
 }
 
 
-inline fn ${qual}__cswap_mask
- ( reg mut ptr u64[${nlimbs}] x
- , reg mut ptr u64[${nlimbs}] y
+inline fn __cswap_mask
+ ( reg mut ptr u64[nlimbs] x
+ , reg mut ptr u64[nlimbs] y
  , reg u64 mask // 0/-1
- ) -> reg ptr u64[${nlimbs}] , reg ptr u64[${nlimbs}] {
+ ) -> reg ptr u64[nlimbs] , reg ptr u64[nlimbs] {
   reg u64 tmp1, tmp2;
   inline int i;
-  for i = 0 to ${nlimbs} {
+  for i = 0 to nlimbs {
    tmp1   = x[i];
    tmp1  ^= y[i];
    tmp1  &= mask;
@@ -310,89 +305,89 @@ inline fn ${qual}__cswap_mask
   return x, y;
 }
 
-fn ${qual}_cswap_mask
- ( reg mut ptr u64[${nlimbs}] x
- , reg mut ptr u64[${nlimbs}] y
+fn _cswap_mask
+ ( reg mut ptr u64[nlimbs] x
+ , reg mut ptr u64[nlimbs] y
  , reg u64 mask // 0/-1
- ) -> reg ptr u64[${nlimbs}] , reg ptr u64[${nlimbs}] {
-  x, y = ${qual}__cswap_mask(x,y,mask);
+ ) -> reg ptr u64[nlimbs] , reg ptr u64[nlimbs] {
+  x, y = __cswap_mask(x,y,mask);
   return x,y;
 }
 
-inline fn ${qual}_cswap_mask_
- ( reg mut ptr u64[${nlimbs}] x
- , reg mut ptr u64[${nlimbs}] y
+inline fn _cswap_mask_
+ ( reg mut ptr u64[nlimbs] x
+ , reg mut ptr u64[nlimbs] y
  , reg u64 mask // 0/-1
- ) -> reg ptr u64[${nlimbs}] , reg ptr u64[${nlimbs}] {
+ ) -> reg ptr u64[nlimbs] , reg ptr u64[nlimbs] {
   x = x;
   y = y;
-  x, y = ${qual}_cswap_mask(x,y,mask);
+  x, y = _cswap_mask(x,y,mask);
   x = x;
   y = y;
   return x, y;
 }
 
-inline fn ${qual}_cswap_cf_
- ( reg mut ptr u64[${nlimbs}] x
- , reg mut ptr u64[${nlimbs}] y
+inline fn _cswap_cf_
+ ( reg mut ptr u64[nlimbs] x
+ , reg mut ptr u64[nlimbs] y
  , reg bool cf
- ) -> reg ptr u64[${nlimbs}] , reg ptr u64[${nlimbs}] {
+ ) -> reg ptr u64[nlimbs] , reg ptr u64[nlimbs] {
   reg u64 mask, tmp1, tmp2;
   inline int i;
-  mask = ${qualUTIL}__cf_mask(cf);
-  x, y = ${qual}_cswap_mask_(x, y, mask);
+  mask = __cf_mask(cf);
+  x, y = _cswap_mask_(x, y, mask);
   return x, y;
 }
 
 //@ ensures \forall v in \result; v == 0;
-inline fn ${qual}__fill
-( reg mut ptr u64[${nlimbs}] a
+inline fn __fill
+( reg mut ptr u64[nlimbs] a
 , reg u64 x
-) -> reg ptr u64[${nlimbs}] {
+) -> reg ptr u64[nlimbs] {
   inline int i;
-  for i = 0 to ${nlimbs} {
+  for i = 0 to nlimbs {
     a[i] = x;
   }
   return a;
 }
 
-fn ${qual}_fill
-( reg mut ptr u64[${nlimbs}] a
+fn _fill
+( reg mut ptr u64[nlimbs] a
 , reg u64 x
-) -> reg ptr u64[${nlimbs}] {
-  a = ${qual}__fill(a, x);
+) -> reg ptr u64[nlimbs] {
+  a = __fill(a, x);
   return a;
 }
 
-inline fn ${qual}_fill_
-( reg mut ptr u64[${nlimbs}] a
+inline fn _fill_
+( reg mut ptr u64[nlimbs] a
 , reg u64 x
-) -> reg ptr u64[${nlimbs}] {
+) -> reg ptr u64[nlimbs] {
   a = a; x = x;
-  a = ${qual}__fill(a, x);
+  a = __fill(a, x);
   a = a;
   return a;
 }
 
 //@ ensures \forall v in \result; v == 0;
-inline fn ${qual}_set0_
-( reg mut ptr u64[${nlimbs}] a
-) -> reg ptr u64[${nlimbs}] {
+inline fn _set0_
+( reg mut ptr u64[nlimbs] a
+) -> reg ptr u64[nlimbs] {
   inline int i;
   reg u64 t;
   t = 0;
-  a = ${qual}_fill_(a, t);
+  a = _fill_(a, t);
   return a;
 }
 
-inline fn ${qual}__cfill
-( reg mut ptr u64[${nlimbs}] a
+inline fn __cfill
+( reg mut ptr u64[nlimbs] a
 , reg bool b
 , reg u64 x
-) -> reg ptr u64[${nlimbs}] {
+) -> reg ptr u64[nlimbs] {
   inline int i;
   reg u64 t;
-  for i = 0 to ${nlimbs} {
+  for i = 0 to nlimbs {
     t = a[i];
     t = x if b;
     a[i] = t;
@@ -400,86 +395,86 @@ inline fn ${qual}__cfill
   return a;
 }
 
-inline fn ${qual}__or_mask
-( reg mut ptr u64[${nlimbs}] a
+inline fn __or_mask
+( reg mut ptr u64[nlimbs] a
 , reg u64 mask
-) -> reg ptr u64[${nlimbs}] {
+) -> reg ptr u64[nlimbs] {
   inline int i;
   reg u64 t;
-  for i = 0 to ${nlimbs} {
+  for i = 0 to nlimbs {
     a[i] |= mask;
   }
   return a;
 }
 
-fn ${qual}_or_mask
-( reg mut ptr u64[${nlimbs}] a
+fn _or_mask
+( reg mut ptr u64[nlimbs] a
 , reg u64 mask
-) -> reg ptr u64[${nlimbs}] {
-  a = ${qual}__or_mask(a, mask);
+) -> reg ptr u64[nlimbs] {
+  a = __or_mask(a, mask);
   return a;
 }
 
-inline fn ${qual}_or_mask_
-( reg mut ptr u64[${nlimbs}] a
+inline fn _or_mask_
+( reg mut ptr u64[nlimbs] a
 , reg u64 mask
-) -> reg ptr u64[${nlimbs}] {
+) -> reg ptr u64[nlimbs] {
   a = a; mask = mask;
-  a = ${qual}_or_mask(a, mask);
+  a = _or_mask(a, mask);
   a = a;
   return a;
 }
 
-inline fn ${qual}_set_err_
-( reg mut ptr u64[${nlimbs}] a
+inline fn _set_err_
+( reg mut ptr u64[nlimbs] a
 , stack u64 _err
-) -> reg ptr u64[${nlimbs}] {
+) -> reg ptr u64[nlimbs] {
   reg u64 err t;
   err = _err;
-  a = ${qual}_or_mask_(a, err);
+  a = _or_mask_(a, err);
   return a;
 }
 
-inline fn ${qual}__and_mask
-( reg mut ptr u64[${nlimbs}] a
+inline fn __and_mask
+( reg mut ptr u64[nlimbs] a
 , reg u64 mask
-) -> reg ptr u64[${nlimbs}] {
+) -> reg ptr u64[nlimbs] {
   inline int i;
   reg u64 t;
-  for i = 0 to ${nlimbs} {
+  for i = 0 to nlimbs {
     a[i] &= mask;
   }
   return a;
 }
 
-fn ${qual}_and_mask
-( reg mut ptr u64[${nlimbs}] a
+fn _and_mask
+( reg mut ptr u64[nlimbs] a
 , reg u64 mask
-) -> reg ptr u64[${nlimbs}] {
-  a = ${qual}__and_mask(a, mask);
+) -> reg ptr u64[nlimbs] {
+  a = __and_mask(a, mask);
   return a;
 }
 
-inline fn ${qual}_and_mask_
-( reg mut ptr u64[${nlimbs}] a
+inline fn _and_mask_
+( reg mut ptr u64[nlimbs] a
 , reg u64 mask
-) -> reg ptr u64[${nlimbs}] {
+) -> reg ptr u64[nlimbs] {
   a = a; mask = mask;
-  a = ${qual}_and_mask(a, mask);
+  a = _and_mask(a, mask);
   a = a;
   return a;
 }
 
 
 //@ ensures bn(\result) = a + cf*2^(64*k)
-inline fn ${qual}__carrypropU
-( reg mut ptr u64[${nlimbs}] a,
+inline fn __carrypropU
+( reg mut ptr u64[nlimbs] a,
   reg bool cf,
   inline int k
-) -> reg bool, reg ptr u64[${nlimbs}]
+) -> reg bool, reg ptr u64[nlimbs]
 {
   inline int i;
-  for i=k to ${nlimbs}
+  for i=k to nlimbs
   { cf, a[i] += 0 + cf; }
 
   return cf, a;
@@ -487,15 +482,15 @@ inline fn ${qual}__carrypropU
 
 //@ ensures (\result)
 //    = a %% 2^(64) + 2^(64) * (a %/ 2^(64) + b %/ 2^(64) + cf)
-inline fn ${qual}__addc1U
-( reg mut ptr u64[${nlimbs}] a
-, reg const ptr u64[${nlimbs}] b
+inline fn __addc1U
+( reg mut ptr u64[nlimbs] a
+, reg const ptr u64[nlimbs] b
 , reg bool cf
-) -> reg bool, reg ptr u64[${nlimbs}]
+) -> reg bool, reg ptr u64[nlimbs]
 {
   inline int i;
   reg u64 t;
-  for i=1 to ${nlimbs} {
+  for i=1 to nlimbs {
     t = b[i];
     cf, a[i] += t + cf;
   }
@@ -503,46 +498,46 @@ inline fn ${qual}__addc1U
   return cf, a;
 }
 
-fn ${qual}_addc1U
-( reg mut ptr u64[${nlimbs}] a
-, reg const ptr u64[${nlimbs}] b
+fn _addc1U
+( reg mut ptr u64[nlimbs] a
+, reg const ptr u64[nlimbs] b
 , reg bool cf
-) -> reg bool, reg ptr u64[${nlimbs}] {
-  cf, a = ${qual}__addc1U(a, b, cf);
+) -> reg bool, reg ptr u64[nlimbs] {
+  cf, a = __addc1U(a, b, cf);
   return cf, a;
 }
 
-inline fn ${qual}_addc1U_
-( reg mut ptr u64[${nlimbs}] a
-, reg const ptr u64[${nlimbs}] b
+inline fn _addc1U_
+( reg mut ptr u64[nlimbs] a
+, reg const ptr u64[nlimbs] b
 , reg bool cf
-) -> reg bool, reg ptr u64[${nlimbs}] {
+) -> reg bool, reg ptr u64[nlimbs] {
   a = a; b = b;
-  cf, a = ${qual}_addc1U(a, b, cf);
+  cf, a = _addc1U(a, b, cf);
   a = a;
   return cf, a;
 }
   
 /* multi-limb addition (update inplace) */
-inline fn ${qual}_addcU_
-( reg mut ptr u64[${nlimbs}] a
-, reg const ptr u64[${nlimbs}] b
+inline fn _addcU_
+( reg mut ptr u64[nlimbs] a
+, reg const ptr u64[nlimbs] b
 , reg bool cf
-) -> reg bool, reg ptr u64[${nlimbs}]
+) -> reg bool, reg ptr u64[nlimbs]
 {
   inline int i;
   reg u64 t;
 
   t = b[0];
   cf, a[0] += t + cf;
-  cf, a = ${qual}_addc1U_(a, b, cf);
+  cf, a = _addc1U_(a, b, cf);
   return cf, a;
 }
 
-inline fn ${qual}_addU_
-( reg mut ptr u64[${nlimbs}] a
-, reg const ptr u64[${nlimbs}] b
-) -> reg bool, reg ptr u64[${nlimbs}]
+inline fn _addU_
+( reg mut ptr u64[nlimbs] a
+, reg const ptr u64[nlimbs] b
+) -> reg bool, reg ptr u64[nlimbs]
 {
   inline int i;
   reg bool cf;
@@ -550,19 +545,19 @@ inline fn ${qual}_addU_
 
   t = b[0];
   cf, a[0] += t;
-  cf, a = ${qual}_addc1U_(a, b, cf);
+  cf, a = _addc1U_(a, b, cf);
   return cf, a;
 }
 
-inline fn ${qual}__addc1
-( reg mut ptr u64[${nlimbs}] r
-, reg const ptr u64[${nlimbs}] a b
+inline fn __addc1
+( reg mut ptr u64[nlimbs] r
+, reg const ptr u64[nlimbs] a b
 , reg bool cf
-) -> reg bool, reg ptr u64[${nlimbs}] {
+) -> reg bool, reg ptr u64[nlimbs] {
   inline int i;
   reg u64 t;
 
-  for i=1 to ${nlimbs} { 
+  for i=1 to nlimbs { 
    t = a[i];
    cf, t += b[i] + cf;
    r[i] = t;
@@ -571,64 +566,64 @@ inline fn ${qual}__addc1
   return cf, r;
 }
 
-fn ${qual}_addc1
-( reg mut ptr u64[${nlimbs}] r
-, reg const ptr u64[${nlimbs}] a b
+fn _addc1
+( reg mut ptr u64[nlimbs] r
+, reg const ptr u64[nlimbs] a b
 , reg bool cf
-) -> reg bool, reg ptr u64[${nlimbs}] {
-  cf, r = ${qual}__addc1(r, a, b, cf);
+) -> reg bool, reg ptr u64[nlimbs] {
+  cf, r = __addc1(r, a, b, cf);
   return cf, r;
 }
 
-inline fn ${qual}_addc1_
-( reg mut ptr u64[${nlimbs}] r
-, reg const ptr u64[${nlimbs}] a b
+inline fn _addc1_
+( reg mut ptr u64[nlimbs] r
+, reg const ptr u64[nlimbs] a b
 , reg bool cf
-) -> reg bool, reg ptr u64[${nlimbs}] {
+) -> reg bool, reg ptr u64[nlimbs] {
   r = r; a = a; b = b;
-  cf, r = ${qual}_addc1(r, a, b, cf);
+  cf, r = _addc1(r, a, b, cf);
   r = r;
   return cf, r;
 }
 
-inline fn ${qual}_add_
-( reg mut ptr u64[${nlimbs}] r
-, reg const ptr u64[${nlimbs}] a b
-) -> reg bool, reg ptr u64[${nlimbs}]
+inline fn _add_
+( reg mut ptr u64[nlimbs] r
+, reg const ptr u64[nlimbs] a b
+) -> reg bool, reg ptr u64[nlimbs]
 {
   reg bool cf;
   reg u64 t;
   t = a[0];
   cf, t += b[0];
   r[0] = t;
-  cf, r = ${qual}_addc1_(r, a, b, cf);
+  cf, r = _addc1_(r, a, b, cf);
   return cf, a;
 }
 
-inline fn ${qual}_addc_
-( reg mut ptr u64[${nlimbs}] r
-, reg const ptr u64[${nlimbs}] a b
+inline fn _addc_
+( reg mut ptr u64[nlimbs] r
+, reg const ptr u64[nlimbs] a b
 , reg bool cf
-) -> reg bool, reg ptr u64[${nlimbs}]
+) -> reg bool, reg ptr u64[nlimbs]
 {
   reg u64 t;
   t = a[0];
   cf, t += b[0] + cf;
   r[0] = t;
-  cf, r = ${qual}_addc1_(r, a, b, cf);
+  cf, r = _addc1_(r, a, b, cf);
   return cf, a;
 }
 
 /* performs multi-limb subtraction */
-inline fn ${qual}__subc1U
-( reg mut ptr u64[${nlimbs}] a
-, reg const ptr u64[${nlimbs}] b
+inline fn __subc1U
+( reg mut ptr u64[nlimbs] a
+, reg const ptr u64[nlimbs] b
 , reg bool cf
-) -> reg bool, reg ptr u64[${nlimbs}] {
+) -> reg bool, reg ptr u64[nlimbs] {
   inline int i;
   reg u64 t;
 
-  for i=1 to ${nlimbs} {
+  for i=1 to nlimbs {
    t = b[i];
    cf, a[i] -= t - cf;
   }
@@ -636,63 +631,63 @@ inline fn ${qual}__subc1U
   return cf, a;
 }
 
-fn ${qual}_subc1U
-( reg mut ptr u64[${nlimbs}] a
-, reg const ptr u64[${nlimbs}] b
+fn _subc1U
+( reg mut ptr u64[nlimbs] a
+, reg const ptr u64[nlimbs] b
 , reg bool cf
-) -> reg bool, reg ptr u64[${nlimbs}] {
- cf, a = ${qual}__subc1U(a, b, cf);
+) -> reg bool, reg ptr u64[nlimbs] {
+ cf, a = __subc1U(a, b, cf);
  return cf, a;
 }
 
-inline fn ${qual}_subc1U_
-( reg mut ptr u64[${nlimbs}] a
-, reg const ptr u64[${nlimbs}] b
+inline fn _subc1U_
+( reg mut ptr u64[nlimbs] a
+, reg const ptr u64[nlimbs] b
 , reg bool cf
-) -> reg bool, reg ptr u64[${nlimbs}] {
+) -> reg bool, reg ptr u64[nlimbs] {
   a = a; b = b;
-  cf, a = ${qual}_subc1U(a, b, cf);
+  cf, a = _subc1U(a, b, cf);
   a = a;
   return cf, a;
 }
 
-inline fn ${qual}_subU_
-( reg mut ptr u64[${nlimbs}] a
-, reg const ptr u64[${nlimbs}] b
-) -> reg bool, reg ptr u64[${nlimbs}]
+inline fn _subU_
+( reg mut ptr u64[nlimbs] a
+, reg const ptr u64[nlimbs] b
+) -> reg bool, reg ptr u64[nlimbs]
 {
   reg bool cf;
   reg u64 t;
 
   t = b[0];
   cf, a[0] -= t;
-  cf, a = ${qual}_subc1U_(a, b, cf);
+  cf, a = _subc1U_(a, b, cf);
   return cf, a;
 }
 
-inline fn ${qual}_subcU_
-( reg mut ptr u64[${nlimbs}] a
-, reg const ptr u64[${nlimbs}] b
+inline fn _subcU_
+( reg mut ptr u64[nlimbs] a
+, reg const ptr u64[nlimbs] b
 , reg bool cf
-) -> reg bool, reg ptr u64[${nlimbs}]
+) -> reg bool, reg ptr u64[nlimbs]
 {
   reg u64 t;
 
   t = b[0];
   cf, a[0] -= t - cf;
-  cf, a = ${qual}_subc1U_(a, b, cf);
+  cf, a = _subc1U_(a, b, cf);
   return cf, a;
 }
 
-inline fn ${qual}__subc1
-( reg mut ptr u64[${nlimbs}] r
-, reg const ptr u64[${nlimbs}] a b
+inline fn __subc1
+( reg mut ptr u64[nlimbs] r
+, reg const ptr u64[nlimbs] a b
 , reg bool cf
-) -> reg bool, reg ptr u64[${nlimbs}] {
+) -> reg bool, reg ptr u64[nlimbs] {
   inline int i;
   reg u64 t;
 
-  for i=1 to ${nlimbs} {
+  for i=1 to nlimbs {
    t = a[i];
    cf, t -= b[i] - cf;
    r[i] = t;
@@ -701,64 +696,64 @@ inline fn ${qual}__subc1
   return cf, r;
 }
 
-fn ${qual}_subc1
-( reg mut ptr u64[${nlimbs}] r
-, reg const ptr u64[${nlimbs}] a b
+fn _subc1
+( reg mut ptr u64[nlimbs] r
+, reg const ptr u64[nlimbs] a b
 , reg bool cf
-) -> reg bool, reg ptr u64[${nlimbs}] {
-  cf, r = ${qual}__subc1(r, a, b, cf);
+) -> reg bool, reg ptr u64[nlimbs] {
+  cf, r = __subc1(r, a, b, cf);
   return cf, r;
 }
 
-inline fn ${qual}_subc1_
-( reg mut ptr u64[${nlimbs}] r
-, reg const ptr u64[${nlimbs}] a b
+inline fn _subc1_
+( reg mut ptr u64[nlimbs] r
+, reg const ptr u64[nlimbs] a b
 , reg bool cf
-) -> reg bool, reg ptr u64[${nlimbs}] {
+) -> reg bool, reg ptr u64[nlimbs] {
   r = r; a = a; b = b;
-  cf, r = ${qual}_subc1(r, a, b, cf);
+  cf, r = _subc1(r, a, b, cf);
   r = r;
   return cf, r;
 }
 
-inline fn ${qual}_sub_
-( reg mut ptr u64[${nlimbs}] r
-, reg const ptr u64[${nlimbs}] a b
-) -> reg bool, reg ptr u64[${nlimbs}] {
+inline fn _sub_
+( reg mut ptr u64[nlimbs] r
+, reg const ptr u64[nlimbs] a b
+) -> reg bool, reg ptr u64[nlimbs] {
   inline int i;
   reg bool cf;
   reg u64 t;
   t = a[0];
   cf, t -= b[0];
   r[0] = t;
-  cf, r = ${qual}_subc1_(r, a, b, cf);
+  cf, r = _subc1_(r, a, b, cf);
   return cf, r;
 }
  
-inline fn ${qual}_subc_
-( reg mut ptr u64[${nlimbs}] r
-, reg const ptr u64[${nlimbs}] a b
+inline fn _subc_
+( reg mut ptr u64[nlimbs] r
+, reg const ptr u64[nlimbs] a b
 , reg bool cf
-) -> reg bool, reg ptr u64[${nlimbs}] {
+) -> reg bool, reg ptr u64[nlimbs] {
   inline int i;
   reg u64 t;
   t = a[0];
   cf, t -= b[0] - cf;
   r[0] = t;
-  cf, r = ${qual}_subc1_(r, a, b, cf);
+  cf, r = _subc1_(r, a, b, cf);
   return cf, r;
 }
  
 
 /* comparison */
-inline fn ${qual}__ltc1_cf
-( reg const ptr u64[${nlimbs}] a b
+inline fn __ltc1_cf
+( reg const ptr u64[nlimbs] a b
 , reg bool cf
 ) -> reg bool {
   inline int i;
   reg u64 t;
 
-  for i=1 to ${nlimbs} {
+  for i=1 to nlimbs {
    t = a[i];
    cf, t -= b[i] - cf;
   }
@@ -766,25 +761,25 @@ inline fn ${qual}__ltc1_cf
   return cf;
 }
 
-fn ${qual}_ltc1_cf
-( reg const ptr u64[${nlimbs}] a b
+fn _ltc1_cf
+( reg const ptr u64[nlimbs] a b
 , reg bool cf
 ) -> reg bool {
-  cf = ${qual}__ltc1_cf(a, b, cf);
+  cf = __ltc1_cf(a, b, cf);
   return cf;
 }
 
-inline fn ${qual}_ltc1_cf_
-( reg const ptr u64[${nlimbs}] a b
+inline fn _ltc1_cf_
+( reg const ptr u64[nlimbs] a b
 , reg bool cf
 ) -> reg bool {
   a = a; b = b;
-  cf = ${qual}_ltc1_cf(a, b, cf);
+  cf = _ltc1_cf(a, b, cf);
   return cf;
 }
 
-inline fn ${qual}_lt_cf_
-( reg const ptr u64[${nlimbs}] a b
+inline fn _lt_cf_
+( reg const ptr u64[nlimbs] a b
 ) -> reg bool {
   inline int i;
   reg bool cf;
@@ -792,12 +787,12 @@ inline fn ${qual}_lt_cf_
 
   t = a[0];
   cf, t -= b[0];
-  cf = ${qual}_ltc1_cf_(a, b, cf);
+  cf = _ltc1_cf_(a, b, cf);
   return cf;
 }
 
-inline fn ${qual}_ltc_cf_
-( reg const ptr u64[${nlimbs}] a b
+inline fn _ltc_cf_
+( reg const ptr u64[nlimbs] a b
 , reg bool cf
 ) -> reg bool {
   inline int i;
@@ -805,19 +800,19 @@ inline fn ${qual}_ltc_cf_
 
   t = a[0];
   cf, t -= b[0] - cf;
-  cf = ${qual}_ltc1_cf_(a, b, cf);
+  cf = _ltc1_cf_(a, b, cf);
   return cf;
 }
 
 /* Negation (two's complement) */
-inline fn ${qual}__negc1U
-( reg mut ptr u64[${nlimbs}] a
+inline fn __negc1U
+( reg mut ptr u64[nlimbs] a
 , reg bool cf
-) -> reg bool, reg ptr u64[${nlimbs}] {
+) -> reg bool, reg ptr u64[nlimbs] {
   inline int i;
   reg u64 t;
 
-  for i=1 to ${nlimbs} {
+  for i=1 to nlimbs {
    t = 0;
    cf, t -= a[i] - cf;
    a[i] = t;
@@ -826,27 +821,27 @@ inline fn ${qual}__negc1U
   return cf, a;
 }
 
-fn ${qual}_negc1U
-( reg mut ptr u64[${nlimbs}] a
+fn _negc1U
+( reg mut ptr u64[nlimbs] a
 , reg bool cf
-) -> reg bool, reg ptr u64[${nlimbs}] {
-  cf, a = ${qual}__negc1U(a, cf);
+) -> reg bool, reg ptr u64[nlimbs] {
+  cf, a = __negc1U(a, cf);
   return cf, a;
 }
 
-inline fn ${qual}_negc1U_
-( reg mut ptr u64[${nlimbs}] a
+inline fn _negc1U_
+( reg mut ptr u64[nlimbs] a
 , reg bool cf
-) -> reg bool, reg ptr u64[${nlimbs}] {
+) -> reg bool, reg ptr u64[nlimbs] {
   a = a;
-  cf, a = ${qual}_negc1U(a, cf);
+  cf, a = _negc1U(a, cf);
   a = a;
   return cf, a;
 }
 
-inline fn ${qual}_negU_
-( reg mut ptr u64[${nlimbs}] a
-) -> reg bool, reg ptr u64[${nlimbs}] {
+inline fn _negU_
+( reg mut ptr u64[nlimbs] a
+) -> reg bool, reg ptr u64[nlimbs] {
   inline int i;
   reg bool cf;
   reg u64 t;
@@ -854,34 +849,34 @@ inline fn ${qual}_negU_
   t = 0;
   cf, t -= a[0];
   a[0] = t;
-  cf, a = ${qual}_negc1U_(a, cf);
+  cf, a = _negc1U_(a, cf);
   return cf, a;
 }
 
-inline fn ${qual}_negcU_
-( reg mut ptr u64[${nlimbs}] a
+inline fn _negcU_
+( reg mut ptr u64[nlimbs] a
 , reg bool cf
-) -> reg bool, reg ptr u64[${nlimbs}] {
+) -> reg bool, reg ptr u64[nlimbs] {
   inline int i;
   reg u64 t;
 
   t = 0;
   cf, t -= a[0] - cf;
   a[0] = t;
-  cf, a = ${qual}_negc1U_(a, cf);
+  cf, a = _negc1U_(a, cf);
   return cf, a;
 }
 
 
-inline fn ${qual}__negc1
-( reg mut ptr u64[${nlimbs}] r
-, reg const ptr u64[${nlimbs}] a
+inline fn __negc1
+( reg mut ptr u64[nlimbs] r
+, reg const ptr u64[nlimbs] a
 , reg bool cf
-) -> reg bool, reg ptr u64[${nlimbs}] {
+) -> reg bool, reg ptr u64[nlimbs] {
   inline int i;
   reg u64 t;
 
-  for i=1 to ${nlimbs} {
+  for i=1 to nlimbs {
    t = 0;
    cf, t -= a[i] - cf;
    r[i] = t;
@@ -890,87 +885,87 @@ inline fn ${qual}__negc1
   return cf, r;
 }
 
-fn ${qual}_negc1
-( reg mut ptr u64[${nlimbs}] r
-, reg const ptr u64[${nlimbs}] a
+fn _negc1
+( reg mut ptr u64[nlimbs] r
+, reg const ptr u64[nlimbs] a
 , reg bool cf
-) -> reg bool, reg ptr u64[${nlimbs}] {
-  cf, r = ${qual}__negc1(r, a, cf);
+) -> reg bool, reg ptr u64[nlimbs] {
+  cf, r = __negc1(r, a, cf);
   return cf, r;
 }
 
-inline fn ${qual}_negc1_
-( reg mut ptr u64[${nlimbs}] r
-, reg const ptr u64[${nlimbs}] a
+inline fn _negc1_
+( reg mut ptr u64[nlimbs] r
+, reg const ptr u64[nlimbs] a
 , reg bool cf
-) -> reg bool, reg ptr u64[${nlimbs}] {
+) -> reg bool, reg ptr u64[nlimbs] {
   r = r; a = a;
-  cf, r = ${qual}_negc1(r, a, cf);
+  cf, r = _negc1(r, a, cf);
   r = r;
   return cf, r;
 }
 
-inline fn ${qual}_neg_
-( reg mut ptr u64[${nlimbs}] r
-, reg const ptr u64[${nlimbs}] a
-) -> reg bool, reg ptr u64[${nlimbs}] {
+inline fn _neg_
+( reg mut ptr u64[nlimbs] r
+, reg const ptr u64[nlimbs] a
+) -> reg bool, reg ptr u64[nlimbs] {
   reg bool cf;
   reg u64 t;
 
   t = 0;
   cf, t -= a[0];
   r[0] = t;
-  cf, r = ${qual}_negc1_(r, a, cf);
+  cf, r = _negc1_(r, a, cf);
   return cf, a;
 }
 
-inline fn ${qual}_negc_
-( reg mut ptr u64[${nlimbs}] r
-, reg const ptr u64[${nlimbs}] a
+inline fn _negc_
+( reg mut ptr u64[nlimbs] r
+, reg const ptr u64[nlimbs] a
 , reg bool cf
-) -> reg bool, reg ptr u64[${nlimbs}] {
+) -> reg bool, reg ptr u64[nlimbs] {
   reg u64 t;
 
   t = 0;
   cf, t -= a[0] - cf;
   r[0] = t;
-  cf, r = ${qual}_negc1_(r, a, cf);
+  cf, r = _negc1_(r, a, cf);
   return cf, a;
 }
 
-inline fn ${qual}_cnegU_
-( reg mut ptr u64[${nlimbs}] a
+inline fn _cnegU_
+( reg mut ptr u64[nlimbs] a
 , reg u64 cond
-) -> reg u64[${nlimbs}] {
+) -> reg u64[nlimbs] {
   reg bool cf;
-  stack u64[${nlimbs}] _x;
-  reg ptr u64[${nlimbs}] x;
+  stack u64[nlimbs] _x;
+  reg ptr u64[nlimbs] x;
   x = _x;
-  _, x = ${qual}_neg_(x, a);
-  cf = ${qualUTIL}__mask_cf(cond);
-  a = ${qual}_cmov_(a, cf, x);
+  _, x = _neg_(x, a);
+  cf = __mask_cf(cond);
+  a = _cmov_(a, cf, x);
   return a;
 }
 
 
 /* CONDITIONAL-ADD */
 //@ ensures bn(res) == if cf then bn(x)+bn(y) else bn(x);
-inline fn ${qual}_caddU_
-( reg mut ptr u64[${nlimbs}] x
+inline fn _caddU_
+( reg mut ptr u64[nlimbs] x
 , reg bool cf
-, reg ptr u64[${nlimbs}] y
-) -> reg ptr u64[${nlimbs}]
+, reg ptr u64[nlimbs] y
+) -> reg ptr u64[nlimbs]
 {
   inline int i;
   reg u64 t mask t0;
-  stack u64[${nlimbs}] _tmp;
-  reg ptr u64[${nlimbs}] tmp;
+  stack u64[nlimbs] _tmp;
+  reg ptr u64[nlimbs] tmp;
 
   tmp = _tmp;
-  tmp = ${qual}_mov_(tmp,y);
-  mask = ${qualUTIL}__cf_mask(cf);
-  tmp = ${qual}_and_mask_(tmp, mask);
-  _, x = ${qual}_addU_(x, tmp);
+  tmp = _mov_(tmp,y);
+  mask = __cf_mask(cf);
+  tmp = _and_mask_(tmp, mask);
+  _, x = _addU_(x, tmp);
 
   return x;
 }
@@ -981,10 +976,10 @@ inline fn ${qual}_caddU_
   */
 
 // regs: params(5) + 3 = 8
-inline fn ${qual}__muln_innerloop
+inline fn __muln_innerloop
 ( reg u64[3] x
 , inline int k istart iend
-, reg ptr u64[${nlimbs}] a b
+, reg ptr u64[nlimbs] a b
 ) -> reg u64[3] {
   reg u64 t1, t0;
   inline int i, j;
@@ -992,16 +987,16 @@ inline fn ${qual}__muln_innerloop
     j = k-i;
     t0 = a[i];
     t1, t0 = t0 * b[j];
-    x = ${qualUTIL}__addacc3(x, t1, t0, k);
+    x = __addacc3(x, t1, t0, k);
   }
   return x;
 }
 
 // regs: params(3) + call(3) + 3(+2) = 9
-inline fn ${qual}__muln
-( reg mut ptr u64[2*${nlimbs}] r
-, reg const ptr u64[${nlimbs}] a b
-) -> reg ptr u64[2*${nlimbs}] {
+inline fn __muln
+( reg mut ptr u64[2*nlimbs] r
+, reg const ptr u64[nlimbs] a b
+) -> reg ptr u64[2*nlimbs] {
   inline int k;
   reg u64 t0 t1;
   reg u64[3] x;
@@ -1016,49 +1011,49 @@ inline fn ${qual}__muln
   x[2] = 0;
 //  _, _, _, _, _, x[0] = #set0();
   x[0] = 0;
-  for k = 1 to ${nlimbs} {
-    x = ${qual}__muln_innerloop(x, k, 0, k+1, a, b);
+  for k = 1 to nlimbs {
+    x = __muln_innerloop(x, k, 0, k+1, a, b);
     t0 = x[k % 3];
 //    _, _, _, _, _, x[k % 3] = #set0();
     x[k % 3] = 0;
     r[k] = t0;
   }
-  for k = ${nlimbs} to 2*${nlimbs}-1 {
-    x = ${qual}__muln_innerloop(x, k, k-${nlimbs}+1, ${nlimbs}, a, b);
+  for k = nlimbs to 2*nlimbs-1 {
+    x = __muln_innerloop(x, k, k-nlimbs+1, nlimbs, a, b);
     t0 = x[k % 3];
 //    _, _, _, _, _, x[k % 3] = #set0();
     x[k % 3] = 0;
     r[k] = t0;
   }
-  r[2*${nlimbs}-1] = x[(2*${nlimbs}-1) % 3];
+  r[2*nlimbs-1] = x[(2*nlimbs-1) % 3];
   return r;
 }
 
 // regs: params(3) + call(6) = 9
-fn ${qual}_muln
-( reg mut ptr u64[2*${nlimbs}] r
-, reg const ptr u64[${nlimbs}] a b
-) -> reg ptr u64[2*${nlimbs}] {
-  r = ${qual}__muln(r, a, b);
+fn _muln
+( reg mut ptr u64[2*nlimbs] r
+, reg const ptr u64[nlimbs] a b
+) -> reg ptr u64[2*nlimbs] {
+  r = __muln(r, a, b);
   return r;
 }
 
-inline fn ${qual}_muln_
-( reg mut ptr u64[2*${nlimbs}] r
-, reg const ptr u64[${nlimbs}] a b
-) -> reg ptr u64[2*${nlimbs}] {
+inline fn _muln_
+( reg mut ptr u64[2*nlimbs] r
+, reg const ptr u64[nlimbs] a b
+) -> reg ptr u64[2*nlimbs] {
   r = r; a = a; b = b;
-  r = ${qual}_muln(r, a, b);
+  r = _muln(r, a, b);
   r = r;
   return r;
 }
 
 
 // regs: params(4) + 2 = 6 
-inline fn ${qual}__sqrn_innerloop
+inline fn __sqrn_innerloop
 ( reg u64[3] x
 , inline int k istart iend
-, reg const ptr u64[${nlimbs}] a
+, reg const ptr u64[nlimbs] a
 ) -> reg u64[3] {
   reg u64 ti, tj;
   inline int i, j;
@@ -1066,15 +1061,15 @@ inline fn ${qual}__sqrn_innerloop
     j = k-i;
     ti = a[i];
     tj = a[j];
-    x = ${qualUTIL}__addacc3x2(x, ti, tj, k);
+    x = __addacc3x2(x, ti, tj, k);
   }
   return x;
 }
 
-inline fn ${qual}__sqrn
-( reg mut ptr u64[2*${nlimbs}] r
-, reg const ptr u64[${nlimbs}] a
-) -> reg ptr u64[2*${nlimbs}] {
+inline fn __sqrn
+( reg mut ptr u64[2*nlimbs] r
+, reg const ptr u64[nlimbs] a
+) -> reg ptr u64[2*nlimbs] {
   inline int k;
   reg u64 t0 t1;
   reg u64[3] x;
@@ -1089,48 +1084,48 @@ inline fn ${qual}__sqrn
 //  _, _, _, _, _, x[0] = #set0();
   x[0] = 0;
 
-  for k = 1 to ${nlimbs} {
-    x = ${qual}__sqrn_innerloop(x, k, 0, (k+1)/2, a);
+  for k = 1 to nlimbs {
+    x = __sqrn_innerloop(x, k, 0, (k+1)/2, a);
     if (k % 2 == 0) {
       t0 = a[k/2];
       t1, t0 = t0 * t0;
-      x = ${qualUTIL}__addacc3(x, t1, t0, k);
+      x = __addacc3(x, t1, t0, k);
     }
     t0 = x[k % 3];
 //    _, _, _, _, _, x[k % 3] = #set0();
     x[k % 3] = 0;
     r[k] = t0;
   }
-  for k = ${nlimbs} to 2*${nlimbs}-1 {
-    x = ${qual}__sqrn_innerloop(x, k, k-${nlimbs}+1, (k+1)/2, a);
+  for k = nlimbs to 2*nlimbs-1 {
+    x = __sqrn_innerloop(x, k, k-nlimbs+1, (k+1)/2, a);
     if (k % 2 == 0) {
       t0 = a[k/2];
       t1, t0 = t0 * t0;
-      x = ${qualUTIL}__addacc3(x, t1, t0, k);
+      x = __addacc3(x, t1, t0, k);
     }
     t0 = x[k % 3];
 //    _, _, _, _, _, x[k % 3] = #set0();
     x[k % 3] = 0;
     r[k] = t0;
   }
-  r[2*${nlimbs}-1] = x[(2*${nlimbs}-1) % 3];
+  r[2*nlimbs-1] = x[(2*nlimbs-1) % 3];
   return r;
 }
 
-fn ${qual}_sqrn
-( reg mut ptr u64[2*${nlimbs}] r
-, reg const ptr u64[${nlimbs}] a
-) -> reg ptr u64[2*${nlimbs}] {
-  r = ${qual}__sqrn(r, a);
+fn _sqrn
+( reg mut ptr u64[2*nlimbs] r
+, reg const ptr u64[nlimbs] a
+) -> reg ptr u64[2*nlimbs] {
+  r = __sqrn(r, a);
   return r;
 }
 
-inline fn ${qual}_sqrn_
-( reg mut ptr u64[2*${nlimbs}] r
-, reg const ptr u64[${nlimbs}] a
-) -> reg ptr u64[2*${nlimbs}] {
+inline fn _sqrn_
+( reg mut ptr u64[2*nlimbs] r
+, reg const ptr u64[nlimbs] a
+) -> reg ptr u64[2*nlimbs] {
   r = r; a = a;
-  r = ${qual}_sqrn(r, a);
+  r = _sqrn(r, a);
   r = r;
   return r;
 }
@@ -1139,40 +1134,40 @@ inline fn ${qual}_sqrn_
 /* x-P if P<=x else x
    (remark: [x;lastbit] < 2*P)
  */
-inline fn ${qual}_cminusP_
- ( reg mut ptr u64[${nlimbs}] x   //
- , reg const ptr u64[${nlimbs}] mP  // R-P
+inline fn _cminusP_
+ ( reg mut ptr u64[nlimbs] x   //
+ , reg const ptr u64[nlimbs] mP  // R-P
  , reg u64 lastbit         // 0/1
- ) -> reg ptr u64[${nlimbs}]  // [x,lastbit]<P ? x : [x,lastbit]-P
+ ) -> reg ptr u64[nlimbs]  // [x,lastbit]<P ? x : [x,lastbit]-P
 {
   inline int i;
   reg bool _cf;
-  stack u64[${nlimbs}] _tmp;
-  reg ptr u64[${nlimbs}] tmp;
+  stack u64[nlimbs] _tmp;
+  reg ptr u64[nlimbs] tmp;
 
   tmp = _tmp;
-  tmp = ${qual}_mov_(tmp, x);
-  _cf, tmp = ${qual}_addU_(tmp, mP);
+  tmp = _mov_(tmp, x);
+  _cf, tmp = _addU_(tmp, mP);
 
   _, lastbit += 0 + _cf;
   _, _cf, _, _, _, _ = #NEG(lastbit);
 
-  x = ${qual}_cmov_(x, _cf, tmp);
+  x = _cmov_(x, _cf, tmp);
   return x;
 }
 
 // ////////////////////////////////////
 // regs: params(3) + call(3) + 3 = 9
-inline fn ${qual}__mont_redM
-( reg mut ptr u64[${nlimbs}] r
-, reg const ptr u64[2*${nlimbs}] a
-, stack u64[${nlimbs}] _P
-, stack u64[${nlimbs}] _mP
+inline fn __mont_redM
+( reg mut ptr u64[nlimbs] r
+, reg const ptr u64[2*nlimbs] a
+, stack u64[nlimbs] _P
+, stack u64[nlimbs] _mP
 , stack u64 _U0
-) -> reg ptr u64[${nlimbs}] {
+) -> reg ptr u64[nlimbs] {
   inline int k;
   reg bool cf;
-  reg ptr u64[${nlimbs}] P mP;
+  reg ptr u64[nlimbs] P mP;
   reg u64 t t0 t1 zero p0 lastbit;
   reg u64[3] x;
 
@@ -1183,40 +1178,40 @@ inline fn ${qual}__mont_redM
 //  _, _, _, _, _, x[2] = #set0();
   x[2] = 0;
 
-  for k = 0 to ${nlimbs} {
+  for k = 0 to nlimbs {
     P = _P;
-    x = ${qual}__muln_innerloop(x, k, 0, k, r, P); //+3
+    x = __muln_innerloop(x, k, 0, k, r, P); //+3
 //    _, _, _, _, _, zero = #set0();
     zero = 0;
     t0 = a[k];
-    x = ${qualUTIL}__addacc3(x, zero, t0, k);
+    x = __addacc3(x, zero, t0, k);
     t0 = x[k % 3];
     _, t0 = t0 * _U0;
     r[k] = t0;
     t1, t0 = t0 * _P[0];
-    x = ${qualUTIL}__addacc3(x, t1, t0, k);
+    x = __addacc3(x, t1, t0, k);
   }
-  for k = ${nlimbs} to 2*${nlimbs}-1 {
+  for k = nlimbs to 2*nlimbs-1 {
     P = _P;
-    x = ${qual}__muln_innerloop(x, k, k-${nlimbs}+1, ${nlimbs}, r, P); //+3
+    x = __muln_innerloop(x, k, k-nlimbs+1, nlimbs, r, P); //+3
 //    _, _, _, _, _, zero = #set0();
     zero = 0;
     t0 = a[k];
-    x = ${qualUTIL}__addacc3(x, zero, t0, k);
+    x = __addacc3(x, zero, t0, k);
     t0 = x[k % 3];
-    r[k-${nlimbs}] = t0;
+    r[k-nlimbs] = t0;
 //    _, _, _, _, _, x[k % 3] = #set0();
     x[k % 3] = 0;
   }
 
   lastbit = 0;
-  cf, x[(2*${nlimbs}-1) % 3] += a[2*${nlimbs}-1];
+  cf, x[(2*nlimbs-1) % 3] += a[2*nlimbs-1];
   _, lastbit += 0 + cf;
 
-  r[${nlimbs}-1] = x[(2*${nlimbs}-1) % 3];
+  r[nlimbs-1] = x[(2*nlimbs-1) % 3];
 
   mP = _mP;
-  r = ${qual}_cminusP_(r, mP, lastbit);
+  r = _cminusP_(r, mP, lastbit);
   return r;
 }
 
@@ -1224,40 +1219,40 @@ inline fn ${qual}__mont_redM
 
 
 /* pack two bignums into a double bignum */
-inline fn ${qual}__pack2
-( reg mut ptr u64[2*${nlimbs}] r
-, reg const ptr u64[${nlimbs}] lo hi
-) -> reg ptr u64[2*${nlimbs}]
+inline fn __pack2
+( reg mut ptr u64[2*nlimbs] r
+, reg const ptr u64[nlimbs] lo hi
+) -> reg ptr u64[2*nlimbs]
 {
   inline int i;
   reg u64 t;
 
-  for i = 0 to ${nlimbs} {
+  for i = 0 to nlimbs {
     t = lo[i];
     r[i] = t;
   }
-  for i = 0 to ${nlimbs} {
+  for i = 0 to nlimbs {
     t = hi[i];
-    r[${nlimbs}+i] = t;
+    r[nlimbs+i] = t;
   }
 
   return r;
 }
 
-fn ${qual}_pack2
-( reg mut ptr u64[2*${nlimbs}] r
-, reg const ptr u64[${nlimbs}] lo hi
-) -> reg ptr u64[2*${nlimbs}] {
-  r = ${qual}__pack2(r, lo, hi);
+fn _pack2
+( reg mut ptr u64[2*nlimbs] r
+, reg const ptr u64[nlimbs] lo hi
+) -> reg ptr u64[2*nlimbs] {
+  r = __pack2(r, lo, hi);
   return r;
 }
 
-inline fn ${qual}_pack2_
-( reg mut ptr u64[2*${nlimbs}] r
-, reg const ptr u64[${nlimbs}] lo hi
-) -> reg ptr u64[2*${nlimbs}] {
+inline fn _pack2_
+( reg mut ptr u64[2*nlimbs] r
+, reg const ptr u64[nlimbs] lo hi
+) -> reg ptr u64[2*nlimbs] {
   r = r; lo = lo; hi = hi;
-  r = ${qual}__pack2(r, lo, hi);
+  r = __pack2(r, lo, hi);
   r = r;
   return r;
 }
