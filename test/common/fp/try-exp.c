@@ -6,7 +6,7 @@
 #include <gmp.h>
 
 #include "try-anything.h"
-#include "expm.h"
+#include "exp.h"
 
 // ////////////////////////////////////////////////////////////////////////////
 
@@ -82,7 +82,7 @@ void deallocate(state **_s)
   *_s = NULL;
 }
 
-/*
+
 // commented, as it conflicts with "-Werror -Wcast-align"
 void unalign(state *s)
 {
@@ -109,7 +109,6 @@ void realign(state *s)
   s->exp2    = (uint64_t*) (((unsigned char*)(s->exp2))    - 1);
   s->mod2    = (uint64_t*) (((unsigned char*)(s->mod2))    - 1);
 }
-*/
 
 // base = base % mod
 void reduce(uint64_t *base, uint64_t *mod)
@@ -156,13 +155,13 @@ void test(unsigned char *checksum_state, state *_s)
     reduce(s.base,  s.mod);
     memcpy(s.base2, s.base, s.len);
 
-   expm_test(s.result, s.base, s.exp, s.mod);
+   exp_test(s.result, s.base, s.exp, s.mod);
 
     checksum_u64(checksum_state, s.result, s.len);
-    output_compare_u64(s.result2, s.result, s.len, "expm - result");
-    input_compare_u64( s.base2,   s.base,   s.len, "expm - base");
-    input_compare_u64( s.exp2,    s.exp,    s.len, "expm - exp");
-    input_compare_u64( s.mod2,    s.mod,    s.len, "expm - mod");
+    output_compare_u64(s.result2, s.result, s.len, "exp - result");
+    input_compare_u64( s.base2,   s.base,   s.len, "exp - base");
+    input_compare_u64( s.exp2,    s.exp,    s.len, "exp - exp");
+    input_compare_u64( s.mod2,    s.mod,    s.len, "exp - mod");
 
     //
     double_canary_u64(s.result2, s.result, s.len);
@@ -170,9 +169,9 @@ void test(unsigned char *checksum_state, state *_s)
     double_canary_u64(s.exp2,    s.exp,    s.len);
     double_canary_u64(s.mod2,    s.mod,    s.len);
 
-   expm_test(s.result2, s.base2, s.exp2, s.mod2);
+   exp_test(s.result2, s.base2, s.exp2, s.mod2);
 
-    if (memcmp(s.result2, s.result, s.len) != 0) fail("expm is nondeterministic");
+    if (memcmp(s.result2, s.result, s.len) != 0) fail("exp is nondeterministic");
   }
 }
 

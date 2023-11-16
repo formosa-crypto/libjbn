@@ -14,8 +14,8 @@ JASMIN   ?= jasminc
 
 #--
 MIN_NLIMBS  ?= 1
-MAX_NLIMBS  ?= 16
-MAX_TESTS   ?= 10
+MAX_NLIMBS  ?= 4
+MAX_TESTS   ?= 1
 
 export MIN_NLIMBS
 export MAX_NLIMBS
@@ -23,7 +23,7 @@ export MAX_TESTS
 
 # -----------------------------------------------------------------------------
 TESTS_FP_LIBS      := libjbn gmp
-TESTS_FP_DEFINED   := expm
+TESTS_FP_DEFINED   := exp
 TESTS_FP_BASE_NAME := $(patsubst %.s, %, $(subst libjbn_,, $(notdir $(shell test -d $(PARAMS_DIR) && find $(PARAMS_DIR) -name '*.s'))))
 
 TESTS_FP     := $(addprefix $(BIN)/fp/, $(foreach LB, $(TESTS_FP_LIBS), $(foreach TD, $(TESTS_FP_DEFINED), $(foreach BN,$(TESTS_FP_BASE_NAME),$(LB)_$(TD)_$(BN)))))

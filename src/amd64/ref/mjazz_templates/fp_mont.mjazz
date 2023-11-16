@@ -12,8 +12,8 @@ modsignature {
 }
 
 
-require "bn_base" as "BN" // BN
- with { nlimbs = NLIMBS; }
+//require "bn_base" as "BN" // BN
+// with { nlimbs = NLIMBS; }
 */
 
 from MJazz require "${qualBN}_bn_base.jinc"
@@ -61,15 +61,12 @@ inline fn ${qual}_fromM_
 }
 
 
-/*
-require "fp_base" as "FPM"
- with { nlimbs = NLIMBS;
-        glob_exp0 = glob_exp0;
-        glob_Pm2 = glob_Pm2;
-	fun_red = FPM_redM;
-      }
-
-*/
+//require "fp_base" as "FPM"
+// with { nlimbs = NLIMBS;
+//        glob_exp0 = glob_exp0;
+//        glob_Pm2 = glob_Pm2;
+//  fun_red = FPM_redM;
+//      }
 
 from MJazz require "${qualFP}_fp_base.jinc"
 

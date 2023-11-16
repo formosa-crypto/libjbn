@@ -11,9 +11,7 @@ BN_RND_FNS = _rnd_ _rsample_
 modsignature { int nlimbs; }
 */
 
-/*
-require "bn_base.jinc" as "BN"
-*/
+//require "bn_base.jinc" as "BN"
 require "${qualBN}_bn_base.jinc"
 
 /*
