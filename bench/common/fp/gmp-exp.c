@@ -35,7 +35,7 @@ uint64_t exp_bench(uint64_t *result, uint64_t *base, uint64_t *exp, uint64_t *mo
   void mpz_powm (mpz_t rop, const mpz_t base, const mpz_t exp, const mpz_t mod)
   **/
   cycles_start = cpucycles();
-	mpz_powm(m_result, m_base, m_exp, m_mod);
+	mpz_powm_sec(m_result, m_base, m_exp, m_mod);
   cycles_end = cpucycles();
 
 
