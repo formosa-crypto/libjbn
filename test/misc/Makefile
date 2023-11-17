@@ -1,4 +1,7 @@
-include ../Makefile.compiler_flags
+CC      ?= clang
+CFLAGS  ?= -O3 -Wall -Wpedantic -Wvla -Werror -std=c99 \
+	         -Wundef -Wshadow -Wcast-align -Wpointer-arith -Wmissing-prototypes \
+	         -fstrict-aliasing -fno-common -pipe
 
 INCLUDE := -I../common -I../../ext/randombytes/
 
