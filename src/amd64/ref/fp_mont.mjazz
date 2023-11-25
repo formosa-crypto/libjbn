@@ -12,7 +12,10 @@ modsignature {
 }
 
 
-require "bn_base"
+require "bn_base.mjazz"
+ with { nlimbs = nlimbs; }
+
+require "bn_mul.mjazz"
  with { nlimbs = nlimbs; }
 
 
@@ -23,7 +26,7 @@ fn _redM
 ) -> reg ptr u64[nlimbs] {
   stack u64 _P0i;
   _P0i = glob_P0i;
-  r = BN.__mont_redM(r, a, glob_P, glob_mP, _P0i);
+  r = __mont_redM(r, a, glob_P, glob_mP, _P0i);
   return r;
 }
 
@@ -48,10 +51,10 @@ inline fn _fromM_
   inline int i;
 
   tmp2 = _tmp[0:nlimbs];
-  tmp2 = BN._mov_(tmp2, a);
+  tmp2 = _mov_(tmp2, a);
   _tmp[0:nlimbs] = tmp2;
   tmp2 = _tmp[nlimbs:nlimbs];
-  tmp2 = BN._set0_(tmp2);
+  tmp2 = _set0_(tmp2);
   _tmp[nlimbs:nlimbs] = tmp2;
   tmp = _tmp;
   a = _redM_(a, tmp);
@@ -64,7 +67,7 @@ require "fp_base"
  with { nlimbs = nlimbs;
         glob_exp0 = glob_exp0;
         glob_Pm2 = glob_Pm2;
-	fun_red = FPM_redM;
+	fun_red = _redM_;
       }
 
 // ////////////////////////////////////

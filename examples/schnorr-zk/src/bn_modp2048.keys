@@ -16,9 +16,17 @@
     , 'nlimbs': 'modp2048_nlimbs'
     } )
 
+, ( "bn_mul"
+  , { 'qual': 'BN'
+    , 'qualBN': 'BN'
+    , 'qualUTIL': 'BN'
+    , 'nlimbs': 'modp2048_nlimbs'
+    } )
+
 , ( "fp_mont"
   , { 'qual': 'FPM'
     , 'qualBN': 'BN'
+    , 'qualBNMUL': 'BN'
     , 'qualFP': 'FPM'
     , 'nlimbs': 'modp2048_nlimbs'
     , 'glob_P': 'modp2048_glob_P'
@@ -27,6 +35,8 @@
     , 'glob_exp0': 'modp2048_glob_oneMP'
     , 'glob_Pm2': 'modp2048_glob_Pm2'
     , 'glob_rMP': 'modp2048_glob_rMP'
+    , 'fun_muln': 'BN_ps_muln_'
+    , 'fun_sqrn': 'BN_ps_sqrn_'
     }
   )
 
@@ -35,6 +45,7 @@
     , 'qualUTIL': 'BN'
     , 'qualBN': 'BN'
     , 'qualBNRND': 'BN'
+    , 'qualBNMUL': 'BN'
     , 'qualBNE': 'FPM'
     , 'nlimbs': 'modp2048_nlimbs'
     , 'nlimbsexp': 'modp2048_nlimbs'
@@ -42,7 +53,10 @@
     , 'glob_mP': 'modp2048_glob_mP'
     , 'glob_exp0': 'modp2048_glob_oneMP'
     , 'glob_Pm2': 'modp2048_glob_Pm2'
-    , 'fun_red': 'FPM_redM_' }
+    , 'fun_red': 'FPM_redM_'
+    , 'fun_muln': 'BN_ps_muln_'
+    , 'fun_sqrn': 'BN_ps_sqrn_'
+    }
   )
 
 , ( "bn_exp"
@@ -53,12 +67,14 @@
     , 'nlimbsexp': 'modp2048_nlimbs'
     , 'glob_exp0': 'modp2048_glob_oneMP'
     , 'fun_mulU': 'FPM_mulmU_'
-    , 'fun_sqrU': 'FPM_sqrmU_'}
+    , 'fun_sqrU': 'FPM_sqrmU_'
+    }
   )
 
 , ( "fp_mont"
   , { 'qual': 'FQM'
     , 'qualBN': 'BN'
+    , 'qualBNMUL': 'BN'
     , 'qualFP': 'FQM'
     , 'nlimbs': 'modp2048_nlimbs'
     , 'glob_P': 'modp2048_glob_Q'
@@ -67,6 +83,8 @@
     , 'glob_exp0': 'modp2048_glob_oneMQ'
     , 'glob_Pm2': 'modp2048_glob_Qm2'
     , 'glob_rMP': 'modp2048_glob_rMQ'
+    , 'fun_muln': 'BN_ps_muln_'
+    , 'fun_sqrn': 'BN_ps_sqrn_'
     }
   )
 
@@ -75,6 +93,7 @@
     , 'qualUTIL': 'BN'
     , 'qualBN': 'BN'
     , 'qualBNRND': 'BN'
+    , 'qualBNMUL': 'BN'
     , 'qualBNE': 'FQM'
     , 'nlimbs': 'modp2048_nlimbs'
     , 'nlimbsexp': 'modp2048_nlimbs'
@@ -82,7 +101,10 @@
     , 'glob_mP': 'modp2048_glob_mQ'
     , 'glob_exp0': 'modp2048_glob_oneMQ'
     , 'glob_Pm2': 'modp2048_glob_Qm2'
-    , 'fun_red': 'FQM_redM_' }
+    , 'fun_red': 'FQM_redM_'
+    , 'fun_muln': 'BN_ps_muln_'
+    , 'fun_sqrn': 'BN_ps_sqrn_'
+    }
   )
 
 , ( "bn_exp"

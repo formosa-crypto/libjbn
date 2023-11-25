@@ -1,0 +1,83 @@
+/*
+from Libjbn require "bn_base.mjazz" as "BN"
+ with { nlimbs = modp2048_nlimbs; }
+*/
+from MJazz require "${qualBN}_bn_base.jinc"
+from MJazz require "${qualBN2}_bn_base.jinc"
+from MJazz require "${qualBNMUL}_bn_mul.jinc"
+
+export fn bn_ps_muln(reg u64 rp ap bp)
+{
+  stack u64[${nlimbs}] _a _b;
+  stack u64[2*${nlimbs}] _r;
+  stack u64 _rp;
+  reg ptr u64[${nlimbs}] a b;
+  reg ptr u64[2*${nlimbs}] r;
+
+  _rp = rp;
+  a = _a;
+  a = ${qualBN}_load_(a,ap);
+  b = _b;
+  b = ${qualBN}_load_(b,bp);
+  r = _r;
+  r = ${qualBNMUL}_ps_muln(r, a, b);
+  rp = _rp;
+  ${qualBN2}_store_(rp, r);
+}
+
+export fn bn_ps_sqrn(reg u64 rp ap)
+{
+  stack u64[${nlimbs}] _a;
+  stack u64[2*${nlimbs}] _r;
+  stack u64 _rp;
+  reg ptr u64[${nlimbs}] a;
+  reg ptr u64[2*${nlimbs}] r;
+
+  _rp = rp;
+  a = _a;
+  a = ${qualBN}_load_(a, ap);
+  r = _r;
+  r = ${qualBNMUL}_ps_sqrn_(r, a);
+  rp = _rp;
+  ${qualBN2}_store_(rp, r);
+}
+
+
+export fn bn_os_muln(reg u64 rp ap bp)
+{
+  stack u64[${nlimbs}] _a _b;
+  stack u64[2*${nlimbs}] _r;
+  stack u64 _rp;
+  reg ptr u64[${nlimbs}] a b;
+  reg ptr u64[2*${nlimbs}] r;
+
+  _rp = rp;
+  a = _a;
+  a = ${qualBN}_load_(a,ap);
+  b = _b;
+  b = ${qualBN}_load_(b,bp);
+  r = _r;
+  r = ${qualBNMUL}_os_muln(r, a, b);
+  rp = _rp;
+  ${qualBN2}_store_(rp, r);
+}
+
+/*
+export fn bn_os_sqrn(reg u64 rp ap)
+{
+  stack u64[${nlimbs}] _a;
+  stack u64[2*${nlimbs}] _r;
+  stack u64 _rp;
+  reg ptr u64[${nlimbs}] a;
+  reg ptr u64[2*${nlimbs}] r;
+
+  _rp = rp;
+  a = _a;
+  a = ${qualBN}_load_(a, ap);
+  r = _r;
+  r = ${qualBNMUL}_os_sqrn_(r, a);
+  rp = _rp;
+  ${qualBN2}_store_(rp, r);
+}
+*/
+

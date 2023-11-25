@@ -1,22 +1,125 @@
 
+//from Libjbn require "bn_util.mjazz"
+require "${qualUTIL}_bn_util.jinc"
+
+
+//from Libjbn require "bn_base.mjazz" as BN
+//. with { nlimbs = nlimbs; }
+require "${qualBN}_bn_base.jinc"
+
+//from Libjbn require "bn_base.mjazz" as BN2
+//. with { nlimbs = 2*nlimbs; }
+require "${qualBN2}_bn_base.jinc"
+
+
 /* ensures: res = (sign(a-b), |a-b|)*/
 // MOVETO: bn_karatsuba.mjazz
-inline fn ${qual}__subU_signabs
-( reg mut ptr u64[${nlimbs}] a
-, reg const ptr u64[${nlimbs}] b
+inline fn ${qual}__sub_signabs
+( reg mut ptr u64[${nlimbs}] r
+, reg const ptr u64[${nlimbs}] a b
 ) -> reg u64, reg ptr u64[${nlimbs}]
 {
-  stack u64[${nlimbs}] tmp;
   reg bool cf;
   reg u64 sign; // 0/-1
-/*
-  _, tmp = ${qual}_sub_(b, a, tmp);
-  cf, a = ${qual}_subU_(a, b);
-  a = ${qual}_cmov_(a, cf, tmp);
-*/
-  cf, a = ${qual}_subU_(a, b); // a = a-b
-  sign = 0;
-  sign -= 0 - cf; // cf == (sign==-1)
-  a = ${qual}__cnegU(a, sign);
-  return (sign, a);
+  cf, r = ${qualBN}_sub_(r, a, b); // r = a-b
+  sign = ${qualUTIL}__cf_mask(cf);
+  r = ${qualBN}_cnegU_(r, sign);
+  return sign, r;
+}
+
+fn ${qual}_kar_muln
+( reg mut ptr u64[4*${nlimbs}] r tmp
+, reg const ptr u64[2*${nlimbs}] a b
+) -> reg ptr u64[4*${nlimbs}], reg ptr u64[4*${nlimbs}]
+{
+  reg ptr u64[${nlimbs}] alo ahi blo bhi rlolo rlohi rhilo rhihi;
+  reg ptr u64[2*${nlimbs}] rlo rhi rmid tlo thi;
+  reg u64 sa sb;
+  reg bool cf;
+  stack u64 _sa;
+  stack ptr u64[4*${nlimbs}] _r _tmp;
+  stack ptr u64[2*${nlimbs}] _a _b;
+
+  rlolo = r[0:${nlimbs}];
+  alo = a[0:${nlimbs}];
+  ahi = a[${nlimbs}:${nlimbs}];
+  sa, rlolo = ${qual}__sub_signabs(rlolo, alo, ahi);
+  r[0:${nlimbs}] = rlolo;
+
+  rlohi = r[${nlimbs}:${nlimbs}];
+  blo = b[0:${nlimbs}];
+  bhi = b[${nlimbs}:${nlimbs}];
+  sb, rlohi = ${qual}__sub_signabs(rlohi, bhi, blo);
+  r[${nlimbs}:${nlimbs}] = rlohi;
+
+  sa ^= sb;
+
+  _sa = sa;
+  _r = r;
+  _tmp = tmp;
+  _a = a;
+  _b = b;
+
+  rlolo = r[0:${nlimbs}];
+  rlohi = r[${nlimbs}:${nlimbs}];
+  tlo = tmp[0:2*${nlimbs}];
+  thi = tmp[2*${nlimbs}:2*${nlimbs}];
+  thi, tlo = ${fun_kmuln}(tlo, thi, rlolo, rlohi);
+  thi = ${qualBN2}_cnegU_(thi, sa);
+  tmp[0:2*${nlimbs}] = tlo;
+  tmp[2*${nlimbs}:2*${nlimbs}] = thi;
+  sa = _sa;
+
+  r = _r;
+  a = _a;
+  b = _b;
+  alo = a[0:${nlimbs}];
+  blo = b[0:${nlimbs}];
+  rlo = r[0:2*${nlimbs}];
+  _, rlo = ${fun_kmuln}( rlo, tmp[2*${nlimbs}:2*${nlimbs}], alo, blo);
+  r[0:2*${nlimbs}] = rlo;
+
+//  rhi = r[2*${nlimbs}:2*${nlimbs}];
+  a = _a;
+  b = _b;
+  ahi = a[${nlimbs}:${nlimbs}];
+  bhi = b[${nlimbs}:${nlimbs}];
+  _, r[2*${nlimbs}:2*${nlimbs}] = ${fun_kmuln}( r[2*${nlimbs}:2*${nlimbs}], tmp[2*${nlimbs}:2*${nlimbs}], ahi, bhi);
+//  r[2*${nlimbs}:2*${nlimbs}] = rhi;
+
+//  rlo = r[0:2*${nlimbs}];
+  cf, tmp[0:2*${nlimbs}] = ${qualBN2}_addU_( tmp[0:2*${nlimbs}], r[0:2*${nlimbs}] );
+
+  sa = _sa;
+  _, sa += 0 + cf;
+
+//  rhi = r[2*${nlimbs}:2*${nlimbs}];
+  cf, tmp[0:2*${nlimbs}] = ${qualBN2}_addU_( tmp[0:2*${nlimbs}], r[2*${nlimbs}:2*${nlimbs}] );
+
+  _, sa += 0 + cf;
+  
+//  rmid = r[${nlimbs}:2*${nlimbs}];
+  cf, r[${nlimbs}:2*${nlimbs}] = ${qualBN2}_addU_( r[${nlimbs}:2*${nlimbs}], tmp[0:2*${nlimbs}] );
+//  r[${nlimbs}:2*${nlimbs}] = rmid;
+
+  _, sa += 0 + cf;
+  cf, r[3*${nlimbs}] += sa;
+//  dhi = r[3*${nlimbs}:${nlimbs}];
+  _, r[3*${nlimbs}:${nlimbs}] = ${qualBN}__carrypropU( r[3*${nlimbs}:${nlimbs}], cf , 1);
+//  r[3*${nlimbs}:${nlimbs}] = dhi;
+
+  return tmp, r;
+}
+
+inline fn ${qual}_kar_muln_
+( reg mut ptr u64[4*${nlimbs}] r
+, reg const ptr u64[2*${nlimbs}] a b
+) -> reg ptr u64[4*${nlimbs}]
+{
+  stack u64[4*${nlimbs}] _tmp;
+  reg ptr u64[4*${nlimbs}] tmp;
+
+  tmp = _tmp;
+  _, r = ${qual}_kar_muln(r, tmp, a, b);
+  return r;
 }

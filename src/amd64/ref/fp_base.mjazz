@@ -4,20 +4,23 @@ FP_BASE_FNS = _chk_bnds_ _rnd_ _addm_ _addmU_ _subm_ _submU_ _mulm_ _mulmU_ _sqr
 */
 
 modsignature {
-  param int nlimbs;		// num. of limbs
-  global u64[limbs] glob_P;
-  global u64[limbs] glob_mP;
-  global u64[limbs] glob_exp0;
+  param int nlimbs;	// num. of limbs
+  global u64[nlimbs] glob_P;
+  global u64[nlimbs] glob_mP;
+  global u64[nlimbs] glob_exp0;
   global u64[nlimbs] glob_Pm2;
   fn fun_red ( reg mut ptr u64[nlimbs]
              , reg const ptr u64[2*nlimbs]
              ) -> reg ptr u64[nlimbs];
 }
 
-require "bn_base"
+require "bn_base.mjazz"
   with { nlimbs = nlimbs; }
 
-require "bn_rnd"
+require "bn_rnd.mjazz"
+  with { nlimbs = nlimbs; }
+
+require "bn_mul.mjazz"
   with { nlimbs = nlimbs; }
 
 
@@ -29,8 +32,8 @@ inline fn _chk_bnds_
  reg bool cf;
  reg u64 t;
  P = glob_P;
- cf = BN._lt_cf_(a, P);
- t = BN.__ncf_mask(cf); // access to a submodule (bn_util)
+ cf = _lt_cf_(a, P);
+ t = __ncf_mask(cf); // access to a submodule (bn_util)
  err |= t;
  return err;
 }
@@ -40,7 +43,7 @@ inline fn _rnd_
 ) -> reg ptr u64[nlimbs] {
  reg ptr u64[nlimbs] P;
  P = glob_P;
- a = BN._rsample_(a, P); // access to an overloaded qualifier
+ a = _rsample_(a, P); // access to an overloaded qualifier
  return a;
 }
 
@@ -58,7 +61,7 @@ inline fn _addm_
   lastbit = 0;
   _, lastbit += 0 + cf;
   tmp = glob_mP;
-  r = BN._cminusP_(r, tmp, lastbit);
+  r = _cminusP_(r, tmp, lastbit);
   return r;
 }
 
@@ -76,7 +79,7 @@ inline fn _addmU_
   lastbit = 0;
   _, lastbit += 0 + cf;
   tmp = glob_mP;
-  a = BN._cminusP_(a, tmp, lastbit);
+  a = _cminusP_(a, tmp, lastbit);
   return a;
 }
 
@@ -88,9 +91,9 @@ inline fn _subm_
 ) -> reg ptr u64[nlimbs] {
  reg bool cf;
  reg ptr u64[nlimbs] tmp;
- cf, r = BN._sub_(r, a, b);
+ cf, r = _sub_(r, a, b);
  tmp = glob_P;
- r = BN._caddU_(r, cf, tmp);
+ r = _caddU_(r, cf, tmp);
  return r;
 }
 
@@ -100,9 +103,9 @@ inline fn _submU_
 ) -> reg ptr u64[nlimbs] {
  reg bool cf;
  reg ptr u64[nlimbs] tmp;
- cf, a = BN._subU_(a, b);
+ cf, a = _subU_(a, b);
  tmp = glob_P;
- a = BN._caddU_(a, cf, tmp);
+ a = _caddU_(a, cf, tmp);
  return a;
 }
 
@@ -115,7 +118,7 @@ inline fn _mulm_
   reg ptr u64[2*nlimbs] tmp;
 
   tmp = _tmp;
-  tmp = BN._muln_(tmp, a, b);
+  tmp = _muln_(tmp, a, b);
   r = fun_red(r, tmp);
   return r;
 }
@@ -129,7 +132,7 @@ inline fn _mulmU_ // update inplace
   stack u64[2*nlimbs] _tmp;
   reg ptr u64[2*nlimbs] tmp;
   tmp = _tmp;
-  tmp = BN._muln_(tmp, a, b);
+  tmp = _muln_(tmp, a, b);
   a = fun_red(a, tmp);
   return a;
 }
@@ -143,7 +146,7 @@ inline fn _sqrm_
   stack u64[2*nlimbs] _tmp;
   reg ptr u64[2*nlimbs] tmp;
   tmp = _tmp;
-  tmp = BN._sqrn_(tmp, a);
+  tmp = _sqrn_(tmp, a);
   r = fun_red(r, tmp);
   return r;
 }
@@ -156,7 +159,7 @@ inline fn _sqrmU_ // update inplace
   stack u64[2*nlimbs] _tmp;
   reg ptr u64[2*nlimbs] tmp;
   tmp = _tmp;
-  tmp = BN._sqrn_(tmp, a);
+  tmp = _sqrn_(tmp, a);
   a = fun_red(a, tmp);
   return a;
 }
@@ -168,8 +171,8 @@ require "bn_exp.jinc"
  with { nlimbs = nlimbs;
         nlimbsexp = nlimbs;
         glob_exp0 = glob_exp0;
-        fun_mulU = FPM_mulmU;
-        fun_sqrU = FPM_sqrmU;
+        fun_mulU = _mulmU_;
+        fun_sqrU = _sqrmU_;
       }
 
 

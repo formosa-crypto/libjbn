@@ -63,7 +63,7 @@ inline fn __addacc3x2
 
   t = b0; 
   b0 <<= 1;
-  _, cf, _, _, _, b1 = #SHLD(b1, t, 1);
+  _, cf, _, _, _, b1 = #SHL(b1, t, 1);
 
   b2 = #MOV(0);
   cf, b2 += b2 + cf;

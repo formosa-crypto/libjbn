@@ -9,7 +9,7 @@ GCC ?= arch -x86_64 gcc
 JASMINC = jasminc
 JASMINC_OPT = -I Libjbn:$(SRCDIR)
 
-MJAZZ_FILES = $(MJAZZDIR)/BNUTIL_bn_util.jinc $(MJAZZDIR)/BN_bn_base.jinc $(MJAZZDIR)/BNRND_bn_rnd.jinc $(MJAZZDIR)/BNE_bn_exp.jinc $(MJAZZDIR)/FP_fp_base.jinc $(MJAZZDIR)/FPM_fp_mont.jinc
+MJAZZ_FILES = $(MJAZZDIR)/BNUTIL_bn_util.jinc $(MJAZZDIR)/BN_bn_base.jinc $(MJAZZDIR)/BNRND_bn_rnd.jinc $(MJAZZDIR)/BNMUL_bn_mul.jinc $(MJAZZDIR)/BNMULREG_bn_mulreg.jinc $(MJAZZDIR)/BNE_bn_exp.jinc $(MJAZZDIR)/FP_fp_base.jinc $(MJAZZDIR)/FPM_fp_mont.jinc
 
 
 all: $(MJAZZ_FILES)

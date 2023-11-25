@@ -131,8 +131,8 @@ export fn commitment
 export fn response
 ( reg u64 witness_p random_power_p challenge_p response_p
 ) { 
-  stack u64[nlimbs] _witness _commitment _random_power _challenge _response;
-  reg ptr u64[nlimbs] witness commitment random_power challenge response;
+  stack u64[nlimbs] _witness _random_power _challenge _response;
+  reg ptr u64[nlimbs] witness random_power challenge response;
 
   witness       = _witness;
   witness       = BN_load_(witness, witness_p);
@@ -150,9 +150,8 @@ export fn response
 export fn verify
 ( reg u64 statement_p commitment_p challenge_p response_p result_p
 ) { 
-  stack u64[nlimbs] _statement _commitment _challenge _response
-_rT;
-  reg ptr u64[nlimbs] statement commitment challenge response rT;
+  stack u64[nlimbs] _statement _commitment _challenge _response;
+  reg ptr u64[nlimbs] statement commitment challenge response;
   reg u64 result;
   stack u64 _result_p;
   

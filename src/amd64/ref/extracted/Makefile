@@ -6,18 +6,24 @@ SRCDIR = $(PWD)/..
 JASMINC = jasminc -I MJazz:.
 JASMINC_OPT = -I Libjbn:$(SRCDIR)
 
-MJAZZ_EC = BNUTIL_bn_util.ec BN_bn_base.ec BNRND_bn_rnd.ec BNE_bn_exp.ec FP_fp_base.ec FPM_fp_mont.ec
+MJAZZ_EC = BNUTIL_bn_util.ec BN_bn_base.ec BNRND_bn_rnd.ec BNMUL_bn_mul.ec BNMULREG_bn_mulreg.ec BNKAR_bn_karatsuba.ec BNE_bn_exp.ec FP_fp_base.ec FPM_fp_mont.ec
 
-MJAZZ_EC_CT = BNUTIL_bn_util_CT.ec BN_bn_base_CT.ec BNRND_bn_rnd_CT.ec BNE_bn_exp_CT.ec FP_fp_base_CT.ec FPM_fp_mont_CT.ec
+MJAZZ_EC_CT = BNUTIL_bn_util_CT.ec BN_bn_base_CT.ec BNRND_bn_rnd_CT.ec BNE_bn_exp_CT.ec BNMUL_bn_mul_CT.ec BNMULREG_bn_mulreg_CT.ec BNKAR_bn_karatsuba_CT.ec FP_fp_base_CT.ec FPM_fp_mont_CT.ec
 
 
 all: $(MJAZZ_EC) $(MJAZZ_EC_CT)
 
 BN_UTIL_FNS = __mask_zf __mask_cf __cf_mask __ncf_mask __addacc3 __addacc3x2
 
-BN_BASE_FNS = _load_ _store_ _eq_ _test0_ __copy _mov_ _cmov_ _cswap_cf_ _set0_ __cfill _or_mask_ _and_mask_ _set_err_ __carrypropU _addcU_ _addU_ _addc_ _add_ _subcU_ _subU_ _subc_ _sub_ _lt_cf_ _ltc_cf_ _negU_ _negcU_ _neg_ _negc_ _cnegU_ _caddU_ _muln_ _sqrn_ _cminusP_ __mont_redM _pack2_
+BN_BASE_FNS = _load_ _store_ _eq_ _test0_ __copy _mov_ _cmov_ _cswap_cf_ _set0_ __cfill _or_mask_ _and_mask_ _set_err_ __carrypropU _addcU_ _addU_ _addc_ _add_ _subcU_ _subU_ _subc_ _sub_ _lt_cf_ _ltc_cf_ _negU_ _negcU_ _neg_ _negc_ _cnegU_ _caddU_ _cminusP_ _pack2_
 
 BN_RND_FNS = _rnd_ _rsample_
+
+BN_MUL_FNS = _os_muln_ _os_sqrn_ _os_kmuln_ _os_ksqrn_ _ps_muln_ _ps_sqrn_ _ps_kmuln_ _ps_ksqrn_ __mont_redM
+
+BN_MULREG_FNS = _os_muln_reg_ _os_sqrn_reg_ _os_kmuln_reg_ _os_ksqrn_reg_
+
+BN_KAR_FNS = _kar_muln_
 
 BN_EXP_FNS =  _expm_noct_ _expmU_noct_ _expm_ _expmU_
 
@@ -45,6 +51,24 @@ BNRND_bn_rnd.ec: BNRND_bn_rnd.pjinc
 
 BNRND_bn_rnd_CT.ec: BNRND_bn_rnd.pjinc
 	$(JASMINC) -CT $(foreach fn, $(BN_RND_FNS), -ec BNRND$(fn)) -oec $@  $<
+
+BNMUL_bn_mul.ec: BNMUL_bn_mul.pjinc
+	$(JASMINC) $(foreach fn, $(BN_MUL_FNS), -ec BNMUL$(fn)) -oec $@  $<
+
+BNMUL_bn_mul_CT.ec: BNMUL_bn_mul.pjinc
+	$(JASMINC) -CT $(foreach fn, $(BN_MUL_FNS), -ec BNMUL$(fn)) -oec $@  $<
+
+BNMULREG_bn_mulreg.ec: BNMULREG_bn_mulreg.pjinc
+	$(JASMINC) $(foreach fn, $(BN_MULREG_FNS), -ec BNMULREG$(fn)) -oec $@  $<
+
+BNMULREG_bn_mulreg_CT.ec: BNMULREG_bn_mulreg.pjinc
+	$(JASMINC) -CT $(foreach fn, $(BN_MULREG_FNS), -ec BNMULREG$(fn)) -oec $@  $<
+
+BNKAR_bn_karatsuba.ec: BNKAR_bn_karatsuba.pjinc
+	$(JASMINC) $(foreach fn, $(BN_KAR_FNS), -ec BNKAR$(fn)) -oec $@  $<
+
+BNKAR_bn_karatsuba_CT.ec: BNKAR_bn_karatsuba.pjinc
+	$(JASMINC) -CT $(foreach fn, $(BN_KAR_FNS), -ec BNKAR$(fn)) -oec $@  $<
 
 BNE_bn_exp.ec: BNE_bn_exp.pjinc
 	$(JASMINC) $(foreach fn, $(BN_EXP_FNS), -ec BNE$(fn)) -oec $@  $<

@@ -9,6 +9,13 @@ modsignature {
   int nlimbs;		// num. limbs
   u64[limbs] glob_exp0;
   u64[nlimbs] glob_Pm2;
+  fn fun_muln ( reg mut ptr u64[2*nlimbs]
+              , reg const ptr u64[nlimbs]
+              , reg const ptr u64[nlimbs]
+              ) -> reg ptr u64[2*nlimbs]
+  fn fun_sqrn ( reg mut ptr u64[2*nlimbs]
+              , reg const ptr u64[nlimbs]
+              ) -> reg ptr u64[2*nlimbs]
   fn fun_red ( reg mut ptr u64[nlimbs]
              , reg const ptr u64[2*nlimbs]
              ) -> reg ptr u64[nlimbs]
@@ -120,7 +127,7 @@ inline fn ${qual}_mulm_
   reg ptr u64[2*${nlimbs}] tmp;
 
   tmp = _tmp;
-  tmp = ${qualBN}_muln_(tmp, a, b);
+  tmp = ${fun_muln}(tmp, a, b);
   r = ${fun_red}(r, tmp);
   return r;
 }
@@ -134,7 +141,7 @@ inline fn ${qual}_mulmU_ // update inplace
   stack u64[2*${nlimbs}] _tmp;
   reg ptr u64[2*${nlimbs}] tmp;
   tmp = _tmp;
-  tmp = ${qualBN}_muln_(tmp, a, b);
+  tmp = ${fun_muln}(tmp, a, b);
   a = ${fun_red}(a, tmp);
   return a;
 }
@@ -148,7 +155,7 @@ inline fn ${qual}_sqrm_
   stack u64[2*${nlimbs}] _tmp;
   reg ptr u64[2*${nlimbs}] tmp;
   tmp = _tmp;
-  tmp = ${qualBN}_sqrn_(tmp, a);
+  tmp = ${fun_sqrn}(tmp, a);
   r = ${fun_red}(r, tmp);
   return r;
 }
@@ -161,7 +168,7 @@ inline fn ${qual}_sqrmU_ // update inplace
   stack u64[2*${nlimbs}] _tmp;
   reg ptr u64[2*${nlimbs}] tmp;
   tmp = _tmp;
-  tmp = ${qualBN}_sqrn_(tmp, a);
+  tmp = ${fun_sqrn}(tmp, a);
   a = ${fun_red}(a, tmp);
   return a;
 }

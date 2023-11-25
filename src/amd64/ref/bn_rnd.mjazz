@@ -8,7 +8,8 @@ BN_RND_FNS = _rnd_ _rsample_
 
 modsignature { param int nlimbs; }
 
-from Libjbn require "bn_base.jinc" with { nlimbs = nlimbs; }
+from Libjbn require "bn_base.mjazz"
+ with { nlimbs = nlimbs; }
 
 /*
 /* random bytes */

@@ -9,15 +9,29 @@
     , 'nlimbs': 'sike610_nlimbs'}
   )
 
+, ( "bn_base"
+  , { 'qual': 'BN2'
+    , 'qualUTIL': 'BN'
+    , 'nlimbs': '2*sike610_nlimbs'}
+  )
+
 , ( "bn_rnd"
   , { 'qual': 'BN'
     , 'qualBN': 'BN'
     , 'nlimbs': 'sike610_nlimbs'
     } )
 
+, ( "bn_mul"
+  , { 'qual': 'BN'
+    , 'qualBN': 'BN'
+    , 'qualUTIL': 'BN'
+    , 'nlimbs': 'sike610_nlimbs'
+    } )
+
 , ( "fp_mont"
   , { 'qual': 'FPM'
     , 'qualBN': 'BN'
+    , 'qualBNMUL': 'BN'
     , 'qualFP': 'FPM'
     , 'nlimbs': 'sike610_nlimbs'
     , 'glob_P': 'sike610_glob_P'
@@ -26,6 +40,8 @@
     , 'glob_exp0': 'sike610_glob_oneMP'
     , 'glob_Pm2': 'sike610_glob_Pm2'
     , 'glob_rMP': 'sike610_glob_rMP'
+    , 'fun_muln': 'BN_ps_muln_'
+    , 'fun_sqrn': 'BN_ps_sqrn_'
     }
   )
 
@@ -34,6 +50,7 @@
     , 'qualUTIL': 'BN'
     , 'qualBN': 'BN'
     , 'qualBNRND': 'BN'
+    , 'qualBNMUL': 'BN'
     , 'qualBNE': 'FPM'
     , 'nlimbs': 'sike610_nlimbs'
     , 'nlimbsexp': 'sike610_nlimbs'
@@ -41,7 +58,10 @@
     , 'glob_mP': 'sike610_glob_mP'
     , 'glob_exp0': 'sike610_glob_oneMP'
     , 'glob_Pm2': 'sike610_glob_Pm2'
-    , 'fun_red': 'FPM_redM_' }
+    , 'fun_red': 'FPM_redM_'
+    , 'fun_muln': 'BN_ps_muln_'
+    , 'fun_sqrn': 'BN_ps_sqrn_'
+    }
   )
 
 , ( "bn_exp"
@@ -60,9 +80,18 @@
     , 'nlimbs': 'sike610_nlimbs'}
   )
 
+, ( "bn_mul_export"
+  , { 'qualBNMUL': 'BN'
+    , 'qualBN': 'BN'
+    , 'qualBN2': 'BN2'
+    , 'nlimbs': 'sike610_nlimbs'
+    }
+  )
+
 , ( "fp_mont_export"
   , { 'qualFPM': 'FPM'
     , 'qualBN': 'BN'
+    , 'qualBN2': 'BN2'
     , 'nlimbs': 'sike610_nlimbs'
     }
   )

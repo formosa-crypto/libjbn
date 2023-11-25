@@ -9,14 +9,25 @@ modsignature {
   u64[nlimbs] glob_Pm2;	// P-2
   u64[nlimbs] glob_exp0;// OneM
   u64[nlimbs] glob_RM;	// RM  
+  fn fun_muln ( reg mut ptr u64[2*nlimbs]
+              , reg const ptr u64[nlimbs]
+              , reg const ptr u64[nlimbs]
+              ) -> reg ptr u64[2*nlimbs]
+  fn fun_sqrn ( reg mut ptr u64[2*nlimbs]
+              , reg const ptr u64[nlimbs]
+              ) -> reg ptr u64[2*nlimbs]
 }
 
 
-require "bn_base" as "BN" // BN
- with { nlimbs = NLIMBS; }
 */
 
+//require "bn_base" as "BN" // BN
+// with { nlimbs = NLIMBS; }
 from MJazz require "${qualBN}_bn_base.jinc"
+
+//require "bn_mul" as "BN" // BN
+// with { nlimbs = NLIMBS; }
+from MJazz require "${qualBNMUL}_bn_mul.jinc"
 
 // regs: params(2) + call(3) + 4 = 9
 fn ${qual}_redM
@@ -25,7 +36,7 @@ fn ${qual}_redM
 ) -> reg ptr u64[${nlimbs}] {
   stack u64 _P0i;
   _P0i = ${glob_P0i};
-  r = ${qualBN}__mont_redM(r, a, ${glob_P}, ${glob_mP}, _P0i);
+  r = ${qualBNMUL}__mont_redM(r, a, ${glob_P}, ${glob_mP}, _P0i);
   return r;
 }
 
@@ -46,8 +57,6 @@ inline fn ${qual}_fromM_
   stack u64[2*${nlimbs}] _tmp;
   reg ptr u64[2*${nlimbs}] tmp;
   reg ptr u64[${nlimbs}] tmp2;
-  reg u64 t;
-  inline int i;
 
   tmp2 = _tmp[0:${nlimbs}];
   tmp2 = ${qualBN}_mov_(tmp2, a);
@@ -67,6 +76,8 @@ require "fp_base" as "FPM"
         glob_exp0 = glob_exp0;
         glob_Pm2 = glob_Pm2;
 	fun_red = FPM_redM;
+	fun_muln = BNMUL_muln_;
+	fun_sqrn = BNMUL_sqrn_;
       }
 
 */
