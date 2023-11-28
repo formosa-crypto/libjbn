@@ -1,4 +1,7 @@
-include ../Makefile.compiler_flags
+CC      ?= clang
+CFLAGS  ?= -O3 -Wall -Wpedantic -Wvla -Werror -std=c99 \
+	         -Wundef -Wshadow -Wcast-align -Wpointer-arith -Wmissing-prototypes \
+	         -fstrict-aliasing -fno-common -pipe
 
 INCLUDE := -I../common -I../../ext/randombytes/
 
@@ -6,12 +9,16 @@ INCLUDE := -I../common -I../../ext/randombytes/
 TOP         = $(abspath $(dir $(firstword $(MAKEFILE_LIST)))../../)
 TEST        = $(TOP)/test
 SRC         = $(TOP)/src
+SCRIPTS     = $(TOP)/scripts
 BIN        ?= bin
 PARAMS_DIR ?= $(TEST)/$(BIN)/params
 
 #--
+JASMIN_MODULE_PREPROCESSOR ?= python3 $(SCRIPTS)/mjazz_proc.py
+JASMIN_REQUIRE_PREPROCESSOR ?= $(SCRIPTS)/jpp
 JASMIN   ?= jasminc
-JINCLUDE ?= -I Libjbn:$(SRC)/
+JINCLUDE ?=
+
 
 #--
 MIN_NLIMBS ?= 1
@@ -70,10 +77,13 @@ $(BIN)/primes-rnd: primes.c params.c ../../ext/randombytes/randombytes.c | $(BIN
 
 # -----------------------------------------------------------------------------
 .PHONY: $(PARAMS_DIR)
+params_dir: $(PARAMS_DIR)
 $(PARAMS_DIR): exec
 	mkdir -p $@
 	mkdir -p $(dir $(PARAMS_DIR))$(CID)
-	./sike.sh $(PARAMS_DIR) $(CIL)
+	$(JASMIN_MODULE_PREPROCESSOR) libjbn $(CIL)
+	$(JASMIN_REQUIRE_PREPROCESSOR) -v -I MJazz:libjbn/ -in libjbn.jazz -out $(PARAMS_DIR)/libjbn.mjazz $(CILA)
+	./sike.sh $(PARAMS_DIR) $(CILA)
 	./rfc3526.sh $(PARAMS_DIR) $(CILA)
 	./gen.sh rnd $(PARAMS_DIR) $(MIN_NLIMBS) $(MAX_NLIMBS) $(MAX_TESTS) $(CILA)
 	$(MAKE) compile $(CILA)

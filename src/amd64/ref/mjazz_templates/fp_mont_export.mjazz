@@ -1,11 +1,11 @@
 /*
-from Libjbn require "bn_base.mjazz" as "BN"
+//from Libjbn require "bn_base.mjazz" as "BN"
  with { nlimbs = nlimbs; }
 */
 from MJazz require "${qualBN}_bn_base.jinc"
 
 /*
-from Libjbn require "fp_mont.mjazz" as "FPM"
+//from Libjbn require "fp_mont.mjazz" as "FPM"
  with { nlimbs = nlimbs;
         glob_P = glob_P;
         glob_mP = glob_mP;

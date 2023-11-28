@@ -20,9 +20,7 @@ modsignature { int nlimbs; }
 
 */
 
-/*
-require "bn_util.jinc" // as "BN"
-*/
+//require "bn_util.jinc" // as "BN"
 require "${qualUTIL}_bn_util.jinc"
 
 /* Loads BN from memory

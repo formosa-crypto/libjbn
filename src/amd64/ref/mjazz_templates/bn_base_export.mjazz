@@ -1,7 +1,6 @@
-/*
-from Libjbn require "bn_base.mjazz" as "BN"
- with { nlimbs = modp2048_nlimbs; }
-*/
+//from Libjbn require "bn_base.mjazz" as "BN"
+// with { nlimbs = modp2048_nlimbs; }
+
 from MJazz require "${qualBN}_bn_base.jinc"
 
 export fn bn_eq(reg u64 ap bp) -> reg u64

@@ -1,4 +1,17 @@
-include Makefile.compiler_flags
+# to run tests:
+#
+# $ make CI=1 distclean && make -j8 CI=1 default && make CI=1 reporter 
+#
+# to change the number of tests, set MIN_LIMBS, MAX_LIMBS, and MAX_TESTS:
+#
+# $ make CI=1 distclean && make -j8 CI=1 MIN_LIMBS=1 MAX_LIMBS=8 MAX_TESTS=100 default && \
+#   make CI=1 reporter 
+#
+
+CC      ?= clang
+CFLAGS  ?= -O3 -Wall -Wpedantic -Wvla -Werror -std=c99 \
+	         -Wundef -Wshadow -Wcast-align -Wpointer-arith -Wmissing-prototypes \
+	         -fstrict-aliasing -fno-common -pipe
 
 INCLUDE := -Icommon/
 
@@ -10,12 +23,14 @@ BIN        ?= bin
 PARAMS_DIR ?= $(TEST)/$(BIN)/params
 
 #--
-JASMIN   ?= jasminc
+JASMIN ?= jasminc
+override JFLAGS +=
+export JFLAGS
 
 #--
 MIN_NLIMBS  ?= 1
-MAX_NLIMBS  ?= 16
-MAX_TESTS   ?= 10
+MAX_NLIMBS  ?= 8
+MAX_TESTS   ?= 2
 
 export MIN_NLIMBS
 export MAX_NLIMBS
@@ -23,7 +38,7 @@ export MAX_TESTS
 
 # -----------------------------------------------------------------------------
 TESTS_FP_LIBS      := libjbn gmp
-TESTS_FP_DEFINED   := expm
+TESTS_FP_DEFINED   := exp
 TESTS_FP_BASE_NAME := $(patsubst %.s, %, $(subst libjbn_,, $(notdir $(shell test -d $(PARAMS_DIR) && find $(PARAMS_DIR) -name '*.s'))))
 
 TESTS_FP     := $(addprefix $(BIN)/fp/, $(foreach LB, $(TESTS_FP_LIBS), $(foreach TD, $(TESTS_FP_DEFINED), $(foreach BN,$(TESTS_FP_BASE_NAME),$(LB)_$(TD)_$(BN)))))
@@ -64,14 +79,12 @@ endif
 
 
 # -----------------------------------------------------------------------------
-default: all
-
-all:
+default:
 	$(MAKE) -C misc/ default
-	$(MAKE) all-out
+	$(MAKE) run
 
-all-out: $(TESTS_FP_OUT)
-all-bin: $(TESTS_FP_BIN)
+exec: $(TESTS_FP_BIN)
+run: $(TESTS_FP_OUT)
 
 # -----------------------------------------------------------------------------
 # expm or mul or ...
@@ -117,21 +130,21 @@ CI_TAR_NAME := libjbn-test.tar.gz
 .PRECIOUS: $(CID)
 $(CID): ; mkdir -p $@
 
-.PHONY: ci_reporter
+.PHONY: reporter
 
-ci_reporter:
-	$(MAKE) ci_reporter_fp_compile
-	$(MAKE) ci_reporter_fp_run
-	$(MAKE) ci_reporter_fp_checksums
+reporter:
+	$(MAKE) reporter_fp_compile
+	$(MAKE) reporter_fp_run
+	$(MAKE) reporter_fp_checksums
 	$(MAKE) $(CI_TAR_NAME)
 
-ci_reporter_fp_compile:
+reporter_fp_compile:
 	./../scripts/ci/reporter/jlog "Status: fp: $(TEST)/$(BIN)/fp/*.bin" $(TEST)/$(BIN)/fp/$(CID)/ "*.bin" $(CICL)
 
-ci_reporter_fp_run:
+reporter_fp_run:
 	./../scripts/ci/reporter/jlog "Status: fp $(TEST)/$(BIN)/fp/*.out" $(TEST)/$(BIN)/fp/$(CID)/ "*.out" $(CICL)
 
-ci_reporter_fp_checksums:
+reporter_fp_checksums:
 	./scripts/checksum-compare.sh $(BIN)/ libjbn gmp
 	./../scripts/ci/reporter/jlog "Status: $(TEST)/$(BIN)/fp/*.checksum*" $(TEST)/$(BIN)/fp/ "*checksum_match_with*" $(CICL)
 

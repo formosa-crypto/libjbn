@@ -17,8 +17,8 @@ modsignature {
               ) -> reg ptr u64[nlimbs]
 }
 
-require "bn_base.jinc" as "BN"
-  with { nlimbs = nlimbs; }
+//require "bn_base.jinc" as "BN"
+//  with { nlimbs = nlimbs; }
 
 */
 from MJazz require "${qualBN}_bn_base.jinc"

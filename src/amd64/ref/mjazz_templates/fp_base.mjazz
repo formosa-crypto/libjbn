@@ -21,11 +21,11 @@ modsignature {
              ) -> reg ptr u64[nlimbs]
 }
 
-require "bn_base" as "BN"
-  with { nlimbs = nlimbs; }
+//require "bn_base" as "BN"
+//  with { nlimbs = nlimbs; }
 
-require "bn_rnd" as "BN"
-  with { nlimbs = nlimbs; }
+//require "bn_rnd" as "BN"
+//  with { nlimbs = nlimbs; }
 
 */
 
@@ -175,19 +175,18 @@ inline fn ${qual}_sqrmU_ // update inplace
 
 // ////////////////////////////////////
 
-/*
 // ???obs: import without qualifier -- declarations
 // are added to the "current" scope
 // ???obs2: alternative: reuse qualifier
 
-require "bn_exp.jinc" // as FPM
- with { nlimbs = nlimbs;
-        nlimbsexp = nlimbs;
-        glob_exp0 = glob_exp0;
-        fun_mulU = FPM_mulmU;
-        fun_sqrU = FPM_sqrmU;
-      }
-*/
+// require "bn_exp.jinc" // as FPM
+//  with { nlimbs = nlimbs;
+//         nlimbsexp = nlimbs;
+//         glob_exp0 = glob_exp0;
+//         fun_mulU = FPM_mulmU;
+//         fun_sqrU = FPM_sqrmU;
+//       }
+
 from MJazz require "${qualBNE}_bn_exp.jinc" 
 
 
