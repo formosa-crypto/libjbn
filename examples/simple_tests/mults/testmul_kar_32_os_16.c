@@ -162,6 +162,6 @@ int main() {
   for (i=0; i<10000000; i++) {
     bn_kar_muln(x, t, t);
   }
-  bn2_check("mul_kar_32_ps_16", tt, x);
+  bn2_check("mul_kar_32_os_16", tt, x);
   return 0;
 }

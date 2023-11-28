@@ -73,7 +73,7 @@ _zero = 0;
 
 
 /* Operand-scanning multiplication (first arg. as a reg_ptr) */
-fn ${qual}_os_muln_reg
+fn ${qual}_osreg_muln
 ( reg mut ptr u64[2*${nlimbs}] r
 , reg const ptr u64[${nlimbs}] a b //reg u64 fptr,
 ) -> reg ptr u64[2*${nlimbs}]
@@ -101,13 +101,13 @@ fn ${qual}_os_muln_reg
   return r;
 }
 
-inline fn ${qual}_os_muln_reg_
+inline fn ${qual}_osreg_muln_
 ( reg mut ptr u64[2*${nlimbs}] r
 , reg const ptr u64[${nlimbs}] a b
 ) -> reg ptr u64[2*${nlimbs}]
 {
   r = r; a = a; b = b;
-  r = ${qual}_os_muln_reg(r, a, b);
+  r = ${qual}_osreg_muln(r, a, b);
   r = r;
   return r;
 }

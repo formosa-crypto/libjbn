@@ -124,16 +124,6 @@ inline fn ${qual}_os_muln_
 }
 
 
-inline fn ${qual}_os_kmuln_
-( reg mut ptr u64[2*${nlimbs}] r tmp
-, reg const ptr u64[${nlimbs}] a b
-) -> reg ptr u64[2*${nlimbs}], reg ptr u64[2*${nlimbs}]
-{
-  r = ${qual}_os_muln_( r, a, b );
-  return tmp, r;
-}
-
-
 /*
 export fn bn_muln_os(reg u64 rp ap bp)
 {
@@ -226,15 +216,6 @@ inline fn ${qual}_ps_muln_
   r = ${qual}_ps_muln(r, a, b);
   r = r;
   return r;
-}
-
-inline fn ${qual}_ps_kmuln_
-( reg mut ptr u64[2*${nlimbs}] r tmp
-, reg const ptr u64[${nlimbs}] a b
-) -> reg ptr u64[2*${nlimbs}], reg ptr u64[2*${nlimbs}]
-{
-  r = ${qual}_ps_muln_( r, a, b );
-  return tmp, r;
 }
 
 /*

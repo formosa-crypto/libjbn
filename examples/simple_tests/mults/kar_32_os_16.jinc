@@ -1,0 +1,5 @@
+param int nlimbsL=16;
+
+from MJazz require "BN16_bn_mul.jinc"
+from MJazz require "KAR32_bn_karatsuba.jinc"
+from MJazz require "bn_karatsuba_export.jinc"

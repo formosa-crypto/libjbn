@@ -135,10 +135,8 @@ void bn2_print(char* str, uint64_t x[]) {
 int test_eq(int size, uint64_t x[], uint64_t y[]) {
   int i;
   int r = 1;
-  for (i=0; i < size; i++) {
-    if (x[i]!=y[i]) printf("@%d, ", i);
+  for (i=0; i < size; i++)
     r = r && (x[i]==y[i]);
-  }
   return r;
 }
 
@@ -162,6 +160,6 @@ int main() {
   for (i=0; i<10000000; i++) {
     bn_kar_muln(x, t, t);
   }
-  bn2_check("mul_kar_32_ps_16", tt, x);
+  bn2_check("mul_kar_32_os_4", tt, x);
   return 0;
 }

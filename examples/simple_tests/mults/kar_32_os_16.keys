@@ -35,7 +35,7 @@
     , 'qualBN2': 'BN32'
     , 'qualUTIL': 'BN'
     , 'nlimbs': 'nlimbsL'
-    , 'fun_kmuln': 'BN16_ps_muln_'
+    , 'fun_kmuln': 'BN16_os_muln_'
     }
   )
 

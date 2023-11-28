@@ -28,87 +28,95 @@ inline fn ${qual}__sub_signabs
 }
 
 fn ${qual}_kar_muln
-( reg mut ptr u64[4*${nlimbs}] r tmp
+( reg mut ptr u64[4*${nlimbs}] r
 , reg const ptr u64[2*${nlimbs}] a b
-) -> reg ptr u64[4*${nlimbs}], reg ptr u64[4*${nlimbs}]
+) -> reg ptr u64[4*${nlimbs}]
 {
-  reg ptr u64[${nlimbs}] alo ahi blo bhi rlolo rlohi rhilo rhihi;
-  reg ptr u64[2*${nlimbs}] rlo rhi rmid tlo thi;
+  stack u64[2*${nlimbs}] _tmp;
+  stack u64 _sa;
+  stack ptr u64[4*${nlimbs}] _r;
+  stack ptr u64[2*${nlimbs}] _a _b;
+  reg ptr u64[${nlimbs}] alo ahi blo bhi rlolo rlohi rhihi;
+  reg ptr u64[2*${nlimbs}] tmp rlo rhi rmid;
   reg u64 sa sb;
   reg bool cf;
-  stack u64 _sa;
-  stack ptr u64[4*${nlimbs}] _r _tmp;
-  stack ptr u64[2*${nlimbs}] _a _b;
 
+  _r = r;
+
+  rlo = _r[0:2*${nlimbs}];
   rlolo = r[0:${nlimbs}];
   alo = a[0:${nlimbs}];
   ahi = a[${nlimbs}:${nlimbs}];
   sa, rlolo = ${qual}__sub_signabs(rlolo, alo, ahi);
-  r[0:${nlimbs}] = rlolo;
+  rlo[0:${nlimbs}] = rlolo;
 
-  rlohi = r[${nlimbs}:${nlimbs}];
+  rlohi = rlo[${nlimbs}:${nlimbs}];
   blo = b[0:${nlimbs}];
   bhi = b[${nlimbs}:${nlimbs}];
   sb, rlohi = ${qual}__sub_signabs(rlohi, bhi, blo);
-  r[${nlimbs}:${nlimbs}] = rlohi;
+  rlo[${nlimbs}:${nlimbs}] = rlohi;
+  _r[0:2*${nlimbs}] = rlo;
 
   sa ^= sb;
 
   _sa = sa;
-  _r = r;
-  _tmp = tmp;
   _a = a;
   _b = b;
+  tmp = _tmp;
 
-  rlolo = r[0:${nlimbs}];
-  rlohi = r[${nlimbs}:${nlimbs}];
-  tlo = tmp[0:2*${nlimbs}];
-  thi = tmp[2*${nlimbs}:2*${nlimbs}];
-  thi, tlo = ${fun_kmuln}(tlo, thi, rlolo, rlohi);
-  thi = ${qualBN2}_cnegU_(thi, sa);
-  tmp[0:2*${nlimbs}] = tlo;
-  tmp[2*${nlimbs}:2*${nlimbs}] = thi;
+  rlo = _r[0:2*${nlimbs}];
+  rlolo = rlo[0:${nlimbs}];
+  rlohi = rlo[${nlimbs}:${nlimbs}];
+//  rlolo = _r[0:${nlimbs}];
+//  rlohi = _r[${nlimbs}:${nlimbs}];
+  tmp = ${fun_kmuln}(tmp, rlolo, rlohi);
+
   sa = _sa;
+  tmp = ${qualBN2}_cnegU_(tmp, sa);
+  _tmp = tmp;
 
-  r = _r;
+  rlo = _r[0:2*${nlimbs}];
   a = _a;
-  b = _b;
   alo = a[0:${nlimbs}];
+  b = _b;
   blo = b[0:${nlimbs}];
-  rlo = r[0:2*${nlimbs}];
-  _, rlo = ${fun_kmuln}( rlo, tmp[2*${nlimbs}:2*${nlimbs}], alo, blo);
-  r[0:2*${nlimbs}] = rlo;
+  rlo = ${fun_kmuln}( rlo, alo, blo);
+  _r[0:2*${nlimbs}] = rlo;
 
-//  rhi = r[2*${nlimbs}:2*${nlimbs}];
   a = _a;
   b = _b;
   ahi = a[${nlimbs}:${nlimbs}];
   bhi = b[${nlimbs}:${nlimbs}];
-  _, r[2*${nlimbs}:2*${nlimbs}] = ${fun_kmuln}( r[2*${nlimbs}:2*${nlimbs}], tmp[2*${nlimbs}:2*${nlimbs}], ahi, bhi);
-//  r[2*${nlimbs}:2*${nlimbs}] = rhi;
+  r = _r;
+  rhi = r[2*${nlimbs}:2*${nlimbs}];
+  rhi = ${fun_kmuln}( rhi, ahi, bhi);
+  _r[2*${nlimbs}:2*${nlimbs}] = rhi;
+  //_r = r;
 
-//  rlo = r[0:2*${nlimbs}];
-  cf, tmp[0:2*${nlimbs}] = ${qualBN2}_addU_( tmp[0:2*${nlimbs}], r[0:2*${nlimbs}] );
+  r = _r;
+  tmp = _tmp;
+  rlo = r[0:2*${nlimbs}];
+  cf, tmp = ${qualBN2}_addU_( tmp, rlo );
 
   sa = _sa;
   _, sa += 0 + cf;
 
-//  rhi = r[2*${nlimbs}:2*${nlimbs}];
-  cf, tmp[0:2*${nlimbs}] = ${qualBN2}_addU_( tmp[0:2*${nlimbs}], r[2*${nlimbs}:2*${nlimbs}] );
+  rhi = r[2*${nlimbs}:2*${nlimbs}];
+  cf, tmp = ${qualBN2}_addU_( tmp, rhi );
 
   _, sa += 0 + cf;
   
-//  rmid = r[${nlimbs}:2*${nlimbs}];
-  cf, r[${nlimbs}:2*${nlimbs}] = ${qualBN2}_addU_( r[${nlimbs}:2*${nlimbs}], tmp[0:2*${nlimbs}] );
-//  r[${nlimbs}:2*${nlimbs}] = rmid;
+  rmid = r[${nlimbs}:2*${nlimbs}];
+  cf, rmid = ${qualBN2}_addU_( rmid, tmp );
+  r[${nlimbs}:2*${nlimbs}] = rmid;
 
   _, sa += 0 + cf;
   cf, r[3*${nlimbs}] += sa;
-//  dhi = r[3*${nlimbs}:${nlimbs}];
-  _, r[3*${nlimbs}:${nlimbs}] = ${qualBN}__carrypropU( r[3*${nlimbs}:${nlimbs}], cf , 1);
-//  r[3*${nlimbs}:${nlimbs}] = dhi;
+  rhihi = r[3*${nlimbs}:${nlimbs}];
+  _, rhihi = ${qualBN}__carrypropU( rhihi, cf , 1);
+  r[3*${nlimbs}:${nlimbs}] = rhihi;
 
-  return tmp, r;
+  return r;
 }
 
 inline fn ${qual}_kar_muln_
@@ -116,10 +124,8 @@ inline fn ${qual}_kar_muln_
 , reg const ptr u64[2*${nlimbs}] a b
 ) -> reg ptr u64[4*${nlimbs}]
 {
-  stack u64[4*${nlimbs}] _tmp;
-  reg ptr u64[4*${nlimbs}] tmp;
-
-  tmp = _tmp;
-  _, r = ${qual}_kar_muln(r, tmp, a, b);
+  r = r; a = a; b = b;
+  r = ${qual}_kar_muln(r, a, b);
+  r = r;
   return r;
 }
