@@ -15,9 +15,17 @@
     , 'nlimbs': 'NLIMBS'
     } )
 
+, ( "bn_mul"
+  , { 'qual': 'BN'
+    , 'qualBN': 'BN'
+    , 'qualUTIL': 'BN'
+    , 'nlimbs': 'NLIMBS'
+    } )
+
 , ( "fp_mont"
   , { 'qual': 'FPM'
     , 'qualBN': 'BN'
+    , 'qualBNMUL': 'BN'
     , 'qualFP': 'FPM'
     , 'nlimbs': 'NLIMBS'
     , 'glob_P': 'glob_p'
@@ -26,6 +34,8 @@
     , 'glob_exp0': 'glob_oneM'
     , 'glob_Pm2': 'glob_pm2'
     , 'glob_rMP': 'glob_rM'
+    , 'fun_muln': 'BN_ps_muln_'
+    , 'fun_sqrn': 'BN_ps_sqrn_'
     }
   )
 
@@ -34,6 +44,7 @@
     , 'qualUTIL': 'BN'
     , 'qualBN': 'BN'
     , 'qualBNRND': 'BN'
+    , 'qualBNMUL': 'BN'
     , 'qualBNE': 'FPM'
     , 'nlimbs': 'NLIMBS'
     , 'nlimbsexp': 'NLIMBS'
@@ -41,7 +52,10 @@
     , 'glob_mP': 'glob_mp'
     , 'glob_exp0': 'glob_oneM'
     , 'glob_Pm2': 'glob_pm2'
-    , 'fun_red': 'FPM_redM_' }
+    , 'fun_red': 'FPM_redM_'
+    , 'fun_muln': 'BN_ps_muln_'
+    , 'fun_sqrn': 'BN_ps_sqrn_'
+    }
   )
 
 , ( "bn_exp"
@@ -52,7 +66,8 @@
     , 'nlimbsexp': 'NLIMBS'
     , 'glob_exp0': 'glob_oneM'
     , 'fun_mulU': 'FPM_mulmU_'
-    , 'fun_sqrU': 'FPM_sqrmU_'}
+    , 'fun_sqrU': 'FPM_sqrmU_'
+    }
   )
 
 , ( "bn_base_export"
@@ -67,6 +82,35 @@
     }
   )
 ) 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 

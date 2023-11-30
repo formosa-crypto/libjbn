@@ -70,17 +70,15 @@ inline fn ${qual}_fromM_
 }
 
 
-/*
-require "fp_base" as "FPM"
- with { nlimbs = NLIMBS;
-        glob_exp0 = glob_exp0;
-        glob_Pm2 = glob_Pm2;
-	fun_red = FPM_redM;
-	fun_muln = BNMUL_muln_;
-	fun_sqrn = BNMUL_sqrn_;
-      }
 
-*/
+//require "fp_base" as "FPM"
+// with { nlimbs = NLIMBS;
+//        glob_exp0 = glob_exp0;
+//        glob_Pm2 = glob_Pm2;
+//  fun_red = FPM_redM;
+//  fun_muln = BNMUL_muln_;
+//  fun_sqrn = BNMUL_sqrn_;
+//      }
 
 from MJazz require "${qualFP}_fp_base.jinc"
 
