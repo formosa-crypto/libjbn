@@ -166,21 +166,16 @@ $(CID): ; mkdir -p $@
 reporter:
 	$(MAKE) reporter_fp_compile
 	$(MAKE) reporter_fp_run
-	$(MAKE) reporter_fp_checksums
 	$(MAKE) $(CI_TAR_NAME)
 
 reporter_fp_compile:
-	./../scripts/ci/reporter/jlog "Status: fp: $(TEST)/$(BIN)/fp/*.bin" $(TEST)/$(BIN)/fp/$(CID)/ "*.bin" $(CICL)
+	./../scripts/ci/reporter/jlog "Status: fp: $(BENCH)/$(BIN)/fp/*.bin" $(BENCH)/$(BIN)/fp/$(CID)/ "*.bin" $(CICL)
 
 reporter_fp_run:
-	./../scripts/ci/reporter/jlog "Status: fp $(TEST)/$(BIN)/fp/*.out" $(TEST)/$(BIN)/fp/$(CID)/ "*.out" $(CICL)
+	./../scripts/ci/reporter/jlog "Status: fp $(BENCH)/$(BIN)/fp/*.out" $(BENCH)/$(BIN)/fp/$(CID)/ "*.out" $(CICL)
 
-reporter_fp_checksums:
-	./scripts/checksum-compare.sh $(BIN)/ libjbn gmp
-	./../scripts/ci/reporter/jlog "Status: $(TEST)/$(BIN)/fp/*.checksum*" $(TEST)/$(BIN)/fp/ "*checksum_match_with*" $(CICL)
-
-CI_ERR := $(shell test -d $(TEST)/$(BIN)/ && find $(TEST)/$(BIN)/ -name '*.error')
-CI_WARNINGS := $(shell test -d $(TEST)/$(BIN)/ && find $(TEST)/$(BIN)/ -name '*.log')
+CI_ERR := $(shell test -d $(BENCH)/$(BIN)/ && find $(BENCH)/$(BIN)/ -name '*.error')
+CI_WARNINGS := $(shell test -d $(BENCH)/$(BIN)/ && find $(BENCH)/$(BIN)/ -name '*.log')
 
 CI_FILES_TO_TAR := $(CI_ERR) $(CI_WARNINGS)
 
