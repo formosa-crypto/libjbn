@@ -4,7 +4,7 @@
 
 #include "libjbn_fp.h"
 
-#define NLIMBS 16
+#define NLIMBS 32
 
 uint64_t t[NLIMBS] =
  { 0x0000000000000001,
@@ -22,7 +22,24 @@ uint64_t t[NLIMBS] =
    0x000000000000000D,
    0x000000000000000E,
    0x000000000000000F,
-   0x0000000000000000 };
+   0x0000000000000000,
+   0x7000000000000001,
+   0x7000000000000002,
+   0x7000000000000003,
+   0x7000000000000004,
+   0x7000000000000005,
+   0x7000000000000006,
+   0x7000000000000007,
+   0x7000000000000008,
+   0x7000000000000009,
+   0x700000000000000A,
+   0x700000000000000B,
+   0x700000000000000C,
+   0x700000000000000D,
+   0x700000000000000E,
+   0x700000000000000F,
+   0x7000000000000000
+ };
 
 uint64_t e[NLIMBS] =
  { 0x0000000000010001
@@ -41,25 +58,57 @@ uint64_t e[NLIMBS] =
  , 0x0000000000000000
  , 0x0000000000000000
  , 0x0000000000000000
+ , 0x0000000000000000
+ , 0x0000000000000000
+ , 0x0000000000000000
+ , 0x0000000000000000
+ , 0x0000000000000000
+ , 0x0000000000000000
+ , 0x0000000000000000
+ , 0x0000000000000000
+ , 0x0000000000000000
+ , 0x0000000000000000
+ , 0x0000000000000000
+ , 0x0000000000000000
+ , 0x0000000000000000
+ , 0x0000000000000000
+ , 0x0000000000000000
+ , 0x0000000000000000
  };
 
 uint64_t d[NLIMBS] =
- { 0x3301a94c920f1401
- , 0xa5ce65f4ac505540
- , 0x371015f103d36561
- , 0xaef9b1cb4dc7dd4c
- , 0x2bf3c2dd9dab6333
- , 0xd8c6cd42fef697c2
- , 0x45fb1e9c2fe4f11f
- , 0x976a220e1b8df884
- , 0xe74f8ae02ebfe893
- , 0x738a1f49bab32eb0
- , 0x9525b641bb34708d
- , 0x145cebd06564c9af
- , 0x2d258af688c45c14
- , 0x17dde7f87432bb9a
- , 0x3172fb15a80ee3a8
- , 0x7f6fea75cf31df57
+ { 0x47e44001b773f7d1
+ , 0xcddde295ac52e1a0
+ , 0xabcd93e09f8faccc
+ , 0x37e9f3cb4434712f
+ , 0x3a99e19c07ade1bc
+ , 0xd1883cc42f279072
+ , 0x65cf15dd7f56c7bc
+ , 0x99721207f0356b3d
+ , 0x570ecb48511ffa41
+ , 0xcf21a8b342057c61
+ , 0x2afb3b1e7d90274a
+ , 0xadc3fdd28cdf919a
+ , 0x9ea07a310796c838
+ , 0x7f01483e5f8eb336
+ , 0x8b6603ef670efea3
+ , 0xbce818fb7cda2b43
+ , 0x83f5eef33a809b66
+ , 0x583473da4a9ea3f5
+ , 0x32639661f8582697
+ , 0x0d3ecfa89fba77ff
+ , 0x584a5ab6870c1eab
+ , 0x4d11077d2c484359
+ , 0x7628d6d96988c278
+ , 0x78a1ff570cb53baf
+ , 0x8603c8bab0fec4d9
+ , 0x4c85748e6fad5264
+ , 0x48cd9c4f559eeef4
+ , 0x72e2f32fb36551ee
+ , 0xd1ccdbd795358406
+ , 0x8d9603af156a66c4
+ , 0x21b633861f82801f
+ , 0x5c51309af6d18a12
  };
 
 void bn_print(char* str, uint64_t x[]) {
@@ -97,13 +146,14 @@ int bn_check(char* str, uint64_t x[], uint64_t y[]) {
 int main() {
   uint64_t x[NLIMBS], y[NLIMBS];
   bn_copy(x, t);
-  bn_print("t=", x);
+  bn_print("t ", x);
   fp_toM(x, x);
-  bn_print("tM=", x);
+  bn_print("tM ", x);
   fp_exp(y, x, e);
-  bn_print("cM=", y);
+  bn_print("cM ", y);
   fp_exp(x, y, d);
-  bn_print("tM=", x);
+  bn_print("tM'", x);
   fp_fromM(x, x);
-  bn_print("t=", x);
+  bn_print("t'", x);
+  bn_check(" dec(enc(t))==t", t, x);
 }

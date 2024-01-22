@@ -17,7 +17,7 @@ test_rsapss: test_rsapss.c rsapss.s
 	$(GCC) -o $@ $^
 
 
-%.s: %.jinc
+%.s: %.jinc rsa_keys.jinc
 	python3 $(PROCMJAZZ) `basename $< .jinc`
 	$(JASMINC) $(JFLAGS) -I MJazz:$(MJAZZDIRPREFIX)`basename $< .jinc` -o $@ $<
 
