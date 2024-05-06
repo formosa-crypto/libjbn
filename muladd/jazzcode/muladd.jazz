@@ -1,0 +1,65 @@
+require "config.jinc"
+require "muladd.jinc"
+
+/*
+ * Muladd
+ *
+ * Description:
+ *  - This function does: (x * 2^{64} + z) % m
+ *
+ * Assumptions:
+ *  - x & m are distinct arrays with the same length;
+ *  - The length of x and m is leaked;
+ *	- z has to fit in a 64 bit word;
+ *  - Both x and m have fixed max length nlimbs
+ *
+ * Input:
+ *  - array x of size nlimbs
+ *  - word z of size 64 bits
+ *  - array m of size nlimbs
+ *
+ * Output:
+ *  - array x := x % m
+ */
+export
+fn br_muladd(reg u64 _x _z _m _xlen _mlen) 
+{
+	reg u64 t64 xlen mlen;
+	reg u256 t;
+	stack u64 s_x s_z s_m s_xlen s_mlen;
+
+	reg u64 z;
+	stack u64[nlimbs + 1] x;
+	stack u64[nlimbs] m;
+
+	inline int i;
+
+	xlen = [_xlen + 0];
+	for i=0 to nlimbs+1
+	{
+		t64 = [_x + i*8];
+		x[i] = t64;
+	}
+	mlen = [_mlen + 0];
+	for i=0 to 8
+	{
+		t = (u256)[_m + i*32];
+		m[u256 i] = t;
+	}
+	z = [_z + 0];
+	s_x = _x;
+	s_z = _z;
+	s_m = _m;
+	s_xlen = _xlen;
+	s_mlen = _mlen;
+
+	x = _br_muladd(x, z, m, xlen, mlen);
+	
+	_x = s_x;
+	for i=0 to nlimbs+1
+	{
+		t64 = x[i];
+		[_x + i*8] = t64;
+	}
+
+}

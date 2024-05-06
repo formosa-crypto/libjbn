@@ -1,0 +1,33 @@
+( ( "bn_util"
+  , { 'qual': 'BN'
+    }
+  )
+
+, ( "bn_base"
+  , { 'qual': 'BN'
+    , 'qualUTIL': 'BN'
+    , 'nlimbs': 'nlimbs'}
+  )
+
+, ( "bn_base"
+  , { 'qual': 'BN2'
+    , 'qualUTIL': 'BN'
+    , 'nlimbs': '2*nlimbs'}
+  )
+
+, ( "bn_mul"
+  , { 'qual': 'BN'
+    , 'qualBN': 'BN'
+    , 'qualUTIL': 'BN'
+    , 'nlimbs': 'nlimbs'
+    }
+  )
+
+, ( "bn_mul_export"
+  , { 'qualBN': 'BN'
+    , 'qualBN2': 'BN2'
+    , 'qualBNMUL': 'BN'
+    , 'nlimbs': 'nlimbs'
+    }
+  )
+)

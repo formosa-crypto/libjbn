@@ -1,0 +1,101 @@
+( ( "bn_util"
+  , { 'qual': 'BN'
+    }
+  )
+
+, ( "bn_base"
+  , { 'qual': 'BN'
+    , 'qualUTIL': 'BN'
+    , 'nlimbs': 'sike434_nlimbs'}
+  )
+
+, ( "bn_base"
+  , { 'qual': 'BN2'
+    , 'qualUTIL': 'BN'
+    , 'nlimbs': '2*sike434_nlimbs'}
+  )
+
+, ( "bn_rnd"
+  , { 'qual': 'BN'
+    , 'qualBN': 'BN'
+    , 'nlimbs': 'sike434_nlimbs'
+    } )
+
+, ( "bn_mul"
+  , { 'qual': 'BN'
+    , 'qualBN': 'BN'
+    , 'qualUTIL': 'BN'
+    , 'nlimbs': 'sike434_nlimbs'
+    }
+  )
+
+, ( "fp_mont"
+  , { 'qual': 'FPM'
+    , 'qualBN': 'BN'
+    , 'qualBNMUL': 'BN'
+    , 'qualFP': 'FPM'
+    , 'nlimbs': 'sike434_nlimbs'
+    , 'glob_P': 'sike434_glob_P'
+    , 'glob_mP': 'sike434_glob_mP'
+    , 'glob_P0i': 'sike434_glob_P0i'
+    , 'glob_exp0': 'sike434_glob_oneMP'
+    , 'glob_Pm2': 'sike434_glob_Pm2'
+    , 'glob_rMP': 'sike434_glob_rMP'
+    , 'fun_muln': 'BN_ps_muln_'
+    , 'fun_sqrn': 'BN_ps_sqrn_'
+    }
+  )
+
+, ( "fp_base"
+  , { 'qual': 'FPM'
+    , 'qualUTIL': 'BN'
+    , 'qualBN': 'BN'
+    , 'qualBNRND': 'BN'
+    , 'qualBNMUL': 'BN'
+    , 'qualBNE': 'FPM'
+    , 'nlimbs': 'sike434_nlimbs'
+    , 'nlimbsexp': 'sike434_nlimbs'
+    , 'glob_P': 'sike434_glob_P'
+    , 'glob_mP': 'sike434_glob_mP'
+    , 'glob_exp0': 'sike434_glob_oneMP'
+    , 'glob_Pm2': 'sike434_glob_Pm2'
+    , 'fun_red': 'FPM_redM_'
+    , 'fun_muln': 'BN_ps_muln_'
+    , 'fun_sqrn': 'BN_ps_sqrn_'
+    }
+  )
+
+, ( "bn_exp"
+  , { 'qual': 'FPM'
+    , 'qualUTIL': 'BN'
+    , 'qualBN': 'BN'
+    , 'nlimbs': 'sike434_nlimbs'
+    , 'nlimbsexp': 'sike434_nlimbs'
+    , 'glob_exp0': 'sike434_glob_oneMP'
+    , 'fun_mulU': 'FPM_mulmU_'
+    , 'fun_sqrU': 'FPM_sqrmU_'}
+  )
+
+, ( "bn_base_export"
+  , { 'qualBN': 'BN'
+    , 'nlimbs': 'sike434_nlimbs'}
+  )
+
+, ( "bn_mul_export"
+  , { 'qualBNMUL': 'BN'
+    , 'qualBN': 'BN'
+    , 'qualBN2': 'BN2'
+    , 'nlimbs': 'sike434_nlimbs'
+    }
+  )
+
+, ( "fp_mont_export"
+  , { 'qualFPM': 'FPM'
+    , 'qualBN': 'BN'
+    , 'nlimbs': 'sike434_nlimbs'
+    }
+  )
+) 
+
+
+

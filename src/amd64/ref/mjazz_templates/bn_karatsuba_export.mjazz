@@ -1,0 +1,44 @@
+
+
+from MJazz require "${qualBN}_bn_base.jinc"
+from MJazz require "${qualBN2}_bn_base.jinc"
+from MJazz require "${qualBNKAR}_bn_karatsuba.jinc"
+
+export fn bn_kar_muln(reg u64 rp ap bp)
+{
+  stack u64[${nlimbs}] _a _b;
+  stack u64[2*${nlimbs}] _r;
+  stack u64 _rp;
+  reg ptr u64[${nlimbs}] a b;
+  reg ptr u64[2*${nlimbs}] r;
+
+  _rp = rp;
+  a = _a;
+  a = ${qualBN}_load_(a,ap);
+  b = _b;
+  b = ${qualBN}_load_(b,bp);
+  r = _r;
+  r = ${qualBNKAR}_kar_muln_(r, a, b);
+  rp = _rp;
+  ${qualBN2}_store_(rp, r);
+}
+
+/*
+export fn bn_kar_sqrn(reg u64 rp ap)
+{
+  stack u64[${nlimbs}] _a;
+  stack u64[2*${nlimbs}] _r;
+  stack u64 _rp;
+  reg ptr u64[${nlimbs}] a;
+  reg ptr u64[2*${nlimbs}] r;
+
+  _rp = rp;
+  a = _a;
+  a = ${qualBN}_load_(a, ap);
+  r = _r;
+  r = ${qualBNKAR}_kar_sqrn_(r, a);
+  rp = _rp;
+  ${qualBN2}_store_(rp, r);
+}
+*/
+

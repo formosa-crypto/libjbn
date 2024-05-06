@@ -1,0 +1,51 @@
+/* This file is indeed a template for a pyhton prototype
+   intended to emulate and exercise the "Parametric Modules"
+   feature propose in https://github.com/jasmin-lang/jasmin/issues/519.
+
+BN_RND_FNS = _rnd_ _rsample_
+
+*/
+
+modsignature { param int nlimbs; }
+
+from Libjbn require "bn_base.mjazz"
+ with { nlimbs = nlimbs; }
+
+/*
+/* random bytes */
+inline fn _randombytes_
+( reg mut ptr u64[nlimbs] a
+, inline int n
+) -> reg ptr u64[nlimbs] {
+  reg ptr u8[8*nlimbs] a_;
+  reg ptr u8[n] tmp; // OBS: not allowed!!!
+  a_ = a;
+  tmp = a_[0:n];
+  tmp = #randombytes(tmp);
+  return a;
+}
+*/
+
+/* random number */
+inline fn _rnd_
+( reg mut ptr u64[nlimbs] a
+) -> reg ptr u64[nlimbs] {
+  a = a;
+  a = #randombytes(a);
+  a = a;
+  return a;
+}
+
+/* rejection sampling */
+inline fn _rsample_
+( reg mut ptr u64[nlimbs] a
+, reg const ptr u64[nlimbs] bnd
+) -> reg ptr u64[nlimbs] {
+  reg bool cf;
+  while {
+    a = _rnd_(a);
+    cf = BN._lt_cf_(a, bnd);
+  }(!cf)
+  return a;
+}
+

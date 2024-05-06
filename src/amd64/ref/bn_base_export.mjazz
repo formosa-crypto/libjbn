@@ -1,0 +1,111 @@
+modsignature { param int nlimbs; }
+
+from Libjbn require "bn_base.mjazz" with { nlimbs = nlimbs; }
+
+
+export fn bn_eq(reg u64 ap bp) -> reg u64
+{
+  stack u64[nlimbs] _a _b;
+  reg ptr u64[nlimbs] a b;
+  reg u64 r;
+
+  a = _a;
+  a = _load_(a, ap);
+  b = _b;
+  b = _load_(b, bp);
+  r = _eq_(a, b);
+  r = r;
+  return r;
+}
+
+export fn bn_test0(reg u64 ap) -> reg u64
+{
+  stack u64[nlimbs] _a;
+  reg ptr u64[nlimbs] a;
+  reg u64 r;
+  a = _a;
+  a = _load_(a, ap);
+  r = _test0_(a);
+  r = r; // avoid extra assignment warning
+  return r;
+}
+
+export fn bn_copy(reg u64 rp ap)
+{
+  inline int i;
+  reg u64 t;
+
+  for i = 0 to nlimbs {
+    t = [ap + 8*i];
+    [rp + 8*i] = t;
+  }
+}
+
+export fn bn_set0(reg u64 rp)
+{
+  inline int i;
+
+  for i = 0 to nlimbs {
+    [rp + 8*i] = 0;
+  }
+}
+
+export fn bn_addU(reg u64 rp ap bp)
+{
+  stack u64[nlimbs] _a _b;
+  reg ptr u64[nlimbs] a b;
+
+  a = _a;
+  a = _load_(a, ap);
+  b = _b;
+  b = _load_(b, bp);
+  _, a = _addU_(a, b);
+  _store_(rp, a);
+}
+
+export fn bn_subU(reg u64 rp ap bp)
+{
+ stack u64[nlimbs] _a _b;
+ reg ptr u64[nlimbs] a b;
+
+ a = _a;
+ a = _load_(a,ap);
+ b = _b;
+ b = _load_(b,bp);
+ _, a = _subU_(a, b);
+ _store(rp, a);
+}
+
+/*
+export fn bn_muln(reg u64 rp ap bp)
+{
+  stack u64[nlimbs] _a _b;
+  stack u64[2*nlimbs] _r;
+  reg ptr u64[nlimbs] a b;
+  reg ptr u64[2*nlimbs] r;
+
+  a = _a;
+  a = _load_(a,ap);
+  b = _b;
+  b = _load_(b,bp);
+  r = _r;
+  r = _muln(r, a, b);
+  BN2_store(rp, r);
+}
+
+export fn bn_sqrn(reg u64 rp ap)
+{
+  stack u64[nlimbs] _a;
+  stack u64[2*nlimbs] _r;
+  reg ptr u64[nlimbs] a;
+  reg ptr u64[2*nlimbs] r;
+
+  a = _a;
+  _a = _load_(a, ap);
+  r = _r;
+  r = _sqrn_(a, r);
+  BN2_store(rp, r);
+}
+*/
+
+

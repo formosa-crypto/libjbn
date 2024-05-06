@@ -1,0 +1,158 @@
+/* (emulation of https://github.com/jasmin-lang/jasmin/issues/519)
+
+
+modsignature {
+  int nlimbs;		// num. limbs
+  u64[nlimbs] glob_P;
+  u64[nlimbs] glob_mP;
+  u64[limbs] glob_exp0;
+  u64[nlimbs] glob_Pm2;
+  fn fun_red ( reg const ptr u64[2*nlimbs]
+             , reg mut ptr u64[nlimbs)
+             ) -> reg ptr u64[nlimbs]
+}
+
+require "bn_base" as "BN"
+  with { nlimbs = nlimbs; }
+
+*/
+
+require "BN_bn_base.jinc" // BN qualified
+
+
+inline fn ${qual}__addmU
+ ( reg mut ptr u64[${nlimbs}] a
+ , reg const ptr u64[${nlimbs}] b
+ ) -> reg ptr u64[${nlimbs}]
+{
+  reg bool cf;
+  reg u64 lastbit;
+  reg ptr u64[${nlimbs}] tmp;
+
+  cf, a = ${qualBN}__addU(a, b);
+
+  lastbit = 0;
+  _, lastbit += 0 + cf;
+  tmp = ${glob_mP};
+  a = ${qualBN}__cminusP(lastbit, a, tmp);
+  return a;
+}
+
+/* Modular addition */
+fn ${qual}_addmU
+( reg mut ptr u64[${nlimbs}] a
+, reg const ptr u64[${nlimbs}] b
+) -> reg ptr u64[${nlimbs}] {
+  a = ${qual}__addmU(a, b);
+ return a;
+}
+
+// ////////////////////////////////////
+
+inline fn ${qual}__submU
+( reg mut ptr u64[${nlimbs}] a
+, reg const ptr u64[${nlimbs}] b
+) -> reg ptr u64[${nlimbs}] {
+ reg bool cf;
+ reg ptr u64[${nlimbs}] tmp;
+ cf, a = ${qualBN}__subU(a, b);
+ tmp = ${glob_P};
+ a = ${qualBN}__caddU(cf, a, tmp);
+ return a;
+}
+
+/* Modular subtraction */
+fn ${qual}_submU
+( reg mut ptr u64[${nlimbs}] a
+, reg const ptr u64[${nlimbs}] b
+) -> reg ptr u64[${nlimbs}] {
+ a = ${qual}__submU(a, b);
+ return a;
+}
+
+/* Modular multiplication */
+fn ${qual}_mulm
+( reg ptr u64[${nlimbs}] a b
+, reg mut ptr u64[${nlimbs}] r
+) -> reg ptr u64[${nlimbs}] {
+  stack u64[2*${nlimbs}] _tmp;
+  reg ptr u64[2*${nlimbs}] tmp;
+
+  tmp = _tmp;
+  tmp = ${qualBN}__muln(a, b, tmp);
+  r = ${fun_red}(tmp, r);
+  return r;
+}
+
+// ////////////////////////////////////
+
+fn ${qual}_mulmU // update inplace
+( reg mut ptr u64[${nlimbs}] a
+, reg ptr u64[${nlimbs}] b
+) -> reg ptr u64[${nlimbs}] {
+  stack u64[2*${nlimbs}] _tmp;
+  reg ptr u64[2*${nlimbs}] tmp;
+  tmp = _tmp;
+  tmp = ${qualBN}__muln(a, b, tmp);
+  a = ${fun_red}(tmp, a);
+  return a;
+}
+
+// ////////////////////////////////////
+
+fn ${qual}_sqrm
+( reg ptr u64[${nlimbs}] a
+, reg mut ptr u64[${nlimbs}] r
+) -> reg ptr u64[${nlimbs}] {
+  stack u64[2*${nlimbs}] _tmp;
+  reg ptr u64[2*${nlimbs}] tmp;
+
+  tmp = _tmp;
+  tmp = ${qualBN}__sqrn(a, tmp);
+  r = ${fun_red}(tmp, r);
+  return r;
+}
+
+// ////////////////////////////////////
+
+fn ${qual}_sqrmU // update inplace
+( reg mut ptr u64[${nlimbs}] a
+) -> reg ptr u64[${nlimbs}] {
+  stack u64[2*${nlimbs}] _tmp;
+  reg ptr u64[2*${nlimbs}] tmp;
+  tmp = _tmp;
+  tmp = ${qualBN}__sqrn(a, tmp);
+  a = ${fun_red}(tmp, a);
+  return a;
+}
+
+// ////////////////////////////////////
+
+/*
+// ???obs: import without qualifier -- declarations
+// are added to the "current" scope
+// ???obs2: alternative: reuse qualifier
+
+require "bn_exp.jinc" // as ${qual}
+ with { nlimbs = nlimbs;
+        nlimbsexp = nlimbs;
+        glob_exp0 = glob_exp0;
+        fun_mulU = ${qual}_mulmU;
+        fun_sqrU = ${qual}_sqrmU;
+      }
+*/
+require "${qual}_exp.jinc" 
+
+
+/* Modular Inversion (fermat) */
+inline fn ${qual}__invm
+( reg const ptr u64[${nlimbs}] a
+, reg mut ptr u64[${nlimbs}] r
+) -> reg ptr u64[${nlimbs}] {
+  /* a^{p-2} */
+  reg ptr u64[${nlimbs}] Pm2;
+  Pm2 = ${glob_Pm2};
+  r = ${qual}_expm_noct(a, Pm2, r);
+  return r;
+}
+

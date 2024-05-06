@@ -1,0 +1,290 @@
+require "config.jinc"
+require "common_u64.jinc"
+require "divrem.jinc"
+require "br_add.jinc"
+require "br_sub.jinc"
+
+/*
+ * Copy from:
+ *  1 => 0
+ *   till...
+ *  nlimbs => nlimbs-1
+ *  nlimbs is left empty
+ *  the highest u64 word is not copied
+ */
+fn copy_array(reg ptr u64[nlimbs+1] x, reg u64 pos_src pos_dst)
+-> reg ptr u64[nlimbs+1]
+{
+	reg u64 t;
+
+	while(pos_src < nlimbs + 1)
+	{
+		t = x[pos_src];
+		x[pos_dst] = t;
+		pos_dst = pos_src; /* Discuss which is better - move vs add */
+		pos_src += 1;
+	}
+
+	return x;
+}
+
+/*
+ * Muladd
+ *
+ * Description:
+ *  - This function does: (x * 2^{64} + z) % m
+ *
+ * Assumptions:
+ *  - x & m are distinct arrays with the same bit-length;
+ *  - m ocupies ita entire bit-length;
+ *  - The length of x and m is leaked;
+ *	- z has to fit in a 64 bit word;
+ *  - Both x and m have fixed max length nlimbs
+ *  - The most significant word comes first
+ *
+ * Input:
+ *  - array x of size nlimbs
+ *  - word z of size 64 bits
+ *  - array m of size nlimbs
+ *  - sizes of arrays x and m
+ *
+ * Output:
+ *  - array x := (x*2^64+z) % m
+ */
+fn __br_muladd(
+   reg ptr u64[nlimbs + 1] x
+ , reg u64 z
+ , reg ptr u64[nlimbs] m
+ , reg u64 x_bitlen m_bitlen
+) -> reg ptr u64[nlimbs+1]
+{
+	reg bool zf cf sf;
+	reg u64 u mw zw zl1 zl2 cc xw nxw overflow overflow2 over under;
+	reg u64 hi lo m1 q r g rem a0 a1 a2 a3 b0 b1 tb;
+	reg u64 mlen mblr;
+	reg u64 aux aux1 aux2;
+
+	reg u128 zl z_aux;
+
+
+	stack ptr u64[nlimbs] s_x s_m;
+
+	/*
+	 * We can test on the modulus bit length since we accept to
+	 * leak that length.
+	 */
+	if(m_bitlen < 65)
+	{
+		if(m_bitlen != 0)
+		{
+			hi = x[nlimbs];
+			lo = z;
+			m1 = m[nlimbs-1];
+
+			q, r = _divrem(hi, lo, m1, q, rem);
+			x[nlimbs] = r;
+		}
+	}
+	else
+	{
+		// compute idx of our u64 highest word and nº of bits in it
+		// Notice if we have a single extra bit we have +1 word
+		// Notice our big int has its highest bit on the left
+		aux = m_bitlen;
+		aux += 63;
+		_, _, _, _, _, aux = #SHR(aux, 6);
+		aux -= 1;
+		mlen = nlimbs;
+		mlen -= aux;
+		mblr = m_bitlen;
+		mblr &= 63;
+
+		/*
+		 * Principle: we estimate the quotient (x*2^31+z)/m by
+		 * doing a 64/32 division with the high words.
+		 *
+		 * Let:
+		 *   w = 2^31
+		 *   a = (w*a0 + a1) * w^N + a2
+		 *   b = b0 * w^N + b2
+		 * such that:
+		 *   0 <= a0 < w
+		 *   0 <= a1 < w
+		 *   0 <= a2 < w^N
+		 *   w/2 <= b0 < w
+		 *   0 <= b2 < w^N
+		 *   a < w*b
+		 * I.e. the two top words of a are a0:a1, the top word of b is
+		 * b0, we ensured that b0 is "full" (high bit set), and a is
+		 * such that the quotient q = a/b fits on one word (0 <= q < w).
+		 *
+		 * If a = b*q + r (with 0 <= r < q), we can estimate q by
+		 * doing an Euclidean division on the top words:
+		 *   a0*w+a1 = b0*u + v  (with 0 <= v < b0)
+		 * Then the following holds:
+		 *   0 <= u <= w
+		 *   u-2 <= q <= u
+		 */
+		hi = x[mlen];
+		a0 = x[mlen];
+		aux = mlen;
+		aux += 1;
+		aux1 = mlen;
+		x = copy_array(x, aux, aux1);
+		x[nlimbs] = z; 					// fill last u64 with z
+		a1 = x[mlen];
+		b0 = m[mlen-1];
+
+		/*
+		 * We estimate a divisor q. If the quotient returned by br_div()
+		 * is g:
+		 * -- If a0 == b0 then g == 0; we want q = 0xFFFFFFFFFFFFFFFF.
+		 * -- Otherwise:
+		 *    -- if g == 0 then we set q = 0;
+		 *    -- otherwise, we set q = g - 1.
+		 * The properties described above then ensure that the true
+		 * quotient is q-1, q or q+1.
+		 *
+		 * The original version had a0 with 30 valid bits and a1 with
+		 *  32 valid bits for division. Since we have full words we 
+		 *  just use a0 and a1.
+		 */
+		g, _ = _divrem(a0, a1, b0, g, r);
+		a2 = g;
+		a2 -= 1;
+		aux = 0; 
+		_, _, _, zf, _ = #CMP(g, aux);
+		aux = 0;
+		a2 = aux if zf;
+
+		_, _, _, zf, _ = #CMP(b0,a0);
+		q = a2;
+		aux = 0xFFFFFFFFFFFFFFFF;
+		q = aux if zf;
+
+		/*
+		 * We subtract q*m from x (with the extra high word of value 'hi').
+		 * Since q may be off by 1 (in either direction), we may have to
+		 * add or subtract m afterwards.
+		 *
+		 * The 'tb' flag will be true (1) at the end of the loop if the
+		 * result is greater than or equal to the modulus (not counting
+		 * 'hi' or the carry).
+		 */
+		overflow = 0;
+		cc = 0;
+		tb = 1;
+		u = nlimbs;
+		while(u >= mlen)
+		{
+			// mw = m[u]
+			aux = u;
+			aux -= 1;
+			mw = m[aux];
+
+			// zl = MUL(mw, q) + cc; Produces at most 128 bits
+			zl2 = q;
+			_, _, _, _, _, zl1, zl2 = #MUL(zl2, mw);
+			
+			_, cf, _, _, _, zl2 = #ADD(zl2, cc);
+			_, cf, _, _, _, zl1 = #ADC(zl1, overflow, cf);
+			cc = zl1;
+			overflow = 0;
+			overflow2 = 1;
+			overflow = overflow2 if cf;
+			
+			// xw = x[u];
+			xw = x[u];
+			// nxw = xw - zw;
+			nxw = xw;
+			_, cf, _, _, _, nxw = #SUB(nxw, zl2);
+			// if zl2 > nxw we enter the negative realm... words are unsigned...
+
+
+			// cc += (uint64_t)GT(nxw, xw); the original leftmost bit will be 1
+			_, cf, _, _, _, cc = #ADC(cc, 0, cf);
+			
+			// x[u] = nxw;
+			x[u] = nxw;
+
+			// tb = MUX(EQ(nxw, mw), tb, GT(nxw, mw))
+			// _, cf, _, zf, _ = #CMP(nxw, mw)
+			// EQ => zf = 1; GT => zf = 0 cf = 0 
+
+			_, cf, _, zf, _ = #CMP(nxw, mw);
+			aux1 = 1;
+			aux = 0;
+			aux1 = aux if cf;
+			aux = 0;
+			aux2 = 1;
+			aux = aux2 if zf;
+			aux1 &= aux;
+			tb = aux1 if aux == 1;
+
+			u -= 1;
+		}
+
+		/*
+		 * If we underestimated q, then either cc < hi (one extra bit
+		 * beyond the top array word), or cc == hi and tb is true (no
+		 * extra bit, but the result is not lower than the modulus). In
+		 * these cases we must subtract m once.
+		 *
+		 * Otherwise, we may have overestimated, which will show as
+		 * cc > hi (thus a negative result). Correction is adding m once.
+		 */
+		// chf = (uint32_t)(cc >> 32);
+		// clow = (uint32_t)cc;
+		// over = chf | GT(clow, hi);
+		_, cf, _, _, _ = #CMP(cc,hi);
+		over = 0;
+		aux = 1;
+		over = aux if cf;
+		over |= overflow;
+
+	   	// under = ~over & (tb | (~chf & LT(clow, hi)));
+		_, cf, _, _, _ = #CMP(cc, hi);
+		aux = 0;
+		aux1 = 1;
+		aux = aux1 if cf;
+		aux1 = overflow;
+		aux1 ^= 0xFFFFFFFFFFFFFFFF;
+
+		aux1 &= aux;
+		tb |= aux1;
+		under = over;
+		under ^= 0xFFFFFFFFFFFFFFFF;
+		under &= tb;
+
+
+
+		x = __br_add(x, m, over, x_bitlen);
+		x = __br_sub(x, m, under, x_bitlen);
+
+
+	}
+
+	return x;
+} 
+
+
+inline
+fn _br_muladd(
+   stack u64[nlimbs+1] x
+ , reg u64 z
+ , stack u64[nlimbs] m
+ , reg u64 xlen mlen
+) -> stack u64[nlimbs+1]
+{
+	reg ptr u64[nlimbs+1] a;
+	reg ptr u64[nlimbs] b;
+	
+	a = x;
+	b = m;
+	a = __br_muladd(a, z, b, xlen, mlen);
+	x = a;
+
+	return x;
+}
+
+

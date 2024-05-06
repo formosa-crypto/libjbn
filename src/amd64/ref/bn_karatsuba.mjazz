@@ -1,0 +1,84 @@
+modsignature
+{ param int nlimbs;
+  fn fun_mulk (u64[2*nlimbs], u64[nlimbs], u64[nlimbs], u64[nlimbs]) -> u64[2*nlimbs], u64[nlimbs];
+}
+
+/*
+ 1:   2:    3:    4:    5:
+ 3 -> 6  -> 12 -> 23 -> 46
+ 4 -> 8  -> 16 -> 32 -> 64
+ 5 -> 10 -> 20 -> 40 -> 80
+
+(3 4) (3 4)
+
+
+5: 23 (?) 5
+6: 33
+7: 34
+8: 44
+9: 3(33)
+10: 4(33)
+11: 3(44)
+12: (33)(33)
+13: (33)(34)
+14: (33)(44)
+15: (34)(44)
+16: (44)(44)
+17: (34)(4(33))
+18: (44)(4(33))
+19: (44)(3(44))
+20: (44)(4(44))
+...
+*/
+
+
+from Libjbn require "bn_base.mjazz" as BN
+ with { nlimbs = nlimbs; }
+
+from Libjbn require "bn_base.mjazz" as BN2
+ with { nlimbs = 2*nlimbs; }
+
+
+/* ensures: res = (sign(a-b), |a-b|)*/
+inline fn __sub_signabs
+( reg mut ptr u64[nlimbs] r
+, reg const ptr u64[nlimbs] a b
+) -> reg u64, reg ptr u64[nlimbs]
+{
+  stack u64[nlimbs] tmp;
+  reg bool cf;
+  reg u64 sign; // 0/-1
+  cf, r = _sub_(r, a, b); // r = a-b
+  sign = 0;
+  _, sign -= 0 - cf; // cf == (sign==-1)
+  r = BN._cnegU_(r, sign);
+  return (sign, r);
+}
+
+fn bn_mul_kar
+( reg mut ptr u64[4*nlimbs] r
+, reg mut ptr u64[2*nlimbs] tmp
+, reg const ptr u64[2*nlimbs] a b
+) -> reg ptr u64[4*nlimbs], reg ptr u64[2*nlimbs]
+{
+  reg u64 sa sb;
+  reg bool cf;
+  sa, r[0:nlimbs] = __sub_signabs(r[0:nlimbs], a[0:nlimbs], a[nlimbs:nlimbs]);
+  sb, r[nlimbs:nlimbs] = __sub_signabs(r[nlimbs:nlimbs], b[nlimbs:nlimbs], b[0:nlimbs]);
+  sa ^= sb;
+
+  tmp,_ = _mulk_ps_( tmp, r[2*nlimbs:nlimbs], r[0:nlimbs], r[nlimbs:nlimbs] );
+  tmp = BN2_cnegU_(tmp, sa); // 2*nlimbs!!!
+
+  r[0:2*nlimbs],_ = fun_mulk( r[0:2*nlimbs], tmp[0:nlimbs], a[0:nlimbs], b[0:nlimbs] );
+  r[2*nlimbs:2*nlimbs],_ = fun_mulk( r[2*nlimbs:2*nlimbs], tmp[0:nlimbs], a[nlimbs:nlimbs], b[nlimbs:nlimbs] );
+
+  _, tmp = BN2._addU_( tmp, r[0:2*nlimbs] );
+  _, tmp = BN2._addU_( tmp, r[2*nlimbs:2*nlimbs] );
+  
+  cf, r[nlimbs:2*nlimbs] = BN2._addU_( r[nlimbs:2*nlimbs], tmp );
+  _, r[3*nlimbs:nlimbs] = BN.__carrypropU( r[3*nlimbs:nlimbs], cf , 0);
+
+  return r, tmp;
+}
+

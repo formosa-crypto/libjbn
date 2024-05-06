@@ -1,0 +1,123 @@
+( ( "bn_util"
+  , { 'qual': 'BN'
+    }
+  )
+
+, ( "bn_base"
+  , { 'qual': 'BN'
+    , 'qualUTIL': 'BN'
+    , 'nlimbs': 'modp2048_nlimbs'
+    }
+  )
+
+, ( "bn_rnd"
+  , { 'qual': 'BN'
+    , 'qualBN': 'BN'
+    , 'nlimbs': 'modp2048_nlimbs'
+    } )
+
+, ( "bn_mul"
+  , { 'qual': 'BN'
+    , 'qualBN': 'BN'
+    , 'qualUTIL': 'BN'
+    , 'nlimbs': 'modp2048_nlimbs'
+    } )
+
+, ( "fp_mont"
+  , { 'qual': 'FPM'
+    , 'qualBN': 'BN'
+    , 'qualBNMUL': 'BN'
+    , 'qualFP': 'FPM'
+    , 'nlimbs': 'modp2048_nlimbs'
+    , 'glob_P': 'modp2048_glob_P'
+    , 'glob_mP': 'modp2048_glob_mP'
+    , 'glob_P0i': 'modp2048_glob_P0i'
+    , 'glob_exp0': 'modp2048_glob_oneMP'
+    , 'glob_Pm2': 'modp2048_glob_Pm2'
+    , 'glob_rMP': 'modp2048_glob_rMP'
+    , 'fun_muln': 'BN_ps_muln_'
+    , 'fun_sqrn': 'BN_ps_sqrn_'
+    }
+  )
+
+, ( "fp_base"
+  , { 'qual': 'FPM'
+    , 'qualUTIL': 'BN'
+    , 'qualBN': 'BN'
+    , 'qualBNRND': 'BN'
+    , 'qualBNMUL': 'BN'
+    , 'qualBNE': 'FPM'
+    , 'nlimbs': 'modp2048_nlimbs'
+    , 'nlimbsexp': 'modp2048_nlimbs'
+    , 'glob_P': 'modp2048_glob_P'
+    , 'glob_mP': 'modp2048_glob_mP'
+    , 'glob_exp0': 'modp2048_glob_oneMP'
+    , 'glob_Pm2': 'modp2048_glob_Pm2'
+    , 'fun_red': 'FPM_redM_'
+    , 'fun_muln': 'BN_ps_muln_'
+    , 'fun_sqrn': 'BN_ps_sqrn_'
+    }
+  )
+
+, ( "bn_exp"
+  , { 'qual': 'FPM'
+    , 'qualUTIL': 'BN'
+    , 'qualBN': 'BN'
+    , 'nlimbs': 'modp2048_nlimbs'
+    , 'nlimbsexp': 'modp2048_nlimbs'
+    , 'glob_exp0': 'modp2048_glob_oneMP'
+    , 'fun_mulU': 'FPM_mulmU_'
+    , 'fun_sqrU': 'FPM_sqrmU_'
+    }
+  )
+
+, ( "fp_mont"
+  , { 'qual': 'FQM'
+    , 'qualBN': 'BN'
+    , 'qualBNMUL': 'BN'
+    , 'qualFP': 'FQM'
+    , 'nlimbs': 'modp2048_nlimbs'
+    , 'glob_P': 'modp2048_glob_Q'
+    , 'glob_mP': 'modp2048_glob_mQ'
+    , 'glob_P0i': 'modp2048_glob_Q0i'
+    , 'glob_exp0': 'modp2048_glob_oneMQ'
+    , 'glob_Pm2': 'modp2048_glob_Qm2'
+    , 'glob_rMP': 'modp2048_glob_rMQ'
+    , 'fun_muln': 'BN_ps_muln_'
+    , 'fun_sqrn': 'BN_ps_sqrn_'
+    }
+  )
+
+, ( "fp_base"
+  , { 'qual': 'FQM'
+    , 'qualUTIL': 'BN'
+    , 'qualBN': 'BN'
+    , 'qualBNRND': 'BN'
+    , 'qualBNMUL': 'BN'
+    , 'qualBNE': 'FQM'
+    , 'nlimbs': 'modp2048_nlimbs'
+    , 'nlimbsexp': 'modp2048_nlimbs'
+    , 'glob_P': 'modp2048_glob_Q'
+    , 'glob_mP': 'modp2048_glob_mQ'
+    , 'glob_exp0': 'modp2048_glob_oneMQ'
+    , 'glob_Pm2': 'modp2048_glob_Qm2'
+    , 'fun_red': 'FQM_redM_'
+    , 'fun_muln': 'BN_ps_muln_'
+    , 'fun_sqrn': 'BN_ps_sqrn_'
+    }
+  )
+
+, ( "bn_exp"
+  , { 'qual': 'FQM'
+    , 'qualUTIL': 'BN'
+    , 'qualBN': 'BN'
+    , 'nlimbs': 'modp2048_nlimbs'
+    , 'nlimbsexp': 'modp2048_nlimbs'
+    , 'glob_exp0': 'modp2048_glob_oneMQ'
+    , 'fun_mulU': 'FQM_mulmU_'
+    , 'fun_sqrU': 'FQM_sqrmU_'}
+  )
+) 
+
+
+

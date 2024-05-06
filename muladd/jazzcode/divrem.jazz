@@ -1,0 +1,31 @@
+require "divrem.jinc"
+
+
+export
+fn divrem(reg u64 a b c e f)
+{
+	reg u64 hi lo;
+	reg u64 d q r;
+
+	stack u64 _a _b _c _e _f;
+
+	hi = [a + 0];
+	lo = [b + 0];
+	d = [c + 0];
+	q = [e + 0];
+	r = [f + 0];
+
+	_a = a;
+	_b = b;
+	_c = c;
+	_e = e;
+	_f = f;
+
+	q, r = _divrem(hi, lo, d, q, r);
+
+	e = _e;
+	[e + 0] = q;
+	f = _f;
+	[f + 0] = r;
+
+}

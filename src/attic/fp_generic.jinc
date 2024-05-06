@@ -1,0 +1,160 @@
+/*
+   GENERIC MODULAR CODE
+
+   Assume the existence of the following global constants:
+     glob_p <- modulus "P" (prime number)
+     glob_mp <- "2^(NLIMBS*64) - P"
+     glob_pm2 <- "P - 2"
+     glob_oneM <- "R % P = 2^(NLIMBS*64) % P"
+     glob_rM <- "R^2 % P = 2^(2*NLIMBS*64) % P"
+
+   Name Conventions:
+     _* <- local (non-exported) jasmin functions
+     __* <- inlined functions
+     *M <- dealing with Montgomery representation
+*/
+
+from Libjbn require "common/bn/amd64/ref/bn_montgomery.jinc"
+
+// ////////////////////////////////////
+
+inline fn __fp_add
+( reg ptr u64[NLIMBS] a b
+) -> reg ptr u64[NLIMBS]
+{
+  reg ptr u64[NLIMBS] mP;
+  mP = glob_mp;
+  a = _bn_addm_mP(a, b, mP);
+  return a;
+}
+
+inline fn __fp_sub
+( reg ptr u64[NLIMBS] a b
+) -> reg ptr u64[NLIMBS]
+{
+  reg ptr u64[NLIMBS] P;
+  P = glob_p;
+  a = _bn_subm_P(a, b, P);
+  return a;
+}
+
+inline fn __fp_mul
+( reg ptr u64[NLIMBS] a b r
+) -> reg ptr u64[NLIMBS] {
+  reg ptr u64[NLIMBS] P mP;
+  reg u64 U0;
+  P = glob_p;
+  mP = glob_mp;
+  U0 = glob_u0;
+  r = _bn_mulm_P_mP_U0(a, b, r, P, mP, U0);
+  return r;
+}
+
+inline fn __fp_mulU
+( reg mut ptr u64[NLIMBS] a b
+) -> reg ptr u64[NLIMBS] {
+  reg ptr u64[NLIMBS] P mP;
+  reg u64 U0;
+  P = glob_p;
+  mP = glob_mp;
+  U0 = glob_u0;
+  a = _bn_mulmU_P_mP_U0(a, b, P, mP, U0);
+  return a;
+}
+
+inline fn __fp_sqr
+( reg ptr u64[NLIMBS] a r
+) -> reg ptr u64[NLIMBS] {
+  reg ptr u64[NLIMBS] P mP;
+  reg u64 U0;
+  P = glob_p;
+  mP = glob_mp;
+  U0 = glob_u0;
+  r = _bn_sqrm_P_mP_U0(a, r, P, mP, U0);
+  return r;
+}
+
+inline fn __fp_sqrU
+( reg mut ptr u64[NLIMBS] a
+) -> reg ptr u64[NLIMBS] {
+  reg ptr u64[NLIMBS] P mP;
+  reg u64 U0;
+
+  a = a; //ws
+  P = glob_p;
+  mP = glob_mp;
+  U0 = glob_u0;
+  a = _bn_sqrmU_P_mP_U0(a, P, mP, U0);
+  return a;
+}
+
+inline fn __fp_exp_noct
+( reg ptr u64[NLIMBS] a b r
+) -> reg ptr u64[NLIMBS] {
+  reg ptr u64[NLIMBS] OneM P mP;
+  reg u64 U0;
+  OneM = glob_oneM;
+  P = glob_p;
+  mP = glob_mp;
+  U0 = glob_u0;
+  r = _bn_expm_noct_OneM_P_mP_U0(a, b, r, OneM, P, mP, U0);
+  return r;
+}
+
+inline fn __fp_exp
+( reg ptr u64[NLIMBS] a b r
+) -> reg ptr u64[NLIMBS] {
+  reg ptr u64[NLIMBS] OneM P mP;
+  reg u64 U0;
+  OneM = glob_oneM;
+  P = glob_p;
+  mP = glob_mp;
+  U0 = glob_u0;
+  r = _bn_expm_OneM_P_mP_U0(a, b, r, OneM, P, mP, U0);
+  return r;
+}
+
+/* Modular Inversion (fermat) */
+inline fn __fp_inv
+( reg ptr u64[NLIMBS] a r
+) -> reg ptr u64[NLIMBS] {
+  /* a^{p-2} */
+  reg ptr u64[NLIMBS] glob_pm2p;
+  glob_pm2p = glob_pm2;
+//  r = __fp_exp_noct(a, glob_pm2p, r);
+// just for testing
+  r = __fp_exp(a, glob_pm2p, r);
+  return r;
+}
+
+// ////////////////////////////////////
+
+/* Conversion out from Montgomery form */
+inline fn __fp_fromM
+( reg mut ptr u64[NLIMBS] a
+) -> reg ptr u64[NLIMBS] {
+  reg ptr u64[NLIMBS] P mP;
+  reg u64 U0;
+  P = glob_p;
+  mP = glob_mp;
+  U0 = glob_u0;
+  a = _bn_fromM_P_mP_U0(a, P, mP, U0);
+  return a;
+}
+
+// ////////////////////////////////////
+
+/* Conversion into Montgomery form */
+inline fn __fp_toM
+( reg mut ptr u64[NLIMBS] a
+) -> reg ptr u64[NLIMBS] {
+  reg ptr u64[NLIMBS] RM P mP;
+  reg u64 U0;
+  RM = glob_rM;
+  P = glob_p;
+  mP = glob_mp;
+  U0 = glob_u0;
+  a = _bn_mulmU_P_mP_U0(a, RM, P, mP, U0);
+  return a;
+}
+

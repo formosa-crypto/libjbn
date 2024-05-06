@@ -1,0 +1,86 @@
+require "config.jinc"
+
+
+fn __br_sub(reg ptr u64[nlimbs+1] a, reg ptr u64[nlimbs] b, reg u64 ctl, reg u64 alen)
+-> reg ptr u64[nlimbs+1]
+{
+	reg bool cf zf;
+ 	reg u64 aux aux1;
+	reg u64 u m;
+	reg u64 aw bw naw of cc;
+
+	stack u64 s_u;
+	
+	aux = alen;
+	aux += 63;
+	_, _, _, _, _, aux = #SHR_64(aux,6);
+	m = nlimbs;
+	m -= aux;
+	cc = 0;
+	u = nlimbs;
+	while(u > m)
+	{
+		// aw = a[u];
+		// bw = b[u];
+		aw = a[u];
+		aux = u;
+		aux = #SUB(aux,1);
+		bw = b[aux];
+		s_u = aux;
+
+		//naw = aw - bw - cc;
+		naw = aw;
+		bw = #ADD(bw, cc);
+		_, cf, _, _, _, naw = #SUB(naw, bw);
+
+		// we update cc using the carry flag
+		cc = 0;
+		aux = 1;
+		cc = aux if cf;
+/*
+		/*
+		 * Carry is 1 if naw > aw. Carry is 1 also if naw == aw
+		 * AND the carry was already 1.
+		 */
+		//cc = (cc & EQ(naw, aw)) | GT(naw, aw);	
+
+		_, _, _, zf, _ = #CMP(naw, aw);
+		aux = 0;
+		aux1 = 1;
+		aux = aux1 if zf;
+		cc &= aux;
+		_, cf, _, _, _ = #CMP(naw, aw);
+		aux = 0;
+		aux1 = 1;
+		aux = aux1 if cf;
+		cc |= aux;
+*/
+		// a[u] = MUX(ctl, naw, aw);
+		aw = naw if ctl == 1;
+		a[u] = aw;
+
+		u = s_u;
+	}
+	
+	return a;
+}
+
+inline
+fn _br_sub(stack u64[nlimbs+1] m1, reg ptr u64[nlimbs] m2, reg u64 y, reg u64 z)
+ -> stack u64[nlimbs+1]
+{
+	reg ptr u64[nlimbs+1] a;
+
+	a = m1;
+	a = __br_sub(a,m2,y,z);
+	m1 = a;
+
+	return m1;
+}
+
+
+
+
+
+
+

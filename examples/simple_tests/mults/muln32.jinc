@@ -1,0 +1,4 @@
+param int nlimbs=32;
+
+from MJazz require "BN_bn_mul.jinc"
+from MJazz require "bn_mul_export.jinc"

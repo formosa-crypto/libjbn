@@ -1,0 +1,29 @@
+/*
+   libjbn interface
+*/
+
+from Libjbn require "params/sike/sike503.jinc"
+
+/*
+from Libjbn require "bn_base.mjazz" as "BN"
+ with { nlimbs = sike503_nlimbs; }
+*/
+from MJazz require "BN_bn_base.jinc"
+
+
+/*
+from Libjbn require "fp_mont.mjazz" as "FPM"
+ with { nlimbs = sike503_nlimbs;
+        glob_P = sike503_glob_P;
+        glob_mP = sike503_glob_mP;
+        glob_Pi0 = sike503_glob_Pi0;
+        glob_Pm2 = sike503_glob_Pm2; }
+*/
+from MJazz require "FPM_fp_mont.jinc"
+
+/* EXPORT FUNCTIONS
+  ??? how can we make this easyly accessible to the user???
+  " from XXXX require YYY as ZZZ with WWW load PPP "
+ */
+from MJazz require "bn_base_export.jinc"
+from MJazz require "fp_mont_export.jinc"

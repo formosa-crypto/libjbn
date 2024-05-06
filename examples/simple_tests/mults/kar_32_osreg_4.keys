@@ -1,0 +1,81 @@
+( ( "bn_util"
+  , { 'qual': 'BN'
+    }
+  )
+
+, ( "bn_base"
+  , { 'qual': 'BN4'
+    , 'qualUTIL': 'BN'
+    , 'nlimbs': 'nlimbsL'}
+  )
+
+, ( "bn_base"
+  , { 'qual': 'BN8'
+    , 'qualUTIL': 'BN'
+    , 'nlimbs': '2*nlimbsL'}
+  )
+
+, ( "bn_base"
+  , { 'qual': 'BN16'
+    , 'qualUTIL': 'BN'
+    , 'nlimbs': '4*nlimbsL'}
+  )
+
+, ( "bn_base"
+  , { 'qual': 'BN32'
+    , 'qualUTIL': 'BN'
+    , 'nlimbs': '8*nlimbsL'}
+  )
+
+, ( "bn_base"
+  , { 'qual': 'BN64'
+    , 'qualUTIL': 'BN'
+    , 'nlimbs': '16*nlimbsL'}
+  )
+
+, ( "bn_mulreg"
+  , { 'qual': 'BN4'
+    , 'qualBN': 'BN4'
+    , 'qualUTIL': 'BN'
+    , 'nlimbs': 'nlimbsL'
+    }
+  )
+
+, ( "bn_karatsuba"
+  , { 'qual': 'KAR8'
+    , 'qualBN': 'BN4'
+    , 'qualBN2': 'BN8'
+    , 'qualUTIL': 'BN'
+    , 'nlimbs': 'nlimbsL'
+    , 'fun_kmuln': 'BN4_osreg_muln_'
+    }
+  )
+
+, ( "bn_karatsuba"
+  , { 'qual': 'KAR16'
+    , 'qualBN': 'BN8'
+    , 'qualBN2': 'BN16'
+    , 'qualUTIL': 'BN'
+    , 'nlimbs': '2*nlimbsL'
+    , 'fun_kmuln': 'KAR8_kar_muln_'
+    }
+  )
+
+, ( "bn_karatsuba"
+  , { 'qual': 'KAR32'
+    , 'qualBN': 'BN16'
+    , 'qualBN2': 'BN32'
+    , 'qualUTIL': 'BN'
+    , 'nlimbs': '4*nlimbsL'
+    , 'fun_kmuln': 'KAR16_kar_muln_'
+    }
+  )
+
+, ( "bn_karatsuba_export"
+  , { 'qualBN': 'BN32'
+    , 'qualBN2': 'BN64'
+    , 'qualBNKAR': 'KAR32'
+    , 'nlimbs': '8*nlimbsL'
+    }
+  )
+)

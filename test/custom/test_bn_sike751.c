@@ -10,7 +10,7 @@ extern uint64_t bn_test0(uint64_t*, uint64_t*);
 extern void bn_addm(uint64_t*, uint64_t*, uint64_t*);
 extern uint64_t bn_subm(uint64_t*, uint64_t*, uint64_t*);
 extern uint64_t bn_mulm(uint64_t*, uint64_t*, uint64_t*);
-extern uint64_t bn_expm_noct(uint64_t*, uint64_t*, uint64_t*);
+extern uint64_t bn_exp_noct(uint64_t*, uint64_t*, uint64_t*);
 extern uint64_t bn_invm(uint64_t*, uint64_t*);
 extern uint64_t bn_toM(uint64_t*, uint64_t*);
 extern uint64_t bn_fromM(uint64_t*, uint64_t*);

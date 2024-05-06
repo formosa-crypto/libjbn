@@ -1,6 +1,8 @@
 #ifndef CPUCYCLES_H
 #define CPUCYCLES_H
 
+#include <stdlib.h>
+
 static inline uint64_t cpucycles(void) {
   uint64_t result;
 
@@ -33,6 +35,5 @@ static uint64_t cpucycles_median(uint64_t *cycles, size_t timings)
 
   return median(cycles, timings-1);
 }
-
 
 #endif

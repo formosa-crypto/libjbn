@@ -285,7 +285,7 @@ void params_print_jasmin(
          fprintf(fout, "// glob_rM = R^2 mod P == 2^(2*NLIMBS*64) mod P\n");
   params_fprintf(fout, "u64[NLIMBS] glob_rM = {", R2modP, NLIMBS, "};");
 
-      fprintf(fout, "from Libjbn require \"common/fp/amd64/ref/fp_generic_export.jinc\"\n\n");
+      fprintf(fout, "require \"libjbn.mjazz\"\n\n");
 }
 
 

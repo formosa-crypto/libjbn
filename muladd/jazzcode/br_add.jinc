@@ -1,0 +1,63 @@
+require "config.jinc"
+
+fn __br_add(reg ptr u64[nlimbs+1] a, reg ptr u64[nlimbs] b, reg u64 ctl, reg u64 alen) -> reg ptr u64[nlimbs+1]
+{
+	reg bool cf;
+	reg u64 u m;
+	reg u64 aw bw naw of of2;
+	reg u64 aux aux1;
+
+	stack u64 s_u;
+
+	aux = 0;
+	aux = alen;
+	// we need to sum at least 1 to account for a * 2^64
+	_, _, _, _, _, aux = #ADD(aux, 127); // cf is 0 here!!
+	_, _, _, _, _, aux = #SHR(aux,6);
+	aux = aux;
+	m = nlimbs;
+	_, _, _, _, _, m = #SUB(m, aux);
+	aux = 0;
+	_, cf, _, _, _, aux = #XOR(aux, aux);
+	of = 0;
+	of2 = 0;
+	u = nlimbs;
+
+	while(u >= m)
+	{
+		aw = a[u];
+		aux = u;
+		aux -= 1; // b has length len(x)-1
+		bw = b[aux];
+		s_u = aux; // next u value
+		aux = aw;
+		_, cf, _, _, _, aux = #ADD(aux, bw);
+		of2 = 0;
+		aux1 = 1;
+		of2 = aux1 if cf;
+		_, cf, _, _, _, aux = #ADD(aux, of);
+		naw = aw;
+		of = 0;
+		of = aux1 if cf;
+		of |= of2;
+		naw = aux if ctl == 1;
+		a[u] = naw;
+		u = s_u;
+	}
+
+
+	return a;
+}
+
+inline
+fn _br_add(stack u64[nlimbs+1] m1, reg ptr u64[nlimbs] m2, reg u64 y, reg u64 z)
+ -> stack u64[nlimbs+1]
+{
+	reg ptr u64[nlimbs+1] a;
+
+	a = m1;
+	a = __br_add(a,m2,y,z);
+	m1 = a;
+
+	return m1;
+}

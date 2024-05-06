@@ -1,0 +1,130 @@
+require "common_u64.jinc"
+
+/*
+ * Constant-time division. The divisor must not be larger than 64 bits,
+ * and the quotient must fit on 64 bits. Both hi and lo are full u64 words.
+ *
+ * Values:
+ *  hi - 64 most signaficant bits of the denominator
+ *  lo - 64 second most signaficant bits of the denominator
+ *  d  - 64 most signaficant bits of the divisor
+ *  q  - quotient := (hi || lo) / d
+ *  r  - remaining := (hi || lo) % d 
+ */
+fn __divrem(reg u64 hi lo d q r) -> reg u64, reg u64
+{
+	reg bool zf cf;
+	reg u64 k j;
+	reg u64 aux w hi2 lo2 ge ctl res aux1;
+
+	stack u64 s_k s_j;
+
+	
+	// if hi == d => hi := 0
+	_, _, _, _, zf = #CMP(hi, d);
+	w = 0;
+	hi = w if zf;
+	q = 0;
+	k = 63;
+	while(k > 0)
+	{
+		// w = (hi << 64-k) | (lo >> k)
+		j = 64;
+		_, _, _, _, _, j = #SUB(j, k);
+		s_k = k;
+		w = hi;
+		_, _, _, _, _, w = #SHLD(w, lo, j);
+		s_j = j;
+
+		// ctl = GE(w, d) | (hi >> k)
+		_, cf, _, _, _ = #CMP(w, d);
+		ge = 1;
+		res = 0;
+		ge = res if cf;
+
+		aux = hi;
+		j = s_k;
+		_, _, _, _, _, aux = #SHR(aux, j);
+		_, _, _, zf, _ = #CMP(aux, 0);
+		ctl = 1;
+		aux1 = 0;
+		ctl = aux1 if zf;
+		ctl |= ge;
+
+		// hi2 = (w - d) >> j
+		aux1 = w;
+		_, _, _, _, _, aux1 = #SUB(aux1, d);
+		j = s_j;
+		_, _, _, _, _, aux1 = #SHR(aux1, j);
+		hi2 = aux1;
+
+		// lo2 = lo - (d << k)
+		aux1 = d;
+		j = s_k;
+		_, _, _, _, _, aux1 = #SHL(aux1, j);
+		aux = lo;
+		_, _, _, _, _, aux = #SUB(aux, aux1);
+		lo2 = aux;
+
+		// hi = MUX(ctl, hi2, hi)
+		hi = hi2 if ctl == 1;
+
+		// lo = MUX(ctl, lo2, lo)
+		lo = lo2 if ctl == 1;
+
+		//q |= ctl << k
+		res = ctl;
+		j = s_k;
+		_, _, _, _, _, res = #SHL(res, j);
+		_, _, _, _, _, q = #OR(q, res);
+
+		k = s_k;
+		k -= 1;
+	}
+
+	// cf = GE(lo, d) | hi;
+	_, cf, _, zf, _ = #CMP(lo, d);
+	ge = 0;
+	res = 1;
+	ge = res if cf;
+	aux = 0;
+	aux1 = 1;
+	aux = aux1 if zf;
+	ge |= aux;
+	hi |= ge;
+
+	// q |= cf;
+	_, _, _, _, _, q = #OR(q, hi);
+
+	// r = MUX(cf, lo - d, lo);
+	aux = lo;
+	_, _, _, _, _, aux = #SUB(aux, d);
+	r = lo;
+
+	r = aux if hi == 1;
+
+	return q, r;
+}
+
+/*
+ * Returns two values to match both original calls:
+ * - br_rem
+ * - br_div
+ */
+inline
+fn _divrem(reg u64 hi, reg u64 lo, reg u64 d, reg u64 q, reg u64 r) -> reg u64, reg u64
+{
+	reg u64 a b c e f;
+
+	a = hi;
+	b = lo;
+	c = d;
+	e = q;
+	f = r;
+	e, f = __divrem(a, b, c, e, f);
+	q = e;
+	r = f;
+	return q, r;
+}
+
+

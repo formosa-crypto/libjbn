@@ -1,0 +1,59 @@
+require "br_add.jinc"
+
+
+
+
+
+
+
+export
+fn br_add(reg u64 _x _m _ctr _x_bitlen)
+{
+	reg u64 i;
+	reg u64 t ctr x_bitlen;
+
+	stack u64 s_x s_m s_ctr s_x_bitlen;
+
+	stack u64[nlimbs+1] m1;
+	stack u64[nlimbs] m2;
+
+	reg ptr u64[nlimbs] reg_m2;
+
+	i = 0;
+	while(i < nlimbs+1)
+	{
+		t =	[_x + i*8];
+		m1[i] = t;
+		i += 1; 
+	}
+	i = 0;
+	while(i < nlimbs)
+	{
+		t =	[_m + i*8];
+		m2[i] = t;
+		i += 1; 
+	}
+	ctr = [_ctr + 0];
+	x_bitlen = [_x_bitlen + 0];
+
+	s_x = _x;
+	s_m = _m;
+	s_ctr = _ctr;
+	s_x_bitlen = _x_bitlen;
+
+	reg_m2 = m2;
+	m1 = _br_add(m1,reg_m2,ctr,x_bitlen);
+
+	_x = s_x;
+	i=0;
+	while(i < nlimbs+1)
+	{
+		t = m1[i];
+		[_x + i*8] = t;
+		i += 1;
+	}
+
+
+}
+
+

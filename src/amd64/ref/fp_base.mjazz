@@ -1,0 +1,200 @@
+/* (emulation of https://github.com/jasmin-lang/jasmin/issues/519)
+
+FP_BASE_FNS = _chk_bnds_ _rnd_ _addm_ _addmU_ _subm_ _submU_ _mulm_ _mulmU_ _sqrm_ _sqrmU_ _invmU_
+*/
+
+modsignature {
+  param int nlimbs;	// num. of limbs
+  global u64[nlimbs] glob_P;
+  global u64[nlimbs] glob_mP;
+  global u64[nlimbs] glob_exp0;
+  global u64[nlimbs] glob_Pm2;
+  fn fun_red ( reg mut ptr u64[nlimbs]
+             , reg const ptr u64[2*nlimbs]
+             ) -> reg ptr u64[nlimbs];
+}
+
+require "bn_base.mjazz"
+  with { nlimbs = nlimbs; }
+
+require "bn_rnd.mjazz"
+  with { nlimbs = nlimbs; }
+
+require "bn_mul.mjazz"
+  with { nlimbs = nlimbs; }
+
+
+inline fn _chk_bnds_
+( stack u64 err
+, reg const ptr u64[nlimbs] a
+) -> stack u64 {
+ reg ptr u64[nlimbs] P;
+ reg bool cf;
+ reg u64 t;
+ P = glob_P;
+ cf = _lt_cf_(a, P);
+ t = __ncf_mask(cf); // access to a submodule (bn_util)
+ err |= t;
+ return err;
+}
+
+inline fn _rnd_
+( reg mut ptr u64[nlimbs] a
+) -> reg ptr u64[nlimbs] {
+ reg ptr u64[nlimbs] P;
+ P = glob_P;
+ a = _rsample_(a, P); // access to an overloaded qualifier
+ return a;
+}
+
+inline fn _addm_
+ ( reg mut ptr u64[nlimbs] r
+ , reg const ptr u64[nlimbs] a b
+ ) -> reg ptr u64[nlimbs]
+{
+  reg bool cf;
+  reg u64 lastbit;
+  reg ptr u64[nlimbs] tmp;
+
+  cf, r = BN._add_(r, a, b);
+
+  lastbit = 0;
+  _, lastbit += 0 + cf;
+  tmp = glob_mP;
+  r = _cminusP_(r, tmp, lastbit);
+  return r;
+}
+
+inline fn _addmU_
+ ( reg mut ptr u64[nlimbs] a
+ , reg const ptr u64[nlimbs] b
+ ) -> reg ptr u64[nlimbs]
+{
+  reg bool cf;
+  reg u64 lastbit;
+  reg ptr u64[nlimbs] tmp;
+
+  cf, a = BN._addU_(a, b);
+
+  lastbit = 0;
+  _, lastbit += 0 + cf;
+  tmp = glob_mP;
+  a = _cminusP_(a, tmp, lastbit);
+  return a;
+}
+
+// ////////////////////////////////////
+
+inline fn _subm_
+( reg mut ptr u64[nlimbs] r
+, reg const ptr u64[nlimbs] a b
+) -> reg ptr u64[nlimbs] {
+ reg bool cf;
+ reg ptr u64[nlimbs] tmp;
+ cf, r = _sub_(r, a, b);
+ tmp = glob_P;
+ r = _caddU_(r, cf, tmp);
+ return r;
+}
+
+inline fn _submU_
+( reg mut ptr u64[nlimbs] a
+, reg const ptr u64[nlimbs] b
+) -> reg ptr u64[nlimbs] {
+ reg bool cf;
+ reg ptr u64[nlimbs] tmp;
+ cf, a = _subU_(a, b);
+ tmp = glob_P;
+ a = _caddU_(a, cf, tmp);
+ return a;
+}
+
+/* Modular multiplication */
+inline fn _mulm_
+( reg mut ptr u64[nlimbs] r
+, reg ptr u64[nlimbs] a b
+) -> reg ptr u64[nlimbs] {
+  stack u64[2*nlimbs] _tmp;
+  reg ptr u64[2*nlimbs] tmp;
+
+  tmp = _tmp;
+  tmp = _muln_(tmp, a, b);
+  r = fun_red(r, tmp);
+  return r;
+}
+
+// ////////////////////////////////////
+
+inline fn _mulmU_ // update inplace
+( reg mut ptr u64[nlimbs] a
+, reg ptr u64[nlimbs] b
+) -> reg ptr u64[nlimbs] {
+  stack u64[2*nlimbs] _tmp;
+  reg ptr u64[2*nlimbs] tmp;
+  tmp = _tmp;
+  tmp = _muln_(tmp, a, b);
+  a = fun_red(a, tmp);
+  return a;
+}
+
+// ////////////////////////////////////
+
+inline fn _sqrm_
+( reg mut ptr u64[nlimbs] r
+, reg const ptr u64[nlimbs] a
+) -> reg ptr u64[nlimbs] {
+  stack u64[2*nlimbs] _tmp;
+  reg ptr u64[2*nlimbs] tmp;
+  tmp = _tmp;
+  tmp = _sqrn_(tmp, a);
+  r = fun_red(r, tmp);
+  return r;
+}
+
+// ////////////////////////////////////
+
+inline fn _sqrmU_ // update inplace
+( reg mut ptr u64[nlimbs] a
+) -> reg ptr u64[nlimbs] {
+  stack u64[2*nlimbs] _tmp;
+  reg ptr u64[2*nlimbs] tmp;
+  tmp = _tmp;
+  tmp = _sqrn_(tmp, a);
+  a = fun_red(a, tmp);
+  return a;
+}
+
+// ////////////////////////////////////
+
+
+require "bn_exp.jinc"
+ with { nlimbs = nlimbs;
+        nlimbsexp = nlimbs;
+        glob_exp0 = glob_exp0;
+        fun_mulU = _mulmU_;
+        fun_sqrU = _sqrmU_;
+      }
+
+
+/* Modular Inversion (fermat) */
+inline fn _invmU_
+( reg mut ptr u64[nlimbs] a
+) -> reg ptr u64[nlimbs] {
+  /* a^{p-2} */
+  reg ptr u64[nlimbs] Pm2;
+  Pm2 = glob_Pm2;
+  a = _expmU_noct_(a, Pm2);
+  return a;
+}
+
+inline fn _invm_
+( reg mut ptr u64[nlimbs] r
+, reg const ptr u64[nlimbs] a
+) -> reg ptr u64[nlimbs] {
+  /* a^{p-2} */
+  reg ptr u64[nlimbs] Pm2;
+  Pm2 = glob_Pm2;
+  r = _expm_noct_(r, a, Pm2);
+  return r;
+}
+

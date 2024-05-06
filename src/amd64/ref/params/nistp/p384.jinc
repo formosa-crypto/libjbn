@@ -1,0 +1,131 @@
+/*
+   SPECIFIC NIST-P384 CODE
+*/
+param int nistp384_nlimbs = 6;
+
+/* prime NIST-P384 (P) */
+u64[nistp384_nlimbs] nistp384_glob_P = {
+    0x00000000ffffffff,
+    0xffffffff00000000,
+    0xfffffffffffffffe,
+    0xffffffffffffffff,
+    0xffffffffffffffff,
+    0xffffffffffffffff
+};
+
+/* R - P = 2^(NLIMBS*64) - P */
+u64[nistp384_nlimbs] nistp384_glob_mP = {
+    0xffffffff00000001,
+    0x00000000ffffffff,
+    0x0000000000000001,
+    0x0000000000000000,
+    0x0000000000000000,
+    0x0000000000000000
+};
+
+/* P - 2 */
+u64[nistp384_nlimbs] nistp384_glob_Pm2 = {
+    0x00000000fffffffd,
+    0xffffffff00000000,
+    0xfffffffffffffffe,
+    0xffffffffffffffff,
+    0xffffffffffffffff,
+    0xffffffffffffffff
+};
+
+/* (glob_p[0] * u0) mod 2^64 = -1 */
+u64 nistp384_glob_P0i = 0x100000001;
+
+/* R mod P = 2^(NLIMBS*64) mod P */
+u64[nistp384_nlimbs] nistp384_glob_oneMP = {
+    0xffffffff00000001,
+    0x00000000ffffffff,
+    0x0000000000000001,
+    0x0000000000000000,
+    0x0000000000000000,
+    0x0000000000000000
+};
+
+/* R^2 mod P = 2^(2*NLIMBS*64) mod P */
+u64[nistp384_nlimbs] nistp384_glob_rMP = {
+    0xfffffffe00000001,
+    0x0000000200000000,
+    0xfffffffe00000000,
+    0x0000000200000000,
+    0x0000000000000001,
+    0x0000000000000000
+};
+
+// B param in Montgomery form
+u64[nistp384_nlimbs] nistp384_glob_BM = {
+    0x081188719d412dcc,
+    0xf729add87a4c32ec,
+    0x77f2209b1920022e,
+    0xe3374bee94938ae2,
+    0xb62b21f41f022094,
+    0xcd08114b604fbff9
+};
+
+// Not on Montgomery form
+// u64[nistp384_nlimbs] nistp384_glob_B = {
+//     0x2a85c8edd3ec2aef,
+//     0xc656398d8a2ed19d,
+//     0x0314088f5013875a,
+//     0x181d9c6efe814112,
+//     0x988e056be3f82d19,
+//     0xb3312fa7e23ee7e4
+// };
+
+
+/* Order of NIST-P384 (N) */
+u64[nistp384_nlimbs] nistp384_glob_N = {
+    0xecec196accc52973,
+    0x581a0db248b0a77a,
+    0xc7634d81f4372ddf,
+    0xffffffffffffffff,
+    0xffffffffffffffff,
+    0xffffffffffffffff
+};
+
+/* R - N = 2^(NLIMBS*64) - N */
+u64[nistp384_nlimbs] nistp384_glob_mN = {
+    0x1313e695333ad68d,
+    0xa7e5f24db74f5885,
+    0x389cb27e0bc8d220,
+    0x0000000000000000,
+    0x0000000000000000,
+    0x0000000000000000
+};
+
+/* N - 2 */
+u64[nistp384_nlimbs] nistp384_glob_Nm2 = {
+    0xecec196accc52971,
+    0x581a0db248b0a77a,
+    0xc7634d81f4372ddf,
+    0xffffffffffffffff,
+    0xffffffffffffffff,
+    0xffffffffffffffff
+};
+
+/* (glob_n[0] * u0) mod 2^64 = -1 */
+u64 nistp384_glob_N0i = 0x6ed46089e88fdc45;
+
+/* R mod N = 2^(NLIMBS*64) mod N */
+u64[nistp384_nlimbs] nistp384_glob_oneMN = {
+    0x1313e695333ad68d,
+    0xa7e5f24db74f5885,
+    0x389cb27e0bc8d220,
+    0x0000000000000000,
+    0x0000000000000000,
+    0x0000000000000000
+};
+
+/* R^2 mod P = 2^(2*NLIMBS*64) mod P */
+u64[nistp384_nlimbs] nistp384_glob_rMN = {
+    0x2d319b2419b409a9,
+    0xff3d81e5df1aa419,
+    0xbc3e483afcb82947,
+    0xd40d49174aab1cc5,
+    0x3fb05b7a28266895,
+    0x0c84ee012b39bf21
+};

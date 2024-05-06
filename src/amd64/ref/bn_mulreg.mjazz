@@ -1,0 +1,141 @@
+modsignature { param int nlimbs; }
+
+/******************************************************************
+             OPERAND-SCANNING (second arg. in registers)
+*******************************************************************/
+/* REGS (params + workspace): (1+nlimbs) + (nlimbs+2) */
+inline fn __mul1_reg
+( reg u64 a,
+  reg u64[nlimbs] b
+) -> reg u64, reg bool, reg bool, reg u64[2*nlimbs]
+{
+  inline int i;
+  reg bool of, cf;
+  reg u64 _zero, lo, a0;
+  reg u64[2*nlimbs] r;
+
+  of, cf, _, _, _, _zero = #set0();
+
+  r[1], r[0] = #MULX ( a, b[0] );
+
+  for i = 1 to nlimbs {
+    r[i+1], lo = #MULX ( a, b[i] );
+    cf, r[i] = #ADCX ( r[i], lo, cf );
+  }
+
+_zero = 0;
+  cf, r[nlimbs] = #ADCX ( r[nlimbs], _zero, cf );
+  // cf = 0
+
+  return _zero, of, cf, r;
+}
+
+
+/* multiplies a (shifted) scalar by a reg array (remaining iterations of mul) */
+/* REGS (params + workspace):  */
+inline fn __mul1acc_reg
+( inline int k,
+  reg u64 a,
+  reg u64[nlimbs] b,
+  reg u64[2*nlimbs] r,
+  reg u64 _zero, // should be set to 0
+  reg bool of cf // should be set to 0
+) -> reg u64, reg bool, reg bool, reg u64[2*nlimbs]
+{
+  inline int i;
+  reg u64 ak hi lo;
+
+  for i = 0 to nlimbs-1 {
+    hi, lo = #MULX ( a, b[i] ); 
+    of, r[k+i] = #ADOX ( r[k+i], lo, of );
+    cf, r[k+i+1] = #ADCX ( r[k+i+1], hi, cf );
+  }
+
+  r[nlimbs+k], lo = #MULX ( a, b[nlimbs-1] ); // a is now dead!
+  of, r[nlimbs+k-1] = #ADOX ( r[nlimbs+k-1], lo, of );
+
+_zero = 0;
+  cf, r[nlimbs+k] = #ADCX ( r[nlimbs+k], _zero, cf);
+  of, r[nlimbs+k] = #ADOX ( r[nlimbs+k], _zero, of);
+  // cf = 0, of = 0
+
+  return _zero, of, cf, r;
+}
+
+
+/* Operand-scanning multiplication (first arg. as a reg_ptr) */
+fn _os_muln_reg
+( reg mut ptr u64[2*nlimbs] r
+, reg const ptr u64[nlimbs] a b //reg u64 fptr,
+) -> reg ptr u64[2*nlimbs]
+{
+  inline int i;
+  reg bool of cf;
+  reg u64 _zero ai;
+  reg u64[nlimbs] rb;
+  reg u64[2*nlimbs] rr; // only nlimbs live!
+
+  ai = a[0];
+
+  for i = 0 to nlimbs { rb[i] = b[i]; }
+
+  _zero, of, cf, rr = __mul1_reg(ai, rb);
+  r[0] = rr[0];
+
+  for i = 1 to nlimbs {
+    ai = a[i];
+    _zero, of, cf, rr = __mul1acc_reg(i, ai, rb, rr, _zero, of, cf);
+    r[i] = rr[i];
+  }
+
+  for i = nlimbs to 2*nlimbs { r[i] = rr[i]; }
+  return r;
+}
+
+inline fn _os_muln_reg_
+( reg mut ptr u64[2*nlimbs] r
+, reg const ptr u64[nlimbs] a b
+) -> reg ptr u64[2*nlimbs]
+{
+  r = r; a = a; b = b;
+  r = _os_muln_reg(r, a, b);
+  r = r;
+  return r;
+}
+
+/*
+export fn bn_muln_reg(reg u64 rp ap bp)
+{
+  stack u64[nlimbs] _a _b;
+  stack u64[2*nlimbs] _r;
+  stack u64 _rp;
+  reg ptr u64[nlimbs] a b;
+  reg ptr u64[2*nlimbs] r;
+
+_rp = rp;
+  a = _a;
+  a = __load(a,ap);
+  b = _b;
+  b = __load(b,bp);
+  r = _r;
+  r = _os_muln_reg_(r, a, b);
+rp = _rp;
+  __store2(rp, r);
+}
+*/
+
+
+// TODO: add "sqrn" variants
+/* 4limbs: (max supported!)
+ 7:  6:  5:  4:  3:  2:  1:  0:
+                 d   c   b   a
+                 d   c   b   a
+--------------------------------
+                2ad 2ac 2ab  aa    (5) // kills a
+            2bd 2bc  bb            (3+4->2) // obs: saves bd,bc; kills bb+b
+        2cd  cc         (+2)       (2+2->1)
+     dd                            (--)
+--------------------------------
+ xx  xx  xx  xx  xx  xx  xx  xx
+*/
+

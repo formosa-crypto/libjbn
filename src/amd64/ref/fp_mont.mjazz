@@ -1,0 +1,85 @@
+/* (emulation of https://github.com/jasmin-lang/jasmin/issues/519)
+*/
+
+modsignature {
+  param int nlimbs;		// num. limbs
+  global u64[nlimbs] glob_P;	// modulus (M)
+  global u64[nlimbs] glob_mP;	// minus M (2^(nlimbs*64) - M )
+  global u64 glob_P0i;		// inverse of M[0]
+  global u64[nlimbs] glob_Pm2;	// P-2
+  global u64[nlimbs] glob_exp0;	// OneM (one in Montgomery form)
+  global u64[nlimbs] glob_RM;	// RM (R in Montgomery form)
+}
+
+
+require "bn_base.mjazz"
+ with { nlimbs = nlimbs; }
+
+require "bn_mul.mjazz"
+ with { nlimbs = nlimbs; }
+
+
+// regs: params(2) + call(3) + 4 = 9
+fn _redM
+( reg mut ptr u64[nlimbs] r
+, reg const ptr u64[2*nlimbs] a
+) -> reg ptr u64[nlimbs] {
+  stack u64 _P0i;
+  _P0i = glob_P0i;
+  r = __mont_redM(r, a, glob_P, glob_mP, _P0i);
+  return r;
+}
+
+inline fn _redM_
+( reg mut ptr u64[nlimbs] r
+, reg const ptr u64[2*nlimbs] a
+) -> reg ptr u64[nlimbs] {
+  r = r; a = a;
+  r = _redM( r, a);
+  r = r;
+  return r;
+}
+
+/* Conversion-out from Montgomery form */
+inline fn _fromM_
+( reg mut ptr u64[nlimbs] a
+) -> reg ptr u64[nlimbs] {
+  stack u64[2*nlimbs] _tmp;
+  reg ptr u64[2*nlimbs] tmp;
+  reg ptr u64[nlimbs] tmp2;
+  reg u64 t;
+  inline int i;
+
+  tmp2 = _tmp[0:nlimbs];
+  tmp2 = _mov_(tmp2, a);
+  _tmp[0:nlimbs] = tmp2;
+  tmp2 = _tmp[nlimbs:nlimbs];
+  tmp2 = _set0_(tmp2);
+  _tmp[nlimbs:nlimbs] = tmp2;
+  tmp = _tmp;
+  a = _redM_(a, tmp);
+  return a;
+}
+
+// ////////////////////////////////////
+
+require "fp_base"
+ with { nlimbs = nlimbs;
+        glob_exp0 = glob_exp0;
+        glob_Pm2 = glob_Pm2;
+	fun_red = _redM_;
+      }
+
+// ////////////////////////////////////
+
+/* Conversion into Montgomery form */
+inline fn _toM_
+( reg mut ptr u64[nlimbs] a
+) -> reg ptr u64[nlimbs] {
+  reg ptr u64[nlimbs] rMP;
+  rMP = glob_rMP;
+  a = _mulmU_(a, rMP);
+  a = a;
+  return a;
+}
+

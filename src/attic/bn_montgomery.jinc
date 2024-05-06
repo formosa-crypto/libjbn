@@ -1,0 +1,422 @@
+/*
+   GENERIC MODULAR CODE
+
+   The following name convention is used for (precomputed) parameters:
+     P : u64[nlimbs] <- modulus "P" (prime number)
+     U0 : u64 <- inv. of P[0]
+     mP : u64[nlimbs]  <- "2^(NLIMBS*64) - P"
+     Pm2 : u64[nlimbs]  <- "P - 2"
+     OneM : u64[nlimbs]  <- "R % P = 2^(NLIMBS*64) % P"
+     RM : u64[nlimbs]  <- "R^2 % P = 2^(2*NLIMBS*64) % P"
+   (for clarity, function names have a suffix for the
+    expected parameters).
+
+   Name Conventions:
+     _* <- local (non-exported) jasmin functions
+     __* <- inlined functions
+     *M <- dealing with Montgomery representation
+*/
+
+from Libjbn require "common/bn/amd64/ref/bn_generic.jinc"
+
+/* x-P if P<=x else x
+   (remark: [x;lastbit] < 2*P)
+ */
+inline fn __bn_cminusP_mP
+ ( reg u64 lastbit         // 0/1
+ , reg mut ptr u64[NLIMBS] x   //
+ , reg ptr u64[NLIMBS] mP  // R-P
+ ) -> reg ptr u64[NLIMBS]  // [x,lastbit]<P ? x : [x,lastbit]-P
+{
+  inline int i;
+  reg bool _cf;
+  stack u64[NLIMBS] _tmp;
+  reg ptr u64[NLIMBS] tmp;
+
+  _tmp = __bn_copy(x);
+   tmp = _tmp;
+  _cf, tmp = __bn_addc(tmp, mP);
+
+  _, lastbit += 0 + _cf;
+  _, _cf, _, _, _, _ = #NEG(lastbit);
+
+  x = __bn_cmov(_cf, x, tmp);
+  return x;
+}
+
+// ////////////////////////////////////
+
+inline fn __bn_addm_mP
+ ( reg mut ptr u64[NLIMBS] a
+ , reg ptr u64[NLIMBS] b
+ , reg ptr u64[NLIMBS] mP
+ ) -> reg ptr u64[NLIMBS]
+{
+  reg bool cf;
+  reg u64 lastbit;
+
+  cf, a = __bn_addc(a, b);
+
+  lastbit = 0;
+  _, lastbit += 0 + cf;
+
+  a = __bn_cminusP_mP(lastbit, a, mP);
+  return a;
+}
+
+/* Modular addition */
+fn _bn_addm_mP
+( reg mut ptr u64[NLIMBS] a
+, reg ptr u64[NLIMBS] b
+, reg ptr u64[NLIMBS] mP
+) -> reg ptr u64[NLIMBS] {
+ a = __bn_addm_mP(a, b, mP);
+ return a;
+}
+
+// ////////////////////////////////////
+
+inline fn __bn_subm_P
+( reg mut ptr u64[NLIMBS] a
+, reg ptr u64[NLIMBS] b
+, reg ptr u64[NLIMBS] P
+) -> reg ptr u64[NLIMBS] {
+ reg bool cf;
+ cf, a = __bn_subc(a, b);
+ a = __bn_cadd(cf, a, P);
+ return a;
+}
+
+/* Modular subtraction */
+fn _bn_subm_P
+( reg mut ptr u64[NLIMBS] a
+, reg ptr u64[NLIMBS] b
+, reg ptr u64[NLIMBS] P
+) -> reg ptr u64[NLIMBS] {
+
+ a = a; //ws
+ a = __bn_subm_P(a, b, P);
+ return a;
+}
+
+// ////////////////////////////////////
+// regs: params(2) + call(3) + 4 = 9
+inline fn __bn_rdcn__P__mP__U0
+( reg ptr u64[2*NLIMBS] a
+, reg ptr u64[NLIMBS] r
+, stack ptr u64[NLIMBS] _P _mP
+, stack u64 _U0
+) -> reg ptr u64[NLIMBS] {
+  inline int k;
+  reg bool cf;
+  reg ptr u64[NLIMBS] P mP;
+  reg u64 t t0 t1 zero p0 lastbit;
+  reg u64[3] x;
+
+
+  _, _, _, _, _, x[0] = #set0();
+  _, _, _, _, _, x[1] = #set0();
+  _, _, _, _, _, x[2] = #set0();
+  P = _P;
+
+  for k = 0 to NLIMBS {
+    x = __muln_innerloop(k, 0, k, r, P, x); //+3
+    _, _, _, _, _, zero = #set0();
+    t0 = a[k];
+    x = __addacc3(zero, t0, x, k);
+    t0 = x[k % 3];
+    _, t0 = t0 * _U0;
+    r[k] = t0;
+    t1, t0 = t0 * P[0];
+    x = __addacc3(t1, t0, x, k);
+  }
+  for k = NLIMBS to 2*NLIMBS-1 {
+    x = __muln_innerloop(k, k-NLIMBS+1, NLIMBS, r, P, x); //+3
+    _, _, _, _, _, zero = #set0();
+    t0 = a[k];
+    x = __addacc3(zero, t0, x, k);
+    t0 = x[k % 3];
+    r[k-NLIMBS] = t0;
+    _, _, _, _, _, x[k % 3] = #set0();
+  }
+
+  lastbit = 0;
+  cf, x[(2*NLIMBS-1) % 3] += a[2*NLIMBS-1];
+  _, lastbit += 0 + cf;
+
+  r[NLIMBS-1] = x[(2*NLIMBS-1) % 3];
+
+  mP = _mP;
+  r = __bn_cminusP_mP(lastbit, r, mP);
+  return r;
+}
+
+// ////////////////////////////////////
+
+#[returnaddress="stack"]
+fn _bn_mulm_P_mP_U0
+( reg ptr u64[NLIMBS] a b
+, reg mut ptr u64[NLIMBS] r
+, reg ptr u64[NLIMBS] P mP
+, reg u64 U0
+) -> reg ptr u64[NLIMBS] {
+  stack u64[2*NLIMBS] _tmp;
+  stack ptr u64[NLIMBS] _P _mP;
+  stack u64 _U0;
+  reg ptr u64[2*NLIMBS] tmp;
+
+  _P = P;   // spill
+  _mP = mP; // spill
+  _U0 = U0; // spill
+  tmp = _tmp;
+  tmp = __bn_muln(a, b, tmp);
+  r = __bn_rdcn__P__mP__U0(tmp, r, _P, _mP, _U0);
+  return r;
+}
+
+// ////////////////////////////////////
+
+#[returnaddress="stack"]
+fn _bn_mulmU_P_mP_U0 // update inplace
+( reg mut ptr u64[NLIMBS] a
+, reg ptr u64[NLIMBS] b
+, reg ptr u64[NLIMBS] P mP
+, reg u64 U0
+) -> reg ptr u64[NLIMBS] {
+  stack u64[2*NLIMBS] _tmp;
+  reg ptr u64[2*NLIMBS] tmp;
+  stack ptr u64[NLIMBS] _P _mP;
+  stack u64 _U0;
+
+  _P = P;
+  _mP = mP;
+  _U0 = U0;
+  tmp = _tmp;
+  tmp = __bn_muln(a, b, tmp);
+  a = __bn_rdcn__P__mP__U0(tmp, a, _P, _mP, _U0);
+  return a;
+}
+
+// ////////////////////////////////////
+
+#[returnaddress="stack"]
+fn _bn_sqrm_P_mP_U0
+( reg ptr u64[NLIMBS] a
+, reg mut ptr u64[NLIMBS] r
+, reg ptr u64[NLIMBS] P mP
+, reg u64 U0
+) -> reg ptr u64[NLIMBS] {
+  stack u64[2*NLIMBS] _tmp;
+  reg ptr u64[2*NLIMBS] tmp;
+  stack ptr u64[NLIMBS] _P _mP;
+  stack u64 _U0;
+
+  _P = P;
+  _mP = mP;
+  _U0 = U0;
+  tmp = _tmp;
+  tmp = __bn_sqrn(a, tmp);
+  r = __bn_rdcn__P__mP__U0(tmp, r, _P, _mP, _U0);
+  return r;
+}
+
+// ////////////////////////////////////
+
+#[returnaddress="stack"]
+fn _bn_sqrmU_P_mP_U0 // update inplace
+( reg mut ptr u64[NLIMBS] a
+, reg ptr u64[NLIMBS] P mP
+, reg u64 U0
+) -> reg ptr u64[NLIMBS] {
+  stack u64[2*NLIMBS] _tmp;
+  reg ptr u64[2*NLIMBS] tmp;
+  stack ptr u64[NLIMBS] _P _mP;
+  stack u64 _U0;
+
+  _P = P;
+  _mP = mP;
+  _U0 = U0;
+  tmp = _tmp;
+  tmp = __bn_sqrn(a, tmp);
+  a = __bn_rdcn__P__mP__U0(tmp, a, _P, _mP, _U0);
+  return a;
+}
+
+// ////////////////////////////////////
+
+/* Modular exponentiation
+  obs: naive square-multiply algorithm. Not Constant-Time!!!
+  (good enough for use with public exponents, such as in inversion) */
+#[returnaddress="stack"]
+fn _bn_expm_noct_OneM_P_mP_U0
+( reg ptr u64[NLIMBS] a b
+, reg mut ptr u64[NLIMBS] r
+, reg ptr u64[NLIMBS] OneM P mP
+, reg u64 U0
+) -> reg ptr u64[NLIMBS] {
+  inline int j;
+  reg u64 t;
+  reg bool cf zf;
+  stack u64[NLIMBS] _x;
+  reg ptr u64[NLIMBS] x;
+  stack u64 _k _U0;
+  stack ptr u64[NLIMBS] _b _P _mP;
+
+/*
+  _P = P;
+  _mP = mP;
+  _U0 = U0;
+*/
+  _b = b;
+  r = __bn_copy2(OneM, r);
+  x = _x;
+  x = __bn_copy2(a, x);
+
+  for j = 0 to NLIMBS {
+    b = _b;
+    t = b[(int) j];
+    _k = 64;
+    while {
+      _, cf, _, _, _, t = #SHR(t, 1);
+/*
+      P = _P;
+      mP = _mP;
+      U0 = _U0;
+      x = _x;
+*/
+      if (cf) {
+        r = _bn_mulmU_P_mP_U0(r, x, P, mP, U0);
+      }
+      x = _bn_sqrmU_P_mP_U0(x, P, mP, U0);
+/*
+      _x = x;
+*/
+      _, _, _, zf, _k = #DEC(_k);
+    } (!zf)
+  }
+  return r;
+}
+
+//TODO: move to bn_
+inline fn __bn_cswap
+ ( reg u64 mask /*0/-1*/
+ , reg mut ptr u64[NLIMBS] x
+ , reg mut ptr u64[NLIMBS] y
+ ) -> reg ptr u64[NLIMBS] , reg ptr u64[NLIMBS] {
+  reg u64 tmp1, tmp2;
+  inline int i;
+
+  for i = 0 to NLIMBS {
+   tmp1   = x[i];
+   tmp1  ^= y[i];
+   tmp1  &= mask;
+   x[i]  ^= tmp1;
+   y[i]  ^= tmp1;
+  }
+
+  return x, y;
+}
+
+/* Modular exponentiation (constant-time) */
+#[returnaddress="stack"]
+fn _bn_expm_OneM_P_mP_U0
+( reg ptr u64[NLIMBS] a b
+, reg mut ptr u64[NLIMBS] x0
+, reg ptr u64[NLIMBS] OneM P mP
+, reg u64 U0
+) -> reg ptr u64[NLIMBS] {
+  inline int j;
+  reg u64 t mask;
+  stack u64 _k;
+  reg bool cf zf;
+  stack u64[NLIMBS] _x1;
+  reg ptr u64[NLIMBS] x1;
+  stack ptr u64[NLIMBS] _b;
+
+  _b = b;
+  // x0 = 1M
+  x0 = __bn_copy2(OneM, x0);
+  // x1 = a
+  x1 = _x1;
+  x1 = __bn_copy2(a, x1);
+
+  for j = NLIMBS-1 downto -1  {
+    b = _b;
+    t = b[(int) j];
+    _k = 64;
+    while {
+      mask = 0;
+      _, cf, _, _, _, t = #SHL(t, 1);
+      _, mask += 0 + cf;
+      _, _, _, _, _, mask = #NEG(mask);
+      x0, x1 = __bn_cswap(mask, x0, x1);
+      x1 = _bn_mulmU_P_mP_U0(x1, x0, P, mP, U0);
+      x0 = _bn_sqrmU_P_mP_U0(x0, P, mP, U0);
+      x0, x1 = __bn_cswap(mask, x0, x1);
+      _, _, _, zf, _k = #DEC(_k);
+    } (!zf)
+  }
+  return x0;
+}
+
+// ////////////////////////////////////
+
+/* Modular Inversion */
+inline fn __bn_invm_P_Pm2_mP_U0
+( reg ptr u64[NLIMBS] a
+, reg mut ptr u64[NLIMBS] r
+, reg ptr u64[NLIMBS] OneM P Pm2 mP
+, reg u64 U0
+) -> reg ptr u64[NLIMBS] {
+  /* a^{p-2} */
+  r = _bn_expm_noct_OneM_P_mP_U0(a, Pm2, r, OneM, P, mP, U0);
+  return r;
+}
+
+// ////////////////////////////////////
+
+/* Conversion out from Montgomery form */
+fn _bn_fromM_P_mP_U0
+( reg mut ptr u64[NLIMBS] a
+, reg ptr u64[NLIMBS] P mP
+, reg u64 U0
+) -> reg ptr u64[NLIMBS] {
+  stack u64[2*NLIMBS] _tmp;
+  reg ptr u64[2*NLIMBS] tmp;
+  stack ptr u64[NLIMBS] _P _mP;
+  stack u64 _U0;
+  reg u64 t;
+  inline int i;
+
+  _P = P;
+  _mP = mP;
+  _U0 = U0;
+  a = a; //ws;
+  for i = 0 to NLIMBS {
+    _tmp[NLIMBS + i] = 0;
+  }
+  for i = 0 to NLIMBS {
+    t = a[i];
+    _tmp[i] = t;
+  }
+
+  tmp = _tmp;
+  a = __bn_rdcn__P__mP__U0(tmp, a, _P, _mP, _U0);
+  return a;
+}
+
+// ////////////////////////////////////
+
+/* Conversion into Montgomery form */
+/*
+fn __bn_toM_P_mP_U0
+( reg mut ptr u64[NLIMBS] a
+, reg ptr u64[NLIMBS] RM P mP
+, reg u64 U0
+) -> reg ptr u64[NLIMBS] {
+
+  a = _bn_mulmU_P_mP_U0(a, RM, P, mP, U0);
+  return a;
+}
+*/
+
