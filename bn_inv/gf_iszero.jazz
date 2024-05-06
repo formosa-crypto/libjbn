@@ -1,0 +1,17 @@
+require "gf_iszero.jinc"
+
+export
+fn gf_iszero_jazz(reg u64 in res)
+{
+	reg u64 r;
+	reg u256 t;
+	stack u64[4] a;
+	
+	t = (u256)[in + 0];
+	a[u256 0] = t;
+	
+	r = _gf_iszero(a);
+	
+	t = a[u256 0];
+	[res + 0] = r;
+}

@@ -1,0 +1,26 @@
+require "gf_mul.jinc"
+
+export
+fn gf_mul_jazz( reg u64 out, reg u64 in1, reg u64 in2)
+{
+	
+	reg u256 t;
+	stack u64 out_s, in1_s, in2_s;
+
+	stack u64[4] d, a, b;
+	
+	t = (u256)[in1 + 0];
+	a[u256 0] = t;
+	t = (u256)[in2 + 0];
+	b[u256 0] = t;
+	out_s = out;
+	in1_s = in1;
+	in2_s = in2;
+
+	d = _gf_mul(d,a,b);
+
+	out = out_s;
+	
+	t = d[u256 0];
+	(u256)[out + 0] = t;
+}

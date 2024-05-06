@@ -1,0 +1,68 @@
+require "gf_inv.jinc"
+
+export
+fn gf_normalize_jazz(reg u64 q w)
+{
+	reg u64 t;
+	stack u64 s_q s_w;
+
+	stack u64[4] a y;
+	reg ptr u64[4] reg_a reg_y;
+	inline int i;
+
+	for i=0 to 4
+	{
+		t = [q + i * 8];
+		a[i] = t;
+	}
+	for i=0 to 4
+	{
+		t = [w + i * 8];
+		y[i] = t;
+	}
+
+	s_q = q;
+	s_w = w;
+	reg_a = a;
+	reg_y = y;
+	reg_a = __gf_normalize(reg_a, reg_y);
+	a = reg_a;
+
+	q = s_q;
+	for i=0 to 4
+	{
+		t = a[i];
+		[q + i * 8] = t;
+	}
+}
+
+export
+fn gf_inv_jazz(reg u64 d y iszero)
+{
+
+	reg u64 z;
+	reg u256 t;
+	stack u64[4] a b;
+
+	stack u64 s_d s_y s_iszero;
+
+	t = (u256)[d + 0];
+	a[u256 0] = t;  
+
+	t = (u256)[y + 0];
+	b[u256 0] = t;
+
+	s_d = d;
+	s_y = y;
+	s_iszero = iszero;
+	
+	a, z = _gf_inv(a,b);
+
+	d = s_d;
+	t = a[u256 0];
+	(u256)[d + 0] = t;
+
+	iszero = s_iszero;
+	[iszero + 0] = 0;
+	
+}

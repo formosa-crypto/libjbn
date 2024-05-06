@@ -1,0 +1,29 @@
+param int glob_high33 = 0xFFFFFFFF80000000; 
+
+param int global_m63 = 0x7FFFFFFFFFFFFFFF;
+param int glob_m63 = 0x7FFFFFFFFFFFFFFF;
+param int glob_m64 = 0xFFFFFFFFFFFFFFFF;
+
+param int glob_m31 = 0x7FFFFFFF;
+param int glob_m32 = 0xFFFFFFFF;
+
+param int MQ = 19;
+
+
+u64[4] GF_ZERO = { 0, 0, 0, 0 };
+u64[4] GF_ONE = { 1, 0, 0, 0 };
+u64[4] GF_P = {
+	-MQ
+  , glob_m64
+  , glob_m64
+  , glob_m63 // glob_m64 >> 1
+};
+
+u64[4] GF_INVT508 = {
+	0x29D6DEAB9CB8606C
+  , 0x788DD408827B63FD
+  , 0x3CFC744C965683E6
+  , 0x24E016B1490AA31A
+};
+
+

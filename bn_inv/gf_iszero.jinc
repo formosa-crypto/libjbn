@@ -1,0 +1,72 @@
+require "params.jinc"
+
+fn __gf_iszero(reg ptr u64[4] a) -> reg u64
+{
+	reg u64 t t0 t1 t2;
+
+	/*
+	 * Since values are over 256 bits, there are three possible
+	 * representations for 0: 0, p and 2*p.
+	 */
+	t0 = a[0];
+	t0 |= a[1];
+	t0 |= a[2];
+	t0 |= a[3];
+	
+	t1 = a[0];
+	t1 += MQ;
+	t = a[1];
+	t ^= 0xFFFFFFFFFFFFFFFF;
+	t1 |= t;
+	t = a[2];
+	t ^= 0xFFFFFFFFFFFFFFFF;
+	t1 |= t;
+	t = a[3];
+	t ^= 0x7FFFFFFFFFFFFFFF;
+	t1 |= t;
+	
+	t2 = a[0];
+	t2 += 2*MQ;
+	t = a[1];
+	t ^= 0xffffffffffffffff;
+	t2 |= t;
+	t = a[2];
+	t ^= 0xffffffffffffffff;
+	t2 |= t;
+	t = a[3];
+	t ^= 0xffffffffffffffff;
+	t2 |= t;
+	/*
+	 * Value is zero if and only if one of t0, t1 or t2 is zero.
+	 */
+	
+	t = 0;
+	t -= t0;
+	t0 |= t;
+	t = 0;
+	t -= t1;
+	t1 |= t;
+	t = 0;
+	t -= t2;
+	t2 |= t;
+	t0 &= t1;
+	t0 &= t2;
+	t0 >>= 63;
+	t = 1;
+	t -= t0;
+	
+	return t;
+}
+
+inline
+fn _gf_iszero(stack u64[4] in) -> reg u64
+{
+	reg u64 r;
+	reg ptr u64[4] a;
+	
+	a = in;
+	r = __gf_iszero(a);
+	
+	return r;
+}
+

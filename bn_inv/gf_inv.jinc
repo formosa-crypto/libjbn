@@ -1,0 +1,1400 @@
+require "gf_iszero.jinc"
+require "gf_mul.jinc"
+
+
+fn __copy_gf(reg ptr u64[4] x y) -> reg ptr u64[4]
+{
+	reg u64 t;
+
+	t = y[0];
+	x[0] = t;
+	t = y[1];
+	x[1] = t;
+	t = y[2];
+	x[2] = t;
+	t = y[3];
+	x[3] = t;
+
+	return x;
+}
+
+inline
+fn _copy_gf(stack u64[4] x y) -> stack u64[4]
+{
+	reg ptr u64[4] a b;
+
+	a = x;
+	b = y;
+	a = __copy_gf(a,b);
+	x = a;
+
+	return x;
+}
+
+/*
+ * Normalize a value to 0..p-1.
+ */
+fn __gf_normalize(reg ptr u64[4] d a) -> reg ptr u64[4]
+{
+	reg bool cc flag;
+	reg u64 e aux aux1 aux2;
+	reg u64 d0 d1 d2 d3;
+	/*
+	 * If top bit is set, propagate it.
+	 */
+	e = a[3];
+	_, _, _, _, _, e = #SHR(e, 63);
+	e = -e;
+
+	aux2 = e;
+	_, _, _, _, _, aux2 = #SHL(aux2, 63);
+
+	aux = a[0];
+	aux1 = e;
+	_, _, _, _, _, aux1 = #AND(aux1,MQ);
+	_, cc, _, _, _, _ = #set0();
+	cc, d0 = #ADCX_64(aux, aux1, cc);
+	aux = a[1];
+	aux1 = 0;
+	cc, d1 = #ADCX(aux, aux1, cc);
+	aux = a[2];
+	cc, d2 = #ADCX(aux, aux1, cc);
+	aux = a[3];
+	_, d3 = #ADCX(aux, aux2, cc);
+
+	/*
+	 * Value is now at most 2^255+MQ-1. Subtract p, and add it back
+	 * if the result is negative.
+	 */
+
+	aux2 = -1;
+	_, _, _, _, _, aux2 = #SHR(aux2,1);
+
+	_, cc, _, _, _, _ = #set0();
+	aux = d0;
+	aux1 = -MQ;
+	_, cc, _, _, _, d0 = #SBB(aux, aux1, cc); 
+	aux = d1;
+	aux1 = -1;
+	_, cc, _, _, _, d1 = #SBB(aux, aux1, cc); 
+	aux = d2;
+	_, cc, _, _, _, d2 = #SBB(aux, aux1, cc);
+	aux = d3;
+	_, cc, _, _, _, d3 = #SBB(aux, aux2, cc); 
+
+	_, _, _, _, _, e = #SBB(e,0,cc);
+	
+	aux2 = e;
+	_, _, _, _, _, aux2 = #SHR(aux2,1);
+	aux = -MQ;
+	_, _, _, _, _, aux = #AND(aux, e);
+	
+	_, cc, _, _, _, _ = #set0();
+	cc, aux1 = #ADCX(d0, aux, cc);
+	d[0] = aux1;
+	aux = e;
+	cc, aux1 = #ADCX(d1, aux, cc);
+	d[1] = aux1;
+	cc, aux1 = #ADCX(d2, aux, cc);
+	d[2] = aux1;
+	cc, aux1 = #ADCX(d3, aux2, cc);
+	d[3] = aux1;
+
+	return d;
+}
+
+inline
+fn _gf_normalize(stack u64[4] d, reg ptr u64[4] a) -> stack u64[4]
+{
+	reg ptr u64[4] b;
+
+	b = d;
+	b = __gf_normalize(b,a);
+	d = b;
+
+	return d;
+}
+
+/*
+ * Compute (a*f+b*g)/2^31. Parameters f and g are provided with an
+ * unsigned type, but they are signed integers in the -2^31..+2^31
+ * range. Values a, b and d are not field elements, but signed 256-bit
+ * integers (i.e. top bit is the sign bit) which are nonnegative (value
+ * is between 0 and 2^255-1). The division by 2^31 is assumed to be
+ * exact (low j bits of a*f+b*g are dropped). The result is assumed to
+ * fit in 256 bits, including the sign bit (truncation is applied on
+ * higher bits).
+ *
+ * If the result turns out to be negative, then it is negated. Returned
+ * value is 1 if the result was negated, 0 otherwise.
+ */
+
+fn __s256_lin_div31_abs(reg ptr u64[4] d a b, reg u64 f g)
+-> reg ptr u64[4], reg u64
+{
+	reg bool cc;
+	reg u64 sf sg aux aux1 aux2 z1 z2 d0 d1 d2 d3 t;
+
+
+	stack u64[4] _a _b ta tb;
+	/*
+	 * If f < 0, replace f with -f but keep the sign in sf.
+	 * Similarly for g.
+	 */
+
+	sf = f;
+	_, _, _, _, _, sf = #SHR(sf, 63);
+	aux1 = sf;
+	sf = -sf;
+	_, _, _, _, _, sf = #XOR(sf, f);
+	_, _, _, _, _, sf = #ADD(sf, aux1);
+	f = sf;
+	sf = aux1;
+	sg = g;
+	_, _, _, _, _, sg = #SHR(sg, 63);
+	aux1 = sg;
+	sg = -sg;
+	_, _, _, _, _, sg = #XOR(sg, g);
+	_, _, _, _, _, sg = #ADD(sg, aux1);
+	g = sg;
+	sg = aux1;
+
+	/*
+	 * Apply signs sf and sg to a and b, respectively.
+	 */
+	aux1 = sf;
+	sf = -sf;
+	aux = a[0];
+	_, _, _, _, _, aux = #XOR(aux, sf);
+	_a[0] = aux;
+	aux = a[1];
+	_, _, _, _, _, aux = #XOR(aux, sf);
+	_a[1] = aux;
+	aux = a[2];
+	_, _, _, _, _, aux = #XOR(aux, sf);
+	_a[2] = aux;
+	aux = a[3];
+	_, _, _, _, _, aux = #XOR(aux, sf);
+	_a[3] = aux;
+
+	_, cc, _, _, _, _ = #set0();
+	aux = _a[0];
+	cc, aux = #ADCX(aux, aux1, cc);
+	ta[0] = aux;
+	aux = _a[1];
+	aux1 = 0;
+	cc, aux = #ADCX(aux, aux1, cc);
+	ta[1] = aux;
+	aux = _a[2];
+	cc, aux = #ADCX(aux, aux1, cc);
+	ta[2] = aux;
+	aux = _a[3];
+	cc, aux = #ADCX(aux, aux1, cc);
+	ta[3] = aux;
+
+
+	aux1 = sg;
+	sg = -sg;
+	aux = b[0];
+	_, _, _, _, _, aux = #XOR(aux, sg);
+	_b[0] = aux;
+	aux = b[1];
+	_, _, _, _, _, aux = #XOR(aux, sg);
+	_b[1] = aux;
+	aux = b[2];
+	_, _, _, _, _, aux = #XOR(aux, sg);
+	_b[2] = aux;
+	aux = b[3];
+	_, _, _, _, _, aux = #XOR(aux, sg);
+	_b[3] = aux;
+
+	_, cc, _, _, _, _ = #set0();
+	aux = _b[0];
+	cc, aux = #ADCX(aux, aux1, cc);
+	tb[0] = aux;
+	aux = _b[1];
+	aux1 = 0;
+	cc, aux = #ADCX(aux, aux1, cc);
+	tb[1] = aux;
+	aux = _b[2];
+	cc, aux = #ADCX(aux, aux1, cc);
+	tb[2] = aux;
+	aux = _b[3];
+	cc, aux = #ADCX(aux, aux1, cc);
+	tb[3] = aux;
+
+	/*
+	 * Now that f and g are nonnegative, compute a*f+b*g into
+	 * d0:d1:d2:d3:t. Since f and g are at most 2^31, we can
+	 * add two 128-bit products with no overflow (they are actually
+	 * 95 bits each at most).
+	 */
+	aux1 = ta[0];
+	aux2 = f;
+	_, _, _, _, _, z2, aux1 = #MUL(aux1, aux2);
+	z1 = z2;
+	aux = aux1;
+	aux1 = tb[0];
+	aux2 = g;
+	_, _, _, _, _, z2, aux1 = #MUL(aux1, aux2);
+
+	_, cc, _, _, _, _ = #set0();
+	cc, aux = #ADCX(aux, aux1, cc);
+	d0 = aux;
+	aux = z1;
+	cc, aux = #ADCX(aux, z2, cc);	 // cc = 0 at this point
+	t = aux;
+
+
+	aux1 = ta[1];
+	aux2 = f;
+	_, _, _, _, _, z2, aux1 = #MUL(aux1, aux2);
+	// Absorb the previous t to free the register
+	_, cc, _, _, _, _ = #set0();
+	aux = aux1;
+	cc, aux = #ADCX(aux, t, cc);
+	aux1 = aux;
+	aux = z2;
+	t = 0;
+	cc, aux = #ADCX(aux, t, cc);	 // cc = 0 at this point
+	z1 = aux;
+	aux = aux1;
+
+	aux1 = tb[1];
+	aux2 = g;
+	_, _, _, _, _, z2, aux1 = #MUL(aux1, aux2);
+
+	_, cc, _, _, _, _ = #set0();
+	cc, aux = #ADCX(aux, aux1, cc);
+	d1 = aux;
+	aux = z1;
+	cc, aux = #ADCX(aux, z2, cc);	 // cc = 0 at this point
+	t = aux;
+
+
+	aux1 = ta[2];
+	aux2 = f;
+	_, _, _, _, _, z2, aux1 = #MUL(aux1, aux2);
+	// Absorb the previous t to free the register
+	_, cc, _, _, _, _ = #set0();
+	aux = aux1;
+	cc, aux = #ADCX(aux, t, cc);
+	aux1 = aux;
+	aux = z2;
+	t = 0;
+	cc, aux = #ADCX(aux, t, cc);	 // cc = 0 at this point
+	z1 = aux;
+	aux = aux1;
+
+	aux1 = tb[2];
+	aux2 = g;
+	_, _, _, _, _, z2, aux1 = #MUL(aux1, aux2);
+	
+	_, cc, _, _, _, _ = #set0();
+	cc, aux = #ADCX(aux, aux1, cc);
+	d2 = aux;
+	aux = z1;
+	cc, aux = #ADCX(aux, z2, cc);	 // cc = 0 at this point
+	t = aux;
+
+
+	aux1 = ta[3];
+	aux2 = f;
+	_, _, _, _, _, z2, aux1 = #MUL(aux1, aux2);
+	// Absorb the previous t to free the register
+	_, cc, _, _, _, _ = #set0();
+	aux = aux1;
+	cc, aux = #ADCX(aux, t, cc);
+	aux1 = aux;
+	aux = z2;
+	t = 0;
+	cc, aux = #ADCX(aux, t, cc);	 // cc = 0 at this point
+	z1 = aux;
+	aux = aux1;
+
+	aux1 = tb[3];
+	aux2 = g;
+	_, _, _, _, _, z2, aux1 = #MUL(aux1, aux2);
+
+	_, cc, _, _, _, _ = #set0();
+	cc, aux = #ADCX(aux, aux1, cc);
+	d3 = aux;
+	aux = z1;
+	cc, aux = #ADCX(aux, z2, cc);	 // cc = 0 at this point
+	t = aux;
+
+
+	/*
+	 * Don't forget the signs: if a < 0, then the result is
+	 * overestimated by 2^256*f; similarly, if b < 0, then the
+	 * result is overestimated by 2^256*g. We thus must subtract
+	 * 2^256*(sa*f+sb*g), where sa and sb are the signs of a and b,
+	 * respectively.
+	 */
+	aux = ta[3];
+	_, _, _, _, _, aux = #SHR(aux, 63);
+	aux = -aux;
+	aux &= f;
+	t -= aux;
+
+	aux = tb[3];
+	_, _, _, _, _, aux = #SHR(aux, 63);
+	aux = -aux;
+	aux &= g;
+	t -= aux;
+
+
+	/*
+	 * Apply the shift.
+	 */
+	aux = d0;
+	_, _, _, _, _, aux = #SHR(aux, 31);
+	d0 = d1;
+	_, _, _, _, _, d0 = #SHL(d0, 33);
+	_, _, _, _, _, d0 = #OR(d0, aux);
+	
+	aux = d1;
+	_, _, _, _, _, aux = #SHR(aux, 31);
+	d1 = d2;
+	_, _, _, _, _, d1 = #SHL(d1, 33);
+	_, _, _, _, _, d1 = #OR(d1, aux);
+
+	aux = d2;
+	_, _, _, _, _, aux = #SHR(aux, 31);
+	d2 = d3;
+	_, _, _, _, _, d2 = #SHL(d2, 33);
+	_, _, _, _, _, d2 = #OR(d2, aux);
+
+	aux = d3;
+	_, _, _, _, _, aux = #SHR(aux, 31);
+	d3 = t;
+	_, _, _, _, _, d3 = #SHL(d3, 33);
+	_, _, _, _, _, d3 = #OR(d3, aux);
+
+
+	/*
+	 * Perform conditional negation, if the result is negative.
+	 */
+	_, _, _, _, _, t = #SHR(t, 63);
+	aux1 = t;
+	t = -t; 
+	aux = d0;
+	_, _, _, _, _, aux = #XOR(aux, t);
+	d0 = aux;
+	aux = d1;
+	_, _, _, _, _, aux = #XOR(aux, t);
+	d1 = aux;
+	aux = d2;
+	_, _, _, _, _, aux = #XOR(aux, t);
+	d2 = aux;
+	aux = d3;
+	_, _, _, _, _, aux = #XOR(aux, t);
+	d3 = aux;
+
+	_, cc, _, _, _, _ = #set0();
+	aux = d0;
+	cc, aux = #ADCX(aux, aux1, cc);
+	d[0] = aux;
+	aux = d1;
+	aux1 = 0;
+	cc, aux = #ADCX(aux, aux1, cc);
+	d[1] = aux;
+	aux = d2;
+	cc, aux = #ADCX(aux, aux1, cc);
+	d[2] = aux;
+	aux = d3;
+	cc, aux = #ADCX(aux, aux1, cc);
+	d[3] = aux;
+
+	return d, t;
+}
+
+inline
+fn _s256_lin_div31_abs(stack u64[4] d a b, reg u64 f g)
+-> stack u64[4], reg u64
+{
+	reg u64 t _f _g;
+	reg ptr u64[4] x y z;
+
+	x = d;
+	y = a;
+	z = b;
+	_f = f;
+	_g = g;
+	x, t = __s256_lin_div31_abs(x,y,z,_f,_g);
+	d = x;
+
+	return d,t;
+}
+
+
+fn __gf_neg(reg ptr u64[4] d a) -> reg ptr u64[4]
+{
+	reg bool cc;
+	reg u64 d0 d1 d2 d3 e aux aux1;
+
+	/*
+	 * Compute 2*p - a over 256 bits.
+	 */
+	d0 = 2 * MQ;
+	d0 = -d0;
+	aux = a[0];
+	_, cc, _, _, _, _ = #set0();
+	_, cc, _, _, _, d0 = #SBB(d0, aux, cc);
+	d1 = -1;
+	aux = a[1];
+	_, cc, _, _, _, d1 = #SBB(d1, aux, cc);
+	d2 = -1;
+	aux = a[2];
+	_, cc, _, _, _, d2 = #SBB(d2, aux, cc);
+	d3 = -1;
+	aux = a[3];
+	_, cc, _, _, _, d3 = #SBB(d3, aux, cc);
+
+
+	/*
+	 * If the result is negative, add back p = 2^255 - MQ.
+	 */
+	e = 0;
+	aux1 = -1;
+	e = aux1 if cc;
+	aux1 = e;
+	_, _, _, _, _, aux1 = #SHR(aux1, 1);
+
+	aux = e;
+	aux &= -MQ;
+	_, cc, _, _, _, _ = #set0();
+	cc, aux = #ADCX(aux, d0, cc);
+	d[0] = aux;
+	aux = e;
+	cc, aux = #ADCX(aux, d1, cc);
+	d[1] = aux;
+	aux = e;
+	cc, aux = #ADCX(aux, d2, cc);
+	d[2] = aux;
+	cc, aux1 = #ADCX(aux1, d3, cc);
+	d[3] = aux1;
+
+	return d;
+}
+
+inline
+fn _gf_neg(stack u64[4] t, reg ptr u64[4] a) -> stack u64[4]
+{
+	reg ptr u64[4] b;
+
+	b = t;
+	b = __gf_neg(b,a);
+	t = b;
+
+	return t;
+}
+
+
+fn __gf_condneg(reg ptr u64[4] d a, reg u64 ctl) -> reg ptr u64[4]
+{
+	reg u64 aux aux1;
+	stack u64[4] t;
+
+	t = _gf_neg(t, a);
+
+	aux = t[0];
+	aux1 = a[0];
+	_, _, _, _, _, aux = #XOR(aux, aux1);
+	aux1 = ctl;
+	aux1 = -aux1;
+	_, _, _, _, _, aux = #AND(aux, aux1);
+	aux1 = a[0];
+	_, _, _, _, _, aux = #XOR(aux, aux1);
+	d[0] = aux;
+
+	aux = t[1];
+	aux1 = a[1];
+	_, _, _, _, _, aux = #XOR(aux, aux1);
+	aux1 = ctl;
+	aux1 = -aux1;
+	_, _, _, _, _, aux = #AND(aux, aux1);
+	aux1 = a[1];
+	_, _, _, _, _, aux = #XOR(aux, aux1);
+	d[1] = aux;
+
+	aux = t[2];
+	aux1 = a[2];
+	_, _, _, _, _, aux = #XOR(aux, aux1);
+	aux1 = ctl;
+	aux1 = -aux1;
+	_, _, _, _, _, aux = #AND(aux, aux1);
+	aux1 = a[2];
+	_, _, _, _, _, aux = #XOR(aux, aux1);
+	d[2] = aux;
+
+	aux = t[3];
+	aux1 = a[3];
+	_, _, _, _, _, aux = #XOR(aux, aux1);
+	aux1 = ctl;
+	aux1 = -aux1;
+	_, _, _, _, _, aux = #AND(aux, aux1);
+	aux1 = a[3];
+	_, _, _, _, _, aux = #XOR(aux, aux1);
+	d[3] = aux;
+
+	return d;
+}
+
+inline
+fn _gf_condneg(stack u64[4] d, reg ptr u64[4] a, reg u64 ctl)
+-> reg ptr u64[4]
+{
+	reg u64 e;
+	reg ptr u64[4] b c;
+
+	b = d;
+	c = a;
+	e = ctl;
+	b = __gf_condneg(b,c,e);
+	d = b;
+
+	return d;
+}
+
+/*
+ * Compute u*f+v*g (modulo p). Parameters f and g are provided with
+ * an unsigned type, but they are signed integers in the -2^62..+2^62 range.
+ */
+fn __gf_lin(reg ptr u64[4] d u v, reg u64 f g) -> reg ptr u64[4]
+{
+	reg bool cc;
+	reg u64 aux aux1 aux2;
+	reg u64 sf sg d0 d1 d2 d3 t z1 z2;
+
+	stack u64 s_sg;
+
+	stack u64[4] tu tv;
+
+	stack ptr u64[4] s_d;
+
+	s_d = d;
+	/*
+	 * If f < 0, replace f with -f but keep the sign in sf.
+	 * Similarly for g.
+	 */
+	sf = f;
+	_, _, _, _, _, sf = #SHR(sf, 63);
+	aux = sf;
+	aux = -aux;
+	f ^= aux;
+	f += sf;
+	sg = g;
+	_, _, _, _, _, sg = #SHR(sg, 63);
+	aux = sg;
+	aux = -aux;
+	g ^= aux;
+	g += sg;
+
+	/*
+	 * Apply signs sf and sg to u and v.
+	 */
+	s_sg = sg;
+	tu = _gf_condneg(tu, u, sf);
+	sg = s_sg;
+	tv = _gf_condneg(tv, v, sg);
+
+	/*
+	 * Since f <= 2^62 and g <= 2^62, we can add 128-bit products: they
+	 * fit on 126 bits each.
+	 */
+
+	aux1 = tu[0];
+	aux2 = f;
+	_, _, _, _, _, z1, aux1 = #MUL(aux1, aux2);
+	aux = aux1;
+	z1 = z1;
+	aux1 = tv[0];
+	aux2 = g;
+	_, _, _, _, _, z2, aux1 = #MUL(aux1, aux2);
+
+	_, cc, _, _, _, _ = #set0();
+	cc, aux = #ADCX(aux, aux1, cc);
+	d0 = aux;
+	aux = z1;
+	cc, aux = #ADCX(aux, z2, cc);
+	t = aux;
+
+
+	aux1 = tu[1];
+	aux2 = f;
+	_, _, _, _, _, z1, aux1 = #MUL(aux1,aux2);
+	aux = aux1;
+
+	_, cc, _, _, _, _ = #set0();
+	cc, aux = #ADCX(aux, t, cc);
+	aux1 = aux;
+	aux = z1;
+	t = 0;
+	cc, aux = #ADCX(aux, t, cc); // cc is 0 here
+	z1 = aux;
+	aux = aux1;
+
+	aux1 = tv[1];
+	aux2 = g;
+	_, _, _, _, _, z2, aux1 = #MUL(aux1,aux2);
+
+	_, cc, _, _, _, _ = #set0();
+	cc, aux = #ADCX(aux, aux1, cc);
+	d1 = aux;
+	aux = z1;
+	cc, aux = #ADCX(aux, z2, cc);
+	t = aux;
+
+
+	aux1 = tu[2];
+	aux2 = f;
+	_, _, _, _, _, z1, aux1 = #MUL(aux1,aux2);
+	aux = aux1;
+	
+	_, cc, _, _, _, _ = #set0();
+	cc, aux = #ADCX(aux, t, cc);
+	aux1 = aux;
+	aux = z1;
+	t = 0;
+	cc, aux = #ADCX(aux, t, cc); // cc is 0 here
+	z1 = aux;
+	aux = aux1;
+
+	aux1 = tv[2];
+	aux2 = g;
+	_, _, _, _, _, z2, aux1 = #MUL(aux1,aux2);
+
+	_, cc, _, _, _, _ = #set0();
+	cc, aux = #ADCX(aux, aux1, cc);
+	d2 = aux;
+	aux = z1;
+	cc, aux = #ADCX(aux, z2, cc);
+	t = aux;
+
+
+	aux1 = tu[3];
+	aux2 = f;
+	_, _, _, _, _, z1, aux1 = #MUL(aux1,aux2);
+	aux = aux1;
+	
+	_, cc, _, _, _, _ = #set0();
+	cc, aux = #ADCX(aux, t, cc);
+	aux1 = aux;
+	aux = z1;
+	t = 0;
+	cc, aux = #ADCX(aux, t, cc); // cc is 0 here
+	z1 = aux;
+	aux = aux1;
+
+	aux1 = tv[3];
+	aux2 = g;
+	_, _, _, _, _, z2, aux1 = #MUL(aux1,aux2);
+
+	_, cc, _, _, _, _ = #set0();
+	cc, aux = #ADCX(aux, aux1, cc);
+	d3 = aux;
+	aux = z1;
+	cc, aux = #ADCX(aux, z2, cc);
+	t = aux;
+
+	/*
+	 * Upper word t can be up to 63 bits.
+	 */
+	aux = 2 * MQ;
+	_, _, _, _, _, aux1, aux = #MUL(aux,t);
+
+	_, cc, _, _, _, _ = #set0();
+	cc, aux = #ADCX(aux,d0,cc);
+	d0 = aux;
+	aux = aux1;
+	cc, aux = #ADCX(aux,d1,cc);
+	d1 = aux;
+	aux = 0;
+	cc, aux = #ADCX(aux,d2,cc);
+	d2 = aux;
+	aux = 0;
+	cc, aux = #ADCX(aux,d3,cc);
+	d3 = aux;
+
+	/*
+	 * There could be a carry, but in that case, the folding won't
+	 * propagate beyond the second limb.
+	 */
+	aux = 0;
+	aux1 = -1;
+	aux = aux1 if cc;
+	aux1 = 2 * MQ;
+	aux &= aux1;
+	_, cc, _, _, _, _ = #set0();
+	cc, aux = #ADCX(aux, d0, cc);
+	d0 = aux;
+	aux = 0;
+	_, aux = #ADCX(aux, d1, cc); 
+	d1 = aux;
+
+	d = s_d;
+	d[0] = d0;
+	d[1] = d1;
+	d[2] = d2;
+	d[3] = d3;
+
+	return d;
+}
+
+inline
+fn _gf_lin(stack u64[4] d u v, reg u64 f g) -> stack u64[4]
+{
+	reg u64 e h;
+	reg ptr u64[4] a b c;
+
+	a = d;
+	b = u;
+	c = v;
+	e = f;
+	h = g;
+	a = __gf_lin(a,b,c,e,h);
+	d = a;
+
+	return d;
+}
+
+
+/*
+ * Assembly code for the inner loop (generic version, can run for up to
+ * 62 iterations).
+ *    rax   f0
+ *    rbx   g0
+ *    rcx   f1
+ *    rdx   g1
+ *    rsi   xa
+ *    rdi   xb
+ */
+fn inv_inner(reg u64 f0 g0 f1 g1 xa xb)
+-> reg u64, reg u64, reg u64, reg u64, reg u64, reg u64
+{
+	reg bool cf zf;
+	reg u64 aux aux1;
+	reg u64 r10 r11 r12 r13 r14 r15;
+
+	/* 
+	 * Copy old values into extra registers 
+	 *    r10   f0 
+	 *    r11   g0 
+	 *    r12   f1 
+	 *    r13   g1 
+	 *    r14   xa 
+	 *    r15   xb 
+	 */ 
+	r10 = f0;
+	r11 = g0;
+	r12 = f1;
+	r13 = g1;
+	r14 = xa;
+	r15 = xb;
+
+	/* Conditional swap if xa < xb */
+	_, cf, _, _, _ = #CMP(r15,r14); 
+	xa = r15 if !cf;
+	xb = r14 if !cf;
+	f0 = r12 if !cf;
+	f1 = r10 if !cf;
+	g0 = r13 if !cf;
+	g1 = r11 if !cf;
+
+	/* Subtract xb from xa */
+	_, _, _, _, _, xa = #SUB(xa,xb);
+	_, _, _, _, _, f0 = #SUB(f0,f1);
+	_, _, _, _, _, g0 = #SUB(g0,g1);
+
+	/* If xa was even, override the operations above */
+	aux = r14;
+	aux1 = 1;
+	_, _, _, zf, _ = #TEST(aux,aux1);
+	f0 = r10 if zf;
+	g0 = r11 if zf;
+	f1 = r12 if zf;
+	g1 = r13 if zf;
+	xa = r14 if zf;
+	xb = r15 if zf;
+
+	/* Now xa is even; apply shift. */ 
+	_, _, _, _, _, xa = #SHR(xa, 1);
+	_, _, _, _, _, f1 = #ADD(f1, f1);
+	_, _, _, _, _, g1 = #ADD(g1, g1);
+
+	return f0, g0, f1, g1, xa, xb;
+}
+
+/*
+ * Alternate assembly code for the inner loop. This one groups values
+ * by pairs and is slightly faster, but it is good only for up to 31
+ * iterations.
+ *    rax   f0:g0  (f0 = low half, g0 = high half)
+ *    rcx   f1:g1
+ *    rdx   0x7FFFFFFF7FFFFFFF
+ *    rsi   xa
+ *    rdi   xb
+ */
+fn inv_inner_fast(reg u64 rax rcx rsi rdi rdx)
+-> reg u64, reg u64, reg u64, reg u64
+{
+	reg bool sf cf zf;
+	reg u64 aux;
+ 	reg u64 r10 r12 r14 r15;
+
+ 	/* 
+	 * Copy old values into extra registers 
+	 *    r10   f0:g0 
+	 *    r12   f1:g1 
+	 *    r14   xa 
+	 *    r15   xb 
+	 */ 
+	r10 = rax;
+	r12 = rcx;
+	r14 = rsi;
+	r15 = rdi;
+
+	/* Conditional swap if xa < xb */ 
+	_, cf, _, _, _ = #CMP(rdi,rsi);
+	rsi = r15 if !cf;
+	rdi = r14 if !cf;
+	rax = r12 if !cf;
+	rcx = r10 if !cf;
+
+	/* Subtract xb from xa */
+	_, _, _, _, _, rsi = #SUB(rsi,rdi);		
+	_, _, _, _, _, rax = #SUB(rax,rcx);
+	_, _, _, _, _, rax = #ADD(rax,rdx);
+
+	/* If xa was even, override the operations above */
+	aux = 1;
+	_, _, _, zf, _ = #TEST(aux,r14);
+	rax = r10 if zf;
+	rcx = r12 if zf;
+	rsi = r14 if zf;
+	rdi = r15 if zf;
+
+	/* Now xa is even; apply shift. */
+	_, _, _, _, _, rsi = #SHR(rsi, 1);
+	_, _, _, _, _, rcx = #ADD(rcx, rcx);
+	_, _, _, _, _, rcx = #SUB(rcx, rdx);
+
+	return rax, rcx, rsi, rdi;
+}
+
+fn __asm_volatile(reg u64 rsi rdi) -> reg u64, reg u64, reg u64, reg u64
+{
+
+	reg bool sf cf zf;
+	reg u64 aux;
+	reg u64 r8 r10 r12 r13 r14 r15;
+	reg u64 eax ecx rax rbx rcx rdx rsx;
+
+	rdx = 0x7FFFFFFF7FFFFFFF;
+	rax = 0x7FFFFFFF80000000;
+	rcx = 0x800000007FFFFFFF;
+	/*
+	 * Do the loop. Tests on a Coffee Lake core seem
+	 * to indicate that not unrolling is best here.
+	 * Loop counter is in r8.
+	 */
+	r8 = 30;
+	_, _, sf, _, _ = #CMP(r8,0);
+	while(sf == false)
+	{
+		rax, rcx, rsi, rdi = inv_inner_fast(rax, rcx, rsi, rdi, rdx);
+		_, _, _, _, r8 = #DEC(r8);
+		_, _, sf, _, _ = #CMP(r8,0);
+	}
+
+	/*
+	 * Split f0, f1, g0 and g1 into separate variables.
+	 * rax = f0:g0
+	 * rcx = f1:g1
+	 */
+	rbx = rax;
+	rdx = rcx;
+
+	_, _, _, _, _, rbx = #SHR(rbx, 32);
+	_, _, _, _, _, rdx = #SHR(rdx, 32);
+	rax &= 0x00000000FFFFFFFF;
+	rcx &= 0x00000000FFFFFFFF;
+	_, _, _, _, _, rax = #SUB(rax,glob_m31);
+	_, _, _, _, _, rbx = #SUB(rbx,glob_m31);
+	_, _, _, _, _, rcx = #SUB(rcx,glob_m31);
+	_, _, _, _, _, rdx = #SUB(rdx,glob_m31);
+
+	return rax, rbx, rcx, rdx;
+}
+
+fn __asm_volatile2(reg u64 xa xb) -> reg u64, reg u64, reg u64, reg u64
+{
+
+	reg bool sf;
+	reg u64 r8;
+	reg u64 f0 g0 f1 g1;
+
+	/* Set f0, g0, f1 and g1. */
+	f0 = 1;
+	_, _, _, _, _, g0 = #set0();
+	_, _, _, _, _, f1 = #set0();
+	g1 = 1;
+
+	/* Do 43 iterations. We need to use the generic code
+	   with one update factor per register, since we do
+	   more than 31 iterations. Unrolling two iterations
+	   in the loop appears to save a few cycles. */
+	r8 = 20;
+	_, _, sf, _, _ = #CMP(r8,0);
+	while(sf == false)
+	{
+		
+		f0, g0, f1, g1, xa, xb = inv_inner(f0, g0, f1, g1, xa, xb);
+		f0, g0, f1, g1, xa, xb = inv_inner(f0, g0, f1, g1, xa, xb);
+
+		_, _, _, _, r8 = #DEC(r8);
+		_, _, sf, _, _ = #CMP(r8,0);
+	}
+
+	f0, g0, f1, g1, xa, xb = inv_inner(f0, g0, f1, g1, xa, xb);
+
+	return f0, g0, f1, g1;
+}
+
+
+fn __gf_inv(reg ptr u64[4] d y) -> reg ptr u64[4], reg u64
+{
+
+	reg bool sf;
+	reg u64 i;
+	reg u64 f0 g0 f1 g1 iszero;
+	reg u64 aux aux1 shift nega negb;
+	reg u64 r8 rax rbx rcx rdx rdi rsi eax ebx ecx edx;
+	reg u64 m1 m2 m3 tnz1 tnz2 tnz3 tnzm tnza tnzb snza snzb s sm xa xb;
+
+	stack u64 s_i s_f0 s_g0 s_f1 s_g1 s_nega s_negb;
+
+	stack u64[4] a b u v v2 na nb nu nv;
+
+	reg ptr u64[4] r_v2 r_aux;
+	stack ptr u64[4] s_d;
+
+	/*
+	 * Extended binary GCD:
+	 *
+	 *   a <- y
+	 *   b <- q
+	 *   u <- 1
+	 *   v <- 0
+	 *
+	 * a and b are nonnnegative integers (in the 0..q range). u
+	 * and v are integers modulo q.
+	 *
+	 * Invariants:
+	 *    a = y*u mod q
+	 *    b = y*v mod q
+	 *    b is always odd
+	 *
+	 * At each step:
+	 *    if a is even, then:
+	 *        a <- a/2, u <- u/2 mod q
+	 *    else:
+	 *        if a < b:
+	 *            (a, u, b, v) <- (b, v, a, u)
+	 *        a <- (a-b)/2, u <- (u-v)/2 mod q
+	 *
+	 * At one point, value a reaches 0; it will then stay there
+	 * (all subsequent steps will only keep a at zero). The value
+	 * of b is then GCD(y, p), i.e. 1 if y is invertible; value v
+	 * is then the inverse of y modulo p.
+	 *
+	 * If y = 0, then a is initially at zero and stays there, and
+	 * v is unchanged. The function then returns 0 as "inverse" of
+	 * zero, which is the desired behaviour; therefore, no corrective
+	 * action is necessary.
+	 *
+	 * It can be seen that each step will decrease the size of one of
+	 * a and b by at least 1 bit; thus, starting with two values of
+	 * at most 255 bits each, 509 iterations are always sufficient.
+	 *
+	 *
+	 * In practice, we optimize this code in the following way:
+	 *  - We do iterations by group of 31.
+	 *  - In each group, we use _approximations_ of a and b that
+	 *    fit on 64 bits each:
+	 *      Let n = max(len(a), len(b)).
+	 *      If n <= 64, then xa = na and xb = nb.
+	 *      Otherwise:
+	 *         xa = (a mod 2^31) + 2^31*floor(a / 2^(n - 33))
+	 *         xb = (b mod 2^31) + 2^31*floor(b / 2^(n - 33))
+	 *    I.e. we keep the same low 31 bits, but we remove all the
+	 *    "middle" bits to just keep the higher bits. At least one
+	 *    of the two values xa and xb will have maximum length (64 bits)
+	 *    if either of a or b exceeds 64 bits.
+	 *  - We record which subtract and swap we did into update
+	 *    factors, which we apply en masse to a, b, u and v after
+	 *    the 31 iterations.
+	 *
+	 * Since we kept the correct low 31 bits, all the "subtract or
+	 * not" decisions are correct, but the "swap or not swap" might
+	 * be wrong, since these use the difference between the two
+	 * values, and we only have approximations thereof. A consequence
+	 * is that after the update, a and/or b may be negative. If a < 0,
+	 * we negate it, and also negate u (which we do by negating the
+	 * update factors f0 and g0 before applying them to compute the
+	 * new value of u); similary for b and v.
+	 *
+	 * It can be shown that the 31 iterations, along with the
+	 * conditional negation, ensure that len(a)+len(b) is still
+	 * reduced by at least 31 bits (compared with the classic binary
+	 * GCD, the use of the approximations may make the code "miss one
+	 * bit", but the conditional subtraction regains it). Thus,
+	 * 509 iterations are sufficient in total. As explained later on,
+	 * we can skip the final iteration as well.
+	 */
+	a = _gf_normalize(a, y);
+
+	b = _copy_gf(b, GF_P);
+	u = _copy_gf(u, GF_ONE);
+	v = _copy_gf(v, GF_ZERO);
+
+	/*
+	 * Generic loop first does 15*31 = 465 iterations.
+	 */
+	s_d = d;
+	i = 0;
+	while(i < 15)
+	{
+		s_i = i;
+
+		/*
+		 * Get approximations of a and b over 64 bits:
+		 *  - If len(a) <= 64 and len(b) <= 64, then we just
+		 *    use the value (low limb).
+		 *  - Otherwise, with n = max(len(a), len(b)), we use:
+		 *       (a mod 2^31) + 2^31*(floor(a / 2^(n-33)))
+		 *       (b mod 2^31) + 2^31*(floor(b / 2^(n-33)))
+		 * I.e. we remove the "middle bits".
+		 */
+		m3 = a[3];
+		aux = b[3];
+		_, _, _, _, _, aux = #OR(aux,m3);
+		m3 = aux;
+		m2 = a[2];
+		aux = b[2];
+		_, _, _, _, _, aux = #OR(aux,m2);
+		m2 = aux;
+		m1 = a[1];
+		aux = b[1];
+		_, _, _, _, _, aux = #OR(aux,m1);
+		m1 = aux;
+		aux = m3;
+		aux = -aux;
+		aux1 = m3;
+		_, _, _, _, _, aux = #OR(aux, aux1);
+		_, _, _, _, _, aux = #SHR(aux, 63);
+		tnz3 = -aux;
+
+		aux = m2;
+		aux = -aux;
+		_, _, _, _, _, aux = #OR(aux, m2);
+		_, _, _, _, _, aux = #SHR(aux, 63);
+		tnz2 = -aux;
+		aux = tnz3;
+		_, _, _, _, _, aux = #XOR(aux, glob_m64);
+		_, _, _, _, _, aux = #AND(aux, tnz2);
+		tnz2 = aux;
+
+		aux = m1;
+		aux = -aux;
+		_, _, _, _, _, aux = #OR(aux, m1);
+		_, _, _, _, _, aux = #SHR(aux, 63);
+		tnz1 = -aux;
+		aux = tnz3;
+		_, _, _, _, _, aux = #XOR(aux, glob_m64);
+		_, _, _, _, _, aux = #AND(aux,tnz1);
+		tnz1 = aux;
+		aux = tnz2;
+		_, _, _, _, _, aux = #XOR(aux, glob_m64);
+		_, _, _, _, _, aux = #AND(aux, tnz1);
+		tnz1 = aux;
+
+		tnzm = m3;
+		_, _, _, _, _, tnzm = #AND(tnzm, tnz3);
+		aux = m2;
+		_, _, _, _, _, aux = #AND(aux, tnz2);
+		_, _, _, _, _, tnzm = #OR(tnzm, aux);
+		aux = m1;
+		_, _, _, _, _, aux = #AND(aux, tnz1);
+		_, _, _, _, _, tnzm = #OR(tnzm, aux);
+
+		tnza = a[3];
+		_, _, _, _, _, tnza = #AND(tnza, tnz3);
+		aux = a[2];
+		_, _, _, _, _, aux = #AND(aux, tnz2);
+		_, _, _, _, _, tnza = #OR(tnza, aux);
+		aux = a[1];
+		_, _, _, _, _, aux = #AND(aux, tnz1);
+		_, _, _, _, _, tnza = #OR(tnza, aux);
+
+		tnzb = b[3];
+		_, _, _, _, _, tnzb = #AND(tnzb, tnz3);
+		aux = b[2];
+		_, _, _, _, _, aux = #AND(aux, tnz2);
+		_, _, _, _, _, tnzb = #OR(tnzb, aux);
+		aux = b[1];
+		_, _, _, _, _, aux = #AND(aux, tnz1);
+		_, _, _, _, _, tnzb = #OR(tnzb, aux);
+
+		snza = a[2];
+		_, _, _, _, _, snza = #AND(snza, tnz3);
+		aux = a[1];
+		_, _, _, _, _, aux = #AND(aux, tnz2);
+		_, _, _, _, _, snza = #OR(snza, aux);
+		aux = a[0];
+		_, _, _, _, _, aux = #AND(aux, tnz1);
+		_, _, _, _, _, snza = #OR(snza, aux);
+
+		snzb = b[2];
+		_, _, _, _, _, snzb = #AND(snzb, tnz3);
+		aux = b[1];
+		_, _, _, _, _, aux = #AND(aux, tnz2);
+		_, _, _, _, _, snzb = #OR(snzb, aux);
+		aux = b[0];
+		_, _, _, _, _, aux = #AND(aux, tnz1);
+		_, _, _, _, _, snzb = #OR(snzb, aux);
+
+		/*
+		 * If both len(a) <= 64 and len(b) <= 64, then:
+		 *    tnzm = 0
+		 *    tnza = 0, snza = 0, tnzb = 0, snzb = 0
+		 *    tnzm = 0
+		 * Otherwise:
+		 *    tnzm != 0, length yields value of n
+		 *    tnza contains the top limb of a, snza the second limb
+		 *    tnzb contains the top limb of b, snzb the second limb
+		 *
+		 * We count the number of leading zero bits in tnzm:
+		 *  - If s <= 31, then the top 31 bits can be extracted
+		 *    from tnza and tnzb alone.
+		 *  - If 32 <= s <= 63, then we need some bits from snza
+		 *    as well.
+		 *
+		 * We rely on the fact shifts don't reveal the shift count
+		 * through side channels. This would not have been true on
+		 * the Pentium IV, but it is true on all known x86 CPU that
+		 * have 64-bit support and implement the LZCNT opcode.
+		 */
+		_, _, _, _, _, s = #LZCNT(tnzm);
+		aux = 31;
+		aux -= s;
+		shift = 63;
+		_, _, _, _, _, aux = #SHR(aux, shift);
+		sm = -aux;
+
+		aux = tnza;
+		shift = 32;
+		_, _, _, _, _, aux = #SHL(aux, shift);
+		aux1 = aux;
+		aux = snza;
+		_, _, _, _, _, aux = #SHR(aux, shift);
+		aux1 |= aux;
+		aux = tnza;
+		aux ^= aux1;
+		aux &= sm;
+		tnza ^= aux;
+
+		aux = tnzb;
+		shift = 32;
+		_, _, _, _, _, aux = #SHL(aux, shift);
+		aux1 = aux;
+		aux = snzb;
+		_, _, _, _, _, aux = #SHR(aux, shift);
+		aux1 |= aux;
+		aux = tnzb;
+		aux ^= aux1;
+		aux &= sm;
+		tnzb ^= aux;
+
+		aux = 32;
+		aux &= sm;
+		s -= aux;
+
+		aux = tnza;
+		shift = s;
+		_, _, _, _, _, aux = #SHL(aux, shift);
+		tnza = aux;
+		aux = tnzb;
+		_, _, _, _, _, aux = #SHL(aux, shift);
+		tnzb = aux;
+
+		/*
+		 * At this point:
+		 *  - If len(a) <= 64 and len(b) <= 64, then:
+		 *       tnza = 0
+		 *       tnzb = 0
+		 *       tnz1 = tnz2 = tnz3 = 0
+		 *  - Otherwise, we need to use the top 33 bits of tnza
+		 *    and tnzb in combination with the low 31 bits of
+		 *    a.v0 and b.v0, respectively.
+		 */
+		aux = tnz1;
+		aux |= tnz2;
+		aux |= tnz3;
+		aux ^= glob_m64; // bit flip
+
+		aux1 = a[0];
+		aux1 &= aux;
+		tnza |= aux1;
+
+		aux1 = b[0];
+		aux1 &= aux;
+		tnzb |= aux1;
+
+		xa = a[0];
+		xa &= glob_m31;
+		aux = tnza;
+		aux &= glob_high33;
+		xa |= aux;
+
+		xb = b[0];
+		xb &= glob_m31;
+		aux = tnzb;
+		aux &= glob_high33;
+		xb |= aux;
+
+		/*
+		 * We can now run the binary GCD on xa and xb for 31
+		 * rounds. We unroll it a bit (two rounds per loop
+		 * iteration), it seems to save about 250 cycles in
+		 * total on a Coffee Lake core.
+		 */
+		/*
+		 * f0 = 1
+		 * g0 = 0
+		 * f1 = 0
+		 * g1 = 1
+		 * We add 0x7FFFFFFF to all four values, and
+		 * group them by pairs into registers.
+		 *
+		 */
+		f0, g0, f1, g1 =__asm_volatile(xa, xb);
+
+		/*
+		 * We now need to propagate updates to a, b, u and v.
+		 * rax = g0
+		 * rbx = f0
+		 * rcx = g1
+		 * rdx = f1
+		 */
+
+		na, nega = _s256_lin_div31_abs(na, a, b, f0, g0);
+		s_nega = nega;
+		nb, negb = _s256_lin_div31_abs(nb, a, b, f1, g1);
+		s_negb = negb;
+
+		aux = s_nega;
+		aux = -aux;
+		f0 ^= aux;
+		nega = s_nega;
+		f0 += nega;
+
+		g0 ^= aux;
+		nega = s_nega;
+		g0 += nega;
+
+		aux = s_negb;
+		aux = -aux;
+		f1 ^= aux;
+		negb = s_negb;
+		f1 += negb;
+
+		g1 ^= aux;
+		negb = s_negb;
+		g1 += negb;
+
+		s_f1 = f1;
+		s_g1 = g1;
+		nu = _gf_lin(nu, u, v, f0, g0);
+		nu = nu;
+	
+		f1 = s_f1;
+		g1 = s_g1;
+		nv = _gf_lin(nv, u, v, f1, g1);
+
+		a = _copy_gf(a, na);
+		b = _copy_gf(b, nb);
+		u = _copy_gf(u, nu);
+		v = _copy_gf(v, nv);
+
+		i = s_i;
+		i += 1;
+	}
+
+	/*
+	 * At that point, if y is invertible, then the final GCD is 1,
+	 * and len(a) + len(b) <= 45, so it is known that the values
+	 * fully fit in a single register each. We can do the remaining
+	 * 44 iterations in one go (they are exact, no approximation
+	 * here). In fact, we can content ourselves with 43 iterations,
+	 * because when arriving at the last iteration, we know that a = 0
+	 * or 1 and b = 1 (the final state of the algorithm is that a = 0
+	 * and b is the GCD of y and q), so there would be no swap. Since
+	 * we only care about the update factors f1 and g1, we can simply
+	 * avoid the final iteration.
+	 *
+	 * The update values f1 and g1, for v, will be up to 2^43 (in
+	 * absolute value) but this is supported by gf_lin().
+	 *
+	 * If y is not invertible, then b does not necessarily fit in a
+	 * single word. Thus, an extra verification step with a
+	 * multiplication is performed, to check that the inverse is
+	 * really an inverse. This step is not needed if the modulus p
+	 * is prime, because, in that case, a non-invertible y can only
+	 * be zero, in which case a = 0 and v = 0 throughout, which is
+	 * the expected result.
+	 */
+	xa = a[0];
+	xb = b[0];
+
+	f0, g0, f1, g1 = __asm_volatile2(xa, xb);
+
+	v2 = _gf_lin(v2, u, v, f1, g1);
+
+	/*
+	 * We did 31*15+43 = 508 iterations, and each injected a factor 2,
+	 * thus we must divide by 2^508 (mod q).
+	 */
+	/*
+	 * Result is correct if source operand was invertible, i.e.
+	 * distinct from zero (since all non-zero values are invertible
+	 * modulo a prime integer); the inverse is then also non-zero.
+	 * If the source was zero, then the result is zero as well. We
+	 * can thus test d instead of a.
+	 */
+
+	d = s_d;
+	r_v2 = v2;
+	r_aux = GF_INVT508;
+	d = __gf_mul(d, r_v2, r_aux);
+
+	iszero = __gf_iszero(d);
+	iszero ^= 1;
+
+	return d, iszero;
+}
+
+inline
+fn _gf_inv(stack u64[4] d y) -> stack u64[4], reg u64
+{
+	reg u64 a;
+	reg ptr u64[4] b c;
+
+	b = d;
+	c = y;
+	b, a = __gf_inv(b,c); 
+	d = b;
+
+	return d, a;
+}

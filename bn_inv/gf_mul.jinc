@@ -1,0 +1,197 @@
+require "params.jinc"
+
+fn __gf_mul(
+	reg ptr u64[4] d,
+	reg ptr u64[4] a,
+	reg ptr u64[4] b
+) -> reg ptr u64[4]
+{
+	reg bool of, cf;
+	reg u64 rax, rbx;
+	reg u64 r8, r9, r10, r11, r12, r13, r14, r15, rcx, rsi;
+
+	reg u64 rdx;
+
+	stack ptr u64[4] out, aux1, aux2;
+
+	out = d;
+	of,cf,_,_,_,r15 = #XOR_64(r15,r15);
+	/**/
+
+	/* r12,r11,r10,r9,r8 = a0 * b */
+	rdx = a[0];
+	aux1 = a;
+	rcx = b[0];
+	aux2 = b;
+	r9,r8 = #MULX_64(rdx, rcx);
+	b = aux2;
+	rcx = b[1];
+	aux2 = b;
+    r10,rax = #MULX_64(rdx, rcx);
+    of ,r9  = #ADOX_64(r9, rax, of);
+	b = aux2;
+	rcx = b[2];
+	aux2 = b;
+    r11,rax = #MULX_64(rdx, rcx);
+    of ,r10 = #ADOX_64(r10, rax, of);
+	b = aux2;
+	rcx = b[3];
+	aux2 = b;
+    r12,rax = #MULX_64(rdx, rcx);
+    of ,r11 = #ADOX_64(r11, rax, of);
+    of ,r12 = #ADOX_64(r12, r15, of);
+
+    
+    /* r13,r12,r11,r10,r9 = a1 * b */
+    a = aux1;
+    rdx = a[1];
+	aux1 = a;
+    b = aux2;
+	rcx = b[0];
+	aux2 = b;
+    rbx,rax = #MULX_64(rdx, rcx);
+    cf, r9  = #ADCX_64(r9 , rax, cf);
+    of, r10 = #ADOX_64(r10, rbx, of);
+    b = aux2;
+	rcx = b[1];
+	aux2 = b;
+    rbx,rax = #MULX_64(rdx, rcx);
+    cf, r10 = #ADCX_64(r10, rax, cf);
+    of, r11 = #ADOX_64(r11, rbx, of);
+    b = aux2;
+	rcx = b[2];
+	aux2 = b;
+    rbx,rax = #MULX_64(rdx, rcx);
+    cf, r11 = #ADCX_64(r11, rax, cf);
+    of, r12 = #ADOX_64(r12, rbx, of);
+    b = aux2;
+	rcx = b[3];
+	aux2 = b;
+    r13,rax = #MULX_64(rdx, rcx);
+    cf, r12 = #ADCX_64(r12, rax, cf);
+    of, r13 = #ADOX_64(r13, r15, of);
+	cf, r13 = #ADCX_64(r13, r15, cf);
+	
+	/* r14,r13,r12,r11,r10 = a2 * b */
+    a = aux1;
+    rdx = a[2];
+	aux1 = a;
+    b = aux2;
+	rcx = b[0];
+	aux2 = b;
+    rbx,rax = #MULX_64(rdx, rcx);
+    cf, r10 = #ADCX_64(r10, rax, cf);
+    of, r11 = #ADOX_64(r11, rbx, of);
+    b = aux2;
+	rcx = b[1];
+	aux2 = b;
+    rbx,rax = #MULX_64(rdx, rcx);
+    cf, r11 = #ADCX_64(r11, rax, cf);
+    of, r12 = #ADOX_64(r12, rbx, of);
+    b = aux2;
+	rcx = b[2];
+	aux2 = b;
+    rbx,rax = #MULX_64(rdx, rcx);
+    cf, r12 = #ADCX_64(r12, rax, cf);
+    of, r13 = #ADOX_64(r13, rbx, of);
+    b = aux2;
+	rcx = b[3];
+	aux2 = b;
+    r14,rax = #MULX_64(rdx, rcx);
+    cf, r13 = #ADCX_64(r13, rax, cf);
+    of, r14 = #ADOX_64(r14, r15, of);
+	cf, r14 = #ADCX_64(r14, r15, cf);
+	
+	/* r15,r14,r13,r12,r11 = a3 * b */
+    a = aux1;
+    rdx = a[3];
+	aux1 = a;
+	rsi = 0;
+    b = aux2;
+	rcx = b[0];
+	aux2 = b;
+    rbx,rax = #MULX_64(rdx, rcx);
+    cf, r11 = #ADCX_64(r11, rax, cf);
+    of, r12 = #ADOX_64(r12, rbx, of);
+    b = aux2;
+	rcx = b[1];
+	aux2 = b;
+    rbx,rax = #MULX_64(rdx, rcx);
+    cf, r12 = #ADCX_64(r12, rax, cf);
+    of, r13 = #ADOX_64(r13, rbx, of);
+    b = aux2;
+	rcx = b[2];
+	aux2 = b;
+    rbx,rax = #MULX_64(rdx, rcx);
+    cf, r13 = #ADCX_64(r13, rax, cf);
+    of, r14 = #ADOX_64(r14, rbx, of);
+    b = aux2;
+	rcx = b[3];
+	aux2 = b;
+    r15,rax = #MULX_64(rdx, rcx);
+    cf, r14 = #ADCX_64(r14, rax, cf);
+    of, r15 = #ADOX_64(r15, rsi, of);
+	cf, r15 = #ADCX_64(r15, rsi, cf);
+
+	
+	/* Multiply high words by 2*MQ and fold them on low words */
+	rdx = 2 * MQ;
+	r12,rax = #MULX_64(rdx, r12);
+	cf, r8  = #ADCX_64(r8 , rax, cf);
+    of, r9  = #ADOX_64(r9 , r12, of);
+    r13,rax = #MULX_64(rdx, r13);
+	cf, r9  = #ADCX_64(r9 , rax, cf);
+    of, r10 = #ADOX_64(r10, r13, of);
+    r14,rax = #MULX_64(rdx, r14);
+	cf, r10 = #ADCX_64(r10, rax, cf);
+    of, r11 = #ADOX_64(r11, r14, of);
+    r15,rax = #MULX_64(rdx, r15);
+	cf, r11 = #ADCX_64(r11, rax, cf);
+    of, r15 = #ADOX_64(r15, rsi, of);
+	cf, r15 = #ADCX_64(r15, rsi, cf);
+
+	/* Alternative reduction */
+	//
+		_,_,_,_,_,r15 = #SHLD_64(r15,r11,1);
+		r11 &= global_m63;
+		rdx = MQ;
+		_, _, _, _, _, _, r15 = #IMUL_64(rdx, r15);
+		_, _, _, _, _, r8  = #ADD_64(r8 , r15);
+		_, _, _, _, _, r9  = #ADD_64(r9 , rsi);
+		_, _, _, _, _, r10 = #ADD_64(r10, rsi);
+		_, _, _, _, _, r11 = #ADD_64(r11, rsi);
+	//
+	/* NORMAL REDUCTION
+		rbx, rax = #MULX_64(rdx,r15);
+		cf, r8  = #ADCX_64(r8 , rax, cf);
+		cf, r9  = #ADCX_64(r9 , rsi, cf);
+		cf, r10 = #ADCX_64(r10, rsi, cf);
+		cf, r11 = #ADCX_64(r11, rsi, cf);
+		
+		rsi = #CMOVcc_64(cf, rdx, rsi);
+		_,_,_,_,_,r8  = #ADD_64(r8, rsi);
+	*/
+	/* Write result into output structure. */
+	d = out;
+	d[0] = r8;
+	d[1] = r9;
+	d[2] = r10;
+	d[3] = r11;
+
+	return d;
+}
+
+inline
+fn _gf_mul(stack u64[4] d, stack u64[4] a, stack u64[4] b)
+-> stack u64[4]
+{
+	reg ptr u64[4] out, in1, in2;
+
+	out = d;
+	in1 = a;
+	in2 = b;
+	out = __gf_mul(out,in1,in2);
+	d = out;
+
+	return d;
+}
