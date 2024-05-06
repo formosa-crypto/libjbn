@@ -14,19 +14,16 @@ fn __br_sub(reg ptr u64[nlimbs+1] a, reg ptr u64[nlimbs] b, reg u64 ctl, reg u64
 	aux = alen;
 	aux += 63;
 	_, _, _, _, _, aux = #SHR_64(aux,6);
-	m = nlimbs;
-	m -= aux;
+	m = aux;
 	cc = 0;
-	u = nlimbs;
-	while(u > m)
+	u = 0;
+	while(u < m)
 	{
 		// aw = a[u];
 		// bw = b[u];
 		aw = a[u];
-		aux = u;
-		aux = #SUB(aux,1);
-		bw = b[aux];
-		s_u = aux;
+		bw = b[u];
+		s_u = u;
 
 		//naw = aw - bw - cc;
 		naw = aw;
@@ -60,6 +57,7 @@ fn __br_sub(reg ptr u64[nlimbs+1] a, reg ptr u64[nlimbs] b, reg u64 ctl, reg u64
 		a[u] = aw;
 
 		u = s_u;
+		u += 1;
 	}
 	
 	return a;

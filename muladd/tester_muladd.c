@@ -38,17 +38,32 @@ int main()
 	}
 	a[size] = 0; // set last value
 
-	val0 = 8;			// 8 = 1000
+	val0 = 6;			// 8 = 1000
 	val1 = 8;			// 8 = 1000
-	val2 = 0;
-	a[size] = val0;
-	b[size-1] = val1; 
+	a[0] = val0;
+	b[0] = val1; 
 	z = 8;      	  	// c == 1 means add
 	xlen = 4;           // x bitlen
 	mlen = 4;			// m bitlen
 	br_muladd(a,&z,b,&xlen,&mlen);
 
-	if ((double)a[size] == val2)
+	/* Result
+		x = a
+		m = b
+		x = 6
+		m = 8
+		z = 8
+
+		x * 2^64 + z % m
+		= 6 * 2^64 + 8 % 8
+		= (2^64 + 2^64 + 2^64 + 2^64 + 2^64 + 2^64) % 2^3 + 0 % 8
+		= (2 + 2 + 2 + 2 + 2 + 2) % 2^3 + 0
+		= 2*3 + 2*3 % 2^3
+		= 0 % 8
+	*/
+
+
+	if (a[0] == 0)
 	{
 		printf("TEST 1 (MULADD LAST WORD).... PASSED!");
 	} else {printf("TEST 1 (MULADD LAST WORD).... FAILED!"); print_a(a); }
@@ -61,10 +76,10 @@ int main()
 	}
 	a[size] = 0; // set last value
 
-	a[size] = 8;
-	a[size-1] = 8;
-	b[size-1] = 8;
-	b[size-2] = 8;
+	a[0] = 8;
+	a[1] = 8;
+	b[0] = 8;
+	b[1] = 8;
 	z = 0;      	  	//
 	xlen = 67;          // x bitlen
 	mlen = 67;			// m bitlen
@@ -85,10 +100,10 @@ int main()
 
 	br_muladd(a,&z,b,&xlen,&mlen);
 
-	if (a[size] == 0 & a[size-1] == 0 & a[size-2] == 0)
+	if (a[0] == 0 & a[1] == 0 & a[2] == 0)
 	{
 		printf("\nTEST 2 (MULADD MULTIPLE WORDS).... PASSED!");
-	} else {printf("\nTEST 2 (MULADD MULTIPLE WORDS).... FAILED!"); }
+	} else {printf("\nTEST 2 (MULADD MULTIPLE WORDS).... FAILED!"); print_a(a); }
 
 	// Test 3 - muladd for x value over m
 	for (int i = 0; i < size; ++i)
@@ -100,10 +115,10 @@ int main()
 
 	val0 = 1;
 	val1 = 2;
-	a[size] = 1;
-	a[size-1] = 4;      // 0100
-	b[size-1] = 0;		
-	b[size-2] = 8;		// 1000
+	a[0] = 1;
+	a[1] = 4;      // 0100
+	b[0] = 0;		
+	b[1] = 8;		// 1000
 	z = 15;      	  	// 
 	xlen = 67;          // x bitlen
 	mlen = 68;			// m bitlen
@@ -126,10 +141,10 @@ int main()
 
 	br_muladd(a,&z,b,&xlen,&mlen);
 
-	if (a[size-1] == 1 & a[size] == 15 )
+	if (a[0] == 15 & a[1] == 1)
 	{
 		printf("\nTEST 3 (MULADD MULTIPLE WORDS).... PASSED!");
-	} else {printf("\nTEST 3 (MULADD MULTIPLE WORDS).... FAILED!"); }
+	} else {printf("\nTEST 3 (MULADD MULTIPLE WORDS).... FAILED!"); print_a(a); }
 
 
 	// Test 4 - forcing modulo over several u64s
@@ -142,16 +157,16 @@ int main()
 
 	val0 = 1;
 	val1 = 2;
-	a[size] = 0;
-	a[size-1] = 0;
-	a[size-2] = 0;
-	a[size-3] = 0;
-	a[size-4] = 8;
-	b[size-1] = 0;
-	b[size-2] = 0;
-	b[size-3] = 0;
-	b[size-4] = 0;
-	b[size-5] = 12;
+	a[0] = 0;
+	a[1] = 0;
+	a[2] = 0;
+	a[3] = 0;
+	a[4] = 8;
+	b[0] = 0;
+	b[1] = 0;
+	b[2] = 0;
+	b[3] = 0;
+	b[4] = 12;
 	z = 8;      	  	// c == 1 means add
 	xlen = 260;         // x bitlen
 	mlen = 260;			// m bitlen
@@ -173,10 +188,10 @@ int main()
 
 	br_muladd(a,&z,b,&xlen,&mlen);
 
-	if (a[size] == 8 & a[size-1] == 0 & a[size-2] == 0 & a[size-3] == 0 & a[size-4] == 8)
+	if (a[0] == 8 & a[1] == 0 & a[2] == 0 & a[3] == 0 & a[4] == 8)
 	{
 		printf("\nTEST 4 (MULADD MULTIPLE WORDS).... PASSED!");
-	} else {printf("\nTEST 4 (MULADD MULTIPLE WORDS).... FAILED!");}
+	} else {printf("\nTEST 4 (MULADD MULTIPLE WORDS).... FAILED!"); print_a(a); }
 
 	printf("\n\n");
 

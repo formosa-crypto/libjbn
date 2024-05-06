@@ -1,5 +1,4 @@
 require "config.jinc"
-require "common_u64.jinc"
 require "divrem.jinc"
 require "br_add.jinc"
 require "br_sub.jinc"
@@ -17,13 +16,15 @@ fn copy_array(reg ptr u64[nlimbs+1] x, reg u64 pos_src pos_dst)
 {
 	reg u64 t;
 
-	while(pos_src < nlimbs + 1)
+	while(pos_src > 0)
 	{
 		t = x[pos_src];
 		x[pos_dst] = t;
 		pos_dst = pos_src; /* Discuss which is better - move vs add */
-		pos_src += 1;
+		pos_src -= 1;
 	}
+	t = x[pos_src];
+	x[pos_dst] = t;
 
 	return x;
 }
@@ -77,12 +78,12 @@ fn __br_muladd(
 	{
 		if(m_bitlen != 0)
 		{
-			hi = x[nlimbs];
+			hi = x[0];
 			lo = z;
-			m1 = m[nlimbs-1];
+			m1 = m[0];
 
-			q, r = _divrem(hi, lo, m1, q, rem);
-			x[nlimbs] = r;
+			_, r = _divrem(hi, lo, m1, q, rem);
+			x[0] = r;
 		}
 	}
 	else
@@ -94,8 +95,7 @@ fn __br_muladd(
 		aux += 63;
 		_, _, _, _, _, aux = #SHR(aux, 6);
 		aux -= 1;
-		mlen = nlimbs;
-		mlen -= aux;
+		mlen = aux;
 		mblr = m_bitlen;
 		mblr &= 63;
 
@@ -128,12 +128,12 @@ fn __br_muladd(
 		hi = x[mlen];
 		a0 = x[mlen];
 		aux = mlen;
-		aux += 1;
+		aux -= 1;
 		aux1 = mlen;
 		x = copy_array(x, aux, aux1);
-		x[nlimbs] = z; 					// fill last u64 with z
+		x[0] = z; 					  // fill first u64 with z
 		a1 = x[mlen];
-		b0 = m[mlen-1];
+		b0 = m[mlen];
 
 		/*
 		 * We estimate a divisor q. If the quotient returned by br_div()
@@ -149,13 +149,11 @@ fn __br_muladd(
 		 *  32 valid bits for division. Since we have full words we 
 		 *  just use a0 and a1.
 		 */
-		g, _ = _divrem(a0, a1, b0, g, r);
+		g, r = _divrem(a0, a1, b0, g, r);
 		a2 = g;
 		a2 -= 1;
-		aux = 0; 
-		_, _, _, zf, _ = #CMP(g, aux);
 		aux = 0;
-		a2 = aux if zf;
+		a2 = aux if g == 0;
 
 		_, _, _, zf, _ = #CMP(b0,a0);
 		q = a2;
@@ -174,13 +172,11 @@ fn __br_muladd(
 		overflow = 0;
 		cc = 0;
 		tb = 1;
-		u = nlimbs;
-		while(u >= mlen)
+		u = 0;
+		while(u <= mlen)
 		{
 			// mw = m[u]
-			aux = u;
-			aux -= 1;
-			mw = m[aux];
+			mw = m[u];
 
 			// zl = MUL(mw, q) + cc; Produces at most 128 bits
 			zl2 = q;
@@ -221,7 +217,7 @@ fn __br_muladd(
 			aux1 &= aux;
 			tb = aux1 if aux == 1;
 
-			u -= 1;
+			u += 1;
 		}
 
 		/*
@@ -256,11 +252,8 @@ fn __br_muladd(
 		under ^= 0xFFFFFFFFFFFFFFFF;
 		under &= tb;
 
-
-
 		x = __br_add(x, m, over, x_bitlen);
 		x = __br_sub(x, m, under, x_bitlen);
-
 
 	}
 

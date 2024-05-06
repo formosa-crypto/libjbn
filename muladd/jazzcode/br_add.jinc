@@ -10,25 +10,20 @@ fn __br_add(reg ptr u64[nlimbs+1] a, reg ptr u64[nlimbs] b, reg u64 ctl, reg u64
 	stack u64 s_u;
 
 	aux = 0;
-	aux = alen;
+	m = alen;
 	// we need to sum at least 1 to account for a * 2^64
-	_, _, _, _, _, aux = #ADD(aux, 127); // cf is 0 here!!
-	_, _, _, _, _, aux = #SHR(aux,6);
-	aux = aux;
-	m = nlimbs;
-	_, _, _, _, _, m = #SUB(m, aux);
+	_, _, _, _, _, m = #ADD(m, 127); // cf is 0 here!!
+	_, _, _, _, _, m = #SHR(m,6);
 	aux = 0;
 	_, cf, _, _, _, aux = #XOR(aux, aux);
 	of = 0;
 	of2 = 0;
-	u = nlimbs;
-
-	while(u >= m)
+	u = 0;
+	while(u <= m)
 	{
 		aw = a[u];
-		aux = u;
-		aux -= 1; // b has length len(x)-1
-		bw = b[aux];
+		bw = b[u];
+		s_u = u;
 		s_u = aux; // next u value
 		aux = aw;
 		_, cf, _, _, _, aux = #ADD(aux, bw);
@@ -43,8 +38,8 @@ fn __br_add(reg ptr u64[nlimbs+1] a, reg ptr u64[nlimbs] b, reg u64 ctl, reg u64
 		naw = aux if ctl == 1;
 		a[u] = naw;
 		u = s_u;
+		u += 1;
 	}
-
 
 	return a;
 }
