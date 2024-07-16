@@ -12,96 +12,67 @@ require "bn_generic.jinc"
  exported functions :-)...
 */
 
-export fn bn_eq(reg u64 ap bp) -> reg u64
+export fn bn_eq(reg ptr u64[NLIMBS] a b) -> reg u64
 {
-  stack u64[NLIMBS] _a _b;
-  reg ptr u64[NLIMBS] a b;
   reg u64 r;
-
-  _a = __bn_load(ap); a = _a;
-  _b = __bn_load(bp); b = _b;
   r = _bn_eq_(a, b);
   return r;
 }
 
-export fn bn_test0(reg u64 ap) -> reg u64
+export fn bn_test0(reg ptr u64[NLIMBS] a) -> reg u64
 {
-  stack u64[NLIMBS] _a;
-  reg ptr u64[NLIMBS] a;
   reg u64 r;
-
-  _a = __bn_load(ap); a = _a;
   r = __bn_test0(a);
-  r = r; // avoid extra assignment warning
   return r;
 }
 
-export fn bn_copy(reg u64 rp ap)
+export fn bn_copy(reg ptr u64[NLIMBS] r a) -> reg ptr u64[NLIMBS]
 {
-  inline int i;
-  reg u64 t;
-
-  for i = 0 to NLIMBS {
-    t = [ap + 8*i];
-    [rp + 8*i] = t;
-  }
+  r = #copy(a);
+  return r;
 }
 
-export fn bn_set0(reg u64 rp)
+export fn bn_set0(reg ptr u64[NLIMBS] r) -> reg ptr u64[NLIMBS]
 {
   inline int i;
 
   for i = 0 to NLIMBS {
-    [rp + 8*i] = 0;
+    r[i] = 0;
   }
+
+  return r;
 }
 
-export fn bn_addn(reg u64 rp ap bp)
+export fn bn_addn(reg ptr u64[NLIMBS] r a b) -> reg ptr u64[NLIMBS]
 {
-  stack u64[NLIMBS] _a _b;
-  reg ptr u64[NLIMBS] a b;
-
-  _a = __bn_load(ap); a = _a;
-  _b = __bn_load(bp); b = _b;
-  _, a = __bn_addc(a, b);
-  __bn_store(rp, a);
+  r = #copy(a);
+  _, r = __bn_addc(r, b);
+  return r;
 }
 
-export fn bn_subn(reg u64 rp ap bp)
+export fn bn_subn(reg ptr u64[NLIMBS] r a b) -> reg ptr u64[NLIMBS]
 {
- stack u64[NLIMBS] _a _b;
- reg ptr u64[NLIMBS] a b;
-
- _a = __bn_load(ap); a = _a;
- _b = __bn_load(bp); b = _b;
- _, a = __bn_subc(a, b);
- __bn_store(rp, a);
+  r = #copy(a);
+ _, r = __bn_subc(r, b);
+ return r;
 }
 
-export fn bn_muln(reg u64 rp ap bp)
+export fn bn_muln(
+  reg ptr u64[2*NLIMBS] r,
+  reg ptr u64[NLIMBS] a b
+) -> reg ptr u64[2*NLIMBS]
 {
-  stack u64[NLIMBS] _a _b;
-  stack u64[2*NLIMBS] _r;
-  reg ptr u64[NLIMBS] a b;
-  reg ptr u64[2*NLIMBS] r;
-
-  _a = __bn_load(ap); a = _a;
-  _b = __bn_load(bp); b = _b;
-                      r = _r;
+  b = b;
   r = __bn_muln(a, b, r);
-  __bn2_store(rp, r);
+  return r;
 }
 
-export fn bn_sqrn(reg u64 rp ap)
+export fn bn_sqrn(
+  reg ptr u64[2*NLIMBS] r,
+  reg ptr u64[NLIMBS] a
+) -> reg ptr u64[2*NLIMBS]
 {
-  stack u64[NLIMBS] _a;
-  stack u64[2*NLIMBS] _r;
-  reg ptr u64[NLIMBS] a;
-  reg ptr u64[2*NLIMBS] r;
-
-  _a = __bn_load(ap); a = _a;
-                      r = _r;
   r = __bn_sqrn(a, r);
-  __bn2_store(rp, r);
+  return r;
 }
 

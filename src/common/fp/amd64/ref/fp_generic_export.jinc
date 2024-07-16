@@ -6,98 +6,57 @@
 require "fp_generic.jinc"
 from Libjbn require "common/bn/amd64/ref/bn_generic_export.jinc"
 
-export fn fp_add(reg u64 rp ap bp)
+export fn fp_add(reg ptr u64[NLIMBS] r a b) -> reg ptr u64[NLIMBS]
 {
-  stack u64[NLIMBS] _a _b;
-  reg ptr u64[NLIMBS] a b;
-
-  _a = __bn_load(ap); a = _a;
-  _b = __bn_load(bp); b = _b;
-  a = _fp_add(a, b);
-  __bn_store(rp, a);
+  r = #copy(a);
+  r = _fp_add(r, b);
+  return r;
 }
 
 
-export fn fp_sub( reg u64 rp ap bp)
+export fn fp_sub(reg ptr u64[NLIMBS] r a b) -> reg ptr u64[NLIMBS]
 {
-  stack u64[NLIMBS] _a _b;
-  reg ptr u64[NLIMBS] a b;
-
-  _a = __bn_load(ap); a = _a;
-  _b = __bn_load(bp); b = _b;
-  a = _fp_sub(a, b);
-  __bn_store(rp, a);
+  r = #copy(a);
+  r = _fp_sub(r, b);
+  return r;
 }
 
-export fn fp_mul(reg u64 rp ap bp)
+export fn fp_mul(reg ptr u64[NLIMBS] r a b) -> reg ptr u64[NLIMBS]
 {
-  stack u64[NLIMBS] _a _b _r;
-  reg ptr u64[NLIMBS] a b r;
-
-  _a = __bn_load(ap); a = _a;
-  _b = __bn_load(bp); b = _b;
-                      r = _r;
+  b = b;
   r = _fp_mul(a, b, r);
-  __bn_store(rp, r);
+  return r;
 }
 
-export fn fp_sqr(reg u64 rp ap)
+export fn fp_sqr(reg ptr u64[NLIMBS] r a) -> reg ptr u64[NLIMBS]
 {
-  stack u64[NLIMBS] _a _r;
-  reg ptr u64[NLIMBS] a r;
-
-  _a = __bn_load(ap); a = _a;
-                      r = _r;
   r = _fp_sqr(a, r);
-  __bn_store(rp, r);
+  return r;
 }
 
-export fn fp_expm_noct(reg u64 rp ap bp)
+export fn fp_expm_noct(reg ptr u64[NLIMBS] r a b) -> reg ptr u64[NLIMBS]
 {
-  stack u64[NLIMBS] _a _b _r;
-  reg ptr u64[NLIMBS] a b r;
-  stack u64 _rp;
-
-  _rp = rp;
-  _a = __bn_load(ap); a = _a;
-  _b = __bn_load(bp); b = _b;
-                      r = _r;
   r = _fp_exp(a, b, r);
-  rp = _rp;
-  __bn_store(rp, r);
+  return r;
 }
 
-export fn fp_inv(reg u64 rp ap)
+export fn fp_inv(reg ptr u64[NLIMBS] r a) -> reg ptr u64[NLIMBS]
 {
-  stack u64[NLIMBS] _a _r;
-  reg ptr u64[NLIMBS] a r;
-  stack u64 _rp;
-
-  _rp = rp;
-  _a = __bn_load(ap); a = _a;
-                      r = _r;
   r = __fp_inv(a, r);
-  rp = _rp;
-  __bn_store(rp, r);
+  return r;
 }
 
-export fn fp_toM(reg u64 rp ap)
+export fn fp_toM(reg ptr u64[NLIMBS] r a) -> reg ptr u64[NLIMBS]
 {
-  stack u64[NLIMBS] _a;
-  reg ptr u64[NLIMBS] a;
-
-  _a = __bn_load(ap); a = _a;
-  a = _fp_toM(a);
-  __bn_store(rp, a);
+  r = #copy(a);
+  r = _fp_toM(r);
+  return r;
 }
 
-export fn fp_fromM(reg u64 rp ap)
+export fn fp_fromM(reg ptr u64[NLIMBS] r a) -> reg ptr u64[NLIMBS]
 {
-  stack u64[NLIMBS] _a;
-  reg ptr u64[NLIMBS] a;
-
-  _a = __bn_load(ap); a = _a;
-  a = _fp_fromM(a);
-  __bn_store(rp, a);
+  r = #copy(a);
+  r = _fp_fromM(r);
+  return r;
 }
 

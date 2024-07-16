@@ -10,112 +10,6 @@
 // EXPECTS:
 //param int NLIMBS
 
-/* Loads BN from memory
- */
-inline fn __bn_load
-( reg u64 a
-) -> stack u64[NLIMBS]
-{
-  inline int i;
-  stack u64[NLIMBS] x;
-  reg u64 t;
-
-  for i = 0 to NLIMBS {
-    t = [a + 8*i];
-    x[i] = t;
-  }
-
-  return x;
-}
-
-/* Stores a BN into memory */
-inline fn __bn_store
-( reg u64 a,
-  reg ptr u64[NLIMBS] b
-)
-{
-  inline int i;
-  reg u64 t;
-
-  for i = 0 to NLIMBS {
-    t = b[i];
-    [a + 8*i] = t;
-  }
-}
-
-/* Loads a double BN from memory
- */
-inline fn _bn2_load_
-( reg u64 a
-) -> stack u64[2*NLIMBS]
-{
-  inline int i;
-  stack u64[2*NLIMBS] x;
-  reg u64 t;
-
-  for i = 0 to 2*NLIMBS {
-    t = [a + 8*i];
-    x[i] = t;
-  }
-
-  return x;
-}
-
-/* Stores a double BN into memory */
-inline fn __bn2_store
-( reg u64 a,
-  reg ptr u64[2*NLIMBS] b
-)
-{
-  inline int i;
-  reg u64 t;
-
-  for i = 0 to 2*NLIMBS {
-    t = b[i];
-    [a + 8*i] = t;
-  }
-}
-
-/* unpack a double BN into two BNs */
-inline fn __bn2_unpack
-( reg ptr u64[2*NLIMBS] a
-) -> stack u64[NLIMBS], stack u64[NLIMBS]
-{
-  inline int i;
-  stack u64[NLIMBS] hi lo;
-  reg u64 t1 t2;
-
-  for i = 0 to NLIMBS {
-    t1 = a[i];
-    t2 = a[NLIMBS + i];
-    lo[i] = t1;
-    hi[i] = t2;
-  }
-
-  return hi, lo;
-}
-
-/* pack two bignums into a double bignum */
-inline fn __bn_pack2
-( reg ptr u64[NLIMBS] lo hi
-) -> stack u64[2*NLIMBS]
-{
-  inline int i;
-  stack u64[2*NLIMBS] r;
-  reg u64 t;
-
-  for i = 0 to NLIMBS {
-    t = lo[i];
-    r[i] = t;
-  }
-  for i = 0 to NLIMBS {
-    t = hi[i];
-    r[NLIMBS+i] = t;
-  }
-
-  return r;
-}
-
 /**
  * Compares two field elements.
  * If a == b, return 1. Otherwise, return 0.
@@ -366,8 +260,6 @@ inline fn __bn_muln
   inline int k;
   reg u64 t0 t1;
   reg u64[3] x;
-  reg bool cf;
-
 
   t0 = a[0];
   t1, t0 = t0 * b[0];

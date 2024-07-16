@@ -55,7 +55,6 @@ inline fn __fp_cminusP
   reg ptr u64[NLIMBS] x
 ) -> reg ptr u64[NLIMBS]
 {
-  inline int i;
   reg bool _cf;
   stack u64[NLIMBS] _tmp;
   reg ptr u64[NLIMBS] tmp;
@@ -131,7 +130,7 @@ inline fn __fp_rdcn
   reg ptr u64[NLIMBS] glob_pp;
   inline int k;
   reg bool cf;
-  reg u64 t t0 t1 zero u0r p0 lastbit;
+  reg u64 t0 t1 zero u0r p0 lastbit;
   reg u64[3] x;
 
   _, _, _, _, _, zero = #set0();
