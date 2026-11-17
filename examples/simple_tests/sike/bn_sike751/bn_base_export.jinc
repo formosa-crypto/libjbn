@@ -1,0 +1,111 @@
+//from Libjbn require "bn_base.mjazz" as "BN"
+// with { nlimbs = modp2048_nlimbs; }
+
+from MJazz require "BN_bn_base.jinc"
+
+export fn bn_eq(reg u64 ap bp) -> reg u64
+{
+  stack u64[sike751_nlimbs] _a _b;
+  reg ptr u64[sike751_nlimbs] a b;
+  reg u64 r;
+
+  a = _a;
+  a = BN_load_(a, ap);
+  b = _b;
+  b = BN_load_(b, bp);
+  r = BN_eq_(a, b);
+  r = r;
+  return r;
+}
+
+export fn bn_test0(reg u64 ap) -> reg u64
+{
+  stack u64[sike751_nlimbs] _a;
+  reg ptr u64[sike751_nlimbs] a;
+  reg u64 r;
+  a = _a;
+  a = BN_load_(a, ap);
+  r = BN_test0_(a);
+  r = r; // avoid extra assignment warning
+  return r;
+}
+
+export fn bn_copy(reg u64 rp ap)
+{
+  inline int i;
+  reg u64 t;
+
+  for i = 0 to sike751_nlimbs {
+    t = [ap + 8*i];
+    [rp + 8*i] = t;
+  }
+}
+
+export fn bn_set0(reg u64 rp)
+{
+  inline int i;
+
+  for i = 0 to sike751_nlimbs {
+    [rp + 8*i] = 0;
+  }
+}
+
+export fn bn_addU(reg u64 rp ap bp)
+{
+  stack u64[sike751_nlimbs] _a _b;
+  reg ptr u64[sike751_nlimbs] a b;
+
+  a = _a;
+  a = BN_load_(a, ap);
+  b = _b;
+  b = BN_load_(b, bp);
+  _, a = BN_addU_(a, b);
+  BN_store_(rp, a);
+}
+
+export fn bn_subU(reg u64 rp ap bp)
+{
+ stack u64[sike751_nlimbs] _a _b;
+ reg ptr u64[sike751_nlimbs] a b;
+
+ a = _a;
+ a = BN_load_(a,ap);
+ b = _b;
+ b = BN_load_(b,bp);
+ _, a = BN_subU_(a, b);
+ BN_store(rp, a);
+}
+
+/*
+export fn bn_muln(reg u64 rp ap bp)
+{
+  stack u64[sike751_nlimbs] _a _b;
+  stack u64[2*sike751_nlimbs] _r;
+  reg ptr u64[sike751_nlimbs] a b;
+  reg ptr u64[2*sike751_nlimbs] r;
+
+  a = _a;
+  a = BN_load_(a,ap);
+  b = _b;
+  b = BN_load_(b,bp);
+  r = _r;
+  r = BN_muln(r, a, b);
+  BN2_store(rp, r);
+}
+
+export fn bn_sqrn(reg u64 rp ap)
+{
+  stack u64[sike751_nlimbs] _a;
+  stack u64[2*sike751_nlimbs] _r;
+  reg ptr u64[sike751_nlimbs] a;
+  reg ptr u64[2*sike751_nlimbs] r;
+
+  a = _a;
+  _a = BN_load_(a, ap);
+  r = _r;
+  r = BN_sqrn_(a, r);
+  BN2_store(rp, r);
+}
+*/
+
+

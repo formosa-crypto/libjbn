@@ -1,0 +1,99 @@
+/* (emulation of https://github.com/jasmin-lang/jasmin/issues/519)
+
+
+modsignature {
+  int nlimbs;		// num. limbs
+  u64[nlimbs] glob_P;	// modulus (M)
+  u64[nlimbs] glob_mP;	// minus M (2^(nlimbs*64) - M )
+  u64 glob_P0i;		// inverse of M[0]
+  u64[nlimbs] glob_Pm2;	// P-2
+  u64[nlimbs] glob_exp0;// OneM
+  u64[nlimbs] glob_RM;	// RM  
+  fn fun_muln ( reg mut ptr u64[2*nlimbs]
+              , reg const ptr u64[nlimbs]
+              , reg const ptr u64[nlimbs]
+              ) -> reg ptr u64[2*nlimbs]
+  fn fun_sqrn ( reg mut ptr u64[2*nlimbs]
+              , reg const ptr u64[nlimbs]
+              ) -> reg ptr u64[2*nlimbs]
+}
+
+
+*/
+
+//require "bn_base" as "BN" // BN
+// with { nlimbs = NLIMBS; }
+from MJazz require "BN_bn_base.jinc"
+
+//require "bn_mul" as "BN" // BN
+// with { nlimbs = NLIMBS; }
+from MJazz require "BN_bn_mul.jinc"
+
+// regs: params(2) + call(3) + 4 = 9
+fn FPM_redM
+( reg mut ptr u64[sike610_nlimbs] r
+, reg const ptr u64[2*sike610_nlimbs] a
+) -> reg ptr u64[sike610_nlimbs] {
+  stack u64 _P0i;
+  _P0i = sike610_glob_P0i;
+  r = BN__mont_redM(r, a, sike610_glob_P, sike610_glob_mP, _P0i);
+  return r;
+}
+
+inline fn FPM_redM_
+( reg mut ptr u64[sike610_nlimbs] r
+, reg const ptr u64[2*sike610_nlimbs] a
+) -> reg ptr u64[sike610_nlimbs] {
+  r = r; a = a;
+  r = FPM_redM( r, a);
+  r = r;
+  return r;
+}
+
+/* Conversion-out from Montgomery form */
+inline fn FPM_fromM_
+( reg mut ptr u64[sike610_nlimbs] a
+) -> reg ptr u64[sike610_nlimbs] {
+  stack u64[2*sike610_nlimbs] _tmp;
+  reg ptr u64[2*sike610_nlimbs] tmp;
+  reg ptr u64[sike610_nlimbs] tmp2;
+
+  tmp2 = _tmp[0:sike610_nlimbs];
+  tmp2 = BN_mov_(tmp2, a);
+  _tmp[0:sike610_nlimbs] = tmp2;
+  tmp2 = _tmp[sike610_nlimbs:sike610_nlimbs];
+  tmp2 = BN_set0_(tmp2);
+  _tmp[sike610_nlimbs:sike610_nlimbs] = tmp2;
+  tmp = _tmp;
+  a = FPM_redM_(a, tmp);
+  return a;
+}
+
+
+/*
+require "fp_base" as "FPM"
+ with { nlimbs = NLIMBS;
+        glob_exp0 = glob_exp0;
+        glob_Pm2 = glob_Pm2;
+	fun_red = FPM_redM;
+	fun_muln = BNMUL_muln_;
+	fun_sqrn = BNMUL_sqrn_;
+      }
+
+*/
+
+from MJazz require "FPM_fp_base.jinc"
+
+// ////////////////////////////////////
+
+/* Conversion into Montgomery form */
+inline fn FPM_toM_
+( reg mut ptr u64[sike610_nlimbs] a
+) -> reg ptr u64[sike610_nlimbs] {
+  reg ptr u64[sike610_nlimbs] rMP;
+  rMP = sike610_glob_rMP;
+  a = FPM_mulmU_(a, rMP);
+  a = a;
+  return a;
+}
+

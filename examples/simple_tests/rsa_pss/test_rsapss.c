@@ -149,7 +149,7 @@ int main() {
   bn_print("t ", x);
   fp_toM(x, x);
   bn_print("tM ", x);
-  fp_exp(y, x, e);
+  fp_expLR_noct(y, x, e);
   bn_print("cM ", y);
   fp_exp(x, y, d);
   bn_print("tM'", x);

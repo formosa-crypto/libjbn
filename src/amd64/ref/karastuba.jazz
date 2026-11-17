@@ -1,0 +1,72 @@
+require "bn_base.mjazz"
+/* OBS: 
+ - defines the functor "BN_BASE({param int nlimbs;})" (basic operations)
+ - defines the functor "BN_MUL({param int nlimbs;})" with output interface:
+interface MUL_O({param int nlimbs;}) {
+  // nlimb-multiplication
+  fn bn_mul( 64[2*nlimbs], u64[nlimbs], u64[nlimbs] )
+              -> u64[2*nlimbs];
+  // nlimb-multiplication for karatsuba (adds temp-space)
+  fn bn_mulk( u64[2*nlimbs], u64[nlimbs], u64[nlimbs], u64[nlimbs] )
+               -> u64[2*nlimbs], u64[nlimbs];
+}
+*/
+
+// input interface for the KARATSUBA functor:
+interface KAR_I {
+  param int nlimbs;
+  fn fun_mulk ( u64[2*nlimbs], u64[nlimbs], u64[nlimbs], u64[nlimbs] ) 
+              -> u64[2*nlimbs], u64[nlimbs];
+}
+
+// output interface for the BN_KARATSUBA functor:
+interface KAR_O (P: KAR_I) {
+  fn bn_mulk( u64[4*P.nlimbs], u64[2*P.nlimbs], u64[2*P.nlimbs], u64[2*P.nlimbs] )
+            -> reg ptr u64[4*P.nlimbs], reg ptr u64[2*P.nlimbs];
+  fn bn_mul( u64[4*P.nlimbs], u64[2*P.nlimbs], u64[2*P.nlimbs] )
+           -> reg ptr u64[4*P.nlimbs];
+}
+
+module BN_KARATSUBA(P: KAR_I) : KAR_O(P) {
+  require "bn_util.jazz"
+  module BN = BN_BASE({nlimbs = P.nlimbs});
+  module BN2 = BN_BASE({nlimbs = 2*P.nlimbs});
+
+  fn bn_mulk ( reg mut ptr u64[4*P.nlimbs] r
+             , reg mut ptr u64[2*P.nlimbs] tmp
+             , reg const ptr u64[2*P.nlimbs] a b
+             ) -> reg ptr u64[4*P.nlimbs], reg ptr u64[2*P.nlimbs]
+  { ... }
+  fn bn_mul ( reg mut ptr u64[4*P.nlimbs] r
+            , reg const ptr u64[2*P.nlimbs] a b
+            ) -> reg ptr u64[4*P.nlimbs]
+  {
+    stack u64[2*P.nlimbs] tmp;
+    r, tmp = bn_mulk(r, tmp, a, b);
+    return r;
+  }
+}
+
+
+// instantiating a module for 64-limb numbers (that uses karatsuba built from 4-limb leaf multiplication)
+module BN64 {
+  module BN_BASE({nlimbs=64;});
+  // constructs the tower of modules for karatsuba multiplication
+  module MUL4 = BN_MUL({nlimbs = 4;});
+  module MUL8 = BN_KARATSUBA({param int nlimbs = 4; fn fun_mulk = MUL4.bn_mulk; });
+  module MUL16 = BN_KARATSUBA({param int nlimbs = 8; fn fun_mulk = MUL8.bn_mulk; });
+  module MUL32 = BN_KARATSUBA({param int nlimbs = 16; fn fun_mulk = MUL16.bn_mulk; });
+  // ...which finally leads to the intended 64-limb multiplication
+  module BN_KARATSUBA({param int nlimbs = 32; fn fun_mulk = MUL32.bn_mulk; });
+}
+
+
+
+
+
+
+module BN = BN_BASE() "bn_base.mjazz" as BN
+ with { nlimbs = nlimbs; }
+
+from Libjbn require "bn_base.mjazz" as BN2
+ with { nlimbs = 2*nlimbs; }

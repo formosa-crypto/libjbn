@@ -1,0 +1,145 @@
+/*
+//from Libjbn require "bn_base.mjazz" as "BN"
+ with { nlimbs = nlimbs; }
+*/
+from MJazz require "BN_bn_base.jinc"
+
+/*
+//from Libjbn require "fp_mont.mjazz" as "FPM"
+ with { nlimbs = nlimbs;
+        glob_P = glob_P;
+        glob_mP = glob_mP;
+        glob_Pi0 = Pi0;
+        glob_Pm2 = glob_Pm2; }
+*/
+from MJazz require "FPM_fp_mont.jinc"
+
+export fn fp_add(reg u64 rp ap bp)
+{
+  stack u64[sike503_nlimbs] _a _b;
+  reg ptr u64[sike503_nlimbs] a b;
+
+  a = _a;
+  b = _b;
+  a = BN_load_(a,ap);
+  b = BN_load_(b,bp);
+  a = FPM_addmU_(a, b);
+  BN_store_(rp, a);
+}
+
+
+export fn fp_sub( reg u64 rp ap bp)
+{
+  stack u64[sike503_nlimbs] _a _b;
+  reg ptr u64[sike503_nlimbs] a b;
+
+  a = _a;
+  b = _b;
+  a = BN_load_(a,ap);
+  b = BN_load_(b,bp);
+  a = FPM_submU_(a, b);
+  BN_store_(rp, a);
+}
+
+export fn fp_mul(reg u64 rp ap bp)
+{
+  stack u64[sike503_nlimbs] _a _b _r;
+  reg ptr u64[sike503_nlimbs] a b r;
+
+  a = _a;
+  b = _b;
+  a = BN_load_(a,ap);
+  b = BN_load_(b,bp);
+  r = _r;
+  r = FPM_mulm_(r, a, b);
+  BN_store_(rp, r);
+}
+
+export fn fp_sqr(reg u64 rp ap)
+{
+  stack u64[sike503_nlimbs] _a _r;
+  reg ptr u64[sike503_nlimbs] a r;
+
+  a = _a;
+  a = BN_load_(a,ap);
+  r = _r;
+  r = FPM_sqrm_(r, a);
+  BN_store_(rp, r);
+}
+
+export fn fp_exp_noct(reg u64 rp ap bp)
+{
+  stack u64[sike503_nlimbs] _a _b _r;
+  reg ptr u64[sike503_nlimbs] a b r;
+  stack u64 _rp;
+
+  _rp = rp;
+  a = _a;
+  a = BN_load_(a,ap);
+  b = _b;
+  b = BN_load_(b,bp);
+  r = _r;
+  r = FPM_expm_noct_(r, a, b);
+  rp = _rp;
+  BN_store_(rp, r);
+}
+
+export fn fp_exp(reg u64 rp ap bp)
+{
+  stack u64[sike503_nlimbs] _a _b _r;
+  reg ptr u64[sike503_nlimbs] a b r;
+  stack u64 _rp;
+
+  _rp = rp;
+  a = _a;
+  a = BN_load_(a,ap);
+  b = _b;
+  b = BN_load_(b,bp);
+  r = _r;
+  r = FPM_expm_(r, a, b);
+  rp = _rp;
+  BN_store_(rp, r);
+}
+
+export fn fp_inv(reg u64 rp ap)
+{
+  stack u64[sike503_nlimbs] _a _r;
+  reg ptr u64[sike503_nlimbs] a r;
+  stack u64 _rp;
+
+  _rp = rp;
+  a = _a;
+  a = BN_load_(a,ap);
+  r = _r;
+  r = FPM_invm_(r, a);
+  rp = _rp;
+  BN_store_(rp, r);
+}
+
+export fn fp_toM(reg u64 rp ap)
+{
+  stack u64[sike503_nlimbs] _a;
+  reg ptr u64[sike503_nlimbs] a;
+  stack u64 _rp;
+
+  _rp = rp;
+  a = _a;
+  a = BN_load_(a,ap);
+  a = FPM_toM_(a);
+  rp = _rp;
+  BN_store_(rp, a);
+}
+
+export fn fp_fromM(reg u64 rp ap)
+{
+  stack u64[sike503_nlimbs] _a;
+  reg ptr u64[sike503_nlimbs] a;
+  stack u64 _rp;
+
+  _rp = rp;
+  a = _a;
+  a = BN_load_(a,ap);
+  a = FPM_fromM_(a);
+  rp = _rp;
+  BN_store_(rp, a);
+}

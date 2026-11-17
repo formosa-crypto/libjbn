@@ -84,6 +84,23 @@ export fn fp_exp_noct(reg u64 rp ap bp)
   ${qualBN}_store_(rp, r);
 }
 
+export fn fp_expLR_noct(reg u64 rp ap bp)
+{
+  stack u64[${nlimbs}] _a _b _r;
+  reg ptr u64[${nlimbs}] a b r;
+  stack u64 _rp;
+
+  _rp = rp;
+  a = _a;
+  a = ${qualBN}_load_(a,ap);
+  b = _b;
+  b = ${qualBN}_load_(b,bp);
+  r = _r;
+  r = ${qualFPM}_expmLR_noct_(r, a, b);
+  rp = _rp;
+  ${qualBN}_store_(rp, r);
+}
+
 export fn fp_exp(reg u64 rp ap bp)
 {
   stack u64[${nlimbs}] _a _b _r;

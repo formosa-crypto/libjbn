@@ -1,0 +1,1027 @@
+/* This file is indeed a template for a pyhton prototype
+   intended to emulate and exercise the "Parametric Modules"
+   feature propose in https://github.com/jasmin-lang/jasmin/issues/519.
+
+BN_BASE_FNS = _load_ _store_ _eq_zf_ _eq_ _test0_zf_ _test0_ __copy _mov_ _cmov_ _cswap_mask_ _cswap_cf_ _fill_ _set0_ __cfill _or_mask_ _and_mask_ _set_err_ __carrypropU _addcU_ _addU_ _addc_ _add_ _subcU_ _subU_ _subc_ _sub_ _lt_cf_ _ltc_cf_ _negU_ _negcU_ _neg_ _negc_ _cnegU_ _caddU_ _muln_ _sqrn_ _cminusP_ __mont_redM _pack2_
+
+*/
+
+/*
+modsignature { int nlimbs; }
+*/
+
+/*
+   GENERIC CODE (parametric on the number of limbs)
+
+   Name Conventions:
+     _* <- local (non-exported) jasmin functions
+     __* <- inlined functions
+
+
+*/
+
+//require "bn_util.jinc" // as "BN"
+require "BN_bn_util.jinc"
+
+/* Loads BN from memory
+ */
+inline fn BN2__load
+( reg mut ptr u64[2*sike503_nlimbs] a
+, reg u64 ap
+) -> reg ptr u64[2*sike503_nlimbs]
+{
+  inline int i;
+  reg u64 t;
+
+  for i = 0 to 2*sike503_nlimbs {
+    t = [ap + 8*i];
+    a[i] = t;
+  }
+
+  return a;
+}
+
+//#[returnaddress=reg]
+fn BN2_load
+( reg mut ptr u64[2*sike503_nlimbs] a
+, reg u64 ap
+) -> reg ptr u64[2*sike503_nlimbs]
+{
+  a = BN2__load(a, ap);
+  return a;
+}
+
+inline fn BN2_load_
+( reg mut ptr u64[2*sike503_nlimbs] a
+, reg u64 ap
+) -> reg ptr u64[2*sike503_nlimbs]
+{
+  a = a; ap = ap;
+  a = BN2_load(a, ap);
+  a = a;
+  return a;
+}
+
+/* Stores a BN into memory */
+inline fn BN2__store
+( reg u64 ap,
+  reg const ptr u64[2*sike503_nlimbs] a
+)
+{
+  inline int i;
+  reg u64 t;
+
+  for i = 0 to 2*sike503_nlimbs {
+    t = a[i];
+    [ap + 8*i] = t;
+  }
+}
+
+fn BN2_store
+( reg u64 ap,
+  reg const ptr u64[2*sike503_nlimbs] a
+) {
+  BN2__store(ap, a);
+}
+
+inline fn BN2_store_
+( reg u64 ap,
+  reg const ptr u64[2*sike503_nlimbs] a
+) {
+  ap = ap; a = a;
+  BN2__store(ap, a);
+}
+
+/**
+ * Compares two field elements.
+ * If a == b, return 1. Otherwise, return 0.
+ */
+inline fn BN2__eq_zf
+( reg const ptr u64[2*sike503_nlimbs] a b
+) -> reg bool {
+  inline int i;
+  reg u64 acc t;
+  reg bool zf;
+
+  acc = 0;
+  for i = 0 to 2*sike503_nlimbs {
+    t = a[i];
+    t ^= b[i];
+    acc |= t;
+  }
+  (_, _, _, _, zf, _) = #AND(acc, acc);
+    
+  return zf;
+}
+
+fn BN2_eq_zf
+( reg const ptr u64[2*sike503_nlimbs] a b
+) -> reg bool {
+  reg bool zf;
+  zf = BN2__eq_zf(a, b);
+  return zf;
+}
+
+inline fn BN2_eq_zf_
+( reg const ptr u64[2*sike503_nlimbs] a b
+) -> reg bool {
+  reg bool zf;
+  a = a; b = b;
+  zf = BN2_eq_zf(a, b);
+  return zf;
+}
+
+/**
+ * Compares two field elements.
+ * If a == b, return 1. Otherwise, return 0.
+ */
+inline fn BN2_eq_
+( reg const ptr u64[2*sike503_nlimbs] a b
+) -> reg u64 /* 0 or 1 */ {
+  reg u64 are_equal res;
+  reg bool zf;
+
+  zf = BN2_eq_zf_(a, b);
+  res = 0;
+  are_equal = 1;
+  res = are_equal if zf;
+    
+  return res;
+}
+
+//@ ensures res == if bn(a)=0 then 1 else 0;
+inline fn BN2__test0_zf
+( reg const ptr u64[2*sike503_nlimbs] a
+) -> reg bool {
+  inline int i;
+  reg u64 acc;
+  reg bool zf;
+
+  acc = a[0];
+  for i = 1 to 2*sike503_nlimbs {
+    acc |= a[i];
+  }
+  (_, _, _, _, zf, _) = #AND(acc, acc);
+  return zf;
+}
+
+//@ ensures \result == (bn(a)==0);
+fn BN2_test0_zf
+( reg const ptr u64[2*sike503_nlimbs] a
+) -> reg bool {
+  reg bool zf;
+  zf = BN2__test0_zf(a);
+  return zf;
+}
+
+inline fn BN2_test0_zf_
+( reg const ptr u64[2*sike503_nlimbs] a
+) -> reg bool {
+  reg bool zf;
+  a = a;
+  zf = BN2__test0_zf(a);
+  return zf;
+}
+
+//@ ensures res == if bn(a)=0 then 1 else 0;
+inline fn BN2_test0_
+( reg const ptr u64[2*sike503_nlimbs] a
+) -> reg u64 {
+  reg u64 is_zero res;
+  reg bool zf;
+
+  res = 0;
+  is_zero = 1;    
+  zf = BN2_test0_zf_(a);
+  res = is_zero if zf;
+
+  return res;
+}
+
+//@ ensures \result == a;
+inline fn BN2__copy
+( reg const ptr u64[2*sike503_nlimbs] a
+) -> stack u64[2*sike503_nlimbs] {
+  inline int i;
+  reg u64 t;
+  stack u64[2*sike503_nlimbs] r;
+    
+  for i = 0 to 2*sike503_nlimbs {
+    t = a[i];
+    r[i] = t;
+  }
+    
+  return r;
+}
+
+//@ ensures \result == a;
+inline fn BN2__mov
+( reg mut ptr u64[2*sike503_nlimbs] r
+, reg const ptr u64[2*sike503_nlimbs] a
+) -> reg ptr u64[2*sike503_nlimbs] {
+  inline int i;
+  reg u64 t;
+    
+  for i = 0 to 2*sike503_nlimbs {
+    t = a[i];
+    r[i] = t;
+  }
+    
+  return r;
+}
+
+fn BN2_mov
+( reg mut ptr u64[2*sike503_nlimbs] r
+, reg const ptr u64[2*sike503_nlimbs] a
+) -> reg ptr u64[2*sike503_nlimbs] {
+  r = BN2__mov(r, a);
+  return r;
+}
+
+inline fn BN2_mov_
+( reg mut ptr u64[2*sike503_nlimbs] r
+, reg const ptr u64[2*sike503_nlimbs] a
+) -> reg ptr u64[2*sike503_nlimbs] {
+  r = r;
+  a = a;
+  r = BN2_mov(r, a);
+  r = r;
+  return r;
+}
+
+//@ ensures \result = if cond then b else a;
+inline fn BN2__cmov
+( reg mut ptr u64[2*sike503_nlimbs] a
+, reg bool cond
+, reg const ptr u64[2*sike503_nlimbs] b
+) -> reg ptr u64[2*sike503_nlimbs] {
+  inline int i;
+  reg u64 t;
+    
+  for i = 0 to 2*sike503_nlimbs {
+    t = a[i];
+    t = b[i] if cond;
+    a[i] = t;
+  }
+    
+  return a;
+}
+
+fn BN2_cmov
+( reg mut ptr u64[2*sike503_nlimbs] a
+, reg bool cond
+, reg const ptr u64[2*sike503_nlimbs] b
+) -> reg ptr u64[2*sike503_nlimbs] {
+  a = BN2__cmov(a, cond, b);
+  return a;
+}
+
+inline fn BN2_cmov_
+( reg mut ptr u64[2*sike503_nlimbs] a
+, reg bool cond
+, reg const ptr u64[2*sike503_nlimbs] b
+) -> reg ptr u64[2*sike503_nlimbs] {
+  a = a;
+  b = b;
+  a = BN2_cmov(a, cond, b);
+  a = a;
+  return a;
+}
+
+
+inline fn BN2__cswap_mask
+ ( reg mut ptr u64[2*sike503_nlimbs] x
+ , reg mut ptr u64[2*sike503_nlimbs] y
+ , reg u64 mask // 0/-1
+ ) -> reg ptr u64[2*sike503_nlimbs] , reg ptr u64[2*sike503_nlimbs] {
+  reg u64 tmp;
+  inline int i;
+  for i = 0 to 2*sike503_nlimbs {
+   tmp   = x[i];
+   tmp  ^= y[i];
+   tmp  &= mask;
+   x[i] ^= tmp;
+   y[i] ^= tmp;
+  }
+
+  return x, y;
+}
+
+fn BN2_cswap_mask
+ ( reg mut ptr u64[2*sike503_nlimbs] x
+ , reg mut ptr u64[2*sike503_nlimbs] y
+ , reg u64 mask // 0/-1
+ ) -> reg ptr u64[2*sike503_nlimbs] , reg ptr u64[2*sike503_nlimbs] {
+  x, y = BN2__cswap_mask(x,y,mask);
+  return x,y;
+}
+
+inline fn BN2_cswap_mask_
+ ( reg mut ptr u64[2*sike503_nlimbs] x
+ , reg mut ptr u64[2*sike503_nlimbs] y
+ , reg u64 mask // 0/-1
+ ) -> reg ptr u64[2*sike503_nlimbs] , reg ptr u64[2*sike503_nlimbs] {
+  x = x;
+  y = y;
+  x, y = BN2_cswap_mask(x,y,mask);
+  x = x;
+  y = y;
+  return x, y;
+}
+
+inline fn BN2_cswap_cf_
+ ( reg mut ptr u64[2*sike503_nlimbs] x
+ , reg mut ptr u64[2*sike503_nlimbs] y
+ , reg bool cf
+ ) -> reg ptr u64[2*sike503_nlimbs] , reg ptr u64[2*sike503_nlimbs] {
+  reg u64 mask;
+  mask = BN__cf_mask(cf);
+  x, y = BN2_cswap_mask_(x, y, mask);
+  return x, y;
+}
+
+//@ ensures \forall v in \result; v == 0;
+inline fn BN2__fill
+( reg mut ptr u64[2*sike503_nlimbs] a
+, reg u64 x
+) -> reg ptr u64[2*sike503_nlimbs] {
+  inline int i;
+  for i = 0 to 2*sike503_nlimbs {
+    a[i] = x;
+  }
+  return a;
+}
+
+fn BN2_fill
+( reg mut ptr u64[2*sike503_nlimbs] a
+, reg u64 x
+) -> reg ptr u64[2*sike503_nlimbs] {
+  a = BN2__fill(a, x);
+  return a;
+}
+
+inline fn BN2_fill_
+( reg mut ptr u64[2*sike503_nlimbs] a
+, reg u64 x
+) -> reg ptr u64[2*sike503_nlimbs] {
+  a = a; x = x;
+  a = BN2__fill(a, x);
+  a = a;
+  return a;
+}
+
+//@ ensures \forall v in \result; v == 0;
+inline fn BN2_set0_
+( reg mut ptr u64[2*sike503_nlimbs] a
+) -> reg ptr u64[2*sike503_nlimbs] {
+  reg u64 t;
+  t = 0;
+  a = BN2_fill_(a, t);
+  return a;
+}
+
+inline fn BN2__cfill
+( reg mut ptr u64[2*sike503_nlimbs] a
+, reg bool b
+, reg u64 x
+) -> reg ptr u64[2*sike503_nlimbs] {
+  inline int i;
+  reg u64 t;
+  for i = 0 to 2*sike503_nlimbs {
+    t = a[i];
+    t = x if b;
+    a[i] = t;
+  }
+  return a;
+}
+
+inline fn BN2__or_mask
+( reg mut ptr u64[2*sike503_nlimbs] a
+, reg u64 mask
+) -> reg ptr u64[2*sike503_nlimbs] {
+  inline int i;
+  for i = 0 to 2*sike503_nlimbs {
+    a[i] |= mask;
+  }
+  return a;
+}
+
+fn BN2_or_mask
+( reg mut ptr u64[2*sike503_nlimbs] a
+, reg u64 mask
+) -> reg ptr u64[2*sike503_nlimbs] {
+  a = BN2__or_mask(a, mask);
+  return a;
+}
+
+inline fn BN2_or_mask_
+( reg mut ptr u64[2*sike503_nlimbs] a
+, reg u64 mask
+) -> reg ptr u64[2*sike503_nlimbs] {
+  a = a; mask = mask;
+  a = BN2_or_mask(a, mask);
+  a = a;
+  return a;
+}
+
+inline fn BN2_set_err_
+( reg mut ptr u64[2*sike503_nlimbs] a
+, stack u64 _err
+) -> reg ptr u64[2*sike503_nlimbs] {
+  reg u64 err;
+  err = _err;
+  a = BN2_or_mask_(a, err);
+  return a;
+}
+
+inline fn BN2__and_mask
+( reg mut ptr u64[2*sike503_nlimbs] a
+, reg u64 mask
+) -> reg ptr u64[2*sike503_nlimbs] {
+  inline int i;
+  for i = 0 to 2*sike503_nlimbs {
+    a[i] &= mask;
+  }
+  return a;
+}
+
+fn BN2_and_mask
+( reg mut ptr u64[2*sike503_nlimbs] a
+, reg u64 mask
+) -> reg ptr u64[2*sike503_nlimbs] {
+  a = BN2__and_mask(a, mask);
+  return a;
+}
+
+inline fn BN2_and_mask_
+( reg mut ptr u64[2*sike503_nlimbs] a
+, reg u64 mask
+) -> reg ptr u64[2*sike503_nlimbs] {
+  a = a; mask = mask;
+  a = BN2_and_mask(a, mask);
+  a = a;
+  return a;
+}
+
+
+//@ ensures bn(\result) = a + cf*2^(64*k)
+inline fn BN2__carrypropU
+( reg mut ptr u64[2*sike503_nlimbs] a,
+  reg bool cf,
+  inline int k
+) -> reg bool, reg ptr u64[2*sike503_nlimbs]
+{
+  inline int i;
+  for i=k to 2*sike503_nlimbs
+  { cf, a[i] += 0 + cf; }
+
+  return cf, a;
+}
+
+//@ ensures (\result)
+//    = a %% 2^(64) + 2^(64) * (a %/ 2^(64) + b %/ 2^(64) + cf)
+inline fn BN2__addc1U
+( reg mut ptr u64[2*sike503_nlimbs] a
+, reg const ptr u64[2*sike503_nlimbs] b
+, reg bool cf
+) -> reg bool, reg ptr u64[2*sike503_nlimbs]
+{
+  inline int i;
+  reg u64 t;
+  for i=1 to 2*sike503_nlimbs {
+    t = b[i];
+    cf, a[i] += t + cf;
+  }
+
+  return cf, a;
+}
+
+fn BN2_addc1U
+( reg mut ptr u64[2*sike503_nlimbs] a
+, reg const ptr u64[2*sike503_nlimbs] b
+, reg bool cf
+) -> reg bool, reg ptr u64[2*sike503_nlimbs] {
+  cf, a = BN2__addc1U(a, b, cf);
+  return cf, a;
+}
+
+inline fn BN2_addc1U_
+( reg mut ptr u64[2*sike503_nlimbs] a
+, reg const ptr u64[2*sike503_nlimbs] b
+, reg bool cf
+) -> reg bool, reg ptr u64[2*sike503_nlimbs] {
+  a = a; b = b;
+  cf, a = BN2_addc1U(a, b, cf);
+  a = a;
+  return cf, a;
+}
+  
+/* multi-limb addition (update inplace) */
+inline fn BN2_addcU_
+( reg mut ptr u64[2*sike503_nlimbs] a
+, reg const ptr u64[2*sike503_nlimbs] b
+, reg bool cf
+) -> reg bool, reg ptr u64[2*sike503_nlimbs]
+{
+  reg u64 t;
+
+  t = b[0];
+  cf, a[0] += t + cf;
+  cf, a = BN2_addc1U_(a, b, cf);
+  return cf, a;
+}
+
+inline fn BN2_addU_
+( reg mut ptr u64[2*sike503_nlimbs] a
+, reg const ptr u64[2*sike503_nlimbs] b
+) -> reg bool, reg ptr u64[2*sike503_nlimbs]
+{
+  reg bool cf;
+  reg u64 t;
+
+  t = b[0];
+  cf, a[0] += t;
+  cf, a = BN2_addc1U_(a, b, cf);
+  return cf, a;
+}
+
+inline fn BN2__addc1
+( reg mut ptr u64[2*sike503_nlimbs] r
+, reg const ptr u64[2*sike503_nlimbs] a b
+, reg bool cf
+) -> reg bool, reg ptr u64[2*sike503_nlimbs] {
+  inline int i;
+  reg u64 t;
+
+  for i=1 to 2*sike503_nlimbs { 
+   t = a[i];
+   cf, t += b[i] + cf;
+   r[i] = t;
+  }
+
+  return cf, r;
+}
+
+fn BN2_addc1
+( reg mut ptr u64[2*sike503_nlimbs] r
+, reg const ptr u64[2*sike503_nlimbs] a b
+, reg bool cf
+) -> reg bool, reg ptr u64[2*sike503_nlimbs] {
+  cf, r = BN2__addc1(r, a, b, cf);
+  return cf, r;
+}
+
+inline fn BN2_addc1_
+( reg mut ptr u64[2*sike503_nlimbs] r
+, reg const ptr u64[2*sike503_nlimbs] a b
+, reg bool cf
+) -> reg bool, reg ptr u64[2*sike503_nlimbs] {
+  r = r; a = a; b = b;
+  cf, r = BN2_addc1(r, a, b, cf);
+  r = r;
+  return cf, r;
+}
+
+inline fn BN2_add_
+( reg mut ptr u64[2*sike503_nlimbs] r
+, reg const ptr u64[2*sike503_nlimbs] a b
+) -> reg bool, reg ptr u64[2*sike503_nlimbs]
+{
+  reg bool cf;
+  reg u64 t;
+  t = a[0];
+  cf, t += b[0];
+  r[0] = t;
+  cf, r = BN2_addc1_(r, a, b, cf);
+  return cf, a;
+}
+
+inline fn BN2_addc_
+( reg mut ptr u64[2*sike503_nlimbs] r
+, reg const ptr u64[2*sike503_nlimbs] a b
+, reg bool cf
+) -> reg bool, reg ptr u64[2*sike503_nlimbs]
+{
+  reg u64 t;
+  t = a[0];
+  cf, t += b[0] + cf;
+  r[0] = t;
+  cf, r = BN2_addc1_(r, a, b, cf);
+  return cf, a;
+}
+
+/* performs multi-limb subtraction */
+inline fn BN2__subc1U
+( reg mut ptr u64[2*sike503_nlimbs] a
+, reg const ptr u64[2*sike503_nlimbs] b
+, reg bool cf
+) -> reg bool, reg ptr u64[2*sike503_nlimbs] {
+  inline int i;
+  reg u64 t;
+
+  for i=1 to 2*sike503_nlimbs {
+   t = b[i];
+   cf, a[i] -= t - cf;
+  }
+
+  return cf, a;
+}
+
+fn BN2_subc1U
+( reg mut ptr u64[2*sike503_nlimbs] a
+, reg const ptr u64[2*sike503_nlimbs] b
+, reg bool cf
+) -> reg bool, reg ptr u64[2*sike503_nlimbs] {
+ cf, a = BN2__subc1U(a, b, cf);
+ return cf, a;
+}
+
+inline fn BN2_subc1U_
+( reg mut ptr u64[2*sike503_nlimbs] a
+, reg const ptr u64[2*sike503_nlimbs] b
+, reg bool cf
+) -> reg bool, reg ptr u64[2*sike503_nlimbs] {
+  a = a; b = b;
+  cf, a = BN2_subc1U(a, b, cf);
+  a = a;
+  return cf, a;
+}
+
+inline fn BN2_subU_
+( reg mut ptr u64[2*sike503_nlimbs] a
+, reg const ptr u64[2*sike503_nlimbs] b
+) -> reg bool, reg ptr u64[2*sike503_nlimbs]
+{
+  reg bool cf;
+  reg u64 t;
+
+  t = b[0];
+  cf, a[0] -= t;
+  cf, a = BN2_subc1U_(a, b, cf);
+  return cf, a;
+}
+
+inline fn BN2_subcU_
+( reg mut ptr u64[2*sike503_nlimbs] a
+, reg const ptr u64[2*sike503_nlimbs] b
+, reg bool cf
+) -> reg bool, reg ptr u64[2*sike503_nlimbs]
+{
+  reg u64 t;
+
+  t = b[0];
+  cf, a[0] -= t - cf;
+  cf, a = BN2_subc1U_(a, b, cf);
+  return cf, a;
+}
+
+inline fn BN2__subc1
+( reg mut ptr u64[2*sike503_nlimbs] r
+, reg const ptr u64[2*sike503_nlimbs] a b
+, reg bool cf
+) -> reg bool, reg ptr u64[2*sike503_nlimbs] {
+  inline int i;
+  reg u64 t;
+
+  for i=1 to 2*sike503_nlimbs {
+   t = a[i];
+   cf, t -= b[i] - cf;
+   r[i] = t;
+  }
+
+  return cf, r;
+}
+
+fn BN2_subc1
+( reg mut ptr u64[2*sike503_nlimbs] r
+, reg const ptr u64[2*sike503_nlimbs] a b
+, reg bool cf
+) -> reg bool, reg ptr u64[2*sike503_nlimbs] {
+  cf, r = BN2__subc1(r, a, b, cf);
+  return cf, r;
+}
+
+inline fn BN2_subc1_
+( reg mut ptr u64[2*sike503_nlimbs] r
+, reg const ptr u64[2*sike503_nlimbs] a b
+, reg bool cf
+) -> reg bool, reg ptr u64[2*sike503_nlimbs] {
+  r = r; a = a; b = b;
+  cf, r = BN2_subc1(r, a, b, cf);
+  r = r;
+  return cf, r;
+}
+
+inline fn BN2_sub_
+( reg mut ptr u64[2*sike503_nlimbs] r
+, reg const ptr u64[2*sike503_nlimbs] a b
+) -> reg bool, reg ptr u64[2*sike503_nlimbs] {
+  reg bool cf;
+  reg u64 t;
+  t = a[0];
+  cf, t -= b[0];
+  r[0] = t;
+  cf, r = BN2_subc1_(r, a, b, cf);
+  return cf, r;
+}
+ 
+inline fn BN2_subc_
+( reg mut ptr u64[2*sike503_nlimbs] r
+, reg const ptr u64[2*sike503_nlimbs] a b
+, reg bool cf
+) -> reg bool, reg ptr u64[2*sike503_nlimbs] {
+  reg u64 t;
+  t = a[0];
+  cf, t -= b[0] - cf;
+  r[0] = t;
+  cf, r = BN2_subc1_(r, a, b, cf);
+  return cf, r;
+}
+ 
+
+/* comparison */
+inline fn BN2__ltc1_cf
+( reg const ptr u64[2*sike503_nlimbs] a b
+, reg bool cf
+) -> reg bool {
+  inline int i;
+  reg u64 t;
+
+  for i=1 to 2*sike503_nlimbs {
+   t = a[i];
+   cf, t -= b[i] - cf;
+  }
+
+  return cf;
+}
+
+fn BN2_ltc1_cf
+( reg const ptr u64[2*sike503_nlimbs] a b
+, reg bool cf
+) -> reg bool {
+  cf = BN2__ltc1_cf(a, b, cf);
+  return cf;
+}
+
+inline fn BN2_ltc1_cf_
+( reg const ptr u64[2*sike503_nlimbs] a b
+, reg bool cf
+) -> reg bool {
+  a = a; b = b;
+  cf = BN2_ltc1_cf(a, b, cf);
+  return cf;
+}
+
+inline fn BN2_lt_cf_
+( reg const ptr u64[2*sike503_nlimbs] a b
+) -> reg bool {
+  reg bool cf;
+  reg u64 t;
+
+  t = a[0];
+  cf, t -= b[0];
+  cf = BN2_ltc1_cf_(a, b, cf);
+  return cf;
+}
+
+inline fn BN2_ltc_cf_
+( reg const ptr u64[2*sike503_nlimbs] a b
+, reg bool cf
+) -> reg bool {
+  reg u64 t;
+
+  t = a[0];
+  cf, t -= b[0] - cf;
+  cf = BN2_ltc1_cf_(a, b, cf);
+  return cf;
+}
+
+/* Negation (two's complement) */
+inline fn BN2__negc1U
+( reg mut ptr u64[2*sike503_nlimbs] a
+, reg bool cf
+) -> reg bool, reg ptr u64[2*sike503_nlimbs] {
+  inline int i;
+  reg u64 t;
+
+  for i=1 to 2*sike503_nlimbs {
+   t = 0;
+   cf, t -= a[i] - cf;
+   a[i] = t;
+  }
+
+  return cf, a;
+}
+
+fn BN2_negc1U
+( reg mut ptr u64[2*sike503_nlimbs] a
+, reg bool cf
+) -> reg bool, reg ptr u64[2*sike503_nlimbs] {
+  cf, a = BN2__negc1U(a, cf);
+  return cf, a;
+}
+
+inline fn BN2_negc1U_
+( reg mut ptr u64[2*sike503_nlimbs] a
+, reg bool cf
+) -> reg bool, reg ptr u64[2*sike503_nlimbs] {
+  a = a;
+  cf, a = BN2_negc1U(a, cf);
+  a = a;
+  return cf, a;
+}
+
+inline fn BN2_negU_
+( reg mut ptr u64[2*sike503_nlimbs] a
+) -> reg bool, reg ptr u64[2*sike503_nlimbs] {
+  reg bool cf;
+  reg u64 t;
+
+  t = 0;
+  cf, t -= a[0];
+  a[0] = t;
+  cf, a = BN2_negc1U_(a, cf);
+  return cf, a;
+}
+
+inline fn BN2_negcU_
+( reg mut ptr u64[2*sike503_nlimbs] a
+, reg bool cf
+) -> reg bool, reg ptr u64[2*sike503_nlimbs] {
+  reg u64 t;
+
+  t = 0;
+  cf, t -= a[0] - cf;
+  a[0] = t;
+  cf, a = BN2_negc1U_(a, cf);
+  return cf, a;
+}
+
+
+inline fn BN2__negc1
+( reg mut ptr u64[2*sike503_nlimbs] r
+, reg const ptr u64[2*sike503_nlimbs] a
+, reg bool cf
+) -> reg bool, reg ptr u64[2*sike503_nlimbs] {
+  inline int i;
+  reg u64 t;
+
+  for i=1 to 2*sike503_nlimbs {
+   t = 0;
+   cf, t -= a[i] - cf;
+   r[i] = t;
+  }
+
+  return cf, r;
+}
+
+fn BN2_negc1
+( reg mut ptr u64[2*sike503_nlimbs] r
+, reg const ptr u64[2*sike503_nlimbs] a
+, reg bool cf
+) -> reg bool, reg ptr u64[2*sike503_nlimbs] {
+  cf, r = BN2__negc1(r, a, cf);
+  return cf, r;
+}
+
+inline fn BN2_negc1_
+( reg mut ptr u64[2*sike503_nlimbs] r
+, reg const ptr u64[2*sike503_nlimbs] a
+, reg bool cf
+) -> reg bool, reg ptr u64[2*sike503_nlimbs] {
+  r = r; a = a;
+  cf, r = BN2_negc1(r, a, cf);
+  r = r;
+  return cf, r;
+}
+
+inline fn BN2_neg_
+( reg mut ptr u64[2*sike503_nlimbs] r
+, reg const ptr u64[2*sike503_nlimbs] a
+) -> reg bool, reg ptr u64[2*sike503_nlimbs] {
+  reg bool cf;
+  reg u64 t;
+
+  t = 0;
+  cf, t -= a[0];
+  r[0] = t;
+  cf, r = BN2_negc1_(r, a, cf);
+  return cf, r;
+}
+
+inline fn BN2_negc_
+( reg mut ptr u64[2*sike503_nlimbs] r
+, reg const ptr u64[2*sike503_nlimbs] a
+, reg bool cf
+) -> reg bool, reg ptr u64[2*sike503_nlimbs] {
+  reg u64 t;
+
+  t = 0;
+  cf, t -= a[0] - cf;
+  r[0] = t;
+  cf, r = BN2_negc1_(r, a, cf);
+  return cf, r;
+}
+
+inline fn BN2_cnegU_
+( reg mut ptr u64[2*sike503_nlimbs] a
+, reg u64 cond
+) -> reg u64[2*sike503_nlimbs] {
+  reg bool cf;
+  stack u64[2*sike503_nlimbs] _x;
+  reg ptr u64[2*sike503_nlimbs] x;
+  x = _x;
+  _, x = BN2_neg_(x, a);
+  cf = BN__mask_cf(cond);
+  a = BN2_cmov_(a, cf, x);
+  return a;
+}
+
+
+/* CONDITIONAL-ADD */
+//@ ensures bn(res) == if cf then bn(x)+bn(y) else bn(x);
+inline fn BN2_caddU_
+( reg mut ptr u64[2*sike503_nlimbs] x
+, reg bool cf
+, reg ptr u64[2*sike503_nlimbs] y
+) -> reg ptr u64[2*sike503_nlimbs]
+{
+  reg u64 mask;
+  stack u64[2*sike503_nlimbs] _tmp;
+  reg ptr u64[2*sike503_nlimbs] tmp;
+
+  tmp = _tmp;
+  tmp = BN2_mov_(tmp,y);
+  mask = BN__cf_mask(cf);
+  tmp = BN2_and_mask_(tmp, mask);
+  _, x = BN2_addU_(x, tmp);
+
+  return x;
+}
+
+
+/* x-P if P<=x else x
+   (remark: [x;lastbit] < 2*P)
+ */
+inline fn BN2_cminusP_
+ ( reg mut ptr u64[2*sike503_nlimbs] x   //
+ , reg const ptr u64[2*sike503_nlimbs] mP  // R-P
+ , reg u64 lastbit         // 0/1
+ ) -> reg ptr u64[2*sike503_nlimbs]  // [x,lastbit]<P ? x : [x,lastbit]-P
+{
+  reg bool _cf;
+  stack u64[2*sike503_nlimbs] _tmp;
+  reg ptr u64[2*sike503_nlimbs] tmp;
+
+  tmp = _tmp;
+  tmp = BN2_mov_(tmp, x);
+  _cf, tmp = BN2_addU_(tmp, mP);
+
+  _, lastbit += 0 + _cf;
+  _, _cf, _, _, _, _ = #NEG(lastbit);
+
+  x = BN2_cmov_(x, _cf, tmp);
+  return x;
+}
+
+
+
+
+/* pack two bignums into a double bignum */
+inline fn BN2__pack2
+( reg mut ptr u64[2*2*sike503_nlimbs] r
+, reg const ptr u64[2*sike503_nlimbs] lo hi
+) -> reg ptr u64[2*2*sike503_nlimbs]
+{
+  inline int i;
+  reg u64 t;
+
+  for i = 0 to 2*sike503_nlimbs {
+    t = lo[i];
+    r[i] = t;
+  }
+  for i = 0 to 2*sike503_nlimbs {
+    t = hi[i];
+    r[2*sike503_nlimbs+i] = t;
+  }
+
+  return r;
+}
+
+fn BN2_pack2
+( reg mut ptr u64[2*2*sike503_nlimbs] r
+, reg const ptr u64[2*sike503_nlimbs] lo hi
+) -> reg ptr u64[2*2*sike503_nlimbs] {
+  r = BN2__pack2(r, lo, hi);
+  return r;
+}
+
+inline fn BN2_pack2_
+( reg mut ptr u64[2*2*sike503_nlimbs] r
+, reg const ptr u64[2*sike503_nlimbs] lo hi
+) -> reg ptr u64[2*2*sike503_nlimbs] {
+  r = r; lo = lo; hi = hi;
+  r = BN2__pack2(r, lo, hi);
+  r = r;
+  return r;
+}

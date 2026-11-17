@@ -25,6 +25,108 @@ from MJazz require "${qualBN}_bn_base.jinc"
 
 // ////////////////////////////////////
 
+inline fn ${qual}_exp1mLR_first_noct
+( reg mut ptr u64[${nlimbs}] r
+, reg const ptr u64[${nlimbs}] x
+, reg u64 w // assumed to be non-zero!!!
+) -> reg ptr u64[${nlimbs}] {
+  reg u64 k;
+  reg bool cf;
+  k = 64;
+  _, cf, _, _, _, w = #SHL(w, 1);
+  while (!cf) {
+    k -= 1;
+    _, cf, _, _, _, w = #SHL(w, 1);
+  }
+  // most significant one-bit
+  r = ${qualBN}_mov_(r, x);
+  k -= 1;
+  // remaining bits
+  while (k >s 0) {
+    r = ${fun_sqrU}(r);
+    _, cf, _, _, _, w = #SHL(w, 1);
+    if (cf) {
+      r = ${fun_mulU}(r, x);
+    }
+    k -= 1;
+  }
+  return r;
+}
+
+inline fn ${qual}_exp1mLR_noct
+( reg mut ptr u64[${nlimbs}] r
+, reg const ptr u64[${nlimbs}] x
+, reg u64 w
+) -> reg ptr u64[${nlimbs}] {
+  reg u64 k;
+  reg bool cf;
+  k = 64;
+  while (k >s 0) {
+    r = ${fun_sqrU}(r);
+    _, cf, _, _, _, w = #SHL(w, 1);
+    if (cf) {
+      r = ${fun_mulU}(r, x);
+    }
+    k -= 1;
+  }
+  return r;
+}
+
+/* Modular exponentiation
+  obs: naive LR square-multiply algorithm. Not Constant-Time!!!
+  (good enough to use with small public exponents, such as in RSAEP) */
+fn ${qual}_expmLR_noct
+( reg mut ptr u64[${nlimbs}] r
+, reg const ptr u64[${nlimbs}] x
+, reg const ptr u64[${nlimbsexp}] e
+) -> reg ptr u64[${nlimbs}] {
+  reg ptr u64[${nlimbs}] exp0;
+  reg u64 i w;
+  stack u64 i_s;
+  i = ${nlimbsexp} - 1;
+  // ignore most significant zero-limbs
+  w = e[(int) i];
+  while (w == 0) {
+    i -= 1;
+    if (i >=s 0) {
+      w = e[(int) i];
+    } else {
+      w = 1;
+    }
+  }
+  if (i >=s 0) {
+    i_s = i;
+    r = ${qual}_exp1mLR_first_noct(r, x, w);
+    i = i_s;
+    i -= 1;
+  } else {
+    exp0 = ${glob_exp0};
+    r = ${qualBN}_mov_(r, exp0);
+  }
+  while (i >=s 0) {
+    w = e[(int) i];
+    i_s = i;
+    r = ${qual}_exp1mLR_noct(r, x, w);
+    i = i_s;
+    i -= 1;
+  }
+  return r;
+}
+
+inline fn ${qual}_expmLR_noct_
+( reg mut ptr u64[${nlimbs}] r
+, reg const ptr u64[${nlimbs}] a
+, reg const ptr u64[${nlimbsexp}] b
+) -> reg ptr u64[${nlimbs}] {
+  reg ptr u64[${nlimbs}] exp0;
+  exp0 = ${glob_exp0};
+  r = ${qualBN}_mov_(r, exp0);
+  a = a; b = b;
+  r = ${qual}_expmLR_noct(r, a, b);
+  r = r;
+  return r;
+}
+
 /* Modular exponentiation
   obs: naive square-multiply algorithm. Not Constant-Time!!!
   (good enough to use with public exponents, such as in inversion) */

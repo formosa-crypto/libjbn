@@ -1,0 +1,458 @@
+require "bn_mul.jinc"
+
+//@ ensures: \res = (mask != 0)
+inline fn __mask_cf(reg u64 mask) -> reg bool {
+  reg bool cf;
+  reg u64 t;
+  t = 0;
+  cf, t -= mask;
+  return cf;
+}
+
+//@ ensures \result = if cond then b else a;
+inline fn __cmov
+( reg mut ptr u64[nlimbs] a
+, reg bool cond
+, reg const ptr u64[nlimbs] b
+) -> reg ptr u64[nlimbs] {
+  inline int i;
+  reg u64 t;
+    
+  for i = 0 to nlimbs {
+    t = a[i];
+    t = b[i] if cond;
+    a[i] = t;
+  }
+    
+  return a;
+}
+
+fn _cmov
+( reg mut ptr u64[nlimbs] a
+, reg bool cond
+, reg const ptr u64[nlimbs] b
+) -> reg ptr u64[nlimbs] {
+  a = __cmov(a, cond, b);
+  return a;
+}
+
+inline fn _cmov_
+( reg mut ptr u64[nlimbs] a
+, reg bool cond
+, reg const ptr u64[nlimbs] b
+) -> reg ptr u64[nlimbs] {
+  a = a;
+  b = b;
+  a = _cmov(a, cond, b);
+  a = a;
+  return a;
+}
+
+inline fn __negc1
+( reg mut ptr u64[nlimbs] r
+, reg const ptr u64[nlimbs] a
+, reg bool cf
+) -> reg bool, reg ptr u64[nlimbs] {
+  inline int i;
+  reg u64 t;
+
+  for i=1 to nlimbs {
+   t = 0;
+   cf, t -= a[i] - cf;
+   r[i] = t;
+  }
+
+  return cf, r;
+}
+
+fn _negc1
+( reg mut ptr u64[nlimbs] r
+, reg const ptr u64[nlimbs] a
+, reg bool cf
+) -> reg bool, reg ptr u64[nlimbs] {
+  cf, r = __negc1(r, a, cf);
+  return cf, r;
+}
+
+inline fn _negc1_
+( reg mut ptr u64[nlimbs] r
+, reg const ptr u64[nlimbs] a
+, reg bool cf
+) -> reg bool, reg ptr u64[nlimbs] {
+  r = r; a = a;
+  cf, r = _negc1(r, a, cf);
+  r = r;
+  return cf, r;
+}
+
+inline fn _neg_
+( reg mut ptr u64[nlimbs] r
+, reg const ptr u64[nlimbs] a
+) -> reg bool, reg ptr u64[nlimbs] {
+  reg bool cf;
+  reg u64 t;
+
+  t = 0;
+  cf, t -= a[0];
+  r[0] = t;
+  cf, r = _negc1_(r, a, cf);
+  return cf, r;
+}
+
+inline fn _cnegU_XX
+( reg mut ptr u64[nlimbs] a
+, reg u64 cond
+) -> reg u64[nlimbs] {
+  reg bool cf;
+  stack u64[nlimbs] _x;
+  reg ptr u64[nlimbs] x;
+  x = _x;
+  _, x = _neg_(x, a);
+  cf = __mask_cf(cond);
+  a = _cmov_(a, cf, x);
+  return a;
+}
+inline fn _cnegU_
+( reg mut ptr u64[nlimbs] a
+, reg u64 cond
+) -> reg u64[nlimbs] {
+  reg bool cf;
+  stack u64[nlimbs] _x;
+  reg ptr u64[nlimbs] x;
+  x = _x;
+  _, x = _neg_(x, a);
+  cf = __mask_cf(cond);
+  a = _cmov_(a, cf, x);
+  return a;
+}
+
+inline fn __subc1
+( reg mut ptr u64[nlimbs] r
+, reg const ptr u64[nlimbs] a b
+, reg bool cf
+) -> reg bool, reg ptr u64[nlimbs] {
+  inline int i;
+  reg u64 t;
+
+  for i=1 to nlimbs {
+   t = a[i];
+   cf, t -= b[i] - cf;
+   r[i] = t;
+  }
+
+  return cf, r;
+}
+
+fn _subc1
+( reg mut ptr u64[nlimbs] r
+, reg const ptr u64[nlimbs] a b
+, reg bool cf
+) -> reg bool, reg ptr u64[nlimbs] {
+  cf, r = __subc1(r, a, b, cf);
+  return cf, r;
+}
+
+inline fn _subc1_
+( reg mut ptr u64[nlimbs] r
+, reg const ptr u64[nlimbs] a b
+, reg bool cf
+) -> reg bool, reg ptr u64[nlimbs] {
+  r = r; a = a; b = b;
+  cf, r = _subc1(r, a, b, cf);
+  r = r;
+  return cf, r;
+}
+
+inline fn _sub_
+( reg mut ptr u64[nlimbs] r
+, reg const ptr u64[nlimbs] a b
+) -> reg bool, reg ptr u64[nlimbs] {
+  inline int i;
+  reg bool cf;
+  reg u64 t;
+  t = a[0];
+  cf, t -= b[0];
+  r[0] = t;
+  cf, r = _subc1_(r, a, b, cf);
+  return cf, r;
+}
+
+/* ensures: res = (sign(a-b), |a-b|)*/
+// MOVETO: bn_karatsuba.mjazz
+inline fn __sub_signabs
+( reg mut ptr u64[nlimbs] r
+, reg const ptr u64[nlimbs] a b
+) -> reg u64, reg ptr u64[nlimbs]
+{
+  reg bool cf;
+  reg u64 sign; // 0/-1
+  cf, r = _sub_(r, a, b); // r = a-b
+  sign = 0;
+  _, sign -= 0 - cf; // cf == (sign==-1)
+  r = _cnegU_(r, sign);
+  return (sign, r);
+}
+
+//@ ensures bn(\result) = a + cf*2^(64*k)
+inline fn __carrypropU
+( reg mut ptr u64[nlimbs] a,
+  reg bool cf,
+  inline int k
+) -> reg bool, reg ptr u64[nlimbs]
+{
+  inline int i;
+  for i=k to nlimbs
+  { cf, a[i] += 0 + cf; }
+
+  return cf, a;
+}
+
+
+inline fn BN2__cmov
+( reg mut ptr u64[2*nlimbs] a
+, reg bool cond
+, reg const ptr u64[2*nlimbs] b
+) -> reg ptr u64[2*nlimbs] {
+  inline int i;
+  reg u64 t;
+    
+  for i = 0 to 2*nlimbs {
+    t = a[i];
+    t = b[i] if cond;
+    a[i] = t;
+  }
+    
+  return a;
+}
+
+fn BN2_cmov
+( reg mut ptr u64[2*nlimbs] a
+, reg bool cond
+, reg const ptr u64[2*nlimbs] b
+) -> reg ptr u64[2*nlimbs] {
+  a = BN2__cmov(a, cond, b);
+  return a;
+}
+
+inline fn BN2_cmov_
+( reg mut ptr u64[2*nlimbs] a
+, reg bool cond
+, reg const ptr u64[2*nlimbs] b
+) -> reg ptr u64[2*nlimbs] {
+  a = a;
+  b = b;
+  a = BN2_cmov(a, cond, b);
+  a = a;
+  return a;
+}
+
+inline fn BN2__negc1
+( reg mut ptr u64[2*nlimbs] r
+, reg const ptr u64[2*nlimbs] a
+, reg bool cf
+) -> reg bool, reg ptr u64[2*nlimbs] {
+  inline int i;
+  reg u64 t;
+
+  for i=1 to 2*nlimbs {
+   t = 0;
+   cf, t -= a[i] - cf;
+   r[i] = t;
+  }
+
+  return cf, r;
+}
+
+fn BN2_negc1
+( reg mut ptr u64[2*nlimbs] r
+, reg const ptr u64[2*nlimbs] a
+, reg bool cf
+) -> reg bool, reg ptr u64[2*nlimbs] {
+  cf, r = BN2__negc1(r, a, cf);
+  return cf, r;
+}
+
+inline fn BN2_negc1_
+( reg mut ptr u64[2*nlimbs] r
+, reg const ptr u64[2*nlimbs] a
+, reg bool cf
+) -> reg bool, reg ptr u64[2*nlimbs] {
+  r = r; a = a;
+  cf, r = BN2_negc1(r, a, cf);
+  r = r;
+  return cf, r;
+}
+
+inline fn BN2_neg_
+( reg mut ptr u64[2*nlimbs] r
+, reg const ptr u64[2*nlimbs] a
+) -> reg bool, reg ptr u64[2*nlimbs] {
+  reg bool cf;
+  reg u64 t;
+
+  t = 0;
+  cf, t -= a[0];
+  r[0] = t;
+  cf, r = BN2_negc1_(r, a, cf);
+  return cf, r;
+}
+
+inline fn BN2_cnegU_
+( reg mut ptr u64[2*nlimbs] a
+, reg u64 cond
+) -> reg u64[2*nlimbs] {
+  reg bool cf;
+  stack u64[2*nlimbs] _x;
+  reg ptr u64[2*nlimbs] x;
+  x = _x;
+  _, x = BN2_neg_(x, a);
+  cf = __mask_cf(cond);
+  a = BN2_cmov_(a, cf, x);
+  return a;
+}
+
+//@ ensures (\result)
+//    = a %% 2^(64) + 2^(64) * (a %/ 2^(64) + b %/ 2^(64) + cf)
+inline fn BN2__addc1U
+( reg mut ptr u64[2*nlimbs] a
+, reg const ptr u64[2*nlimbs] b
+, reg bool cf
+) -> reg bool, reg ptr u64[2*nlimbs]
+{
+  inline int i;
+  reg u64 t;
+  for i=1 to 2*nlimbs {
+    t = b[i];
+    cf, a[i] += t + cf;
+  }
+
+  return cf, a;
+}
+
+fn BN2_addc1U
+( reg mut ptr u64[2*nlimbs] a
+, reg const ptr u64[2*nlimbs] b
+, reg bool cf
+) -> reg bool, reg ptr u64[2*nlimbs] {
+  cf, a = BN2__addc1U(a, b, cf);
+  return cf, a;
+}
+
+inline fn BN2_addc1U_
+( reg mut ptr u64[2*nlimbs] a
+, reg const ptr u64[2*nlimbs] b
+, reg bool cf
+) -> reg bool, reg ptr u64[2*nlimbs] {
+  a = a; b = b;
+  cf, a = BN2_addc1U(a, b, cf);
+  a = a;
+  return cf, a;
+}
+  
+/* multi-limb addition (update inplace) */
+inline fn BN2_addcU_
+( reg mut ptr u64[2*nlimbs] a
+, reg const ptr u64[2*nlimbs] b
+, reg bool cf
+) -> reg bool, reg ptr u64[2*nlimbs]
+{
+  inline int i;
+  reg u64 t;
+
+  t = b[0];
+  cf, a[0] += t + cf;
+  cf, a = BN2_addc1U_(a, b, cf);
+  return cf, a;
+}
+
+inline fn BN2_addU_
+( reg mut ptr u64[2*nlimbs] a
+, reg const ptr u64[2*nlimbs] b
+) -> reg bool, reg ptr u64[2*nlimbs]
+{
+  inline int i;
+  reg bool cf;
+  reg u64 t;
+
+  t = b[0];
+  cf, a[0] += t;
+  cf, a = BN2_addc1U_(a, b, cf);
+  return cf, a;
+}
+
+
+
+fn bn_mul_kar
+( reg mut ptr u64[4*nlimbs] r
+, reg mut ptr u64[2*nlimbs] tmp
+, reg const ptr u64[2*nlimbs] a b
+) -> reg ptr u64[4*nlimbs], reg ptr u64[2*nlimbs]
+{
+  reg u64 sa sb;
+  reg bool cf;
+  sa, r[0:nlimbs] = __sub_signabs(r[0:nlimbs], a[0:nlimbs], a[nlimbs:nlimbs]);
+  sb, r[nlimbs:nlimbs] = __sub_signabs(r[nlimbs:nlimbs], b[nlimbs:nlimbs], b[0:nlimbs]);
+  sa ^= sb;
+
+  tmp,_ = _mulk_ps_( tmp, r[2*nlimbs:nlimbs], r[0:nlimbs], r[nlimbs:nlimbs] );
+  tmp = BN2_cnegU_(tmp, sa); // 2*nlimbs!!!
+
+  r[0:2*nlimbs],_ = _mulk_ps_( r[0:2*nlimbs], tmp[0:nlimbs], a[0:nlimbs], b[0:nlimbs] );
+  r[2*nlimbs:2*nlimbs],_ = _mulk_ps_( r[2*nlimbs:2*nlimbs], tmp[0:nlimbs], a[nlimbs:nlimbs], b[nlimbs:nlimbs] );
+
+  _, tmp = BN2_addU_( tmp, r[0:2*nlimbs] );
+  _, tmp = BN2_addU_( tmp, r[2*nlimbs:2*nlimbs] );
+  
+  cf, r[nlimbs:2*nlimbs] = BN2_addU_( r[nlimbs:2*nlimbs], tmp );
+  _, r[3*nlimbs:nlimbs] = __carrypropU( r[3*nlimbs:nlimbs], cf , 0);
+
+  return r, tmp;
+}
+
+inline fn BN2__load
+( reg mut ptr u64[2*nlimbs] a
+, reg u64 ap
+) -> reg ptr u64[2*nlimbs]
+{
+  inline int i;
+  reg u64 t;
+
+  for i = 0 to 2*nlimbs {
+    t = [ap + 8*i];
+    a[i] = t;
+  }
+
+  return a;
+}
+
+inline fn BN2__store2
+( reg u64 ap,
+  reg const ptr u64[4*nlimbs] a
+)
+{
+  inline int i;
+  reg u64 t;
+
+  for i = 0 to 4*nlimbs {
+    t = a[i];
+    [ap + 8*i] = t;
+  }
+}
+
+
+export fn bn_kar(reg u64 rp ap bp)
+{
+  stack u64[2*nlimbs] _a _b _tmp;
+  stack u64[4*nlimbs] _r;
+  reg ptr u64[2*nlimbs] a b tmp;
+  reg ptr u64[4*nlimbs] r;
+
+  a = _a;
+  a = BN2__load(a,ap);
+  b = _b;
+  b = BN2__load(b,bp);
+  tmp = _tmp;
+  r = _r;
+  r,_ = bn_mul_kar(r, tmp, a, b);
+  BN2__store2(rp, r);
+}

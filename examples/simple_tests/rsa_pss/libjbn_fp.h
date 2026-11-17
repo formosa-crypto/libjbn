@@ -10,6 +10,7 @@ extern uint64_t fp_sub(uint64_t*, uint64_t*, uint64_t*);
 extern uint64_t fp_mul(uint64_t*, uint64_t*, uint64_t*);
 extern uint64_t fp_sqr(uint64_t*, uint64_t*);
 extern uint64_t fp_exp_noct(uint64_t*, uint64_t*, uint64_t*);
+extern uint64_t fp_expLR_noct(uint64_t*, uint64_t*, uint64_t*);
 extern uint64_t fp_exp(uint64_t*, uint64_t*, uint64_t*);
 extern uint64_t fp_inv(uint64_t*, uint64_t*);
 extern uint64_t fp_toM(uint64_t*, uint64_t*);

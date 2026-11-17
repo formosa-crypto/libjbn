@@ -1,0 +1,56 @@
+
+//from Libjbn require "bn_util.mjazz"
+require "BNUTIL_bn_util.jinc"
+
+
+//from Libjbn require "bn_base.mjazz" as BN
+//. with { nlimbs = nlimbs; }
+require "BN_bn_base.jinc"
+
+//from Libjbn require "bn_base.mjazz" as BN2
+//. with { nlimbs = 2*nlimbs; }
+require "BN2_bn_base.jinc"
+
+
+/* ensures: res = (sign(a-b), |a-b|)*/
+// MOVETO: bn_karatsuba.mjazz
+inline fn BNKAR__sub_signabs
+( reg mut ptr u64[nlimbs] r
+, reg const ptr u64[nlimbs] a b
+) -> reg u64, reg ptr u64[nlimbs]
+{
+  reg bool cf;
+  reg u64 sign; // 0/-1
+  cf, r = BN_sub_(r, a, b); // r = a-b
+  sign = BNUTIL__cf_mask(cf);
+  r = BN_cnegU_(r, sign);
+  return sign, r;
+}
+
+fn BNKARbn_mul_kar
+( reg mut ptr u64[4*nlimbs] r
+, reg mut ptr u64[2*nlimbs] tmp
+, reg const ptr u64[2*nlimbs] a b
+) -> reg ptr u64[2*nlimbs], reg ptr u64[4*nlimbs]
+{
+  reg u64 sa sb;
+  reg bool cf;
+  sa, r[0:nlimbs] = BNKAR__sub_signabs(r[0:nlimbs], a[0:nlimbs], a[nlimbs:nlimbs]);
+  sb, r[nlimbs:nlimbs] = BNKAR__sub_signabs(r[nlimbs:nlimbs], b[nlimbs:nlimbs], b[0:nlimbs]);
+  sa ^= sb;
+
+  _, tmp = fun_kmuln( tmp, r[2*nlimbs:nlimbs], r[0:nlimbs], r[nlimbs:nlimbs] );
+  tmp = BN2_cnegU_(tmp, sa); // 2*nlimbs!!!
+
+  _, r[0:2*nlimbs] = fun_kmuln( r[0:2*nlimbs], tmp[0:nlimbs], a[0:nlimbs], b[0:nlimbs] );
+  _, r[2*nlimbs:2*nlimbs] = fun_kmuln( r[2*nlimbs:2*nlimbs], tmp[0:nlimbs], a[nlimbs:nlimbs], b[nlimbs:nlimbs] );
+
+  _, tmp = BN2_addU_( tmp, r[0:2*nlimbs] );
+  _, tmp = BN2_addU_( tmp, r[2*nlimbs:2*nlimbs] );
+  
+  cf, r[nlimbs:2*nlimbs] = BN2_addU_( r[nlimbs:2*nlimbs], tmp );
+  _, r[3*nlimbs:nlimbs] = BN__carrypropU( r[3*nlimbs:nlimbs], cf , 0);
+
+  return tmp, r;
+}
+

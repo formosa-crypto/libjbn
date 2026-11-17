@@ -1,0 +1,83 @@
+/*
+from Libjbn require "bn_base.mjazz" as "BN"
+ with { nlimbs = modp2048_nlimbs; }
+*/
+from MJazz require "BN_bn_base.jinc"
+from MJazz require "BN2_bn_base.jinc"
+from MJazz require "BN_bn_mul.jinc"
+
+export fn bn_ps_muln(reg u64 rp ap bp)
+{
+  stack u64[sike610_nlimbs] _a _b;
+  stack u64[2*sike610_nlimbs] _r;
+  stack u64 _rp;
+  reg ptr u64[sike610_nlimbs] a b;
+  reg ptr u64[2*sike610_nlimbs] r;
+
+  _rp = rp;
+  a = _a;
+  a = BN_load_(a,ap);
+  b = _b;
+  b = BN_load_(b,bp);
+  r = _r;
+  r = BN_ps_muln(r, a, b);
+  rp = _rp;
+  BN2_store_(rp, r);
+}
+
+export fn bn_ps_sqrn(reg u64 rp ap)
+{
+  stack u64[sike610_nlimbs] _a;
+  stack u64[2*sike610_nlimbs] _r;
+  stack u64 _rp;
+  reg ptr u64[sike610_nlimbs] a;
+  reg ptr u64[2*sike610_nlimbs] r;
+
+  _rp = rp;
+  a = _a;
+  a = BN_load_(a, ap);
+  r = _r;
+  r = BN_ps_sqrn_(r, a);
+  rp = _rp;
+  BN2_store_(rp, r);
+}
+
+
+export fn bn_os_muln(reg u64 rp ap bp)
+{
+  stack u64[sike610_nlimbs] _a _b;
+  stack u64[2*sike610_nlimbs] _r;
+  stack u64 _rp;
+  reg ptr u64[sike610_nlimbs] a b;
+  reg ptr u64[2*sike610_nlimbs] r;
+
+  _rp = rp;
+  a = _a;
+  a = BN_load_(a,ap);
+  b = _b;
+  b = BN_load_(b,bp);
+  r = _r;
+  r = BN_os_muln(r, a, b);
+  rp = _rp;
+  BN2_store_(rp, r);
+}
+
+/*
+export fn bn_os_sqrn(reg u64 rp ap)
+{
+  stack u64[sike610_nlimbs] _a;
+  stack u64[2*sike610_nlimbs] _r;
+  stack u64 _rp;
+  reg ptr u64[sike610_nlimbs] a;
+  reg ptr u64[2*sike610_nlimbs] r;
+
+  _rp = rp;
+  a = _a;
+  a = BN_load_(a, ap);
+  r = _r;
+  r = BN_os_sqrn_(r, a);
+  rp = _rp;
+  BN2_store_(rp, r);
+}
+*/
+

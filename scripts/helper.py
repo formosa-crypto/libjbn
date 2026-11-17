@@ -36,7 +36,17 @@ def bn_printC(l, var=None):
         print(" %s 0x%016x" % (c, x))
         c = ','
     print(" };")
-q
+
+def bn_printJasmin(l, var=None):
+    """ print JASMIN definition of a BN """
+    if var:
+        print("u64[%d] %s =" % (len(l),var))
+    assert (len(l)!=0), "empty BN"
+    c = '{'
+    for x in l:
+        print(" %s 0x%016x" % (c, x))
+        c = ','
+    print(" };")
 
 def bn_rnd(nlimbs):
     """ random BN """
