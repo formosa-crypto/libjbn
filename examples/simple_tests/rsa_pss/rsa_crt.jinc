@@ -1,0 +1,29 @@
+/* RSA-CRT: one half of the decryption, written for a Montgomery field.
+
+   Required inside a field namespace (see rsapss.jinc: FPMP and FPMQ), so
+   that the names below refer to that field's own operations; the two
+   requires give one instance per prime.
+
+   Expects:   param int nlimbs;              // limbs of the prime X
+              _redM_ _toM_ _fromM_ EXP::     // fp_mont (with nlimbsexp = nlimbs)
+   Provides:  _crt_exp_
+*/
+
+/* r = (c mod X)^dX mod X, for c < X * 2^(64*nlimbs) (e.g. c < n = p*q),
+   with the constant-time exponentiation. */
+inline fn _crt_exp_
+( reg mut ptr u64[nlimbs] r
+, reg const ptr u64[2*nlimbs] c
+, reg const ptr u64[nlimbs] dX
+) -> reg ptr u64[nlimbs] {
+  stack u64[nlimbs] _cM;
+  reg ptr u64[nlimbs] cM;
+
+  cM = _cM;
+  cM = _redM_(cM, c);      // c * R^-1 mod X
+  cM = _toM_(cM);          // c mod X
+  cM = _toM_(cM);          // (c mod X) * R mod X  (Montgomery form)
+  r = EXP::_expm_(r, cM, dX);
+  r = _fromM_(r);
+  return r;
+}

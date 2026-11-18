@@ -15,3 +15,8 @@ extern uint64_t fp_exp(uint64_t*, uint64_t*, uint64_t*);
 extern uint64_t fp_inv(uint64_t*, uint64_t*);
 extern uint64_t fp_toM(uint64_t*, uint64_t*);
 extern uint64_t fp_fromM(uint64_t*, uint64_t*);
+
+/* RSA (rsapss.jinc): short-exponent encryption (exponent of 4 limbs) and
+   CRT decryption with the built-in key */
+extern void rsa_enc(uint64_t*, uint64_t*, uint64_t*);
+extern void rsa_dec_crt(uint64_t*, uint64_t*);

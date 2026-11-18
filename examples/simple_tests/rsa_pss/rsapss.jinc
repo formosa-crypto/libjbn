@@ -1,10 +1,20 @@
-/* libjbn instance for the RSA-PSS example: arithmetic modulo n = p*q
-   (Montgomery form, 2*nlimbsP = 32 limbs).
+/* libjbn instance for the RSA-PSS example: 2048-bit modulus n = p*q,
+   with nlimbsP = 16 limbs for p and q (rsa_keys.jinc).
 
-   Layout (see README): the top level is the scope of the exports; the
-   working size is the size scope H. Each module is instantiated exactly once.
-   (rsa_key_p.jinc and rsa_key_q.jinc hold the constants for fields modulo
-   p and q, which this example does not instantiate.)
+   Layout (see README, "Instantiation"): one size scope per limb count,
+   each module instantiated exactly once; the half size is nested as H.
+
+     top     : C entry points (fp_* operate modulo n)
+     H       : 32 limbs   BN, RND, MUL
+                          FPM  (mod n), with EXP (full-size exponents)
+                                and EXPE (exponents of nlimbsE limbs, e.g. e)
+     H::H    : 16 limbs   BN, RND, MUL
+                          FPMP (mod p), FPMQ (mod q), each with the
+                          CRT half-decryption of rsa_crt.jinc
+     H::RSA  : encryption with a short exponent, CRT decryption
+     E       : nlimbsE limbs (public exponent): BN
+
+   Exports: bn_* and fp_* (arithmetic modulo n), rsa_enc, rsa_dec_crt.
 */
 
 require "rsa_keys.jinc"
@@ -13,6 +23,30 @@ namespace UTIL { from Libjbn require "bn_util.jinc" }
 
 namespace H {
   param int nlimbs = 2*nlimbsP;
+
+  namespace H {
+    param int nlimbs = nlimbsP;
+
+    namespace BN  { from Libjbn require "bn_base.jinc" }
+    namespace RND { from Libjbn require "bn_rnd.jinc" }
+    namespace MUL { from Libjbn require "bn_mul.jinc" }
+
+    namespace FPMP {
+      param int nlimbsexp = nlimbs;
+      require "rsa_key_p.jinc"
+      from Libjbn require "fp_mul_ps.jinc"
+      from Libjbn require "fp_mont.jinc"
+      require "rsa_crt.jinc"                  // _crt_exp_
+    }
+
+    namespace FPMQ {
+      param int nlimbsexp = nlimbs;
+      require "rsa_key_q.jinc"
+      from Libjbn require "fp_mul_ps.jinc"
+      from Libjbn require "fp_mont.jinc"
+      require "rsa_crt.jinc"                  // _crt_exp_
+    }
+  }
 
   namespace BN  { from Libjbn require "bn_base.jinc" }
   namespace RND { from Libjbn require "bn_rnd.jinc" }
@@ -23,8 +57,130 @@ namespace H {
     require "rsa_key_n.jinc"
     from Libjbn require "fp_mul_ps.jinc"
     from Libjbn require "fp_mont.jinc"
+
+    /* second exponentiation over this field, for short exponents */
+    namespace EXPE {
+      param int nlimbsexp = nlimbsE;
+      from Libjbn require "bn_exp.jinc"
+    }
   }
+
+  /* RSA operations. They use both sizes, so they live in this 32-limb
+     scope and reach the 16-limb instances through H. */
+  namespace RSA {
+
+    /* c = m^e mod n, for a short public exponent e (nlimbsE limbs) */
+    inline fn _enc_
+    ( reg mut ptr u64[nlimbs] c
+    , reg const ptr u64[nlimbs] m
+    , reg const ptr u64[nlimbsE] e
+    ) -> reg ptr u64[nlimbs] {
+      stack u64[nlimbs] _mM;
+      reg ptr u64[nlimbs] mM;
+
+      mM = _mM;
+      mM = BN::_mov_(mM, m);
+      mM = FPM::_toM_(mM);
+      c = FPM::EXPE::_expmLR_noct_(c, mM, e);
+      c = FPM::_fromM_(c);
+      return c;
+    }
+
+    /* m = c^d mod n by the CRT (Garner), from dP, dQ, qInv (rsa_keys.jinc):
+         mp = c^dP mod p,  mq = c^dQ mod q,
+         h  = qInv * (mp - mq) mod p,
+         m  = mq + h * q */
+    inline fn _dec_crt_
+    ( reg mut ptr u64[nlimbs] m
+    , reg const ptr u64[nlimbs] c
+    ) -> reg ptr u64[nlimbs] {
+      stack u64[H::nlimbs] _mp _mq _t _u;
+      stack u64[nlimbs] _w _hq;
+      reg ptr u64[H::nlimbs] x y k;
+      reg ptr u64[nlimbs] w hq;
+
+      x = _mp; k = dP;
+      x = H::FPMP::_crt_exp_(x, c, k);
+      _mp = x;
+      x = _mq; k = dQ;
+      x = H::FPMQ::_crt_exp_(x, c, k);
+      _mq = x;
+
+      /* h = qInv * (mp - mq) mod p, in Montgomery form in FPMP
+         (_toM_ accepts any 16-limb value, e.g. mq < q) */
+      x = _t; y = _mp;
+      x = H::BN::_mov_(x, y);
+      x = H::FPMP::_toM_(x);
+      y = _u; k = _mq;
+      y = H::BN::_mov_(y, k);
+      y = H::FPMP::_toM_(y);
+      x = H::FPMP::_submU_(x, y);
+      y = _u; k = qInv;
+      y = H::BN::_mov_(y, k);
+      y = H::FPMP::_toM_(y);
+      x = H::FPMP::_mulmU_(x, y);
+      x = H::FPMP::_fromM_(x);
+      _t = x;
+
+      /* m = mq + h * q */
+      hq = _hq; x = _t; k = H::FPMQ::glob_P;
+      hq = H::MUL::_ps_muln_(hq, x, k);
+      _hq = hq;
+      x = _w[0:H::nlimbs]; y = _mq;
+      x = H::BN::_mov_(x, y);
+      _w[0:H::nlimbs] = x;
+      x = _w[H::nlimbs:H::nlimbs];
+      x = H::BN::_set0_(x);
+      _w[H::nlimbs:H::nlimbs] = x;
+      w = _w;
+      m = BN::_mov_(m, w);
+      hq = _hq;
+      _, m = BN::_addU_(m, hq);
+      return m;
+    }
+  }
+}
+
+namespace E {
+  param int nlimbs = nlimbsE;
+  namespace BN { from Libjbn require "bn_base.jinc" }
 }
 
 /* C entry points */
 from Libjbn require "bn_base_export.jinc" "fp_mont_export.jinc"
+
+/* rp = mp^ep mod n, with ep a short exponent (nlimbsE limbs) */
+export fn rsa_enc(reg u64 rp mp ep)
+{
+  stack u64[H::nlimbs] _m _r;
+  stack u64[nlimbsE] _e;
+  reg ptr u64[H::nlimbs] m r;
+  reg ptr u64[nlimbsE] e;
+  stack u64 _rp;
+
+  _rp = rp;
+  m = _m;
+  m = H::BN::_load_(m, mp);
+  e = _e;
+  e = E::BN::_load_(e, ep);
+  r = _r;
+  r = H::RSA::_enc_(r, m, e);
+  rp = _rp;
+  H::BN::_store_(rp, r);
+}
+
+/* rp = cp^d mod n, by the CRT with the key in rsa_keys.jinc */
+export fn rsa_dec_crt(reg u64 rp cp)
+{
+  stack u64[H::nlimbs] _c _r;
+  reg ptr u64[H::nlimbs] c r;
+  stack u64 _rp;
+
+  _rp = rp;
+  c = _c;
+  c = H::BN::_load_(c, cp);
+  r = _r;
+  r = H::RSA::_dec_crt_(r, c);
+  rp = _rp;
+  H::BN::_store_(rp, r);
+}

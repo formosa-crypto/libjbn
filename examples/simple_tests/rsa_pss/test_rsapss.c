@@ -144,7 +144,8 @@ int bn_check(char* str, uint64_t x[], uint64_t y[]) {
 }
 
 int main() {
-  uint64_t x[NLIMBS], y[NLIMBS];
+  uint64_t x[NLIMBS], y[NLIMBS], c[NLIMBS], m[NLIMBS];
+  int ok = 1;
   bn_copy(x, t);
   bn_print("t ", x);
   fp_toM(x, x);
@@ -155,5 +156,19 @@ int main() {
   bn_print("tM'", x);
   fp_fromM(x, x);
   bn_print("t'", x);
-  bn_check(" dec(enc(t))==t", t, x);
+  ok &= bn_check(" dec(enc(t))==t", t, x);
+
+  /* short-exponent encryption: e is passed as its first 4 limbs */
+  bn_copy(c, y);
+  fp_fromM(c, c);                       /* c = t^e mod n */
+  rsa_enc(m, t, e);
+  bn_print("c ", m);
+  ok &= bn_check(" rsa_enc(t)==t^e", c, m);
+
+  /* CRT decryption */
+  rsa_dec_crt(m, c);
+  bn_print("t''", m);
+  ok &= bn_check(" rsa_dec_crt(c)==t", t, m);
+
+  return ok ? 0 : 1;
 }
