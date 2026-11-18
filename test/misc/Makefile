@@ -14,10 +14,8 @@ BIN        ?= bin
 PARAMS_DIR ?= $(TEST)/$(BIN)/params
 
 #--
-JASMIN_MODULE_PREPROCESSOR ?= python3 $(SCRIPTS)/mjazz_proc.py
-JASMIN_REQUIRE_PREPROCESSOR ?= $(SCRIPTS)/jpp
 JASMIN   ?= jasminc
-JINCLUDE ?=
+JINCLUDE ?= -I Libjbn=$(SRC)/amd64/ref
 
 
 #--
@@ -81,8 +79,6 @@ params_dir: $(PARAMS_DIR)
 $(PARAMS_DIR): exec
 	mkdir -p $@
 	mkdir -p $(dir $(PARAMS_DIR))$(CID)
-	$(JASMIN_MODULE_PREPROCESSOR) libjbn $(CIL)
-	$(JASMIN_REQUIRE_PREPROCESSOR) -v -I MJazz:libjbn/ -in libjbn.jazz -out $(PARAMS_DIR)/libjbn.mjazz $(CILA)
 	./sike.sh $(PARAMS_DIR) $(CILA)
 	./rfc3526.sh $(PARAMS_DIR) $(CILA)
 	./gen.sh rnd $(PARAMS_DIR) $(MIN_NLIMBS) $(MAX_NLIMBS) $(MAX_TESTS) $(CILA)

@@ -1,0 +1,74 @@
+/* Abstract instantiation of every libjbn module, for extraction to
+   EasyCrypt (see Makefile and README, "Extraction for the proofs").
+
+   Same layout as any other program (README): the top level is the 2n scope,
+   H is the size scope n. Integer parameters and globals are dummies
+   (nlimbs = 11, preamb.jinc); function parameters (fun_*) are stubs, so that
+   each module is extracted against abstract arguments. Each stub is declared
+   inside the namespace of the module that uses it: Jasmin does not allow a
+   function to shadow a function visible from an enclosing namespace, and
+   fp_base/fp_mont define their own fun_mulU/fun_sqrU/fun_red.
+*/
+
+param int nlimbs = 2*11;
+
+namespace UTIL { from Libjbn require "bn_util.jinc" }
+
+namespace H {
+  param int nlimbs = 11;
+  require "preamb.jinc"            // nlimbsexp, glob_* dummies
+
+  namespace BN     { from Libjbn require "bn_base.jinc" }
+  namespace RND    { from Libjbn require "bn_rnd.jinc" }
+  namespace MUL    { from Libjbn require "bn_mul.jinc" }
+  namespace MULREG { from Libjbn require "bn_mulreg.jinc" }
+
+  namespace EXP {
+    fn fun_mulU
+    ( reg mut ptr u64[nlimbs] r
+    , reg const ptr u64[nlimbs] a
+    ) -> reg ptr u64[nlimbs] { a=a; return r; }
+    fn fun_sqrU
+    ( reg mut ptr u64[nlimbs] r
+    ) -> reg ptr u64[nlimbs] { return r; }
+    from Libjbn require "bn_exp.jinc"
+  }
+
+  namespace FP {
+    fn fun_muln
+    ( reg mut ptr u64[2*nlimbs] r
+    , reg const ptr u64[nlimbs] a b
+    ) -> reg ptr u64[2*nlimbs] { a=a; b=b; return r; }
+    fn fun_sqrn
+    ( reg mut ptr u64[2*nlimbs] r
+    , reg const ptr u64[nlimbs] a
+    ) -> reg ptr u64[2*nlimbs] { a=a; return r; }
+    fn fun_red
+    ( reg mut ptr u64[nlimbs] r
+    , reg const ptr u64[2*nlimbs] a
+    ) -> reg ptr u64[nlimbs] { a=a; return r; }
+    from Libjbn require "fp_base.jinc"
+  }
+
+  namespace FPM {
+    fn fun_muln
+    ( reg mut ptr u64[2*nlimbs] r
+    , reg const ptr u64[nlimbs] a b
+    ) -> reg ptr u64[2*nlimbs] { a=a; b=b; return r; }
+    fn fun_sqrn
+    ( reg mut ptr u64[2*nlimbs] r
+    , reg const ptr u64[nlimbs] a
+    ) -> reg ptr u64[2*nlimbs] { a=a; return r; }
+    from Libjbn require "fp_mont.jinc"
+  }
+}
+
+namespace BN { from Libjbn require "bn_base.jinc" }        // size 2n (BN2 in the theories)
+
+namespace KAR {
+  fn fun_kmuln
+  ( reg mut ptr u64[nlimbs] r
+  , reg const ptr u64[H::nlimbs] a b
+  ) -> reg ptr u64[nlimbs] { a=a; b=b; return r; }
+  from Libjbn require "bn_karatsuba.jinc"
+}

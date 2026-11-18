@@ -1,6 +1,49 @@
-param int nlimbsL=8;
+/* libjbn instance: 32x32-limb Karatsuba multiplication, recursing down to
+   8-limb schoolbook multiplication (product-scanning).
 
-from MJazz require "BN8_bn_mul.jinc"
-from MJazz require "KAR16_bn_karatsuba.jinc"
-from MJazz require "KAR32_bn_karatsuba.jinc"
-from MJazz require "bn_karatsuba_export.jinc"
+   Size scopes, one bn_base instance each (halving nesting, see README):
+     top          : 64 limbs, result store of the exports
+     H            : 32 limbs, KAR
+     H::H         : 16 limbs, KAR
+     H::H::H      : 8 limbs, MUL
+*/
+
+param int nlimbsL = 8;
+param int nlimbs = 8*nlimbsL;
+
+namespace UTIL { from Libjbn require "bn_util.jinc" }
+
+namespace H { // 32 limbs
+  param int nlimbs = 4*nlimbsL;
+  namespace H { // 16 limbs
+    param int nlimbs = 2*nlimbsL;
+    namespace H { // 8 limbs
+      param int nlimbs = nlimbsL;
+      namespace BN  { from Libjbn require "bn_base.jinc" }
+      namespace MUL { from Libjbn require "bn_mul.jinc" }
+    }
+    namespace BN  { from Libjbn require "bn_base.jinc" }
+    inline fn fun_kmuln
+    ( reg mut ptr u64[nlimbs] r
+    , reg const ptr u64[H::nlimbs] a b
+    ) -> reg ptr u64[nlimbs] {
+      r = H::MUL::_ps_muln_(r, a, b);
+      return r;
+    }
+    namespace KAR { from Libjbn require "bn_karatsuba.jinc" }
+  }
+  namespace BN  { from Libjbn require "bn_base.jinc" }
+  inline fn fun_kmuln
+  ( reg mut ptr u64[nlimbs] r
+  , reg const ptr u64[H::nlimbs] a b
+  ) -> reg ptr u64[nlimbs] {
+    r = H::KAR::_kar_muln_(r, a, b);
+    return r;
+  }
+  namespace KAR { from Libjbn require "bn_karatsuba.jinc" }
+}
+
+namespace BN { from Libjbn require "bn_base.jinc" } // 64 limbs
+
+/* C entry points */
+from Libjbn require "bn_karatsuba_export.jinc"

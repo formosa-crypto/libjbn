@@ -1,0 +1,76 @@
+/* NIST P-384: constants of the prime field modulo P (the curve field), under the names
+   expected by fp_mont. Required inside a field namespace whose enclosing
+   size scope defines: param int nlimbs = 6; */
+
+/* prime NIST-P384 (P) */
+u64[nlimbs] glob_P = {
+    0x00000000ffffffff,
+    0xffffffff00000000,
+    0xfffffffffffffffe,
+    0xffffffffffffffff,
+    0xffffffffffffffff,
+    0xffffffffffffffff
+};
+
+/* R - P = 2^(NLIMBS*64) - P */
+u64[nlimbs] glob_mP = {
+    0xffffffff00000001,
+    0x00000000ffffffff,
+    0x0000000000000001,
+    0x0000000000000000,
+    0x0000000000000000,
+    0x0000000000000000
+};
+
+/* P - 2 */
+u64[nlimbs] glob_Pm2 = {
+    0x00000000fffffffd,
+    0xffffffff00000000,
+    0xfffffffffffffffe,
+    0xffffffffffffffff,
+    0xffffffffffffffff,
+    0xffffffffffffffff
+};
+
+/* (glob_p[0] * u0) mod 2^64 = -1 */
+u64 glob_P0i = 0x100000001;
+
+/* R mod P = 2^(NLIMBS*64) mod P */
+u64[nlimbs] glob_exp0 = {
+    0xffffffff00000001,
+    0x00000000ffffffff,
+    0x0000000000000001,
+    0x0000000000000000,
+    0x0000000000000000,
+    0x0000000000000000
+};
+
+/* R^2 mod P = 2^(2*NLIMBS*64) mod P */
+u64[nlimbs] glob_rMP = {
+    0xfffffffe00000001,
+    0x0000000200000000,
+    0xfffffffe00000000,
+    0x0000000200000000,
+    0x0000000000000001,
+    0x0000000000000000
+};
+
+// B param in Montgomery form
+u64[nlimbs] glob_BM = {
+    0x081188719d412dcc,
+    0xf729add87a4c32ec,
+    0x77f2209b1920022e,
+    0xe3374bee94938ae2,
+    0xb62b21f41f022094,
+    0xcd08114b604fbff9
+};
+
+// Not on Montgomery form
+// u64[nlimbs] glob_B = {
+//     0x2a85c8edd3ec2aef,
+//     0xc656398d8a2ed19d,
+//     0x0314088f5013875a,
+//     0x181d9c6efe814112,
+//     0x988e056be3f82d19,
+//     0xb3312fa7e23ee7e4
+// };

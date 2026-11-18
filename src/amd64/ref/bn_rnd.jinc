@@ -1,0 +1,50 @@
+/* libjbn -- bn_rnd: random bignums.
+
+   Library module (see README, "Library modules and instantiation"): it is
+   meant to be `require`d inside a namespace, which becomes the instance.
+   Names below are resolved by Jasmin's outward namespace lookup.
+
+   Instance:  RND (in a size scope)
+   Expects:   param int nlimbs;
+              BN::                         // bn_base, same size
+   Provides:  _rnd_ _rsample_
+*/
+
+/*
+/* random bytes */
+inline fn _randombytes_
+( reg mut ptr u64[nlimbs] a
+, inline int n
+) -> reg ptr u64[nlimbs] {
+  reg ptr u8[8*nlimbs] a_;
+  reg ptr u8[n] tmp; // OBS: not allowed!!!
+  a_ = a;
+  tmp = a_[0:n];
+  tmp = #randombytes(tmp);
+  return a;
+}
+*/
+
+/* random number */
+inline fn _rnd_
+( reg mut ptr u64[nlimbs] a
+) -> reg ptr u64[nlimbs] {
+  a = a;
+  a = #randombytes(a);
+  a = a;
+  return a;
+}
+
+/* rejection sampling */
+inline fn _rsample_
+( reg mut ptr u64[nlimbs] a
+, reg const ptr u64[nlimbs] bnd
+) -> reg ptr u64[nlimbs] {
+  reg bool cf;
+  while {
+    a = _rnd_(a);
+    cf = BN::_lt_cf_(a, bnd);
+  }(!cf)
+  return a;
+}
+

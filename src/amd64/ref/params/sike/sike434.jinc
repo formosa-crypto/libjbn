@@ -1,10 +1,11 @@
 /*
    SPECIFIC SIKE-P434 CODE
 */
-param int sike434_nlimbs = 7;
+/* Field constants, to be required inside a field namespace whose
+   enclosing size scope defines: param int nlimbs = 7; */
 
 /* prime SIKE-P434 (P) */
-u64[sike434_nlimbs] sike434_glob_P = {
+u64[nlimbs] glob_P = {
   0xffffffffffffffff,
   0xffffffffffffffff,
   0xffffffffffffffff,
@@ -15,7 +16,7 @@ u64[sike434_nlimbs] sike434_glob_P = {
 };
 
 /* R - P = 2^(NLIMBS*64) - P */
-u64[sike434_nlimbs] sike434_glob_mP = {
+u64[nlimbs] glob_mP = {
   0x0000000000000001,
   0x0000000000000000,
   0x0000000000000000,
@@ -26,7 +27,7 @@ u64[sike434_nlimbs] sike434_glob_mP = {
 };
 
 /* P - 2 */
-u64[sike434_nlimbs] sike434_glob_Pm2 = {
+u64[nlimbs] glob_Pm2 = {
   0xfffffffffffffffd,
   0xffffffffffffffff,
   0xffffffffffffffff,
@@ -37,10 +38,10 @@ u64[sike434_nlimbs] sike434_glob_Pm2 = {
 };
 
 /* (glob_p[0] * u0) mod 2^64 = -1 */
-u64 sike434_glob_P0i = 1;
+u64 glob_P0i = 1;
 
 /* R mod P = 2^(NLIMBS*64) mod P */
-u64[sike434_nlimbs] sike434_glob_oneMP = {
+u64[nlimbs] glob_exp0 = {
   0x000000000000742c,
   0x0000000000000000,
   0x0000000000000000,
@@ -51,7 +52,7 @@ u64[sike434_nlimbs] sike434_glob_oneMP = {
 };
 
 /* R^2 mod P = 2^(2*NLIMBS*64) mod P */
-u64[sike434_nlimbs] sike434_glob_rMP = {
+u64[nlimbs] glob_rMP = {
   0x28e55b65dcd69b30,
   0xacec7367768798c2,
   0xab27973f8311688d,

@@ -1,46 +1,40 @@
-/*
-   libjbn interface
+/* libjbn instance for the Schnorr example: the RFC 3526 2048-bit MODP group.
+
+   Layout (see README): a single size (32 limbs), which is the top level.
+   The two fields share the size scope's BN, RND and MUL instances:
+     FPM : arithmetic modulo P (the group modulus)
+     FQM : arithmetic modulo Q = (P-1)/2 (the group order)
 */
 
-from Libjbn require "params/rfc3526/modp2048.jinc"
+param int nlimbs = 32;
 
-/*
-from Libjbn require "bn_base.mjazz" as "BN"
- with { nlimbs = modp2048_nlimbs; }
-*/
-from MJazz require "BN_bn_base.jinc"
+namespace UTIL { from Libjbn require "bn_util.jinc" }
 
-from MJazz require "BN_bn_rnd.jinc"
+namespace BN  { from Libjbn require "bn_base.jinc" }
+namespace RND { from Libjbn require "bn_rnd.jinc" }
+namespace MUL { from Libjbn require "bn_mul.jinc" }
 
-/*
-from Libjbn require "fp_mont.mjazz" as "FPM"
- with { nlimbs = modp2048_nlimbs;
-        glob_P = modp2048_glob_P;
-        glob_mP = modp2048_glob_mP;
-        glob_Pi0 = modp2048_glob_Pi0;
-        glob_Pm2 = modp2048_glob_Pm2; }
-*/
-from MJazz require "FPM_fp_mont.jinc"
+namespace FPM {
+  param int nlimbsexp = nlimbs;
+  from Libjbn require "params/rfc3526/modp2048_p.jinc"
+  from Libjbn require "fp_mul_ps.jinc"
+  from Libjbn require "fp_mont.jinc"
 
-inline fn FPM_gexp_
-( reg mut ptr u64[modp2048_nlimbs] r
-, reg const ptr u64[modp2048_nlimbs] x
-) -> reg ptr u64[modp2048_nlimbs] {
-  reg ptr u64[modp2048_nlimbs] gM;
-  gM = modp2048_glob_gM;
-  r = FPM_expm_(r, gM, x);
-  return r;
+  /* exponentiation of the generator (in Montgomery form) */
+  inline fn _gexp_
+  ( reg mut ptr u64[nlimbs] r
+  , reg const ptr u64[nlimbs] x
+  ) -> reg ptr u64[nlimbs] {
+    reg ptr u64[nlimbs] gM;
+    gM = glob_gM;
+    r = EXP::_expm_(r, gM, x);
+    return r;
+  }
 }
-  
-/*
-from Libjbn require "fp_mont.mjazz" as "FQM"
- with { nlimbs = modp2048_nlimbs;
-        glob_P = modp2048_glob_Q;
-        glob_mP = modp2048_glob_mQ;
-        glob_Pi0 = modp2048_glob_Qi0;
-        glob_Pm2 = modp2048_glob_Qm2; }
-*/
-from MJazz require "FQM_fp_mont.jinc"
 
-  
-
+namespace FQM {
+  param int nlimbsexp = nlimbs;
+  from Libjbn require "params/rfc3526/modp2048_q.jinc"
+  from Libjbn require "fp_mul_ps.jinc"
+  from Libjbn require "fp_mont.jinc"
+}

@@ -1,0 +1,209 @@
+/* libjbn -- fp_base: prime-field arithmetic, generic in the reduction.
+
+   Library module (see README, "Library modules and instantiation"): it is
+   meant to be `require`d inside a namespace, which becomes the instance.
+   Names below are resolved by Jasmin's outward namespace lookup.
+
+   Instance:  a field namespace (e.g. FPM); normally included by fp_mont
+   Expects:   param int nlimbs;
+              param int nlimbsexp;         // = nlimbs (size of glob_Pm2)
+              u64[nlimbs] glob_P;          // modulus
+              u64[nlimbs] glob_mP;         // 2^(64*nlimbs) - P
+              u64[nlimbs] glob_exp0;       // representation of 1
+              u64[nlimbsexp] glob_Pm2;     // P-2
+              fn fun_muln (reg mut ptr u64[2*nlimbs], reg const ptr u64[nlimbs],
+                           reg const ptr u64[nlimbs]) -> reg ptr u64[2*nlimbs]
+              fn fun_sqrn (reg mut ptr u64[2*nlimbs], reg const ptr u64[nlimbs])
+                          -> reg ptr u64[2*nlimbs]
+              fn fun_red  (reg mut ptr u64[nlimbs], reg const ptr u64[2*nlimbs])
+                          -> reg ptr u64[nlimbs]
+              UTIL::  BN::  RND::          // same size
+   Provides:  _chk_bnds_ _rnd_ _addm(U)_ _subm(U)_ _mulm(U)_ _sqrm(U)_ _invm(U)_
+   Sub-instance: EXP (bn_exp with fun_mulU/fun_sqrU := _mulmU_/_sqrmU_)
+*/
+
+inline fn _chk_bnds_
+( stack u64 err
+, reg const ptr u64[nlimbs] a
+) -> stack u64 {
+ reg ptr u64[nlimbs] P;
+ reg bool cf;
+ reg u64 t;
+ P = glob_P;
+ cf = BN::_lt_cf_(a, P);
+ t = UTIL::__ncf_mask(cf);
+ err |= t;
+ return err;
+}
+
+inline fn _rnd_
+( reg mut ptr u64[nlimbs] a
+) -> reg ptr u64[nlimbs] {
+ reg ptr u64[nlimbs] P;
+ P = glob_P;
+ a = RND::_rsample_(a, P);
+ return a;
+}
+
+inline fn _addm_
+ ( reg mut ptr u64[nlimbs] r
+ , reg const ptr u64[nlimbs] a b
+ ) -> reg ptr u64[nlimbs]
+{
+  reg bool cf;
+  reg u64 lastbit;
+  reg ptr u64[nlimbs] tmp;
+
+  cf, r = BN::_add_(r, a, b);
+
+  lastbit = 0;
+  _, lastbit += 0 + cf;
+  tmp = glob_mP;
+  r = BN::_cminusP_(r, tmp, lastbit);
+  return r;
+}
+
+inline fn _addmU_
+ ( reg mut ptr u64[nlimbs] a
+ , reg const ptr u64[nlimbs] b
+ ) -> reg ptr u64[nlimbs]
+{
+  reg bool cf;
+  reg u64 lastbit;
+  reg ptr u64[nlimbs] tmp;
+
+  cf, a = BN::_addU_(a, b);
+
+  lastbit = 0;
+  _, lastbit += 0 + cf;
+  tmp = glob_mP;
+  a = BN::_cminusP_(a, tmp, lastbit);
+  return a;
+}
+
+// ////////////////////////////////////
+
+inline fn _subm_
+( reg mut ptr u64[nlimbs] r
+, reg const ptr u64[nlimbs] a b
+) -> reg ptr u64[nlimbs] {
+ reg bool cf;
+ reg ptr u64[nlimbs] tmp;
+ cf, r = BN::_sub_(r, a, b);
+ tmp = glob_P;
+ r = BN::_caddU_(r, cf, tmp);
+ return r;
+}
+
+inline fn _submU_
+( reg mut ptr u64[nlimbs] a
+, reg const ptr u64[nlimbs] b
+) -> reg ptr u64[nlimbs] {
+ reg bool cf;
+ reg ptr u64[nlimbs] tmp;
+ cf, a = BN::_subU_(a, b);
+ tmp = glob_P;
+ a = BN::_caddU_(a, cf, tmp);
+ return a;
+}
+
+/* Modular multiplication */
+inline fn _mulm_
+( reg mut ptr u64[nlimbs] r
+, reg ptr u64[nlimbs] a b
+) -> reg ptr u64[nlimbs] {
+  stack u64[2*nlimbs] _tmp;
+  reg ptr u64[2*nlimbs] tmp;
+
+  tmp = _tmp;
+  tmp = fun_muln(tmp, a, b);
+  r = fun_red(r, tmp);
+  return r;
+}
+
+// ////////////////////////////////////
+
+inline fn _mulmU_ // update inplace
+( reg mut ptr u64[nlimbs] a
+, reg ptr u64[nlimbs] b
+) -> reg ptr u64[nlimbs] {
+  stack u64[2*nlimbs] _tmp;
+  reg ptr u64[2*nlimbs] tmp;
+  tmp = _tmp;
+  tmp = fun_muln(tmp, a, b);
+  a = fun_red(a, tmp);
+  return a;
+}
+
+// ////////////////////////////////////
+
+inline fn _sqrm_
+( reg mut ptr u64[nlimbs] r
+, reg const ptr u64[nlimbs] a
+) -> reg ptr u64[nlimbs] {
+  stack u64[2*nlimbs] _tmp;
+  reg ptr u64[2*nlimbs] tmp;
+  tmp = _tmp;
+  tmp = fun_sqrn(tmp, a);
+  r = fun_red(r, tmp);
+  return r;
+}
+
+// ////////////////////////////////////
+
+inline fn _sqrmU_ // update inplace
+( reg mut ptr u64[nlimbs] a
+) -> reg ptr u64[nlimbs] {
+  stack u64[2*nlimbs] _tmp;
+  reg ptr u64[2*nlimbs] tmp;
+  tmp = _tmp;
+  tmp = fun_sqrn(tmp, a);
+  a = fun_red(a, tmp);
+  return a;
+}
+
+// ////////////////////////////////////
+
+/* Exponentiation in this field: sub-instance EXP of bn_exp, whose
+   multiplication/squaring parameters are the in-place operations above
+   (these wrappers are inline, hence free). */
+inline fn fun_mulU
+( reg mut ptr u64[nlimbs] a
+, reg const ptr u64[nlimbs] b
+) -> reg ptr u64[nlimbs] {
+  a = _mulmU_(a, b);
+  return a;
+}
+
+inline fn fun_sqrU
+( reg mut ptr u64[nlimbs] a
+) -> reg ptr u64[nlimbs] {
+  a = _sqrmU_(a);
+  return a;
+}
+
+namespace EXP { require "bn_exp.jinc" }
+
+
+/* Modular Inversion (fermat) */
+inline fn _invmU_
+( reg mut ptr u64[nlimbs] a
+) -> reg ptr u64[nlimbs] {
+  /* a^{p-2} */
+  reg ptr u64[nlimbsexp] Pm2;
+  Pm2 = glob_Pm2;
+  a = EXP::_expmU_noct_(a, Pm2);
+  return a;
+}
+
+inline fn _invm_
+( reg mut ptr u64[nlimbs] r
+, reg const ptr u64[nlimbs] a
+) -> reg ptr u64[nlimbs] {
+  /* a^{p-2} */
+  reg ptr u64[nlimbsexp] Pm2;
+  Pm2 = glob_Pm2;
+  r = EXP::_expm_noct_(r, a, Pm2);
+  return r;
+}
+

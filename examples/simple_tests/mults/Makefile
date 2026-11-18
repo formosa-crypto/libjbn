@@ -1,11 +1,16 @@
 PWD = $(shell pwd)
 SRCDIR = $(PWD)/../../../src/amd64/ref
 
-PROCMJAZZ = $(PWD)/../../../scripts/mjazz_proc.py
-MJAZZDIRPREFIX = $(PWD)/
+# libjbn library modules (rebuild instances when they change)
+LIBJBN_SRC = $(wildcard $(SRCDIR)/*.jinc $(SRCDIR)/params/*/*.jinc)
 
-JASMINC ?= jasminc -lazy-regalloc -I Libjbn:$(SRCDIR)
-GCC ?= arch -x86_64 gcc
+JASMINC ?= jasminc -lazy-regalloc -I Libjbn=$(SRCDIR)
+# x86-64 C compiler (on macOS/Apple Silicon: cross-compile, run under Rosetta)
+ifeq ($(shell uname -s),Darwin)
+GCC ?= gcc -arch x86_64
+else
+GCC ?= gcc
+endif
 
 .DEFAULT_GOAL := all
 
@@ -43,12 +48,11 @@ testmul_kar_32_os_4: testmul_kar_32_os_4.c kar_32_os_4.s
 testmul_kar_32_osreg_4: testmul_kar_32_osreg_4.c kar_32_osreg_4.s
 	$(GCC) -o $@ $^
 
-%.s: %.jinc
-	python3 $(PROCMJAZZ) `basename $< .jinc`
-	$(JASMINC) $(JFLAGS) -I MJazz:$(MJAZZDIRPREFIX)`basename $< .jinc` -o $@ $<
+%.s: %.jinc $(LIBJBN_SRC)
+	$(JASMINC) $(JFLAGS) -o $@ $<
 
 clean:
 	rm -f $(PROGS)
 
 realclean: clean
-	rm -rf *.s *~ muln32/ kar_32_ps_16/ kar_32_ps_8/ kar_32_ps_4/ kar_32_os_16/ kar_32_os_8/ kar_32_os_4/ kar_32_osreg_4/
+	rm -f *.s *~

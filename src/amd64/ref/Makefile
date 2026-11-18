@@ -1,27 +1,26 @@
+SRCDIR = $(abspath .)
 
-PWD = $(shell pwd)
-SRCDIR = $(PWD)
-
-PROCMJAZZ = $(PWD)/../../../scripts/mjazz_proc.py
-MJAZZDIR = $(PWD)/extracted
-
-GCC ?= arch -x86_64 gcc
 JASMINC = jasminc
-JASMINC_OPT = -I Libjbn:$(SRCDIR)
+JASMINC_OPT = -I Libjbn=$(SRCDIR)
 
-MJAZZ_FILES = $(MJAZZDIR)/BNUTIL_bn_util.jinc $(MJAZZDIR)/BN_bn_base.jinc $(MJAZZDIR)/BNRND_bn_rnd.jinc $(MJAZZDIR)/BNMUL_bn_mul.jinc $(MJAZZDIR)/BNMULREG_bn_mulreg.jinc $(MJAZZDIR)/BNE_bn_exp.jinc $(MJAZZDIR)/FP_fp_base.jinc $(MJAZZDIR)/FPM_fp_mont.jinc
+# Library modules are plain .jinc files, instantiated by requiring them
+# inside namespaces (see README); there is no generation step.
 
+all: check
 
-all: $(MJAZZ_FILES)
+# typecheck every module, through the abstract instantiation used for
+# the extraction (it has no export functions, so no code is produced)
+check:
+	$(JASMINC) $(JASMINC_OPT) -o /dev/null extracted/libjbn_abs.jazz
 
-$(MJAZZ_FILES): extracted.keys
-	python3 $(PROCMJAZZ) `basename $< .keys`
-
-extract: $(MJAZZ_FILES)
-	(cd $(MJAZZDIR); make; make clean)
+# extraction to EasyCrypt (proofs)
+extract:
+	(cd extracted; $(MAKE); $(MAKE) clean)
 
 clean:
-	rm -f $(MJAZZ_FILES)
+	(cd extracted; $(MAKE) clean)
 
-realclean: clean
-	(cd $(MJAZZDIR); make realclean)
+realclean:
+	(cd extracted; $(MAKE) realclean)
+
+.PHONY: all check extract clean realclean

@@ -1,0 +1,87 @@
+/* libjbn -- fp_mont: prime fields in Montgomery representation.
+
+   Library module (see README, "Library modules and instantiation"): it is
+   meant to be `require`d inside a namespace, which becomes the instance.
+   Names below are resolved by Jasmin's outward namespace lookup.
+
+   Instance:  a field namespace (e.g. FPM, FQM) in a size scope
+   Expects:   param int nlimbs;  param int nlimbsexp;   // nlimbsexp = nlimbs
+              u64[nlimbs] glob_P;          // modulus (P)
+              u64[nlimbs] glob_mP;         // 2^(64*nlimbs) - P
+              u64 glob_P0i;                // -P^-1 mod 2^64
+              u64[nlimbs] glob_Pm2;        // P-2
+              u64[nlimbs] glob_exp0;       // 1 in Montgomery form
+              u64[nlimbs] glob_rMP;        // R^2 mod P (conversion into Montgomery form)
+              fn fun_muln, fn fun_sqrn     // as in fp_base
+              BN::  MUL::  (and UTIL::, RND:: for fp_base)
+   Provides:  _redM _redM_ _fromM_ _toM_, plus everything from fp_base
+   Includes:  fp_base, in the same namespace, with fun_red := _redM_
+*/
+
+// regs: params(2) + call(3) + 4 = 9
+fn _redM
+( reg mut ptr u64[nlimbs] r
+, reg const ptr u64[2*nlimbs] a
+) -> reg ptr u64[nlimbs] {
+  stack u64 _P0i;
+  _P0i = glob_P0i;
+  r = MUL::__mont_redM(r, a, glob_P, glob_mP, _P0i);
+  return r;
+}
+
+inline fn _redM_
+( reg mut ptr u64[nlimbs] r
+, reg const ptr u64[2*nlimbs] a
+) -> reg ptr u64[nlimbs] {
+  r = r; a = a;
+  r = _redM( r, a);
+  r = r;
+  return r;
+}
+
+/* Conversion-out from Montgomery form */
+inline fn _fromM_
+( reg mut ptr u64[nlimbs] a
+) -> reg ptr u64[nlimbs] {
+  stack u64[2*nlimbs] _tmp;
+  reg ptr u64[2*nlimbs] tmp;
+  reg ptr u64[nlimbs] tmp2;
+
+  tmp2 = _tmp[0:nlimbs];
+  tmp2 = BN::_mov_(tmp2, a);
+  _tmp[0:nlimbs] = tmp2;
+  tmp2 = _tmp[nlimbs:nlimbs];
+  tmp2 = BN::_set0_(tmp2);
+  _tmp[nlimbs:nlimbs] = tmp2;
+  tmp = _tmp;
+  a = _redM_(a, tmp);
+  return a;
+}
+
+
+
+/* Field operations: fp_base, included in this same namespace, with the
+   Montgomery reduction as its reduction parameter (inline wrapper). */
+inline fn fun_red
+( reg mut ptr u64[nlimbs] r
+, reg const ptr u64[2*nlimbs] a
+) -> reg ptr u64[nlimbs] {
+  r = _redM_(r, a);
+  return r;
+}
+
+require "fp_base.jinc"
+
+// ////////////////////////////////////
+
+/* Conversion into Montgomery form */
+inline fn _toM_
+( reg mut ptr u64[nlimbs] a
+) -> reg ptr u64[nlimbs] {
+  reg ptr u64[nlimbs] rMP;
+  rMP = glob_rMP;
+  a = _mulmU_(a, rMP);
+  a = a;
+  return a;
+}
+

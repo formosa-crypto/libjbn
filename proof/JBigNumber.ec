@@ -86,6 +86,9 @@ split => H.
 by rewrite H xorwK.
 qed.
 
+lemma W64_of_int_m1: W64.of_int (-1) = W64.onew.
+proof. by apply W64.word_modeqP; rewrite W64.to_uint_onew. qed.
+
 
 (* ? DBool.ec (Biased theory) ? *)
 import Biased.
@@ -120,6 +123,87 @@ qed.
 (* END: *)
 
 
+
+(* to prove by simplification... *)
+op bn_seq (x: W64.t list) : int = foldr (fun w r => W64.to_uint w + W64.modulus * r) 0 x.
+
+lemma bn_seq_cmp (l: W64.t list):
+ 0 <= bn_seq l < W64.modulus ^ size l.
+proof.
+elim: l => [|x xs IH]; first by rewrite /bn_seq.
+rewrite /bn_seq /= -/(bn_seq xs) (addzC 1) exprS 1:size_ge0.
+move: (W64.to_uint_cmp x) IH => /= [Hx1 Hx2] [Hs1 Hs2].
+have: W64.modulus * (bn_seq xs + 1) <= W64.modulus * W64.modulus ^ size xs.
+ by apply StdOrder.IntOrder.ler_wpmul2l; smt().
+smt().
+qed.
+
+lemma addc_to_uint (x y: W64.t) c:
+ to_uint (W64.addc x y c).`2
+ = to_uint x + to_uint y + b2i c - W64.modulus * b2i (W64.addc x y c).`1.
+proof. by move: (W64.addcP x y c); case: (W64.addc x y c) => c' z /= /#. qed.
+
+(* 3-limb addition chain (final carry is discarded) *)
+lemma addc3P (a0 a1 a2 b0 b1 b2: W64.t):
+ bn_seq [ (W64.addc a0 b0 false).`2
+        ; (W64.addc a1 b1 (W64.addc a0 b0 false).`1).`2
+        ; (W64.addc a2 b2 (W64.addc a1 b1 (W64.addc a0 b0 false).`1).`1).`2 ]
+ = (bn_seq [a0; a1; a2] + bn_seq [b0; b1; b2]) %% W64.modulus ^ 3.
+proof.
+case _: (W64.addc a0 b0 false) => c0 r0 E0 /=.
+case _: (W64.addc a1 b1 c0) => c1 r1 E1 /=.
+case _: (W64.addc a2 b2 c1) => c2 r2 E2 /=.
+have := bn_seq_cmp [r0; r1; r2]; rewrite /= => Hb.
+have ->: bn_seq [a0; a1; a2] + bn_seq [b0; b1; b2]
+         = bn_seq [r0; r1; r2] + b2i c2 * W64.modulus ^ 3.
+ move: (addc_to_uint a0 b0 false) (addc_to_uint a1 b1 c0) (addc_to_uint a2 b2 c1).
+ rewrite E0 E1 E2 /bn_seq /= => -> -> ->.
+ by ring.
+by rewrite modzMDr modz_small /#.
+qed.
+
+(* doubling of a 64x64-bit product ([b2:b1:b0 = 2*x*y]), as computed by
+   [mulu; SHL; SHLD; ADC] (e.g. in the product-scanning sqr accumulator) *)
+lemma dbl_mulu (x y: W64.t):
+ bn_seq [ (W64.mulu x y).`2 `<<` W8.of_int 1
+        ; (W64.SHIFT.SHLD_64 (W64.mulu x y).`1 (W64.mulu x y).`2 (W8.of_int 1)).`6
+        ; (W64.addc (W64.of_int 0) (W64.of_int 0)
+             (W64.SHIFT.SHLD_64 (W64.mulu x y).`1 (W64.mulu x y).`2 (W8.of_int 1)).`2).`2 ]
+ = W64.to_uint x * W64.to_uint y * 2.
+proof.
+rewrite W64.muluE /= /W64.SHIFT.SHLD_64 /=.
+have ->: W64.shift_mask W8.one = 1 by rewrite /W64.shift_mask /=.
+rewrite /W64.SHIFT.rflags_OF /= W64.addcE /=.
+have := W64.mulhiP x y.
+move: (W64.mulhi x y) (x*y) => hi lo E.
+rewrite -E /bn_seq /=.
+have ->: (hi `<<<` 1) +^ (lo `>>>` 63) = (hi `<<<` 1) `|` (lo `>>>` 63).
+ by rewrite W64.orw_xorw W64.andwC W64.shrw_shlw_disjoint // W64.xorw0.
+rewrite W64.to_uint_orw_disjoint.
+ by rewrite W64.andwC W64.shrw_shlw_disjoint.
+rewrite /W64.(`<<`) /= !W64.to_uint_shl // W64.to_uint_shr //.
+rewrite /W64.ALU.SF_of /= W64.to_uint_small; first smt().
+rewrite W64.b2i_get // (_: 2^63 = 9223372036854775808) 1:/#.
+move: (W64.to_uint_cmp lo) (W64.to_uint_cmp hi).
+move: (W64.to_uint lo) (W64.to_uint hi) => L H /= [HL1 HL2] [HH1 HH2].
+have EL := divz_eq L 9223372036854775808.
+have EH := divz_eq H 9223372036854775808.
+have BL := modz_cmp L 9223372036854775808 _ => //.
+have BH := modz_cmp H 9223372036854775808 _ => //.
+have QL: 0 <= L %/ 9223372036854775808 < 2 by smt().
+have QH: 0 <= H %/ 9223372036854775808 < 2 by smt().
+move: EL EH BL BH QL QH.
+move: (L %/ 9223372036854775808) (L %% 9223372036854775808)
+      (H %/ 9223372036854775808) (H %% 9223372036854775808)
+ => qL rL qH rH -> -> /= BL BH QL QH.
+have ->: (qL * 9223372036854775808 + rL) * 2 = rL * 2 + qL * 18446744073709551616 by ring.
+have ->: (qH * 9223372036854775808 + rH) * 2 = rH * 2 + qH * 18446744073709551616 by ring.
+rewrite !modzMDr (modz_small (rL*2)) 1:/# (modz_small (rH*2)) 1:/# (modz_small qH) 1:/#.
+by ring.
+qed.
+
+
+
 abstract theory BN.
 
 (*
@@ -135,9 +219,12 @@ import W64.
 (** Number of limbs *)
 op nlimbs : int.
 axiom gt0_nlimbs: 0 < nlimbs.
+
 clone export PolyArray as A with
-  op size <- nlimbs
+  op size <- nlimbs.
+(*
   proof ge0_size by (apply ltrW; apply gt0_nlimbs).
+*)
 
 (*
 clone export WArray as Abytes with
@@ -371,7 +458,8 @@ lemma bn_rnd_fu: is_full bn_rnd.
 proof.
 have Hlimbs:= gt0_nlimbs; move => a; rewrite /bn_rnd supp_dmap.
 exists (A.to_list a); split.
- by rewrite supp_dlist 1:/# size_to_list /=; apply/List.allP => *; apply W64.dword_fu.
+ rewrite supp_dlist 1:/# size_to_list /=; split; first smt().
+ by apply/List.allP => *; apply W64.dword_fu.
 by rewrite to_listK.
 qed.
 
@@ -388,8 +476,8 @@ rewrite (StdBigop.Bigreal.BRM.eq_bigr _ _ (fun _ => inv W64.modulus%r)).
  by move=> i _ /=; rewrite W64_dword1E.
 rewrite StdBigop.Bigreal.BRM.big_const count_predT size_to_list.
 rewrite /bn_modulus.
-rewrite eq_sym -RField.fromintXn 1:/#.
-by rewrite -RField.exprVn 1:/# /RField.exp ifF 1:/# RField.MulMonoid.iteropE.
+rewrite eq_sym -RField.fromintXn 1:/# ifT 1:/#.
+by rewrite -RField.exprVn 1:/# /RField.exp ifF 1:/# RField.MulMonoid.iteropE /#.
 qed.
 
 (*
@@ -465,14 +553,13 @@ apply fun_ext => x; smt(negbK).
 qed.
 
 
-(* to prove by simplification... *)
-op bn_seq (x: W64.t list) : int = foldr (fun w r => W64.to_uint w + W64.modulus * r) 0 x.
-
 lemma bn2seq x:
  bn x = bn_seq (to_list x).
 proof.
+have E: max 0 nlimbs = nlimbs by smt(gt0_nlimbs).
 have ->: bn x = bigi predT (fun i => to_uint (nth W64.zero (to_list x) i) * W64.modulus ^ i) 0 (size (to_list x)).
- rewrite size_to_list; apply eq_big_seq => y; rewrite mem_range => /> *; congr.
+ rewrite size_to_list E; apply: eq_big_seq => y.
+ rewrite mem_range => /> *; congr.
  rewrite -get_to_list; congr.
  by rewrite !nth_mkseq.
 elim: (to_list x) => //=.
@@ -485,7 +572,6 @@ rewrite big_distrr // 1:/#.
 apply eq_big_seq => z; rewrite mem_range => /> *.
 by rewrite (_:! z+1=0) 1:/# /= exprS // /#.
 qed.
-
 
 
 (* carry and borrow *)
@@ -554,6 +640,70 @@ move: (W64.subcP a.[k] x cf); rewrite subcE /= => E.
 rewrite exprS 1:/#; ring E.
 qed.
 
+(* variants where the k-th limb of [r] receives [x+y+cf] (resp. [x-y-cf]) *)
+lemma bnk_withcarryS_r k cf (r: t) (x y: W64.t):
+ 0 <= k < nlimbs =>
+ bnk_withcarry (k+1) ((addc x y cf).`1, r.[k <- (addc x y cf).`2])
+ = (to_uint x + to_uint y) * W64.modulus ^ k + bnk_withcarry k (cf,r).
+proof.
+move=> Hk; rewrite /bnk_withcarry /= bnkS 1:/# addcE /= bnk_setO 1:/# get_setE 1:/# /=.
+move: (W64.addcP x y cf); rewrite addcE /= => E.
+rewrite exprS 1:/#; ring E.
+qed.
+
+lemma bnk_withborrowS_r k cf (r: t) (x y: W64.t):
+ 0 <= k < nlimbs =>
+ bnk_withborrow (k+1) ((subc x y cf).`1, r.[k <- (subc x y cf).`2])
+ = (to_uint x - to_uint y) * W64.modulus ^ k + bnk_withborrow k (cf,r).
+proof.
+move=> Hk; rewrite /bnk_withborrow /= bnkS 1:/# subcE /= bnk_setO 1:/# get_setE 1:/# /=.
+move: (W64.subcP x y cf); rewrite subcE /= => E.
+rewrite exprS 1:/#; ring E.
+qed.
+
+lemma bnk_withcarry0 cf (a: t): bnk_withcarry 0 (cf,a) = b2i cf.
+proof. by rewrite /bnk_withcarry /= bnk0. qed.
+
+lemma bnk_withborrow0 cf (a: t): bnk_withborrow 0 (cf,a) = - b2i cf.
+proof. by rewrite /bnk_withborrow /= bnk0. qed.
+
+(* the result array of a carry/borrow computation *)
+lemma bn_withcarry_ofint c (x: t) v:
+ bn_withcarry (c,x) = v => x = bn_ofint v.
+proof.
+move=> <-; apply bn_inj; rewrite bn_ofintK /bnk_withcarry /= -bn_modulusE.
+rewrite addzC modzMDr modz_small //.
+by move: (bnk_cmp nlimbs x); rewrite -bn_modulusE; smt().
+qed.
+
+lemma bn_withborrow_ofint c (x: t) v:
+ bn_withborrow (c,x) = v => x = bn_ofint v.
+proof.
+move=> <-; apply bn_inj; rewrite bn_ofintK /bnk_withborrow /= -bn_modulusE.
+rewrite (_: bn x - b2i c * bn_modulus = bn x + (- b2i c) * bn_modulus) 1:/#.
+rewrite modzMDr modz_small //.
+by move: (bnk_cmp nlimbs x); rewrite -bn_modulusE; smt().
+qed.
+
+lemma bn_eq0 (x: t):
+ (forall k, 0 <= k < nlimbs => x.[k] = W64.zero) => bn x = 0.
+proof.
+move=> H; have: forall k, 0 <= k <= nlimbs => bnk k x = 0.
+ elim/natind => [k Hk Hk0|k Hk IH Hk0]; first by rewrite bnkN.
+ by rewrite bnkS // /= H 1:/# /= IH /#.
+by apply; smt(gt0_nlimbs).
+qed.
+
+(* overwriting the lowest limb does not change the upper part *)
+lemma bn_set0_hi (x: t) y:
+ bn x.[0 <- y] - bnk 1 x.[0 <- y] = bn x - bnk 1 x.
+proof.
+have H:= gt0_nlimbs.
+rewrite !(bn_k_kup 1) 1..2:/#.
+have := bnkup_setO 1 x y _; first smt().
+by rewrite /= => ->; ring.
+qed.
+
 
 
 
@@ -573,11 +723,11 @@ clone export BN
       proof gt0_nlimbs by exact gt0_nlimbs.
 
 clone PolyArray as BN_Abytes
- with op size <- 8*nlimbs
-      proof ge0_size by smt(gt0_nlimbs).
+ with op size <- 8*nlimbs.
+(*      proof ge0_size by smt(gt0_nlimbs).*)
 
 clone WArray as BN_WAbytes
- with op size <- 8*nlimbs
-      proof ge0_size by smt(gt0_nlimbs).
+ with op size <- 8*nlimbs.
+(*      proof ge0_size by smt(gt0_nlimbs).*)
 
 end BigN.

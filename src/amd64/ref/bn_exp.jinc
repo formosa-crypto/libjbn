@@ -1,0 +1,255 @@
+/* libjbn -- bn_exp: generic (modular) exponentiation.
+
+   Library module (see README, "Library modules and instantiation"): it is
+   meant to be `require`d inside a namespace, which becomes the instance.
+   Names below are resolved by Jasmin's outward namespace lookup.
+
+   Instance:  EXP (instantiated by fp_base inside each field; extra instances
+              with another exponent size may be added by the wiring)
+   Expects:   param int nlimbs;
+              param int nlimbsexp;         // number of limbs of the exponent
+              u64[nlimbs] glob_exp0;       // representation of 1
+              fn fun_mulU (reg mut ptr u64[nlimbs], reg const ptr u64[nlimbs])
+                          -> reg ptr u64[nlimbs]
+              fn fun_sqrU (reg mut ptr u64[nlimbs]) -> reg ptr u64[nlimbs]
+              UTIL::  BN::                 // bn_util, bn_base (same size)
+   Provides:  _expm_noct_ _expmU_noct_ _expm_ _expmU_ (and LR variants)
+*/
+
+// ////////////////////////////////////
+
+inline fn _exp1mLR_first_noct
+( reg mut ptr u64[nlimbs] r
+, reg const ptr u64[nlimbs] x
+, reg u64 w // assumed to be non-zero!!!
+) -> reg ptr u64[nlimbs] {
+  reg u64 k;
+  reg bool cf;
+  k = 64;
+  _, cf, _, _, _, w = #SHL(w, 1);
+  while (!cf) {
+    k -= 1;
+    _, cf, _, _, _, w = #SHL(w, 1);
+  }
+  // most significant one-bit
+  r = BN::_mov_(r, x);
+  k -= 1;
+  // remaining bits
+  while (k >s 0) {
+    r = fun_sqrU(r);
+    _, cf, _, _, _, w = #SHL(w, 1);
+    if (cf) {
+      r = fun_mulU(r, x);
+    }
+    k -= 1;
+  }
+  return r;
+}
+
+inline fn _exp1mLR_noct
+( reg mut ptr u64[nlimbs] r
+, reg const ptr u64[nlimbs] x
+, reg u64 w
+) -> reg ptr u64[nlimbs] {
+  reg u64 k;
+  reg bool cf;
+  k = 64;
+  while (k >s 0) {
+    r = fun_sqrU(r);
+    _, cf, _, _, _, w = #SHL(w, 1);
+    if (cf) {
+      r = fun_mulU(r, x);
+    }
+    k -= 1;
+  }
+  return r;
+}
+
+/* Modular exponentiation
+  obs: naive LR square-multiply algorithm. Not Constant-Time!!!
+  (good enough to use with small public exponents, such as in RSAEP) */
+fn _expmLR_noct
+( reg mut ptr u64[nlimbs] r
+, reg const ptr u64[nlimbs] x
+, reg const ptr u64[nlimbsexp] e
+) -> reg ptr u64[nlimbs] {
+  reg ptr u64[nlimbs] exp0;
+  reg u64 i w;
+  stack u64 i_s;
+  i = nlimbsexp - 1;
+  // ignore most significant zero-limbs
+  w = e[(int) i];
+  while (w == 0) {
+    i -= 1;
+    if (i >=s 0) {
+      w = e[(int) i];
+    } else {
+      w = 1;
+    }
+  }
+  if (i >=s 0) {
+    i_s = i;
+    r = _exp1mLR_first_noct(r, x, w);
+    i = i_s;
+    i -= 1;
+  } else {
+    exp0 = glob_exp0;
+    r = BN::_mov_(r, exp0);
+  }
+  while (i >=s 0) {
+    w = e[(int) i];
+    i_s = i;
+    r = _exp1mLR_noct(r, x, w);
+    i = i_s;
+    i -= 1;
+  }
+  return r;
+}
+
+inline fn _expmLR_noct_
+( reg mut ptr u64[nlimbs] r
+, reg const ptr u64[nlimbs] a
+, reg const ptr u64[nlimbsexp] b
+) -> reg ptr u64[nlimbs] {
+  reg ptr u64[nlimbs] exp0;
+  exp0 = glob_exp0;
+  r = BN::_mov_(r, exp0);
+  a = a; b = b;
+  r = _expmLR_noct(r, a, b);
+  r = r;
+  return r;
+}
+
+/* Modular exponentiation
+  obs: naive square-multiply algorithm. Not Constant-Time!!!
+  (good enough to use with public exponents, such as in inversion) */
+fn _expm_noct
+( reg mut ptr u64[nlimbs] r
+, reg const ptr u64[nlimbs] a
+, reg const ptr u64[nlimbsexp] b
+) -> reg ptr u64[nlimbs] {
+  inline int j;
+  reg u64 t;
+  reg bool cf zf;
+  reg ptr u64[nlimbs] x;
+  stack u64 _k;
+  stack u64[nlimbs] _x;
+  stack ptr u64[nlimbsexp] _b;
+
+  _b = b;
+  x = _x;
+  x = BN::_mov_(x, a);
+  _x = x;
+
+  for j = 0 to nlimbsexp {
+    b = _b;
+    t = b[(int) j];
+    _k = 64;
+    while {
+      _, cf, _, _, _, t = #SHR(t, 1);
+      x = _x;
+      if (cf) {
+        r = fun_mulU(r, x);
+      }
+      x = fun_sqrU(x);
+      _x = x;
+      _, _, _, zf, _k = #DEC(_k);
+    } (!zf)
+  }
+  return r;
+}
+
+inline fn _expm_noct_
+( reg mut ptr u64[nlimbs] r
+, reg const ptr u64[nlimbs] a
+, reg const ptr u64[nlimbsexp] b
+) -> reg ptr u64[nlimbs] {
+  reg ptr u64[nlimbs] exp0;
+  exp0 = glob_exp0;
+  r = BN::_mov_(r, exp0);
+  a = a; b = b;
+  r = _expm_noct(r, a, b);
+  r = r;
+  return r;
+}
+
+inline fn _expmU_noct_
+( reg mut ptr u64[nlimbs] a
+, reg const ptr u64[nlimbsexp] b
+) -> reg ptr u64[nlimbs] {
+  stack u64[nlimbs] _tmp;
+  reg ptr u64[nlimbs] tmp exp0;
+  tmp = _tmp;
+  tmp = BN::_mov_(tmp, a);
+  exp0 = glob_exp0;
+  a = BN::_mov_(a, exp0);
+  a = _expm_noct_(a, tmp, b);
+  return a;
+}
+
+/* Modular exponentiation (constant-time) */
+fn _expm
+( reg mut ptr u64[nlimbs] x0 x1
+, reg const ptr u64[nlimbsexp] b
+) -> reg ptr u64[nlimbs], reg ptr u64[nlimbs] {
+  inline int j;
+  reg u64 t mask;
+  stack u64 _k _mask _t;
+  reg bool cf zf;
+  stack ptr u64[nlimbsexp] _b;
+
+  _b = b;
+
+  for j = nlimbsexp-1 downto -1  {
+    b = _b;
+    t = b[(int) j];
+    _k = 64;
+    while {
+      _, cf, _, _, _, t = #SHL(t, 1);
+      _t = t;
+      mask = UTIL::__cf_mask(cf);
+      x0, x1 = BN::_cswap_mask_(x0, x1, mask);
+      _mask = mask;
+      x1 = fun_mulU(x1, x0);
+      x0 = fun_sqrU(x0);
+      mask = _mask;
+      x0, x1 = BN::_cswap_mask_(x0, x1, mask);
+      t = _t;
+      _, _, _, zf, _k = #DEC(_k);
+    } (!zf)
+  }
+  return x0, x1;
+}
+
+inline fn _expm_
+( reg mut ptr u64[nlimbs] x0
+, reg const ptr u64[nlimbs] a
+, reg const ptr u64[nlimbsexp] b
+) -> reg ptr u64[nlimbs] {
+  stack u64[nlimbs] _x1;
+  reg ptr u64[nlimbs] x1 exp0;
+  x1 = _x1;
+  x1 = BN::_mov_(x1, a);
+  exp0 = glob_exp0;
+  x0 = BN::_mov_(x0, exp0);
+  b = b;
+  x0, _ = _expm(x0, x1, b);
+  x0 = x0;
+  return x0;
+}
+
+inline fn _expmU_
+( reg mut ptr u64[nlimbs] a
+, reg const ptr u64[nlimbsexp] b
+) -> reg ptr u64[nlimbs] {
+  stack u64[nlimbs] _x1;
+  reg ptr u64[nlimbs] x1 exp0;
+  x1 = _x1;
+  x1 = BN::_mov_(x1, a);
+  exp0 = glob_exp0;
+  a = BN::_mov_(a, exp0);
+  b = b;
+  a, _ = _expm(a, x1, b);
+  a = a;
+  return a;
+}

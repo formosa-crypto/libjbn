@@ -1,30 +1,30 @@
-/*
-   libjbn interface
+/* libjbn instance for the RSA-PSS example: arithmetic modulo n = p*q
+   (Montgomery form, 2*nlimbsP = 32 limbs).
+
+   Layout (see README): the top level is the scope of the exports; the
+   working size is the size scope H. Each module is instantiated exactly once.
+   (rsa_key_p.jinc and rsa_key_q.jinc hold the constants for fields modulo
+   p and q, which this example does not instantiate.)
 */
 
 require "rsa_keys.jinc"
 
-/*
-from Libjbn require "bn_base.mjazz" as "BN"
- with { nlimbs = nlimbs; }
-*/
-from MJazz require "BN_bn_base.jinc"
+namespace UTIL { from Libjbn require "bn_util.jinc" }
 
+namespace H {
+  param int nlimbs = 2*nlimbsP;
 
-/*
-from Libjbn require "fp_mont.mjazz" as "FPM"
- with { nlimbs = nlimbs;
-        glob_P = glob_N;
-        glob_mP = glob_mN;
-        glob_Pi0 = glob_Ni0;
-        glob_exp0 = glob_oneMN;
-        glob_Pm2 = glob_Nm2; }
-*/
-from MJazz require "FPM_fp_mont.jinc"
+  namespace BN  { from Libjbn require "bn_base.jinc" }
+  namespace RND { from Libjbn require "bn_rnd.jinc" }
+  namespace MUL { from Libjbn require "bn_mul.jinc" }
 
-/* EXPORT FUNCTIONS
-  ??? how can we make this easyly accessible to the user???
-  " from XXXX require YYY as ZZZ with WWW load PPP "
- */
-from MJazz require "bn_base_export.jinc"
-from MJazz require "fp_mont_export.jinc"
+  namespace FPM {
+    param int nlimbsexp = nlimbs;
+    require "rsa_key_n.jinc"
+    from Libjbn require "fp_mul_ps.jinc"
+    from Libjbn require "fp_mont.jinc"
+  }
+}
+
+/* C entry points */
+from Libjbn require "bn_base_export.jinc" "fp_mont_export.jinc"

@@ -1,50 +1,16 @@
+/* libjbn -- bn_mul: schoolbook multiplication/squaring and Montgomery reduction.
 
+   Library module (see README, "Library modules and instantiation"): it is
+   meant to be `require`d inside a namespace, which becomes the instance.
+   Names below are resolved by Jasmin's outward namespace lookup.
 
-param int nlimbs = 16;
-
-inline fn __load
-( reg mut ptr u64[nlimbs] a
-, reg u64 ap
-) -> reg ptr u64[nlimbs]
-{
-  inline int i;
-  reg u64 t;
-
-  for i = 0 to nlimbs {
-    t = [ap + 8*i];
-    a[i] = t;
-  }
-
-  return a;
-}
-
-inline fn __store
-( reg u64 ap,
-  reg const ptr u64[nlimbs] a
-)
-{
-  inline int i;
-  reg u64 t;
-
-  for i = 0 to nlimbs {
-    t = a[i];
-    [ap + 8*i] = t;
-  }
-}
-
-inline fn __store2
-( reg u64 ap,
-  reg const ptr u64[2*nlimbs] a
-)
-{
-  inline int i;
-  reg u64 t;
-
-  for i = 0 to 2*nlimbs {
-    t = a[i];
-    [ap + 8*i] = t;
-  }
-}
+   Instance:  MUL (in a size scope)
+   Expects:   param int nlimbs;
+              UTIL::                       // bn_util
+              BN::                         // bn_base, same size
+   Provides:  operand-scanning (_os_*) and product-scanning (_ps_*)
+              multiplication/squaring, __mont_redM
+*/
 
 /******************************************************************
                       OPERAND-SCANNING
@@ -53,11 +19,11 @@ inline fn __mul1
 ( reg mut ptr u64[2*nlimbs] r
 , reg u64 a
 , reg const ptr u64[nlimbs] b
-) -> reg u64, reg bool, reg bool, reg u64[2*nlimbs]
+) -> reg u64, reg bool, reg bool, reg ptr u64[2*nlimbs]
 {
   inline int i;
   reg bool of, cf;
-  reg u64 _zero, lo, hi;
+  reg u64 _zero, lo;
   reg u64[nlimbs+1] rr; // at most 2 alive
 
   of, cf, _, _, _, _zero = #set0();
@@ -87,10 +53,10 @@ inline fn __mul1acc
 , reg const ptr u64[nlimbs] b
 , reg u64 _zero // should be set to 0
 , reg bool of cf // should be set to 0
-) -> reg u64, reg bool, reg bool, reg u64[2*nlimbs]
+) -> reg u64, reg bool, reg bool, reg ptr u64[2*nlimbs]
 {
   inline int i;
-  reg u64 ak hi lo;
+  reg u64 hi lo;
   reg u64[nlimbs+1] rr; // at most 2 alive
 
   rr[0] = r[k];
@@ -116,7 +82,7 @@ inline fn __mul1acc
 
 
 /* Operand-scanning multiplication (first arg. as a reg_ptr) */
-fn _muln_os
+fn _os_muln
 ( reg mut ptr u64[2*nlimbs] r
 , reg const ptr u64[nlimbs] a b //reg u64 fptr,
 ) -> reg ptr u64[2*nlimbs]
@@ -137,29 +103,19 @@ fn _muln_os
   return r;
 }
 
-inline fn _muln_os_
+inline fn _os_muln_
 ( reg mut ptr u64[2*nlimbs] r
 , reg const ptr u64[nlimbs] a b
 ) -> reg ptr u64[2*nlimbs]
 {
   r = r; a = a; b = b;
-  r = _muln_os(r, a, b);
+  r = _os_muln(r, a, b);
   r = r;
   return r;
 }
 
 
-inline fn _mulk_os_
-( reg mut ptr u64[2*nlimbs] r
-, reg mut ptr u64[nlimbs] tmp
-, reg const ptr u64[nlimbs] a b
-) -> reg ptr u64[2*nlimbs], reg ptr u64[nlimbs]
-{
-  r = _muln_os_( r, a, b );
-  return r, tmp;
-}
-
-
+/*
 export fn bn_muln_os(reg u64 rp ap bp)
 {
   stack u64[nlimbs] _a _b;
@@ -175,23 +131,12 @@ export fn bn_muln_os(reg u64 rp ap bp)
   r = _muln_os_(r, a, b);
   __store2(rp, r);
 }
+*/
 
 /******************************************************************
                       PRODUCT-SCANNING
 *******************************************************************/
 
-// regs: params(5)
-inline fn __addacc3
-( reg u64[3] a
-, reg u64 b1 b0
-, inline int k
-) -> reg u64[3] {
-  reg bool cf;
-  cf, a[k % 3] += b0;
-  cf, a[(k+1) % 3] += b1 + cf;
-  cf, a[(k+2) % 3] += 0 + cf;
-  return a;
-}
 
 // regs: params(5) + 3 = 8
 inline fn __muln_innerloop
@@ -205,21 +150,19 @@ inline fn __muln_innerloop
     j = k-i;
     t0 = a[i];
     t1, t0 = t0 * b[j];
-    x = __addacc3(x, t1, t0, k);
+    x = UTIL::__addacc3(x, t1, t0, k);
   }
   return x;
 }
 
 // regs: params(3) + call(3) + 3(+2) = 9
-inline fn __muln_ps
+inline fn __ps_muln
 ( reg mut ptr u64[2*nlimbs] r
 , reg const ptr u64[nlimbs] a b
 ) -> reg ptr u64[2*nlimbs] {
   inline int k;
   reg u64 t0 t1;
   reg u64[3] x;
-  reg bool cf;
-
 
   t0 = a[0];
   t1, t0 = t0 * b[0];
@@ -248,35 +191,26 @@ inline fn __muln_ps
 }
 
 // regs: params(3) + call(6) = 9
-fn _muln_ps
+fn _ps_muln
 ( reg mut ptr u64[2*nlimbs] r
 , reg const ptr u64[nlimbs] a b
 ) -> reg ptr u64[2*nlimbs] {
-  r = __muln_ps(r, a, b);
+  r = __ps_muln(r, a, b);
   return r;
 }
 
-inline fn _muln_ps_
+inline fn _ps_muln_
 ( reg mut ptr u64[2*nlimbs] r
 , reg const ptr u64[nlimbs] a b
 ) -> reg ptr u64[2*nlimbs] {
   r = r; a = a; b = b;
-  r = _muln_ps(r, a, b);
+  r = _ps_muln(r, a, b);
   r = r;
   return r;
 }
 
-inline fn _mulk_ps_
-( reg mut ptr u64[2*nlimbs] r
-, reg mut ptr u64[nlimbs] tmp
-, reg const ptr u64[nlimbs] a b
-) -> reg ptr u64[2*nlimbs], reg ptr u64[nlimbs]
-{
-  r = _muln_ps_( r, a, b );
-  return r, tmp;
-}
-
-export fn bn_muln_ps(reg u64 rp ap bp)
+/*
+export fn bn_ps_muln(reg u64 rp ap bp)
 {
   stack u64[nlimbs] _a _b;
   stack u64[2*nlimbs] _r;
@@ -288,6 +222,162 @@ export fn bn_muln_ps(reg u64 rp ap bp)
   b = _b;
   b = __load(b,bp);
   r = _r;
-  r = _muln_ps_(r, a, b);
+  r = _ps_muln_(r, a, b);
   __store2(rp, r);
 }
+*/
+
+
+// regs: params(4) + 2 = 6 
+inline fn __sqrn_innerloop
+( reg u64[3] x
+, inline int k istart iend
+, reg const ptr u64[nlimbs] a
+) -> reg u64[3] {
+  reg u64 ti, tj;
+  inline int i, j;
+  for i = istart to iend {
+    j = k-i;
+    ti = a[i];
+    tj = a[j];
+    x = UTIL::__addacc3x2(x, ti, tj, k);
+  }
+  return x;
+}
+
+inline fn __ps_sqrn
+( reg mut ptr u64[2*nlimbs] r
+, reg const ptr u64[nlimbs] a
+) -> reg ptr u64[2*nlimbs] {
+  inline int k;
+  reg u64 t0 t1;
+  reg u64[3] x;
+
+  t0 = a[0];
+  t1, t0 = t0 * t0;
+  r[0] = t0;
+  x[1] = t1;
+//  _, _, _, _, _, x[2] = #set0();
+  x[2] = 0;
+//  _, _, _, _, _, x[0] = #set0();
+  x[0] = 0;
+
+  for k = 1 to nlimbs {
+    x = __sqrn_innerloop(x, k, 0, (k+1)/2, a);
+    if (k % 2 == 0) {
+      t0 = a[k/2];
+      t1, t0 = t0 * t0;
+      x = UTIL::__addacc3(x, t1, t0, k);
+    }
+    t0 = x[k % 3];
+//    _, _, _, _, _, x[k % 3] = #set0();
+    x[k % 3] = 0;
+    r[k] = t0;
+  }
+  for k = nlimbs to 2*nlimbs-1 {
+    x = __sqrn_innerloop(x, k, k-nlimbs+1, (k+1)/2, a);
+    if (k % 2 == 0) {
+      t0 = a[k/2];
+      t1, t0 = t0 * t0;
+      x = UTIL::__addacc3(x, t1, t0, k);
+    }
+    t0 = x[k % 3];
+//    _, _, _, _, _, x[k % 3] = #set0();
+    x[k % 3] = 0;
+    r[k] = t0;
+  }
+  r[2*nlimbs-1] = x[(2*nlimbs-1) % 3];
+  return r;
+}
+
+fn _ps_sqrn
+( reg mut ptr u64[2*nlimbs] r
+, reg const ptr u64[nlimbs] a
+) -> reg ptr u64[2*nlimbs] {
+  r = __ps_sqrn(r, a);
+  return r;
+}
+
+inline fn _ps_sqrn_
+( reg mut ptr u64[2*nlimbs] r
+, reg const ptr u64[nlimbs] a
+) -> reg ptr u64[2*nlimbs] {
+  r = r; a = a;
+  r = _ps_sqrn(r, a);
+  r = r;
+  return r;
+}
+
+inline fn _ps_ksqrn_
+( reg mut ptr u64[2*nlimbs] r
+, reg mut ptr u64[nlimbs] tmp
+, reg const ptr u64[nlimbs] a
+) -> reg ptr u64[nlimbs], reg ptr u64[2*nlimbs]
+{
+  r = _ps_sqrn_( r, a );
+  return tmp, r;
+}
+
+
+
+
+// ////////////////////////////////////
+// regs: params(3) + call(3) + 3 = 9
+inline fn __mont_redM
+( reg mut ptr u64[nlimbs] r
+, reg const ptr u64[2*nlimbs] a
+, stack u64[nlimbs] _P
+, stack u64[nlimbs] _mP
+, stack u64 _U0
+) -> reg ptr u64[nlimbs] {
+  inline int k;
+  reg bool cf;
+  reg ptr u64[nlimbs] P mP;
+  reg u64 t0 t1 zero lastbit;
+  reg u64[3] x;
+
+//  _, _, _, _, _, x[0] = #set0();
+  x[0] = 0;
+//  _, _, _, _, _, x[1] = #set0();
+  x[1] = 0;
+//  _, _, _, _, _, x[2] = #set0();
+  x[2] = 0;
+
+  for k = 0 to nlimbs {
+    P = _P;
+    x = __muln_innerloop(x, k, 0, k, r, P); //+3
+//    _, _, _, _, _, zero = #set0();
+    zero = 0;
+    t0 = a[k];
+    x = UTIL::__addacc3(x, zero, t0, k);
+    t0 = x[k % 3];
+    _, t0 = t0 * _U0;
+    r[k] = t0;
+    t1, t0 = t0 * _P[0];
+    x = UTIL::__addacc3(x, t1, t0, k);
+  }
+  for k = nlimbs to 2*nlimbs-1 {
+    P = _P;
+    x = __muln_innerloop(x, k, k-nlimbs+1, nlimbs, r, P); //+3
+//    _, _, _, _, _, zero = #set0();
+    zero = 0;
+    t0 = a[k];
+    x = UTIL::__addacc3(x, zero, t0, k);
+    t0 = x[k % 3];
+    r[k-nlimbs] = t0;
+//    _, _, _, _, _, x[k % 3] = #set0();
+    x[k % 3] = 0;
+  }
+
+  lastbit = 0;
+  cf, x[(2*nlimbs-1) % 3] += a[2*nlimbs-1];
+  _, lastbit += 0 + cf;
+
+  r[nlimbs-1] = x[(2*nlimbs-1) % 3];
+
+  mP = _mP;
+  r = BN::_cminusP_(r, mP, lastbit);
+  return r;
+}
+
+

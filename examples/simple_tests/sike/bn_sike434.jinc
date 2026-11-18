@@ -1,29 +1,26 @@
-/*
-   libjbn interface
+/* libjbn instance for the SIKE-P434 prime field (Montgomery form, 7 limbs).
+
+   Layout (see README): the top level is the scope of the exports; the
+   working size (nlimbs = 7) is the size scope H. Each module is
+   instantiated exactly once.
 */
 
-from Libjbn require "params/sike/sike434.jinc"
+namespace UTIL { from Libjbn require "bn_util.jinc" }
 
-/*
-from Libjbn require "bn_base.mjazz" as "BN"
- with { nlimbs = sike434_nlimbs; }
-*/
-from MJazz require "BN_bn_base.jinc"
+namespace H {
+  param int nlimbs = 7;
 
+  namespace BN  { from Libjbn require "bn_base.jinc" }
+  namespace RND { from Libjbn require "bn_rnd.jinc" }
+  namespace MUL { from Libjbn require "bn_mul.jinc" }
 
-/*
-from Libjbn require "fp_mont.mjazz" as "FPM"
- with { nlimbs = sike434_nlimbs;
-        glob_P = sike434_glob_P;
-        glob_mP = sike434_glob_mP;
-        glob_Pi0 = sike434_glob_Pi0;
-        glob_Pm2 = sike434_glob_Pm2; }
-*/
-from MJazz require "FPM_fp_mont.jinc"
+  namespace FPM {
+    param int nlimbsexp = nlimbs;
+    from Libjbn require "params/sike/sike434.jinc"
+    from Libjbn require "fp_mul_ps.jinc"
+    from Libjbn require "fp_mont.jinc"
+  }
+}
 
-/* EXPORT FUNCTIONS
-  ??? how can we make this easyly accessible to the user???
-  " from XXXX require YYY as ZZZ with WWW load PPP "
- */
-from MJazz require "bn_base_export.jinc"
-from MJazz require "fp_mont_export.jinc"
+/* C entry points */
+from Libjbn require "bn_base_export.jinc" "fp_mont_export.jinc"

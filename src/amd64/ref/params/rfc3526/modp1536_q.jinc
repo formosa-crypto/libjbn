@@ -1,0 +1,146 @@
+/* RFC 3526 modp1536: constants of the prime field modulo Q = (P-1)/2 (the group order), under the names
+   expected by fp_mont. Required inside a field namespace whose enclosing
+   size scope defines: param int nlimbs = 24; */
+
+// glob_q = Q
+u64[nlimbs] glob_P = {
+  0xffffffffffffffff,
+  0x78ba36046511b993,
+  0xb3861aa7255e4c02,
+  0xcf6a9483b84b4b36,
+  0x0e3179ab1042a95d,
+  0xc1b2ae91ee51d6cb,
+  0x348b1fd47e9267af,
+  0xcc6d241b0e2ae9cd,
+  0xe1003e5c50b1df82,
+  0x24943328f6722d9e,
+  0xd74f9208be258ff3,
+  0xf71c35fdad44cfd2,
+  0x85ffae5b7a035bf6,
+  0x7a262174d31bf6b5,
+  0xf242dabb312f3f63,
+  0xa7f09ab6b6a8e122,
+  0x98158536f92f8a1b,
+  0xf7ca8cd9e69d218d,
+  0x28a5043cc71a026e,
+  0x0105df531d89cd91,
+  0x948127044533e63a,
+  0x62633145c06e0e68,
+  0xe487ed5110b4611a,
+  0x7fffffffffffffff
+};
+
+// glob_mp = R - P == 2^(NLIMBS*64) - P
+u64[nlimbs] glob_mP = {
+  0x0000000000000001,
+  0x8745c9fb9aee466c,
+  0x4c79e558daa1b3fd,
+  0x30956b7c47b4b4c9,
+  0xf1ce8654efbd56a2,
+  0x3e4d516e11ae2934,
+  0xcb74e02b816d9850,
+  0x3392dbe4f1d51632,
+  0x1effc1a3af4e207d,
+  0xdb6bccd7098dd261,
+  0x28b06df741da700c,
+  0x08e3ca0252bb302d,
+  0x7a0051a485fca409,
+  0x85d9de8b2ce4094a,
+  0x0dbd2544ced0c09c,
+  0x580f654949571edd,
+  0x67ea7ac906d075e4,
+  0x083573261962de72,
+  0xd75afbc338e5fd91,
+  0xfefa20ace276326e,
+  0x6b7ed8fbbacc19c5,
+  0x9d9cceba3f91f197,
+  0x1b7812aeef4b9ee5,
+  0x8000000000000000
+};
+
+// glob_pm2 = P - 2
+u64[nlimbs] glob_Pm2 = {
+  0xfffffffffffffffd,
+  0x78ba36046511b993,
+  0xb3861aa7255e4c02,
+  0xcf6a9483b84b4b36,
+  0x0e3179ab1042a95d,
+  0xc1b2ae91ee51d6cb,
+  0x348b1fd47e9267af,
+  0xcc6d241b0e2ae9cd,
+  0xe1003e5c50b1df82,
+  0x24943328f6722d9e,
+  0xd74f9208be258ff3,
+  0xf71c35fdad44cfd2,
+  0x85ffae5b7a035bf6,
+  0x7a262174d31bf6b5,
+  0xf242dabb312f3f63,
+  0xa7f09ab6b6a8e122,
+  0x98158536f92f8a1b,
+  0xf7ca8cd9e69d218d,
+  0x28a5043cc71a026e,
+  0x0105df531d89cd91,
+  0x948127044533e63a,
+  0x62633145c06e0e68,
+  0xe487ed5110b4611a,
+  0x7fffffffffffffff
+};
+
+// (glob_u0 * P[0]) mod 2^64 == -1
+u64 glob_P0i = 0x1;
+
+// glob_oneM = R mod P == 2^(NLIMBS*64) mod P
+u64[nlimbs] glob_exp0 = {
+  0x0000000000000002,
+  0x0e8b93f735dc8cd8,
+  0x98f3cab1b54367fb,
+  0x612ad6f88f696992,
+  0xe39d0ca9df7aad44,
+  0x7c9aa2dc235c5269,
+  0x96e9c05702db30a0,
+  0x6725b7c9e3aa2c65,
+  0x3dff83475e9c40fa,
+  0xb6d799ae131ba4c2,
+  0x5160dbee83b4e019,
+  0x11c79404a576605a,
+  0xf400a3490bf94812,
+  0x0bb3bd1659c81294,
+  0x1b7a4a899da18139,
+  0xb01eca9292ae3dba,
+  0xcfd4f5920da0ebc8,
+  0x106ae64c32c5bce4,
+  0xaeb5f78671cbfb22,
+  0xfdf44159c4ec64dd,
+  0xd6fdb1f77598338b,
+  0x3b399d747f23e32e,
+  0x36f0255dde973dcb,
+  0x0000000000000000
+};
+
+// glob_rM = R^2 mod P == 2^(2*NLIMBS*64) mod P
+u64[nlimbs] glob_rMP = {
+  0xe22ba4fa658d2bc3,
+  0xe302cdfe0154f72b,
+  0xe1e7813da4359fe9,
+  0x973d20f93adc3281,
+  0x5a73b52ac2ec6ae3,
+  0x20c4f4262d2af267,
+  0x8b2bc6dfb15f84fd,
+  0xf34a482f2936ea5c,
+  0x265cfa876038b70d,
+  0xb40c967524a8d9ce,
+  0x255f144553dc88f3,
+  0x4e4f8b68f1bd4468,
+  0x82e133dbdbca2c58,
+  0x105e465cc320a3bf,
+  0x53d759ecfa5e17ac,
+  0xad4c1e03d2f96a86,
+  0x044505787e3635bd,
+  0xbb0eebc2f84d1873,
+  0x8fc08247d16138fa,
+  0x71e45dc733206abd,
+  0xd31b944e80d15a52,
+  0xce337bb16660c825,
+  0x77f4f78c193c064e,
+  0x63b33c7259541c02
+};

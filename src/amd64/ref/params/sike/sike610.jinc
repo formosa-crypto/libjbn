@@ -2,10 +2,11 @@
    SPECIFIC SIKE-P610 CODE
 */
 
-param int sike610_nlimbs = 10;
+/* Field constants, to be required inside a field namespace whose
+   enclosing size scope defines: param int nlimbs = 10; */
 
 /* prime SIKE-P610 (P) */
-u64[sike610_nlimbs] sike610_glob_P = {
+u64[nlimbs] glob_P = {
   0xffffffffffffffff,
   0xffffffffffffffff,
   0xffffffffffffffff,
@@ -19,7 +20,7 @@ u64[sike610_nlimbs] sike610_glob_P = {
 };
 
 /* R - P = 2^(NLIMBS*64) - P */
-u64[sike610_nlimbs] sike610_glob_mP = {
+u64[nlimbs] glob_mP = {
   0x0000000000000001,
   0x0000000000000000,
   0x0000000000000000,
@@ -33,7 +34,7 @@ u64[sike610_nlimbs] sike610_glob_mP = {
 };
 
 /* P - 2 */
-u64[sike610_nlimbs] sike610_glob_Pm2 = {
+u64[nlimbs] glob_Pm2 = {
   0xfffffffffffffffd,
   0xffffffffffffffff,
   0xffffffffffffffff,
@@ -47,10 +48,10 @@ u64[sike610_nlimbs] sike610_glob_Pm2 = {
 };
 
 /* (glob_p[0] * u0) mod 2^64 = -1 */
-u64 sike610_glob_P0i = 1;
+u64 glob_P0i = 1;
 
 /* R mod P = 2^(NLIMBS*64) mod P */
-u64[sike610_nlimbs] sike610_glob_oneMP = {
+u64[nlimbs] glob_exp0 = {
   0x00000000670cc8e6,
   0x0000000000000000,
   0x0000000000000000,
@@ -65,7 +66,7 @@ u64[sike610_nlimbs] sike610_glob_oneMP = {
 
 
 /* R^2 mod P = 2^(2*NLIMBS*64) mod P */
-u64[sike610_nlimbs] sike610_glob_rMP = {
+u64[nlimbs] glob_rMP = {
   0xe75f5d201a197727,
   0xe0b85963b627392e,
   0x6bc1707818de493d,

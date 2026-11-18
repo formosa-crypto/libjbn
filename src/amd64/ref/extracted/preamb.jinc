@@ -1,4 +1,9 @@
-param int nlimbs = 11;
+/* Dummy parameters for the abstract extraction (see libjbn_abs.jazz):
+   required inside the size scope H (nlimbs = 11); the function parameters
+   (fun_*) are stubs in libjbn_abs.jazz. After extraction, the
+   numerals 11, 13, 22, ... are replaced by the abstract parameters
+   (proof/extracted_ths/Readme.md). */
+
 param int nlimbsexp = 13;
 
 u64[nlimbs] glob_P = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
@@ -7,28 +12,3 @@ u64 glob_P0i = 0;
 u64[nlimbsexp] glob_Pm2 = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
 u64[nlimbs] glob_exp0 = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
 u64[nlimbs] glob_rMP = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
-
-fn fun_muln
-( reg mut ptr u64[2*nlimbs] r
-, reg const ptr u64[nlimbs] a b
-) -> reg ptr u64[2*nlimbs] { a=a; b=b; return r; }
-fn fun_sqrn
-( reg mut ptr u64[2*nlimbs] r
-, reg const ptr u64[nlimbs] a
-) -> reg ptr u64[2*nlimbs] { a=a; return r; }
-fn fun_mulU
-( reg mut ptr u64[nlimbs] r
-, reg const ptr u64[nlimbs] a
-) -> reg ptr u64[nlimbs] { a=a; return r; }
-fn fun_sqrU
-( reg mut ptr u64[nlimbs] r
-) -> reg ptr u64[nlimbs] { return r; }
-fn fun_red
-( reg mut ptr u64[nlimbs] r
-, reg const ptr u64[2*nlimbs] a
-) -> reg ptr u64[nlimbs] { a=a; return r; }
-fn fun_kmuln
-( reg mut ptr u64[2*nlimbs] r
-, reg mut ptr u64[nlimbs] tmp
-, reg const ptr u64[nlimbs] a b
-) -> reg ptr u64[nlimbs], reg ptr u64[2*nlimbs] { a=a; b=b; return tmp, r; }

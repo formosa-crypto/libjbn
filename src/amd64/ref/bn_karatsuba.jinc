@@ -1,0 +1,134 @@
+/* libjbn -- bn_karatsuba: one level of Karatsuba multiplication.
+
+   Library module (see README, "Library modules and instantiation"): it is
+   meant to be `require`d inside a namespace, which becomes the instance.
+   Names below are resolved by Jasmin's outward namespace lookup.
+
+   Two-size module: lives in the size scope of its operands (2n limbs);
+   the half size n is the child scope H.
+   Instance:  KAR (in the 2n scope)
+   Expects:   param int nlimbs;            // 2n (operand size)
+              H::nlimbs                    // n
+              fn fun_kmuln (reg mut ptr u64[nlimbs], reg const ptr u64[H::nlimbs],
+                            reg const ptr u64[H::nlimbs]) -> reg ptr u64[nlimbs]
+              UTIL::  BN:: (2n)  H::BN:: (n)
+   Provides:  _kar_muln _kar_muln_  (2n x 2n -> 4n limbs)
+*/
+
+/* ensures: res = (sign(a-b), |a-b|)*/
+// MOVETO: bn_karatsuba.mjazz
+inline fn __sub_signabs
+( reg mut ptr u64[H::nlimbs] r
+, reg const ptr u64[H::nlimbs] a b
+) -> reg u64, reg ptr u64[H::nlimbs]
+{
+  reg bool cf;
+  reg u64 sign; // 0/-1
+  cf, r = H::BN::_sub_(r, a, b); // r = a-b
+  sign = UTIL::__cf_mask(cf);
+  r = H::BN::_cnegU_(r, sign);
+  return sign, r;
+}
+
+fn _kar_muln
+( reg mut ptr u64[2*nlimbs] r
+, reg const ptr u64[nlimbs] a b
+) -> reg ptr u64[2*nlimbs]
+{
+  stack u64[nlimbs] _tmp;
+  stack u64 _sa;
+  stack ptr u64[2*nlimbs] _r;
+  stack ptr u64[nlimbs] _a _b;
+  reg ptr u64[H::nlimbs] alo ahi blo bhi rlolo rlohi rhihi;
+  reg ptr u64[nlimbs] tmp rlo rhi rmid;
+  reg u64 sa sb;
+  reg bool cf;
+
+  _r = r;
+
+  rlo = _r[0:nlimbs];
+  rlolo = r[0:H::nlimbs];
+  alo = a[0:H::nlimbs];
+  ahi = a[H::nlimbs:H::nlimbs];
+  sa, rlolo = __sub_signabs(rlolo, alo, ahi);
+  rlo[0:H::nlimbs] = rlolo;
+
+  rlohi = rlo[H::nlimbs:H::nlimbs];
+  blo = b[0:H::nlimbs];
+  bhi = b[H::nlimbs:H::nlimbs];
+  sb, rlohi = __sub_signabs(rlohi, bhi, blo);
+  rlo[H::nlimbs:H::nlimbs] = rlohi;
+  _r[0:nlimbs] = rlo;
+
+  sa ^= sb;
+
+  _sa = sa;
+  _a = a;
+  _b = b;
+  tmp = _tmp;
+
+  rlo = _r[0:nlimbs];
+  rlolo = rlo[0:H::nlimbs];
+  rlohi = rlo[H::nlimbs:H::nlimbs];
+//  rlolo = _r[0:H::nlimbs];
+//  rlohi = _r[H::nlimbs:H::nlimbs];
+  tmp = fun_kmuln(tmp, rlolo, rlohi);
+
+  sa = _sa;
+  tmp = BN::_cnegU_(tmp, sa);
+  _tmp = tmp;
+
+  rlo = _r[0:nlimbs];
+  a = _a;
+  alo = a[0:H::nlimbs];
+  b = _b;
+  blo = b[0:H::nlimbs];
+  rlo = fun_kmuln( rlo, alo, blo);
+  _r[0:nlimbs] = rlo;
+
+  a = _a;
+  b = _b;
+  ahi = a[H::nlimbs:H::nlimbs];
+  bhi = b[H::nlimbs:H::nlimbs];
+  r = _r;
+  rhi = r[nlimbs:nlimbs];
+  rhi = fun_kmuln( rhi, ahi, bhi);
+  _r[nlimbs:nlimbs] = rhi;
+  //_r = r;
+
+  r = _r;
+  tmp = _tmp;
+  rlo = r[0:nlimbs];
+  cf, tmp = BN::_addU_( tmp, rlo );
+
+  sa = _sa;
+  _, sa += 0 + cf;
+
+  rhi = r[nlimbs:nlimbs];
+  cf, tmp = BN::_addU_( tmp, rhi );
+
+  _, sa += 0 + cf;
+  
+  rmid = r[H::nlimbs:nlimbs];
+  cf, rmid = BN::_addU_( rmid, tmp );
+  r[H::nlimbs:nlimbs] = rmid;
+
+  _, sa += 0 + cf;
+  cf, r[3*H::nlimbs] += sa;
+  rhihi = r[3*H::nlimbs:H::nlimbs];
+  _, rhihi = H::BN::__carrypropU( rhihi, cf , 1);
+  r[3*H::nlimbs:H::nlimbs] = rhihi;
+
+  return r;
+}
+
+inline fn _kar_muln_
+( reg mut ptr u64[2*nlimbs] r
+, reg const ptr u64[nlimbs] a b
+) -> reg ptr u64[2*nlimbs]
+{
+  r = r; a = a; b = b;
+  r = _kar_muln(r, a, b);
+  r = r;
+  return r;
+}

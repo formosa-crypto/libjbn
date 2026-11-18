@@ -1,11 +1,16 @@
 PWD = $(shell pwd)
 SRCDIR = $(PWD)/../../../src/amd64/ref
 
-PROCMJAZZ = $(PWD)/../../../scripts/mjazz_proc.py
-MJAZZDIRPREFIX = $(PWD)/
+# libjbn library modules (rebuild instances when they change)
+LIBJBN_SRC = $(wildcard $(SRCDIR)/*.jinc $(SRCDIR)/params/*/*.jinc)
 
-JASMINC ?= jasminc -lazy-regalloc -I Libjbn:$(SRCDIR)
-GCC ?= arch -x86_64 gcc
+JASMINC ?= jasminc -lazy-regalloc -I Libjbn=$(SRCDIR)
+# x86-64 C compiler (on macOS/Apple Silicon: cross-compile, run under Rosetta)
+ifeq ($(shell uname -s),Darwin)
+GCC ?= gcc -arch x86_64
+else
+GCC ?= gcc
+endif
 
 .DEFAULT_GOAL := all
 
@@ -26,12 +31,10 @@ test_bn_sike434: test_bn_sike434.c bn_sike434.s
 	$(GCC) -o $@ $^
 
 
-%.s: %.jinc
-	python3 $(PROCMJAZZ) `basename $< .jinc`
-	$(JASMINC) $(JFLAGS) -I MJazz:$(MJAZZDIRPREFIX)`basename $< .jinc` -o $@ $<
+%.s: %.jinc $(LIBJBN_SRC)
+	$(JASMINC) $(JFLAGS) -o $@ $<
 
 clean:
 	rm -f $(PROGS) bn_sike???.s
 
 realclean: clean
-	rm -rf bn_sike???/

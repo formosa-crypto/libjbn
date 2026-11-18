@@ -1,0 +1,82 @@
+/* libjbn -- bn_mul_export: C entry points for bn_mul.
+
+   Required at the top level (the 2n scope), so that symbols are unqualified.
+   Expects:   H::nlimbs, H::BN::, H::MUL:: // working size n
+              BN::                         // size 2n (store of results)
+*/
+
+export fn bn_ps_muln(reg u64 rp ap bp)
+{
+  stack u64[H::nlimbs] _a _b;
+  stack u64[nlimbs] _r;
+  stack u64 _rp;
+  reg ptr u64[H::nlimbs] a b;
+  reg ptr u64[nlimbs] r;
+
+  _rp = rp;
+  a = _a;
+  a = H::BN::_load_(a,ap);
+  b = _b;
+  b = H::BN::_load_(b,bp);
+  r = _r;
+  r = H::MUL::_ps_muln(r, a, b);
+  rp = _rp;
+  BN::_store_(rp, r);
+}
+
+export fn bn_ps_sqrn(reg u64 rp ap)
+{
+  stack u64[H::nlimbs] _a;
+  stack u64[nlimbs] _r;
+  stack u64 _rp;
+  reg ptr u64[H::nlimbs] a;
+  reg ptr u64[nlimbs] r;
+
+  _rp = rp;
+  a = _a;
+  a = H::BN::_load_(a, ap);
+  r = _r;
+  r = H::MUL::_ps_sqrn_(r, a);
+  rp = _rp;
+  BN::_store_(rp, r);
+}
+
+
+export fn bn_os_muln(reg u64 rp ap bp)
+{
+  stack u64[H::nlimbs] _a _b;
+  stack u64[nlimbs] _r;
+  stack u64 _rp;
+  reg ptr u64[H::nlimbs] a b;
+  reg ptr u64[nlimbs] r;
+
+  _rp = rp;
+  a = _a;
+  a = H::BN::_load_(a,ap);
+  b = _b;
+  b = H::BN::_load_(b,bp);
+  r = _r;
+  r = H::MUL::_os_muln(r, a, b);
+  rp = _rp;
+  BN::_store_(rp, r);
+}
+
+/*
+export fn bn_os_sqrn(reg u64 rp ap)
+{
+  stack u64[H::nlimbs] _a;
+  stack u64[nlimbs] _r;
+  stack u64 _rp;
+  reg ptr u64[H::nlimbs] a;
+  reg ptr u64[nlimbs] r;
+
+  _rp = rp;
+  a = _a;
+  a = H::BN::_load_(a, ap);
+  r = _r;
+  r = H::MUL::_os_sqrn_(r, a);
+  rp = _rp;
+  BN::_store_(rp, r);
+}
+*/
+

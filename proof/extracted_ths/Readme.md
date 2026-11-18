@@ -1,39 +1,29 @@
 
-We need to perform a manual transformation on the file extracyed from
-the original `*.mjazz` files in order to emulate the treatment
-prescribed in https://github.com/jasmin-lang/jasmin/issues/519.
+We need to perform a manual transformation on the files extracted from
+the libjbn modules in order to emulate the treatment prescribed in
+https://github.com/jasmin-lang/jasmin/issues/519.
 
 # Starting point
 
-The code was extracted into
-`../../src/amd64/red/mjazz_extracted/`, with parameters replaced
-by dummy definitions (file `preamb.jinc`):
+The code is extracted by `make` in `../../src/amd64/ref/extracted/`
+(old array model). Every library module is instantiated once, in its
+own namespace, by the harness `libjbn_abs.jazz`, following the same
+layout as any libjbn program (see the top-level README): the top level
+is the 2n scope, `H` is the size scope n.
 
-```
-param int nlimbs = 11;
-param int nlimbsexp = 13;
-
-u64[nlimbs] glob_P = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
-u64[nlimbs] glob_mP = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
-u64 glob_P0i = 0;
-u64[nlimbsexp] glob_Pm2 = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
-u64[nlimbs] glob_exp0 = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
-u64[nlimbs] glob_rMP = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
-
-fn fun_mulU
-( reg mut ptr u64[nlimbs] r
-, reg const ptr u64[nlimbs] a
-) -> reg ptr u64[nlimbs] { return r; }
-
-fn fun_sqrU
-( reg mut ptr u64[nlimbs] r
-) -> reg ptr u64[nlimbs] { return r; }
-
-fn fun_red
-( reg const ptr u64[2*nlimbs] a
-, reg mut ptr u64[nlimbs] r
-) -> reg ptr u64[nlimbs] { return r; }
-```
+- Integer parameters and globals are dummies (`preamb.jinc`, required
+  inside `H`): `nlimbs = 11` (so `2*nlimbs` appears as `22`, or as
+  `2 * 11`), `nlimbsexp = 13`, and `glob_P`, `glob_mP`, `glob_P0i`,
+  `glob_Pm2`, `glob_exp0`, `glob_rMP` filled with zeros.
+- Function parameters (`fun_mulU`, `fun_sqrU`, `fun_muln`, `fun_sqrn`,
+  `fun_red`, `fun_kmuln`) are stubs, declared in `libjbn_abs.jazz`
+  inside the namespace of the module that takes them (Jasmin does not
+  allow a function to shadow one visible from an enclosing namespace).
+- Sub-instances are not abstract: `fp_base` applies `bn_exp` to its own
+  `_mulmU_`/`_sqrmU_` (sub-namespace `EXP`, wrappers `fun_mulU`,
+  `fun_sqrU`), and `fp_mont` includes `fp_base` with `fun_red` bound to
+  `_redM_`. In the theories these correspond to `clone Bn_exp as BNE`
+  (in `Fp_base`) and `clone Fp_base as FPB` (in `Fp_mont`).
 
 Upon extraction, `param int` is currently inlined in the extracted
 code and global constants are EC's `abbrev`s. Notice that types might
@@ -77,15 +67,32 @@ functions such as `bn_rnd` -- these can be handled with a specific theory...)
      (? remove SC module parameter ?)
   ```
 - Undo the inlining of integer parameters (e.g. `nlimbs`): this is
-  done by replacing the placeholder used in `preamb.jinc` (shown
+  done by replacing the placeholder used in `preamb.jinc` (see
   above) by the original parameter:
   ```
 	  11 (nlimbs parameter)  ==>  nlimbs
 	  13 (nlimbsext parameter)  ==>  nlimbsexp
   ```
-- Remove the qualifier prefix (e.g. `BN`, `BNE`, `FP`, `FPM`)
+- Remove the namespace prefix. jasmin2ec writes `A::B::f` as `aA__B__f`
+  (path components joined by `__`, first letter lowercased); since
+  libjbn procedure names start with `_`, there are three or four
+  underscores after the prefix. The prefix of each module instance
+  in `libjbn_abs.jazz` (and the qualifier it replaces in the old,
+  template-based extraction) is:
   ```
-	  bN  ==>  
-	  fP  ==>  
-	  ...
+      uTIL__           (was bNUTIL)   bn_util
+      h__BN__          (was bN)       bn_base, size nlimbs
+      bN__             (was bN2)      bn_base, size 2*nlimbs
+      h__RND__         (was bNRND)    bn_rnd
+      h__MUL__         (was bNMUL)    bn_mul
+      h__MULREG__      (was bNMULREG) bn_mulreg
+      kAR__            (was bNKAR)    bn_karatsuba
+      h__EXP__         (was bNE)      bn_exp (abstract fun_mulU/fun_sqrU)
+      h__FP__          (was fP)       fp_base (abstract fun_red/fun_muln/fun_sqrn)
+      h__FP__EXP__     (was bNE)      bn_exp applied inside fp_base
+      h__FPM__         (was fPM/fP)   fp_mont, with fp_base included
+      h__FPM__EXP__    (was bNE)      bn_exp applied inside fp_mont's fp_base
+      h__glob_         (was glob_)    dummy globals
   ```
+  The stubs keep their parameter name behind the prefix (e.g.
+  `h__FP__fun_red`, `kAR__fun_kmuln`).
