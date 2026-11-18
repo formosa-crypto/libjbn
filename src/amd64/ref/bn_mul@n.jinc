@@ -370,7 +370,9 @@ inline fn __mont_redM
     x[k % 3] = 0;
   }
 
-  lastbit = 0;
+  // the accumulator (column 2*nlimbs-1) may exceed one word: its second
+  // word is the initial value of the extra (most significant) bit
+  lastbit = x[(2*nlimbs) % 3];
   cf, x[(2*nlimbs-1) % 3] += a[2*nlimbs-1];
   _, lastbit += 0 + cf;
 

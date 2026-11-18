@@ -231,6 +231,102 @@ rewrite modz_small // StdOrder.IntOrder.ger0_norm 1:StdOrder.IntOrder.expr_ge0 /
 by split; [apply addz_ge0 | move=> _].
 qed.
 
+(* The accumulator of product scanning, at column [k]: its words are
+   [x.[k%%3]] (least significant), [x.[(k+1)%%3]] and [x.[(k+2)%%3]] (top). *)
+op valAcc (k: int) (x: W64.t Array3.t) : int =
+  bn_seq [ x.[k%%3]; x.[(k+1)%%3]; x.[(k+2)%%3] ].
+
+lemma valAccE k x:
+ valAcc k x = to_uint x.[k%%3] + to_uint x.[(k+1)%%3] * W64.modulus
+              + to_uint x.[(k+2)%%3] * W64.modulus^2.
+proof. by rewrite /valAcc /bn_seq /=; ring. qed.
+
+lemma valAcc_cmp k x:
+ 0 <= valAcc k x < (to_uint x.[(k+2)%%3] + 1) * W64.modulus^2.
+proof.
+rewrite valAccE /=.
+move: (W64.to_uint_cmp x.[k%%3]) (W64.to_uint_cmp x.[(k+1)%%3]) (W64.to_uint_cmp x.[(k+2)%%3]).
+smt().
+qed.
+
+(* the least significant word *)
+lemma valAcc_mod k x: valAcc k x %% W64.modulus = to_uint x.[k%%3].
+proof.
+rewrite valAccE.
+have ->: to_uint x.[k %% 3] + to_uint x.[(k + 1) %% 3] * W64.modulus
+         + to_uint x.[(k + 2) %% 3] * W64.modulus ^ 2
+         = to_uint x.[k %% 3] + (to_uint x.[(k + 1) %% 3]
+           + to_uint x.[(k + 2) %% 3] * W64.modulus) * W64.modulus
+ by rewrite expr2; ring.
+by rewrite modzMDr modz_small //; move: (W64.to_uint_cmp x.[k%%3]); smt().
+qed.
+
+(* moving to the next column, once the least significant word is consumed *)
+lemma valAccS k x:
+ valAcc (k+1) x.[k%%3 <- W64.zero] = valAcc k x %/ W64.modulus.
+proof.
+rewrite !valAccE !get_setE 1..3:/#.
+have ->: (k + 1) %% 3 = k %% 3 <=> false by smt().
+have ->: (k + 1 + 1) %% 3 = (k + 2) %% 3 by smt().
+have ->: (k + 2) %% 3 = k %% 3 <=> false by smt().
+have ->: (k + 1 + 2) %% 3 = k %% 3 by smt().
+rewrite /=.
+have ->: to_uint x.[k %% 3] + to_uint x.[(k + 1) %% 3] * W64.modulus
+         + to_uint x.[(k + 2) %% 3] * W64.modulus ^ 2
+         = to_uint x.[k %% 3] + (to_uint x.[(k + 1) %% 3]
+           + to_uint x.[(k + 2) %% 3] * W64.modulus) * W64.modulus
+ by rewrite expr2; ring.
+rewrite divzMDr // divz_small //.
+by move: (W64.to_uint_cmp x.[k%%3]); smt().
+qed.
+
+(* exact accumulation, counting the carries in the top word *)
+hoare __addacc3_acc_h _a _b0 _b1 _k:
+ M.__addacc3
+ : a=_a /\ b0=_b0 /\ b1=_b1 /\ k=_k
+   /\ to_uint _a.[(_k+2)%%3] < W64.modulus - 1
+ ==> valAcc _k res = valAcc _k _a + to_uint _b0 + to_uint _b1 * W64.modulus
+     /\ to_uint res.[(_k+2)%%3] <= to_uint _a.[(_k+2)%%3] + 1.
+proof.
+conseq (__addacc3_exact_h _a _b0 _b1 _k).
+ move=> &hr /> Htop.
+ have [_ Hv] := valAcc_cmp k{hr} a{hr}.
+ have [_ Hb] := bn_seq_cmp [b0{hr}; b1{hr}].
+ by move: Hv Hb; rewrite /valAcc /=; smt().
+move=> &hr /> Htop r.
+rewrite -/(valAcc k{hr} r) -/(valAcc k{hr} a{hr}) => E.
+have [_ Ha] := valAcc_cmp k{hr} a{hr}.
+split; first by rewrite E /bn_seq /=; ring.
+move: (W64.to_uint_cmp r.[k{hr} %% 3]) (W64.to_uint_cmp r.[(k{hr}+1) %% 3])
+      (W64.to_uint_cmp b0{hr}) (W64.to_uint_cmp b1{hr}).
+by move: E Ha; rewrite !valAccE /bn_seq /=; smt().
+qed.
+
+hoare __addacc3x2_acc_h _a _x _y _k:
+ M.__addacc3x2
+ : a=_a /\ x=_x /\ y=_y /\ k=_k
+   /\ to_uint _a.[(_k+2)%%3] < W64.modulus - 2
+ ==> valAcc _k res = valAcc _k _a + 2 * (to_uint _x * to_uint _y)
+     /\ to_uint res.[(_k+2)%%3] <= to_uint _a.[(_k+2)%%3] + 2.
+proof.
+conseq (__addacc3x2_exact_h _a _x _y _k).
+ move=> &hr /> Htop.
+ have [_ Hv] := valAcc_cmp k{hr} a{hr}.
+ have Hxy: to_uint x{hr} * to_uint y{hr} <= (W64.modulus - 1) * (W64.modulus - 1).
+  by apply StdOrder.IntOrder.ler_pmul;
+     move: (W64.to_uint_cmp x{hr}) (W64.to_uint_cmp y{hr}) => /=; smt().
+ by move: Hv Hxy; rewrite /valAcc /=; smt().
+move=> &hr /> Htop r.
+rewrite -/(valAcc k{hr} r) -/(valAcc k{hr} a{hr}) => E.
+have [_ Ha] := valAcc_cmp k{hr} a{hr}.
+split; first by rewrite E; ring.
+have Hxy: to_uint x{hr} * to_uint y{hr} <= (W64.modulus - 1) * (W64.modulus - 1).
+ by apply StdOrder.IntOrder.ler_pmul;
+    move: (W64.to_uint_cmp x{hr}) (W64.to_uint_cmp y{hr}) => /=; smt().
+move: (W64.to_uint_cmp r.[k{hr} %% 3]) (W64.to_uint_cmp r.[(k{hr}+1) %% 3]).
+by move: E Ha Hxy; rewrite !valAccE /=; smt().
+qed.
+
 (** CORRECTNESS lemmas [phoare] *)
 phoare __mask_zf_ph _mask:
  [ M.__mask_zf

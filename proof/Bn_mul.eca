@@ -1,4 +1,5 @@
-require import AllCore Int IntDiv List.
+require import AllCore Int IntDiv List StdOrder StdBigop.
+import Bigint BIA.
 
 from Jasmin require import JModel_x86.
 import SLH64.
@@ -11,6 +12,10 @@ require JBigNumber.
 (* Parameters *)
 op nlimbs: int.
 axiom gt0_nlimbs: 0 < nlimbs.
+(* the 3-word accumulators of product scanning must not overflow: their
+   top word counts the carries of a column (at most about 2*nlimbs) *)
+axiom nlimbs_bnd: 4 * nlimbs < W64.modulus.
+lemma nlimbs_bndN: 4 * nlimbs < 18446744073709551616 by have := nlimbs_bnd.
 
 clone export JBigNumber.BigN
  with op nlimbs <- nlimbs
@@ -353,7 +358,7 @@ module M = {
       x.[(k %% 3)] <- (W64.of_int 0);
       k <- (k + 1);
     }
-    lastbit <- (W64.of_int 0);
+    lastbit <- x.[((2 * nlimbs) %% 3)];
     (aux, aux_0) <-
     (adc_64 x.[(((2 * nlimbs) - 1) %% 3)] a.[((2 * nlimbs) - 1)] false);
     cf <- aux;
@@ -465,13 +470,399 @@ qed.
  **                           CORRECTNESS lemmas [hoare]                     **
  ******************************************************************************)
 
+(* emitting the least significant word of the accumulator (column [k])
+   into [r.[k]], and moving to the next column, preserves the value *)
+(* (stated with the value of W64.modulus, as it appears in the goals
+   produced by the program logic) *)
+lemma col_step (r: BN2.t) (x: W64.t Array3.t) k:
+  0 <= k < 2*nlimbs =>
+  BN2.bnk (k+1) r.[k <- x.[k%%3]]
+  + BNUTIL.valAcc (k+1) x.[k%%3 <- W64.zero] * 18446744073709551616^(k+1)
+  = BN2.bnk k r + BNUTIL.valAcc k x * 18446744073709551616^k.
+proof.
+move=> Hk; rewrite (_: 18446744073709551616 = W64.modulus) 1://.
+rewrite BN2.bnkS 1:/# /= BN2.A.get_setE 1:/# /= BN2.bnk_setO 1:/# BNUTIL.valAccS.
+rewrite -BNUTIL.valAcc_mod exprS 1:/#.
+have E := divz_eq (BNUTIL.valAcc k x) W64.modulus.
+by rewrite {3}E /=; ring.
+qed.
+
+(* the last column: when the value fits in 2*nlimbs words, the accumulator
+   holds a single word, which is the most significant word of the result *)
+lemma last_col (r: BN2.t) (x: W64.t Array3.t) P:
+  P < 18446744073709551616 ^ (2*nlimbs) =>
+  BN2.bnk (2*nlimbs-1) r
+  + BNUTIL.valAcc (2*nlimbs-1) x * 18446744073709551616 ^ (2*nlimbs-1) = P =>
+  BN2.bnk (2*nlimbs) r.[2*nlimbs-1 <- x.[(2*nlimbs-1)%%3]] = P.
+proof.
+move=> HP Hinv.
+have Hn := gt0_nlimbs.
+have HV: BNUTIL.valAcc (2*nlimbs-1) x < 18446744073709551616.
+ have [Hr0 _] := BN2.bnk_cmp (2*nlimbs-1) r.
+ have Hp: 0 < 18446744073709551616 ^ (2*nlimbs-1) by apply StdOrder.IntOrder.expr_gt0.
+ have Ep: 18446744073709551616 ^ (2*nlimbs)
+          = 18446744073709551616 * 18446744073709551616 ^ (2*nlimbs-1).
+  rewrite {1}(_: 2*nlimbs = 2*nlimbs - 1 + 1); first by ring.
+  by rewrite exprS //; smt().
+ rewrite -(StdOrder.IntOrder.ltr_pmul2r _ Hp).
+ smt().
+have Hx: to_uint x.[(2*nlimbs-1)%%3] = BNUTIL.valAcc (2*nlimbs-1) x.
+ have [HV0 _] := BNUTIL.valAcc_cmp (2*nlimbs-1) x.
+ by rewrite -BNUTIL.valAcc_mod modz_small //.
+rewrite {1}(_: 2 * nlimbs = 2 * nlimbs - 1 + 1); first by ring.
+rewrite BN2.bnkS 1:/# /= BN2.A.get_setE 1:/# /= BN2.bnk_setO 1:/# Hx -Hinv.
+by ring.
+qed.
+
+(* the product of two numbers of nlimbs words fits in 2*nlimbs words *)
+lemma mul_bnd (a b: BN.t): bn a * bn b < 18446744073709551616 ^ (2*nlimbs).
+proof.
+have [Ha0 Ha1] := bnk_cmp nlimbs a; have [Hb0 Hb1] := bnk_cmp nlimbs b.
+rewrite (_: 2*nlimbs = nlimbs + nlimbs) 1:/# exprD_nneg; first 2 smt(gt0_nlimbs).
+by apply StdOrder.IntOrder.ltr_pmul; move: Ha1 Hb1; rewrite /=; smt().
+qed.
+
+(* one column of the product: the accumulator receives the sum of the
+   [a.[i] * b.[k-i]], for [istart <= i < iend] *)
+hoare __muln_innerloop_h _x _k _istart _iend _a _b:
+ M.__muln_innerloop
+ : x=_x /\ k=_k /\ istart=_istart /\ iend=_iend /\ a=_a /\ b=_b
+   /\ _istart <= _iend /\ to_uint _x.[(_k+2)%%3] + (_iend - _istart) < W64.modulus
+ ==> BNUTIL.valAcc _k res
+     = BNUTIL.valAcc _k _x
+       + bigi predT (fun i => to_uint _a.[i] * to_uint _b.[_k-i]) _istart _iend
+     /\ to_uint res.[(_k+2)%%3] <= to_uint _x.[(_k+2)%%3] + (_iend - _istart).
+proof.
+proc.
+while (k = _k /\ a = _a /\ b = _b /\ inc = _iend /\ _istart <= i <= _iend
+       /\ to_uint _x.[(_k+2)%%3] + (_iend - _istart) < W64.modulus
+       /\ BNUTIL.valAcc _k x
+          = BNUTIL.valAcc _k _x
+            + bigi predT (fun i => to_uint _a.[i] * to_uint _b.[_k-i]) _istart i
+       /\ to_uint x.[(_k+2)%%3] <= to_uint _x.[(_k+2)%%3] + (i - _istart)).
+ wp; ecall (BNUTIL.__addacc3_acc_h x t0 t1 k); wp; skip => /> &hr Hi1 _ Hb Hv Ht Hlt.
+ split; first smt().
+ move=> _ r Hr Htr.
+ split; first smt().
+ split; last smt().
+ rewrite Hr Hv big_int_recr 1:/# /= W64.muluE /=.
+ by have := W64.mulhiP _a.[i{hr}] _b.[_k - i{hr}]; rewrite /=; smt().
+wp; skip => /> Hle Hb.
+split; first by rewrite big_geq.
+move=> i0 x0 Hge Hi0 Hi1 Hv Ht.
+by rewrite Hv (_: i0 = _iend) 1:/#; smt().
+qed.
+
+hoare __ps_muln_h _a _b:
+ M.__ps_muln : a=_a /\ b=_b ==> BN2.bn res = bn _a * bn _b.
+proof.
+proc.
+(* columns nlimbs .. 2*nlimbs-2 *)
+wp; while (a = _a /\ b = _b /\ inc = 2*nlimbs-1 /\ nlimbs <= k <= 2*nlimbs-1
+           /\ to_uint x.[(k+2)%%3] = 0
+           /\ BN2.bnk k r + BNUTIL.valAcc k x * W64.modulus^k
+              = val_mul_comba_up nlimbs _a _b + val_mul_comba_down k _a _b).
+ wp; ecall (__muln_innerloop_h x k (k - nlimbs + 1) nlimbs a b).
+ skip => /> &hr Hk1 _ Htop Hinv Hk2.
+ split; first smt(nlimbs_bndN).
+ move=> _ _ rx Hres Htres.
+ split; first smt().
+ split; first by rewrite Array3.get_setE 1:/# (_: (k{hr} + 3) %% 3 = k{hr} %% 3) 1:/#.
+ have := col_step r{hr} rx k{hr} _; first smt().
+ move=> ->.
+ rewrite Hres mulzDl addzA Hinv val_mul_comba_downS 1:/#.
+ rewrite (_: k{hr} - nlimbs + 1 = 1 + k{hr} - nlimbs) 1:/#.
+ by rewrite (_: W64.modulus = 18446744073709551616) //; ring.
+(* columns 1 .. nlimbs-1 *)
+wp; while (a = _a /\ b = _b /\ 1 <= k <= nlimbs /\ to_uint x.[(k+2)%%3] = 0
+           /\ BN2.bnk k r + BNUTIL.valAcc k x * W64.modulus^k
+              = val_mul_comba_up k _a _b).
+ wp; ecall (__muln_innerloop_h x k 0 (k+1) a b).
+ skip => /> &hr Hk1 _ Htop Hinv Hk2.
+ split; first smt(nlimbs_bndN).
+ move=> _ _ rx Hres Htres.
+ split; first smt().
+ split; first by rewrite Array3.get_setE 1:/# (_: (k{hr} + 3) %% 3 = k{hr} %% 3) 1:/#.
+ have := col_step r{hr} rx k{hr} _; first smt().
+ move=> ->.
+ rewrite Hres mulzDl addzA Hinv val_mul_comba_upS 1:/#.
+ by rewrite (_: W64.modulus = 18446744073709551616) //; ring.
+wp; skip => />; move=> &hr; split.
+(* column 0 *)
+ split; first smt(gt0_nlimbs).
+ have := val_mul_comba_upS 0 _a _b _ => //=.
+ rewrite val_mul_comba_up0 big_int1 /= => ->.
+ rewrite BN2.bnk1 /= BNUTIL.valAccE /= W64.muluE /= BN2.A.get_setE; first smt(gt0_nlimbs).
+ by have := W64.mulhiP _a.[0] _b.[0]; rewrite /=; smt().
+move=> k0 r0 x0 Hk0 Hk01 Hk02 Htop Hinv.
+split.
+ split; first smt(gt0_nlimbs).
+ have E0: k0 = nlimbs by smt().
+ by move: Htop Hinv; rewrite E0 => -> ->; rewrite val_mul_comba_down0.
+(* last column *)
+move=> k1 r1 x1 Hk1 Hk11 Hk12 Htop1 Hinv1.
+have E1: k1 = 2*nlimbs - 1 by smt().
+apply (last_col r1 x1); first by apply mul_bnd.
+by move: Hinv1; rewrite E1 -mul_comba.
+qed.
+
+hoare _ps_muln_h _a _b:
+ M._ps_muln : a=_a /\ b=_b ==> BN2.bn res = bn _a * bn _b.
+proof. by proc; ecall (__ps_muln_h a b). qed.
+
 hoare _ps_muln__h _a _b:
  M._ps_muln_ : a=_a /\ b=_b ==> bn res = bn _a * bn _b.
-admitted.
+proof. by proc; wp; ecall (_ps_muln_h a b); auto. qed.
+
+(* a column of a square: twice its lower half, plus the middle term *)
+lemma sqr_col (a: BN.t) k lo:
+  lo <= (k+1) %/ 2 =>
+  bigi predT (fun i => to_uint a.[i] * to_uint a.[k-i]) lo (k - lo + 1)
+  = 2 * bigi predT (fun i => to_uint a.[i] * to_uint a.[k-i]) lo ((k+1) %/ 2)
+    + (if k %% 2 = 0 then to_uint a.[k %/ 2] * to_uint a.[k %/ 2] else 0).
+proof.
+move=> H; rewrite JBigNumber.bigi_sym //=.
+ by move=> i /=; rewrite (_: k - (k - i) = i) 1:/# mulzC.
+by case: (k %% 2 = 0) => // Hk; rewrite (_: k - k %/ 2 = k %/ 2) 1:/#.
+qed.
+
+(* half a column of a square: the accumulator receives twice the sum of
+   the [a.[i] * a.[k-i]], for [istart <= i < iend] *)
+hoare __sqrn_innerloop_h _x _k _istart _iend _a:
+ M.__sqrn_innerloop
+ : x=_x /\ k=_k /\ istart=_istart /\ iend=_iend /\ a=_a
+   /\ _istart <= _iend
+   /\ to_uint _x.[(_k+2)%%3] + 2 * (_iend - _istart) < W64.modulus
+ ==> BNUTIL.valAcc _k res
+     = BNUTIL.valAcc _k _x
+       + 2 * bigi predT (fun i => to_uint _a.[i] * to_uint _a.[_k-i]) _istart _iend
+     /\ to_uint res.[(_k+2)%%3] <= to_uint _x.[(_k+2)%%3] + 2 * (_iend - _istart).
+proof.
+proc.
+while (k = _k /\ a = _a /\ inc = _iend /\ _istart <= i <= _iend
+       /\ to_uint _x.[(_k+2)%%3] + 2 * (_iend - _istart) < W64.modulus
+       /\ BNUTIL.valAcc _k x
+          = BNUTIL.valAcc _k _x
+            + 2 * bigi predT (fun i => to_uint _a.[i] * to_uint _a.[_k-i]) _istart i
+       /\ to_uint x.[(_k+2)%%3] <= to_uint _x.[(_k+2)%%3] + 2 * (i - _istart)).
+ wp; ecall (BNUTIL.__addacc3x2_acc_h x ti tj k); wp; skip => /> &hr Hi1 _ Hb Hv Ht Hlt.
+ split; first smt().
+ move=> _ r Hr Htr.
+ split; first smt().
+ split; last smt().
+ by rewrite Hr Hv big_int_recr 1:/# /=; ring.
+wp; skip => /> Hle Hb.
+split; first by rewrite big_geq.
+move=> i0 x0 Hge Hi0 Hi1 Hv Ht.
+by rewrite Hv (_: i0 = _iend) 1:/#; smt().
+qed.
+
+hoare __ps_sqrn_h _a:
+ M.__ps_sqrn : a=_a ==> BN2.bn res = bn _a * bn _a.
+proof.
+proc.
+(* columns nlimbs .. 2*nlimbs-2: half column, then the middle term (k even) *)
+wp; while (a = _a /\ inc = 2*nlimbs-1 /\ nlimbs <= k <= 2*nlimbs-1
+           /\ to_uint x.[(k+2)%%3] = 0
+           /\ BN2.bnk k r + BNUTIL.valAcc k x * W64.modulus^k
+              = val_mul_comba_up nlimbs _a _a + val_mul_comba_down k _a _a).
+ wp.
+ seq 1: (a = _a /\ inc = 2*nlimbs-1 /\ nlimbs <= k < 2*nlimbs-1
+         /\ to_uint x.[(k+2)%%3] <= 2 * ((k+1) %/ 2 - (k - nlimbs + 1))
+         /\ BN2.bnk k r + BNUTIL.valAcc k x * W64.modulus^k
+            = val_mul_comba_up nlimbs _a _a + val_mul_comba_down k _a _a
+              + 2 * bigi predT (fun i => to_uint _a.[i] * to_uint _a.[k-i])
+                               (k - nlimbs + 1) ((k+1) %/ 2) * W64.modulus^k).
+  ecall (__sqrn_innerloop_h x k (k - nlimbs + 1) ((k+1) %/ 2) a).
+  skip => /> &hr Hk1 _ Htop Hinv Hk2.
+  split; first smt(nlimbs_bndN).
+  move=> _ _ rx Hres Htres.
+  split; first smt().
+  by rewrite Hres mulzDl addzA Hinv; ring.
+ if.
+  wp; ecall (BNUTIL.__addacc3_acc_h x t0 t1 k); wp.
+  skip => /> &hr Hk1 Hk2 Htop Hinv Heven.
+  split; first smt(nlimbs_bndN).
+  move=> _ rx Hres Htres.
+  split; first smt().
+  split; first by rewrite Array3.get_setE 1:/# (_: (k{hr} + 3) %% 3 = k{hr} %% 3) 1:/#.
+  have := col_step r{hr} rx k{hr} _; first smt().
+  move=> ->.
+  have := W64.mulhiP _a.[k{hr} %/ 2] _a.[k{hr} %/ 2].
+  rewrite (_: W64.modulus = 18446744073709551616) // => Hm.
+  rewrite Hres W64.muluE /= -addzA.
+  rewrite (_: to_uint (_a.[k{hr} %/ 2] * _a.[k{hr} %/ 2])
+              + to_uint (mulhi _a.[k{hr} %/ 2] _a.[k{hr} %/ 2]) * 18446744073709551616
+              = to_uint _a.[k{hr} %/ 2] * to_uint _a.[k{hr} %/ 2]) 1:/#.
+  rewrite mulzDl addzA Hinv val_mul_comba_downS 1:/#.
+  rewrite (_: 1 + k{hr} - nlimbs = k{hr} - nlimbs + 1) 1:/#.
+  have := sqr_col _a k{hr} (k{hr} - nlimbs + 1) _; first smt().
+  rewrite (_: k{hr} - (k{hr} - nlimbs + 1) + 1 = nlimbs) 1:/# Heven /= => ->.
+  by ring.
+ wp; skip => /> &hr Hk1 Hk2 Htop Hinv Hodd.
+ split; first smt().
+ split; first by rewrite Array3.get_setE 1:/# (_: (k{hr} + 3) %% 3 = k{hr} %% 3) 1:/#.
+ have := col_step r{hr} x{hr} k{hr} _; first smt().
+ move=> ->.
+ rewrite Hinv val_mul_comba_downS 1:/#.
+ rewrite (_: 1 + k{hr} - nlimbs = k{hr} - nlimbs + 1) 1:/#.
+ have := sqr_col _a k{hr} (k{hr} - nlimbs + 1) _; first smt().
+ rewrite (_: k{hr} - (k{hr} - nlimbs + 1) + 1 = nlimbs) 1:/# Hodd /= => ->.
+ by ring.
+(* columns 1 .. nlimbs-1 *)
+wp; while (a = _a /\ 1 <= k <= nlimbs /\ to_uint x.[(k+2)%%3] = 0
+           /\ BN2.bnk k r + BNUTIL.valAcc k x * W64.modulus^k
+              = val_mul_comba_up k _a _a).
+ wp.
+ seq 1: (a = _a /\ 1 <= k < nlimbs /\ to_uint x.[(k+2)%%3] <= 2 * ((k+1) %/ 2)
+         /\ BN2.bnk k r + BNUTIL.valAcc k x * W64.modulus^k
+            = val_mul_comba_up k _a _a
+              + 2 * bigi predT (fun i => to_uint _a.[i] * to_uint _a.[k-i])
+                               0 ((k+1) %/ 2) * W64.modulus^k).
+  ecall (__sqrn_innerloop_h x k 0 ((k+1) %/ 2) a).
+  skip => /> &hr Hk1 _ Htop Hinv Hk2.
+  split; first smt(nlimbs_bndN).
+  move=> _ _ rx Hres Htres.
+  split; first smt().
+  by rewrite Hres mulzDl addzA Hinv; ring.
+ if.
+  wp; ecall (BNUTIL.__addacc3_acc_h x t0 t1 k); wp.
+  skip => /> &hr Hk1 Hk2 Htop Hinv Heven.
+  split; first smt(nlimbs_bndN).
+  move=> _ rx Hres Htres.
+  split; first smt().
+  split; first by rewrite Array3.get_setE 1:/# (_: (k{hr} + 3) %% 3 = k{hr} %% 3) 1:/#.
+  have := col_step r{hr} rx k{hr} _; first smt().
+  move=> ->.
+  have := W64.mulhiP _a.[k{hr} %/ 2] _a.[k{hr} %/ 2].
+  rewrite (_: W64.modulus = 18446744073709551616) // => Hm.
+  rewrite Hres W64.muluE /= -addzA.
+  rewrite (_: to_uint (_a.[k{hr} %/ 2] * _a.[k{hr} %/ 2])
+              + to_uint (mulhi _a.[k{hr} %/ 2] _a.[k{hr} %/ 2]) * 18446744073709551616
+              = to_uint _a.[k{hr} %/ 2] * to_uint _a.[k{hr} %/ 2]) 1:/#.
+  rewrite mulzDl addzA Hinv val_mul_comba_upS 1:/#.
+  have := sqr_col _a k{hr} 0 _; first smt().
+  rewrite (_: k{hr} - 0 + 1 = k{hr} + 1) 1:/# Heven /= => ->.
+  by ring.
+ wp; skip => /> &hr Hk1 Hk2 Htop Hinv Hodd.
+ split; first smt().
+ split; first by rewrite Array3.get_setE 1:/# (_: (k{hr} + 3) %% 3 = k{hr} %% 3) 1:/#.
+ have := col_step r{hr} x{hr} k{hr} _; first smt().
+ move=> ->.
+ rewrite Hinv val_mul_comba_upS 1:/#.
+ have := sqr_col _a k{hr} 0 _; first smt().
+ rewrite (_: k{hr} - 0 + 1 = k{hr} + 1) 1:/# Hodd /= => ->.
+ by ring.
+wp; skip => />; move=> &hr; split.
+(* column 0 *)
+ split; first smt(gt0_nlimbs).
+ have := val_mul_comba_upS 0 _a _a _ => //=.
+ rewrite val_mul_comba_up0 big_int1 /= => ->.
+ rewrite BN2.bnk1 /= BNUTIL.valAccE /= W64.muluE /= BN2.A.get_setE; first smt(gt0_nlimbs).
+ by have := W64.mulhiP _a.[0] _a.[0]; rewrite /=; smt().
+move=> k0 r0 x0 Hk0 Hk01 Hk02 Htop Hinv.
+split.
+ split; first smt(gt0_nlimbs).
+ have E0: k0 = nlimbs by smt().
+ by move: Htop Hinv; rewrite E0 => -> ->; rewrite val_mul_comba_down0.
+(* last column *)
+move=> k1 r1 x1 Hk1 Hk11 Hk12 Htop1 Hinv1.
+have E1: k1 = 2*nlimbs - 1 by smt().
+apply (last_col r1 x1); first by apply mul_bnd.
+by move: Hinv1; rewrite E1 -mul_comba.
+qed.
+
+hoare _ps_sqrn_h _a:
+ M._ps_sqrn : a=_a ==> BN2.bn res = bn _a * bn _a.
+proof. by proc; ecall (__ps_sqrn_h a). qed.
 
 hoare _ps_sqrn__h _a:
  M._ps_sqrn_ : a=_a ==> bn res = bn _a * bn _a.
-admitted.
+proof. by proc; wp; ecall (_ps_sqrn_h a); auto. qed.
+
+(* Montgomery reduction: auxiliary lemmas *)
+
+(* the first [k] columns only depend on the limbs below [k] *)
+lemma comba_up_setO k (x y: BN.t) i v:
+  0 <= k <= i < nlimbs =>
+  val_mul_comba_up k x.[i <- v] y = val_mul_comba_up k x y.
+proof.
+move=> Hk; rewrite /val_mul_comba_up.
+apply eq_big_seq => s; rewrite mem_range => Hs /=.
+apply eq_big_seq => j; rewrite mem_range => Hj /=.
+by rewrite BN.A.get_setE 1:/# (_: j <> i) 1:/#.
+qed.
+
+(* emitting the least significant word of the accumulator (column [k])
+   into the result limb [k - nlimbs] (second half of the reduction) *)
+lemma col_stepR (r: BN.t) (x: W64.t Array3.t) k:
+  nlimbs <= k < 2*nlimbs =>
+  BN.bnk (k+1-nlimbs) r.[k-nlimbs <- x.[k%%3]] * 18446744073709551616^nlimbs
+  + BNUTIL.valAcc (k+1) x.[k%%3 <- W64.zero] * 18446744073709551616^(k+1)
+  = BN.bnk (k-nlimbs) r * 18446744073709551616^nlimbs
+    + BNUTIL.valAcc k x * 18446744073709551616^k.
+proof.
+move=> Hk; rewrite (_: 18446744073709551616 = W64.modulus) 1://.
+have Hn := gt0_nlimbs.
+rewrite (_: k + 1 - nlimbs = (k - nlimbs) + 1); first by ring.
+rewrite BN.bnkS 1:/# /= BN.A.get_setE 1:/# /= BN.bnk_setO 1:/# BNUTIL.valAccS -BNUTIL.valAcc_mod.
+rewrite exprS 1:/# (_: W64.modulus = 18446744073709551616) //.
+have E := divz_eq (BNUTIL.valAcc k x) 18446744073709551616.
+have Ek: 18446744073709551616 ^ (k - nlimbs) * 18446744073709551616 ^ nlimbs = 18446744073709551616 ^ k.
+by rewrite -exprD_nneg 1,2:/#; congr; ring.
+rewrite {3}E; ring Ek.
+qed.
+
+(* the multiplier [m = w * U0] makes the least significant word vanish *)
+lemma mont_low0 (w U0 P0: W64.t):
+  U0 * P0 = W64.of_int (-1) =>
+  (to_uint w + to_uint (w * U0) * to_uint P0) %% W64.modulus = 0.
+proof.
+move=> H.
+rewrite -modzDmr -W64.to_uintM -W64.to_uintD.
+have ->: w + w * U0 * P0 = W64.zero.
+rewrite -W64.WRingA.mulrA H.
+have ->: W64.of_int (-1) = - W64.one by rewrite W64.of_intN.
+by rewrite W64.WRingA.mulrN1 W64.WRingA.subrr.
+by rewrite W64.to_uint0.
+qed.
+
+(* the final conditional subtraction: [T = r + lb*R] satisfies
+   [T*R = A + m*P], hence [T < 2*P] and the result is [A * R^-1 mod P] *)
+lemma montred_math (A m P R T rInv lb r: int):
+  0 <= P <= R => (rInv * R) %% P = 1 =>
+  0 <= A < P * R => 0 <= m < R =>
+  T * R = A + m * P => T = r + lb * R => 0 <= r < R => 0 <= lb =>
+  lb <= 1
+  /\ (if R <= lb * R + r + (R - P) then (r + (R - P)) %% R else r)
+     = (A * rInv) %% P.
+proof.
+move=> [HP0 HPR] Hinv [HA0 HA1] [Hm0 Hm1] HT HTr [Hr0 Hr1] Hlb.
+have HP: 0 < P by case: (P = 0) => [E|/#]; move: HA1; rewrite E /#.
+have HR: 0 < R by smt().
+have HPR': P < R by case: (P = R) => [E|/#]; move: Hinv; rewrite E modzMl.
+have HmP: m * P < R * P by rewrite StdOrder.IntOrder.ltr_pmul2r.
+have HT2: T < 2 * P by rewrite -(StdOrder.IntOrder.ltr_pmul2r R) // HT; smt().
+have HT0: 0 <= T by rewrite -(StdOrder.IntOrder.ler_pmul2r R) // HT /=; smt(StdOrder.IntOrder.mulr_ge0).
+have Hlb1: lb < 2 by rewrite -(StdOrder.IntOrder.ltr_pmul2r R) //; smt().
+have HTm: (A * rInv) %% P = T %% P.
+rewrite (_: A = T * R - m * P) 1:/#.
+rewrite (_: (T * R - m * P) * rInv = T * (R * rInv) + (- m * rInv) * P); first by ring.
+by rewrite modzMDr -modzMmr (mulzC R) Hinv.
+rewrite HTm.
+case: (P <= T) => HPT.
+have ->: lb * R + r + (R - P) = R + (T - P) by smt().
+rewrite (_: R <= R + (T - P) = true) 1:/# /=.
+have ->: r + (R - P) = (T - P) + (1 - lb) * R by smt().
+rewrite modzMDr modz_small 1:/#.
+have ->: T %% P = T - P.
+rewrite {1}(_: T = T - P + 1 * P); first by ring.
+by rewrite modzMDr modz_small /#.
+smt().
+have Hlb0: lb = 0 by smt().
+rewrite (_: R <= lb * R + r + (R - P) = false) 1:/# /=.
+by rewrite modz_small 1:/#; smt().
+qed.
 
 (* obs: [bn _a < bn __P * bn_modulus] ensures that a single final
    conditional subtraction suffices *)
@@ -485,7 +876,121 @@ lemma __mont_redM_h rInv __P __mP __U0 _a:
        ].
 proof.
 move => rInv_r P_mP U0_P0 a_bnd.
-admitted.
+proc.
+(* first loop: the multipliers m_k (column k of a + m*P is a multiple of
+   W64.modulus^(k+1)), stored in r *)
+seq 8 : (a = _a /\ _P = __P /\ _mP = __mP /\ _U0 = __U0 /\ k = nlimbs /\ to_uint x.[(nlimbs+2)%%3] = 0 /\ BNUTIL.valAcc nlimbs x * W64.modulus^nlimbs = BN2.bnk nlimbs _a + val_mul_comba_up nlimbs r __P).
+while (a = _a /\ _P = __P /\ _mP = __mP /\ _U0 = __U0 /\ 0 <= k <= nlimbs /\ to_uint x.[(k+2)%%3] = 0 /\ BNUTIL.valAcc k x * W64.modulus^k = BN2.bnk k _a + val_mul_comba_up k r __P).
+wp; ecall (BNUTIL.__addacc3_acc_h x t0 t1 k); wp; ecall (BNUTIL.__addacc3_acc_h x t0 zero k); wp; ecall (__muln_innerloop_h x k 0 k r p); wp; skip => /> &hr Hk0 Hk1 Htop Hinv Hk2.
+split; first smt(nlimbs_bndN).
+move=> _ x1 Hx1 Ht1.
+split; first smt(nlimbs_bndN).
+move=> _ x2 Hx2 Ht2.
+split; first smt(nlimbs_bndN).
+move=> _ x3 Hx3 Ht3.
+have Hn := gt0_nlimbs.
+have Hm3: BNUTIL.valAcc k{hr} x3 = BNUTIL.valAcc k{hr} x2 + to_uint (mulu x2.[k{hr} %% 3] __U0).`2 * to_uint __P.[0].
+rewrite Hx3 W64.muluE /= -addzA; congr.
+by have := W64.mulhiP ((mulu x2.[k{hr} %% 3] __U0).`2) __P.[0]; rewrite W64.muluE /=; smt().
+have Hlow: to_uint x3.[k{hr} %% 3] = 0.
+rewrite -BNUTIL.valAcc_mod Hm3 -modzDml BNUTIL.valAcc_mod W64.muluE /=.
+by apply mont_low0.
+split; first smt().
+split; first by rewrite (_: (k{hr} + 3) %% 3 = k{hr} %% 3) 1:/#.
+have Hx3e: x3.[k{hr} %% 3 <- W64.zero] = x3.
+apply Array3.ext_eq => j Hj; rewrite Array3.get_setE 1:/#.
+by case: (j = k{hr} %% 3) => // ->; rewrite W64.to_uint_eq Hlow.
+have Hsh: BNUTIL.valAcc (k{hr}+1) x3 * 18446744073709551616 ^ (k{hr}+1) = BNUTIL.valAcc k{hr} x3 * 18446744073709551616 ^ k{hr}.
+rewrite -{1}Hx3e BNUTIL.valAccS exprS 1:/#.
+have E := divz_eq (BNUTIL.valAcc k{hr} x3) W64.modulus.
+move: E; rewrite BNUTIL.valAcc_mod Hlow (_: W64.modulus = 18446744073709551616) //= => E.
+by rewrite {2}E; ring.
+rewrite Hsh Hm3 Hx2 Hx1 BN2.bnkS 1:/# /= val_mul_comba_upS 1:/# comba_up_setO 1:/#.
+rewrite big_int_recr 1:/# /= BN.A.get_setE 1:/# /=.
+have ->: bigi predT (fun (i : int) => to_uint r{hr}.[k{hr} <- (mulu x2.[k{hr} %% 3] __U0).`2].[i] * to_uint __P.[k{hr} - i]) 0 k{hr} = bigi predT (fun (i : int) => to_uint r{hr}.[i] * to_uint __P.[k{hr} - i]) 0 k{hr}.
+apply eq_big_seq => i; rewrite mem_range => Hi /=.
+by rewrite BN.A.get_setE 1:/# (_: i <> k{hr}) 1:/#.
+by rewrite !mulzDl Hinv; ring.
+wp; skip => />.
+move=> &hr; split.
+split; first smt(gt0_nlimbs).
+by rewrite BNUTIL.valAccE /= BN2.bnk0 val_mul_comba_up0.
+move=> k0 r0 x0 Hk Hk0 Hk1 Htop Hinv.
+have E: k0 = nlimbs by smt().
+by move: Htop Hinv; rewrite E.
+(* second loop: the columns nlimbs..2*nlimbs-2 of a + m*P, emitted into r
+   (the ghost m keeps the multipliers that r still holds) *)
+exists* r; elim* => m.
+ecall (BNB._cminusP__h r mP lastbit).
+wp; while (a = _a /\ _P = __P /\ _mP = __mP /\ _U0 = __U0 /\ inc = 2*nlimbs - 1 /\ nlimbs <= k <= 2*nlimbs-1 /\ to_uint x.[(k+2)%%3] = 0 /\ (forall j, k - nlimbs <= j < nlimbs => r.[j] = m.[j]) /\ BN.bnk (k - nlimbs) r * W64.modulus^nlimbs + BNUTIL.valAcc k x * W64.modulus^k = BN2.bnk k _a + val_mul_comba_up nlimbs m __P + val_mul_comba_down k m __P).
+wp; ecall (BNUTIL.__addacc3_acc_h x t0 zero k); wp; ecall (__muln_innerloop_h x k (k - nlimbs + 1) nlimbs r p); wp; skip => /> &hr Hk0 Hk1 Htop Hrm Hinv Hk2.
+have Hn := gt0_nlimbs.
+split; first smt(nlimbs_bndN).
+move=> _ _ x1 Hx1 Ht1.
+split; first smt(nlimbs_bndN).
+move=> _ x2 Hx2 Ht2.
+split; first smt().
+split; first by rewrite (_: (k{hr} + 3) %% 3 = k{hr} %% 3) 1:/# Array3.get_setE 1:/#.
+split.
+move=> j Hj1 Hj2; rewrite BN.A.get_setE 1:/#; smt().
+rewrite col_stepR 1:/# Hx2 Hx1 BN2.bnkS 1:/# /= val_mul_comba_downS 1:/#.
+rewrite (_: 1 + k{hr} - nlimbs = k{hr} - nlimbs + 1) 1:/#.
+have ->: bigi predT (fun (i : int) => to_uint r{hr}.[i] * to_uint __P.[k{hr} - i]) (k{hr} - nlimbs + 1) nlimbs = bigi predT (fun (i : int) => to_uint m.[i] * to_uint __P.[k{hr} - i]) (k{hr} - nlimbs + 1) nlimbs.
+apply eq_big_seq => i; rewrite mem_range => Hi /=.
+by rewrite Hrm 1:/#.
+rewrite (_: W64.modulus = 18446744073709551616) // !mulzDl.
+have ->: BNUTIL.valAcc k{hr} x{hr} * 18446744073709551616 ^ k{hr} = BN2.bnk k{hr} _a + val_mul_comba_up nlimbs m __P + val_mul_comba_down k{hr} m __P - BN.bnk (k{hr} - nlimbs) r{hr} * 18446744073709551616 ^ nlimbs.
+by rewrite -Hinv; ring.
+by ring.
+(* the last column, with its extra bit, and the final subtraction *)
+wp; skip => /> &hr Htop Hinv.
+have Hn := gt0_nlimbs.
+split.
+split; first smt().
+by rewrite BN.bnk0 val_mul_comba_down0.
+move=> k0 r0 x0 Hk0a Hk0b Hk0c Htop0 Hrm0 Hinv0.
+have Ek: k0 = 2*nlimbs-1 by smt().
+move: Htop0 Hinv0; rewrite Ek (_: 18446744073709551616 = W64.modulus) // => Htop0 Hinv0.
+rewrite Array3.get_setE 1:/# /=.
+pose c := addc_carry x0.[(2 * nlimbs - 1) %% 3] _a.[2 * nlimbs - 1] false.
+pose lo := (addc x0.[(2 * nlimbs - 1) %% 3] _a.[2 * nlimbs - 1] false).`2.
+pose lbw := (addc x0.[2 * nlimbs %% 3] W64.zero c).`2.
+pose r1 := r0.[nlimbs - 1 <- lo].
+move: Hinv0; rewrite (_: 2*nlimbs-1-nlimbs = nlimbs-1) 1:/# -addzA -mul_comba => Hinv0.
+have Flo: to_uint lo = to_uint x0.[(2 * nlimbs - 1) %% 3] + to_uint _a.[2 * nlimbs - 1] - W64.modulus * b2i c by rewrite /lo /c JBigNumber.addc_to_uint.
+have Flb: to_uint lbw = to_uint x0.[2 * nlimbs %% 3] + b2i c - W64.modulus * b2i (addc_carry x0.[2 * nlimbs %% 3] W64.zero c) by rewrite /lbw JBigNumber.addc_to_uint.
+have Hr1: BN.bnk nlimbs r1 = BN.bnk (nlimbs-1) r0 + to_uint lo * W64.modulus^(nlimbs-1).
+have := BN.bnkS (nlimbs-1) r1 _; first smt().
+rewrite (_: nlimbs - 1 + 1 = nlimbs) 1:/# => ->.
+by rewrite /= /r1 BN.A.get_setE 1:/# /= BN.bnk_setO 1:/#; ring.
+have Hv: BNUTIL.valAcc (2*nlimbs-1) x0 = to_uint x0.[(2*nlimbs-1) %% 3] + to_uint x0.[2*nlimbs %% 3] * W64.modulus.
+by rewrite BNUTIL.valAccE Htop0 /=.
+have Ha: BN2.bnk (2*nlimbs) _a = BN2.bnk (2*nlimbs-1) _a + to_uint _a.[2*nlimbs-1] * W64.modulus^(2*nlimbs-1).
+have := BN2.bnkS (2*nlimbs-1) _a _; first smt().
+by rewrite /= => ->; ring.
+have EM1: W64.modulus^nlimbs = W64.modulus^(nlimbs-1) * W64.modulus.
+by rewrite -exprSr 1:/#.
+have EM2: W64.modulus^(2*nlimbs-1) = W64.modulus^(nlimbs-1) * W64.modulus^nlimbs.
+by rewrite -exprD_nneg 1,2:/#; congr; ring.
+have HA1: BN.bnk (nlimbs-1) r0 * W64.modulus^nlimbs = BN2.bnk (2*nlimbs-1) _a + BN.bnk nlimbs m * BN.bnk nlimbs __P - BNUTIL.valAcc (2*nlimbs-1) x0 * W64.modulus^(2*nlimbs-1).
+by rewrite -Hinv0; ring.
+have HT: (BN.bnk nlimbs r1 + (to_uint x0.[2*nlimbs %% 3] + b2i c) * BN.bn_modulus) * BN.bn_modulus = BN2.bnk (2*nlimbs) _a + BN.bnk nlimbs m * BN.bnk nlimbs __P.
+by rewrite BN.bn_modulusE Hr1 !mulzDl HA1 Hv Ha Flo EM2 EM1; ring.
+have HP: 0 <= BN.bnk nlimbs __P <= BN.bn_modulus by move: (BN.bnk_cmp nlimbs __P) (BN.bnk_cmp nlimbs __mP); smt().
+have HA: 0 <= BN2.bnk (2*nlimbs) _a < BN.bnk nlimbs __P * BN.bn_modulus by move: (BN2.bnk_cmp (2*nlimbs) _a); smt().
+have Hm: 0 <= BN.bnk nlimbs m < BN.bn_modulus by move: (BN.bnk_cmp nlimbs m); rewrite BN.bn_modulusE.
+have Hr: 0 <= BN.bnk nlimbs r1 < BN.bn_modulus by move: (BN.bnk_cmp nlimbs r1); rewrite BN.bn_modulusE.
+have Hlb0: 0 <= to_uint x0.[2*nlimbs %% 3] + b2i c by smt(W64.to_uint_cmp).
+have [Hlb1 HMR] := montred_math (BN2.bnk (2*nlimbs) _a) (BN.bnk nlimbs m) (BN.bnk nlimbs __P) BN.bn_modulus (BN.bnk nlimbs r1 + (to_uint x0.[2*nlimbs %% 3] + b2i c) * BN.bn_modulus) rInv (to_uint x0.[2*nlimbs %% 3] + b2i c) (BN.bnk nlimbs r1) HP rInv_r HA Hm HT _ Hr Hlb0; first done.
+have Elb: to_uint lbw = to_uint x0.[2*nlimbs %% 3] + b2i c.
+move: Flb (W64.to_uint_cmp lbw); rewrite (_: W64.modulus = 18446744073709551616) //; smt().
+rewrite Elb; split; first smt().
+move=> _.
+have ->: BN.bnk nlimbs __mP = BN.bn_modulus - BN.bnk nlimbs __P by smt().
+move: HMR; case: (BN.bn_modulus <= (to_uint x0.[2 * nlimbs %% 3] + b2i c) * BN.bn_modulus + BN.bnk nlimbs r1 + (BN.bn_modulus - BN.bnk nlimbs __P)) => H /=.
+by move=> <-; rewrite BN.bn_ofintK.
+done.
+qed.
 
 
 (******************************************************************************

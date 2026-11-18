@@ -204,6 +204,38 @@ qed.
 
 
 
+(* a sum that is symmetric around [k/2] (e.g. a column of a square) is
+   twice its lower half, plus the middle term when [k] is even *)
+lemma bigi_sym (f: int -> int) k lo:
+ (forall i, f i = f (k - i)) =>
+ lo <= (k+1) %/ 2 =>
+ bigi predT f lo (k - lo + 1)
+ = 2 * bigi predT f lo ((k+1) %/ 2) + (if k %% 2 = 0 then f (k %/ 2) else 0).
+proof.
+move=> Hsym Hlo.
+(* induction on the distance [d] of the lower bound to the middle *)
+have H: forall d, 0 <= d =>
+         bigi predT f ((k+1) %/ 2 - d) (k - ((k+1) %/ 2 - d) + 1)
+         = 2 * bigi predT f ((k+1) %/ 2 - d) ((k+1) %/ 2)
+           + (if k %% 2 = 0 then f (k %/ 2) else 0).
+ elim/natind => [d Hd0 Hd|d Hd IH _].
+  rewrite (_: d = 0) 1:/# /= (big_geq ((k+1)%/2) ((k+1)%/2)) //=.
+  case: (k %% 2 = 0) => Hk.
+   rewrite (_: k - (k + 1) %/ 2 + 1 = (k+1) %/ 2 + 1) 1:/# big_int1.
+   by rewrite (_: (k+1) %/ 2 = k %/ 2) 1:/#.
+  by rewrite big_geq 1:/#.
+ rewrite (big_ltn ((k+1)%/2 - (d+1)) (k - ((k+1)%/2 - (d+1)) + 1)) 1:/#.
+ rewrite (big_ltn ((k+1)%/2 - (d+1)) ((k+1)%/2)) 1:/# /predT /=.
+ rewrite big_int_recr 1:/# /=.
+ rewrite (_: (k + 1) %/ 2 - (d + 1) + 1 = (k + 1) %/ 2 - d) 1:/#.
+ rewrite (_: k - ((k + 1) %/ 2 - (d + 1)) = k - ((k + 1) %/ 2 - d) + 1) 1:/#.
+ rewrite IH //.
+ rewrite (_: k - ((k + 1) %/ 2 - d) + 1 = k - ((k + 1) %/ 2 - (d + 1))) 1:/#.
+ by rewrite -(Hsym ((k + 1) %/ 2 - (d + 1))) -/predT; ring.
+have := H ((k+1) %/ 2 - lo) _; first smt().
+by rewrite (_: (k + 1) %/ 2 - ((k + 1) %/ 2 - lo) = lo) 1:/#.
+qed.
+
 abstract theory BN.
 
 (*
@@ -705,7 +737,209 @@ by rewrite /= => ->; ring.
 qed.
 
 
+(** PRODUCT SCANNING (comba): the product [bn x * bn y] as a sum of
+    columns [s], each the sum of the [x.[i]*y.[s-i]] (ported from the
+    former eclib_extra/JBigNum.ec) *)
 
+op allpairs_comba1 n =
+ flatten (map (fun s => (map (fun x => (s,x)) (range 0 (s+1))))
+              (range 0 n)).
+
+lemma mem_allpairs_comba1 n x:
+ x \in allpairs_comba1 n
+ <=> x.`1 \in range 0 n /\ x.`2 \in range 0 (x.`1 + 1).
+proof.
+rewrite /allpairs_comba1 -flatten_mapP; split.
+ move=> [y]; rewrite !mem_range => /> ??; rewrite mapP => [[?]].
+ by rewrite !mem_range /= => /> * /#.
+rewrite !mem_range => /> *.
+exists (x.`1).
+rewrite !mem_range; split; first smt().
+rewrite mapP /=; exists x.`2.
+by rewrite mem_range /#.
+qed.
+
+lemma uniq_allpairs_comba1 n: uniq (allpairs_comba1 n).
+proof.
+apply uniq_flatten_map.
+  move=> x /=; rewrite map_inj_in_uniq.
+   by move => y z; rewrite !mem_range /#.
+  by apply range_uniq.
+ move => y z; rewrite !mem_range => ?? /hasP [[??]].
+ rewrite !mapP; move=> [[?][]]; rewrite mem_range /= => ?[??] []?.
+ by rewrite mem_range => />.
+by apply range_uniq.
+qed.
+
+op allpairs_comba2 n =
+ flatten (map (fun s => (map (fun x => (s,x)) (range (1+s-n) n)))
+              (range n (2*n))).
+
+lemma mem_allpairs_comba2 n x:
+ x \in allpairs_comba2 n
+ <=> x.`1 \in range n (2*n)
+     /\ x.`2 \in range (x.`1 + 1 - n) n.
+proof.
+rewrite /allpairs_comba2 -flatten_mapP; split.
+ move=> [y]; rewrite !mem_range => /> ??; rewrite mapP => [[?]].
+ by rewrite !mem_range /= => /> * /#.
+rewrite !mem_range => /> *.
+exists (x.`1).
+rewrite !mem_range; split; first smt().
+rewrite mapP /=; exists x.`2.
+by rewrite mem_range /#.
+qed.
+
+lemma uniq_allpairs_comba2 n: uniq (allpairs_comba2 n).
+proof.
+apply uniq_flatten_map.
+  move=> x /=; rewrite map_inj_in_uniq.
+   by move => y z; rewrite !mem_range /#.
+  by apply range_uniq.
+ move => y z; rewrite !mem_range => ?? /hasP [[??]].
+ rewrite !mapP; move=> [[?][]]; rewrite mem_range /= => ?[??] []?.
+ by rewrite mem_range => />.
+by apply range_uniq.
+qed.
+
+op val_mul_comba1 (x y: t) =
+  big predT
+      (fun si:_*_ => to_uint x.[si.`2] * to_uint y.[si.`1 - si.`2] * W64.modulus ^ si.`1)%Int
+      (allpairs_comba1 nlimbs).
+
+op val_mul_comba2 (x y: t) =
+  big predT
+      (fun si:_*_ => to_uint x.[si.`2] * to_uint y.[si.`1 - si.`2] * W64.modulus ^ si.`1)%Int
+      (allpairs_comba2 nlimbs).
+
+(* the columns [0..k-1] (all below [nlimbs]) *)
+op val_mul_comba_up k (x y: t) =
+  bigi predT
+       (fun (s : int) => bigi predT
+                          (fun (i : int) =>
+                            to_uint x.[i] * to_uint y.[s - i]*W64.modulus ^ s)
+                          0 (s + 1))
+     0 k.
+
+lemma val_mul_comba1E x y:
+ val_mul_comba1 x y = val_mul_comba_up nlimbs x y.
+proof.
+rewrite /val_mul_comba1 /val_mul_comba_up big_flatten big_map /(\o) /=.
+apply eq_bigr => s _ /=.
+by rewrite big_map /(\o) /=; apply eq_bigr.
+qed.
+
+(* the columns [nlimbs..k-1] *)
+op val_mul_comba_down k (x y: t) =
+  bigi predT
+       (fun (s : int) => bigi predT
+                          (fun (i : int) =>
+                            to_uint x.[i] * to_uint y.[s - i]*W64.modulus ^ s)
+                           (1 + s - nlimbs) nlimbs)
+     nlimbs k.
+
+lemma val_mul_comba2E x y:
+ val_mul_comba2 x y = val_mul_comba_down (2*nlimbs-1) x y.
+proof.
+rewrite /val_mul_comba2 /val_mul_comba_down big_flatten big_map /(\o) /=.
+rewrite (eq_bigr _ _
+ (fun s:int => bigi predT (fun i:int => to_uint x.[i] * to_uint y.[s-i] * W64.modulus^s) (1+s-nlimbs) nlimbs)).
+ by move=> s _ /=; rewrite big_map /(\o) /=; apply eq_bigr.
+rewrite (range_cat (2*nlimbs-1)); first 2 by smt(gt0_nlimbs).
+rewrite big_cat rangeS big_cons big_nil /= /predT /=.
+by rewrite (_:1 + (2*nlimbs-1) - nlimbs = nlimbs) 1:/# (range_geq nlimbs nlimbs) // big_nil.
+qed.
+
+lemma mul_combaP (x y: t):
+ bn x * bn y = val_mul_comba1 x y + val_mul_comba2 x y.
+proof.
+rewrite eq_sym /bnk big_distr /=; first 3 smt().
+rewrite -(big_allpairs
+            (fun x y =>(x,y))
+            (fun ij:_*_ => to_uint x.[ij.`1] * W64.modulus ^ ij.`1
+                           * (to_uint y.[ij.`2] * W64.modulus ^ ij.`2))).
+rewrite (eq_big_seq _ (fun ij:_*_ => to_uint x.[ij.`1] * to_uint y.[ij.`2]
+                                     * W64.modulus ^ (ij.`1 + ij.`2))).
+ move=> [x1 x2] /=.
+ rewrite allpairsP => [[[y1 y2]]] /=.
+ rewrite !mem_range => /> Hy11 Hy12 Hy21 Hy22.
+ by rewrite exprD_nneg /#.
+rewrite (big_reindex _ _
+         (fun si:_*_ => (si.`2, si.`1 - si.`2))%Int
+         (fun ij:int*int => (ij.`1 + ij.`2, ij.`1))
+       ).
+ by move=> ? /= /#.
+rewrite /predT /(\o) /= /val_mul_comba1 /val_mul_comba2.
+have H: perm_eq
+         (map (fun (ij : int * int) => (ij.`1 + ij.`2, ij.`1))
+           (allpairs (fun (x0 y0 : int) => (x0, y0)) (range 0 nlimbs)
+             (range 0 nlimbs)))
+         (allpairs_comba1 nlimbs ++ allpairs_comba2 nlimbs).
+ apply uniq_perm_eq.
+   rewrite map_inj_in_uniq.
+    move=> [x11 x12] [x21 x22]; rewrite !allpairsP => [[[x1 x2]]]; rewrite !mem_range /=.
+    move=> [?[?[??]]].
+    by move=> [[??]]; rewrite !mem_range /= /#.
+   by apply allpairs_uniq; smt(range_uniq).
+  rewrite cat_uniq.
+  split; first by apply uniq_allpairs_comba1.
+  split; last by apply uniq_allpairs_comba2.
+  rewrite hasP negb_exists => [[x1 x2]].
+  rewrite negb_and.
+  case: (x1 < nlimbs) => E.
+   by left; rewrite mem_allpairs_comba2 !mem_range /= /#.
+  by right; rewrite mem_allpairs_comba1 !mem_range /= /#.
+ move=> [x1 x2]; split.
+  rewrite mapP => [[[x11 x12]]].
+  rewrite allpairsP => [[[[x21 x22]]]] /=.
+  rewrite !mem_range mem_cat => /> *.
+  case: ((x21+x22) < nlimbs) => E.
+   by left; rewrite mem_allpairs_comba1 /= !mem_range /#.
+  by right; rewrite mem_allpairs_comba2 /= !mem_range /#.
+ rewrite mem_cat; move => [/mem_allpairs_comba1 | /mem_allpairs_comba2] /=;
+ rewrite !mem_range mapP => /> *.
+  exists (x2,x1-x2) => /=; split; last by smt().
+  by rewrite allpairsP; exists (x2,x1-x2) => /=; rewrite !mem_range /#.
+ exists (x2,x1-x2) => /=; split; last by smt().
+ by rewrite allpairsP; exists (x2,x1-x2) => /=; rewrite !mem_range /#.
+rewrite (eq_big_perm _ _ _ _ H) -big_cat.
+apply eq_bigr.
+smt().
+qed.
+
+lemma val_mul_comba_upS k x y:
+ 0 <= k =>
+ val_mul_comba_up (k+1) x y
+ = val_mul_comba_up k x y
+   + bigi predT (fun (i : int) => to_uint x.[i] * to_uint y.[k - i]) 0 (k+1)
+     * W64.modulus ^ k.
+proof.
+move=> *; rewrite /val_mul_comba_up {1}(range_cat k) 1..2:/# rangeS big_cat big_cons big_nil /=.
+by rewrite /predT /= mulr_suml.
+qed.
+
+lemma val_mul_comba_downS k x y:
+ nlimbs <= k =>
+ val_mul_comba_down (k+1) x y
+ = val_mul_comba_down k x y
+   + bigi predT (fun (i : int) => to_uint x.[i] * to_uint y.[k - i])
+          (1 + k - nlimbs) nlimbs
+     * W64.modulus ^ k.
+proof.
+move=> *; rewrite /val_mul_comba_down (range_cat k) 1..2:/# rangeS big_cat big_cons big_nil /=.
+by rewrite /predT /= mulr_suml.
+qed.
+
+lemma val_mul_comba_up0 x y: val_mul_comba_up 0 x y = 0.
+proof. by rewrite /val_mul_comba_up range_geq // big_nil. qed.
+
+lemma val_mul_comba_down0 x y: val_mul_comba_down nlimbs x y = 0.
+proof. by rewrite /val_mul_comba_down range_geq // big_nil. qed.
+
+(* the whole product: [nlimbs] columns up, then [nlimbs-1] down *)
+lemma mul_comba (x y: t):
+ bn x * bn y = val_mul_comba_up nlimbs x y + val_mul_comba_down (2*nlimbs-1) x y.
+proof. by rewrite mul_combaP val_mul_comba1E val_mul_comba2E. qed.
 
 end BN.
 

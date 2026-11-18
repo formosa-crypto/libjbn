@@ -414,9 +414,15 @@ the wiring of a Montgomery field instance (used by `test/misc` and
 
 * `JBigNumber.ec`, `Bn_util.ec`, `Bn_base.eca` and `Bn_mul.eca` check, and
   their modules `M` are generated from the extraction (`make -C proof`).
-  `Bn_util.ec` and `Bn_base.eca` have no admits; `Bn_mul.eca` admits the
-  correctness of `_ps_muln_`, `_ps_sqrn_` and `__mont_redM` (losslessness is
-  proved for all its procedures, including the operand-scanning ones).
+  None of them has admits. `Bn_mul.eca` proves the correctness of the
+  product-scanning multiplication and squaring (`_ps_muln_`, `_ps_sqrn_`)
+  and of the Montgomery reduction `__mont_redM`, under the parameter axiom
+  `nlimbs_bnd: 4 * nlimbs < W64.modulus` (the top word of the 3-word
+  accumulator counts carries); for the operand-scanning procedures only
+  losslessness is proved.
+* The examples whose operand-scanning code uses ADX/MULX (e.g.
+  `simple_tests/mults/testmul_*os*`) stop with "Illegal instruction" under
+  Rosetta 2 on Apple silicon; they need a native x86-64 CPU with ADX/BMI2.
 * `Bn_rnd.eca`, `Bn_exp.eca`, `Fp_base.eca`, `Fp_mont.eca` and
   `UsageExample.ec` do not load: they require `MLeakage.ec`, which uses
   `leakages_t`, no longer provided by the Jasmin `eclib`.
