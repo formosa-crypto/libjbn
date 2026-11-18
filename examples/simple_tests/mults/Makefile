@@ -48,7 +48,7 @@ testmul_kar_32_os_4: testmul_kar_32_os_4.c kar_32_os_4.s
 testmul_kar_32_osreg_4: testmul_kar_32_osreg_4.c kar_32_osreg_4.s
 	$(GCC) -o $@ $^
 
-%.s: %.jinc $(LIBJBN_SRC)
+%.s: %.jazz $(LIBJBN_SRC)
 	$(JASMINC) $(JFLAGS) -o $@ $<
 
 clean:

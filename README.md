@@ -12,8 +12,10 @@ modules yet (see the proposal in
 so this repository emulates them:
 
 * on the **code side**, with *Jasmin namespaces*: a library module is a
-  plain `.jinc` file that is `require`d inside a namespace, which becomes
-  the instance; its parameters are found by Jasmin's ordinary name lookup;
+  template, a plain Jasmin file `<module>@<tag>.jinc` that is `require`d
+  inside a namespace, which becomes the instance; its parameters are found
+  by Jasmin's ordinary name lookup, and the tag says which kind of
+  namespace it needs;
 * on the **proof side**, with *abstract (parametrised) EasyCrypt theories*
   whose parameters are later instantiated by cloning.
 
@@ -23,15 +25,15 @@ This document describes that workflow.
 ## Overview
 
 ```
- src/amd64/ref/<module>.jinc     library modules: generic code whose free names
-                                 (nlimbs, glob_P, fun_muln, BN::..., H::BN::...)
-              │                  are its parameters
-              │  require "<module>.jinc" inside namespaces
+ src/amd64/ref/<module>@<tag>.jinc   library modules (templates): generic code
+                                 whose free names (nlimbs, glob_P, fun_muln, BN::,
+              │                  H::BN::, ...) are its parameters
+              │  require "<module>@<tag>.jinc" inside namespaces
               │
     ┌─────────┴────────────────────────────┐
     ▼                                      ▼
  wiring file of a program         src/amd64/ref/extracted/libjbn_abs.jazz
- (e.g. examples/.../*.jinc)       (every module, dummy parameters, stubs)
+ (examples/.../*.jazz)            (every module, dummy parameters, stubs)
     │ jasminc                              │ jasmin2ec --array-model=old
     ▼                                      ▼
  .s + C test programs             src/amd64/ref/extracted/*.ec
@@ -53,7 +55,7 @@ There is no code-generation step: instances are written in Jasmin.
 
 | Path | Contents |
 |---|---|
-| `src/amd64/ref/*.jinc` | The library modules (see [Library modules](#1-library-modules)). |
+| `src/amd64/ref/*@*.jinc` | The library modules, i.e. templates (see [Library modules](#1-library-modules) and [File names](#file-names)). |
 | `src/amd64/ref/params/` | Constants of concrete prime fields (`sike/`, `nistp/`, `rfc3526/`), one file per modulus, under the names the field modules expect. |
 | `src/amd64/ref/extracted/` | Abstract instantiation and extraction used by the proofs (see [Extraction](#3-extraction-for-the-proofs)). |
 | `src/amd64/ref/legacy/` | Kept for reference: pre-modular multiplication code and its C tests; `mjazz/`, the former template-based instantiation (`mjazz_proc.py`, `templates/`, and the modules in the proposed #519 parametric-module syntax). |
@@ -71,26 +73,49 @@ There is no code-generation step: instances are written in Jasmin.
 Each module starts with a comment giving its *signature*: the names it
 expects to find in scope and the names it provides.
 
-| Module | Contents | Instance (namespace) | Expects in scope |
+| Module (file `<module>.jinc`) | Contents | Instance (namespace) | Expects in scope |
 |---|---|---|---|
 | `bn_util` | flag/mask helpers, 3-limb accumulators used by multiplication | `UTIL` (top level) | — |
-| `bn_base` | load/store, comparison, (conditional) moves and swaps, add/sub/neg with carry, `cminusP`, `pack2` | `BN` | `nlimbs`, `UTIL::` |
-| `bn_rnd` | uniform sampling (`_rnd_`, `_rsample_`) | `RND` | `nlimbs`, `BN::` |
-| `bn_mul` | operand-scanning (`os`) and product-scanning (`ps`) multiplication and squaring; Montgomery reduction `__mont_redM` | `MUL` | `nlimbs`, `BN::`, `UTIL::` |
-| `bn_mulreg` | operand-scanning multiplication with the second operand in registers | `MULREG` | `nlimbs` |
-| `bn_karatsuba` | one Karatsuba level on top of a given multiplication | `KAR` (in the 2n scope) | `nlimbs` (2n), `H::nlimbs` (n), `fun_kmuln`, `BN::`, `H::BN::`, `UTIL::` |
-| `bn_exp` | modular exponentiation (constant-time and not) | `EXP` (inside a field) | `nlimbs`, `nlimbsexp`, `glob_exp0`, `fun_mulU`, `fun_sqrU`, `BN::`, `UTIL::` |
-| `fp_base` | prime-field operations, generic in the reduction | a field (e.g. `FPM`) | `nlimbs`, `nlimbsexp`, `glob_P`, `glob_mP`, `glob_exp0`, `glob_Pm2`, `fun_muln`, `fun_sqrn`, `fun_red`, `BN::`, `RND::`, `UTIL::` |
-| `fp_mont` | Montgomery-form field (`_redM_`, `_fromM_`, `_toM_`) plus all of `fp_base` | a field (e.g. `FPM`, `FQM`) | as `fp_base` (except `fun_red`), plus `glob_P0i`, `glob_rMP`, `MUL::` |
-| `fp_mul_ps` | binds `fun_muln`/`fun_sqrn` to product-scanning multiplication | inside a field | `nlimbs`, `MUL::` |
-| `*_export` | `export fn` wrappers forming the C interface | top level | see the file headers |
+| `bn_base@n` | load/store, comparison, (conditional) moves and swaps, add/sub/neg with carry, `cminusP`, `pack2` | `BN` | `nlimbs`, `UTIL::` |
+| `bn_rnd@n` | uniform sampling (`_rnd_`, `_rsample_`) | `RND` | `nlimbs`, `BN::` |
+| `bn_mul@n` | operand-scanning (`os`) and product-scanning (`ps`) multiplication and squaring; Montgomery reduction `__mont_redM` | `MUL` | `nlimbs`, `BN::`, `UTIL::` |
+| `bn_mulreg@n` | operand-scanning multiplication with the second operand in registers | `MULREG` | `nlimbs` |
+| `bn_karatsuba@2n` | one Karatsuba level on top of a given multiplication | `KAR` (in the 2n scope) | `nlimbs` (2n), `H::nlimbs` (n), `fun_kmuln`, `BN::`, `H::BN::`, `UTIL::` |
+| `bn_exp@exp` | modular exponentiation (constant-time and not) | `EXP` (inside a field) | `nlimbs`, `nlimbsexp`, `glob_exp0`, `fun_mulU`, `fun_sqrU`, `BN::`, `UTIL::` |
+| `fp_base@fp` | prime-field operations, generic in the reduction | a field (e.g. `FPM`) | `nlimbs`, `nlimbsexp`, `glob_P`, `glob_mP`, `glob_exp0`, `glob_Pm2`, `fun_muln`, `fun_sqrn`, `fun_red`, `BN::`, `RND::`, `UTIL::` |
+| `fp_mont@fp` | Montgomery-form field (`_redM_`, `_fromM_`, `_toM_`) plus all of `fp_base` | a field (e.g. `FPM`, `FQM`) | as `fp_base` (except `fun_red`), plus `glob_P0i`, `glob_rMP`, `MUL::` |
+| `fp_mul_ps@fp` | binds `fun_muln`/`fun_sqrn` to product-scanning multiplication | inside a field | `nlimbs`, `MUL::` |
+| `*_export@2n` | `export fn` wrappers forming the C interface | top level | see the file headers |
+
+### File names
+
+The name of a Jasmin file says whether it is a template and, if so, where
+it must be required:
+
+| Name | Kind |
+|---|---|
+| `<name>@<tag>.jinc` | template (open file): has free names; required inside a namespace of the kind given by the tag |
+| `<name>.jinc` | closed include: no free names (e.g. `bn_util.jinc`, `rsa_keys.jinc`) |
+| `<name>.jazz` | program: a wiring file that instantiates templates, compiled by `jasminc` |
+
+| Tag | Required in | Names expected in scope |
+|---|---|---|
+| `@n` | a module slot of a size scope (`BN`, `RND`, `MUL`, `MULREG`) | `nlimbs`, `UTIL`, other instances of the same scope |
+| `@2n` | a 2n scope (or the top level acting as one) | `nlimbs` (2n), the half scope `H` (`H::nlimbs`, `H::BN`, …) |
+| `@fp` | a field namespace (`FPM`, `FQM`, …) | the size scope's names, `nlimbsexp`, the field constants `glob_*`, `fun_muln`/`fun_sqrn` |
+| `@exp` | an exponentiation sub-namespace (`EXP`) | `nlimbs`, `nlimbsexp`, `glob_exp0`, `fun_mulU`/`fun_sqrU`, `BN`, `UTIL` |
+
+The tag gives the kind of context, which is stable; the header of each file
+lists the exact names it uses (field-constant files, `params/**/*@fp.jinc`,
+only use `nlimbs`). `@` is used as separator because `::`, or any `:`,
+breaks make prerequisites and is not portable to Windows.
 
 Two modules instantiate others themselves, because the instance depends on
 their own functions (they correspond to `clone ... with` inside the
 EasyCrypt theories):
 
 * `fp_base` defines `fun_mulU`/`fun_sqrU` (inline wrappers of its
-  `_mulmU_`/`_sqrmU_`) and then `namespace EXP { require "bn_exp.jinc" }`;
+  `_mulmU_`/`_sqrmU_`) and then `namespace EXP { require "bn_exp@exp.jinc" }`;
   inversion (`_invm_`, `_invmU_`) uses `EXP::`.
 * `fp_mont` defines `fun_red` (wrapper of `_redM_`) and then requires
   `fp_base` *in its own namespace*, so a Montgomery field `FPM` provides
@@ -161,7 +186,7 @@ module could not refer to "its" `BN`, since namespaces cannot be aliased.)
 
 **Function parameters** (`fun_muln`, `fun_kmuln`, …) are inline wrappers
 defined by the wiring in the scope where the module is required; they cost
-nothing at run time. `fp_mul_ps.jinc` provides the usual choice for
+nothing at run time. `fp_mul_ps@fp.jinc` provides the usual choice for
 fields. Because functions cannot be shadowed, a wrapper must not be visible
 from an enclosing namespace when an inner one defines the same name: define
 the outer level's wrapper *after* the inner namespace has closed.
@@ -172,35 +197,35 @@ under the expected names (`glob_P`, `glob_mP`, `glob_P0i`, `glob_Pm2`,
 required inside the field namespace. The limb count is stated once, by the
 wiring; a mismatch is a type error.
 
-Example (`examples/simple_tests/sike/bn_sike434.jinc`):
+Example (`examples/simple_tests/sike/bn_sike434.jazz`):
 
 ```
 namespace UTIL { from Libjbn require "bn_util.jinc" }
 
 namespace H {                                   // working size
   param int nlimbs = 7;
-  namespace BN  { from Libjbn require "bn_base.jinc" }
-  namespace RND { from Libjbn require "bn_rnd.jinc" }
-  namespace MUL { from Libjbn require "bn_mul.jinc" }
+  namespace BN  { from Libjbn require "bn_base@n.jinc" }
+  namespace RND { from Libjbn require "bn_rnd@n.jinc" }
+  namespace MUL { from Libjbn require "bn_mul@n.jinc" }
   namespace FPM {
     param int nlimbsexp = nlimbs;
-    from Libjbn require "params/sike/sike434.jinc"   // glob_P, glob_mP, ...
-    from Libjbn require "fp_mul_ps.jinc"             // fun_muln, fun_sqrn
-    from Libjbn require "fp_mont.jinc"
+    from Libjbn require "params/sike/sike434@fp.jinc"   // glob_P, glob_mP, ...
+    from Libjbn require "fp_mul_ps@fp.jinc"             // fun_muln, fun_sqrn
+    from Libjbn require "fp_mont@fp.jinc"
   }
 }
 
-from Libjbn require "bn_base_export.jinc" "fp_mont_export.jinc"
+from Libjbn require "bn_base_export@2n.jinc" "fp_mont_export@2n.jinc"
 ```
 
-`examples/simple_tests/mults/kar_32_*.jinc` show the halving nesting over
+`examples/simple_tests/mults/kar_32_*.jazz` show the halving nesting over
 several levels, and `examples/schnorr-zk/src/bn_modp2048.jinc` two fields
 sharing one size scope (there the top level is the size scope itself).
 
 Compile with the library bound to the include name `Libjbn`:
 
 ```
-jasminc -lazy-regalloc -I Libjbn=src/amd64/ref -o <name>.s <name>.jinc
+jasminc -lazy-regalloc -I Libjbn=src/amd64/ref -o <name>.s <name>.jazz
 ```
 
 `make check` in `src/amd64/ref` typechecks all modules (through the
@@ -218,7 +243,7 @@ All of this lives in `src/amd64/ref/extracted/`:
   `H::RND`, `H::MUL`, `H::MULREG`, `H::EXP`, `H::FP`, `H::FPM`, `BN`
   (2n) and `KAR`. Function parameters are stubs, declared inside the
   namespace of the module that takes them;
-* `preamb.jinc`: the placeholder constants (`nlimbsexp = 13`, zero globals
+* `preamb@n.jinc`: the placeholder constants (`nlimbsexp = 13`, zero globals
   `glob_P`, `glob_mP`, …), required inside `H`, whose `nlimbs` is 11;
 * `Makefile`: the list of procedures extracted from each module and the
   extraction command.
@@ -323,7 +348,7 @@ easycrypt compile -I . -I JExtract:extracted -I JPExtract:extracted_ths Bn_base.
 
 ## 5. Examples
 
-Each directory under `examples/` holds wiring files (`.jinc`/`.jazz`), C
+Each directory under `examples/` holds wiring files (`.jazz` programs, plus `.jinc` includes), C
 test programs and a Makefile that runs `jasminc` and the C compiler:
 
 ```

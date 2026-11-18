@@ -1,6 +1,6 @@
 /* RSA-PSS example key: sizes, and key material that does not belong to a
    field. The constants of the fields modulo p, q and n are in
-   rsa_key_p.jinc, rsa_key_q.jinc and rsa_key_n.jinc. */
+   rsa_key_p@fp.jinc, rsa_key_q@fp.jinc and rsa_key_n@fp.jinc. */
 
 param int nlimbsE = 4;
 param int nlimbsP = 16;

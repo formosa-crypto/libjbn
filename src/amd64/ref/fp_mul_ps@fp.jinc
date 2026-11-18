@@ -1,9 +1,10 @@
 /* libjbn -- fp_mul_ps: binds the multiplication parameters of a field to
    product-scanning schoolbook multiplication/squaring.
 
-   Library module (see README, "Library modules and instantiation"): it is
-   meant to be `require`d inside a namespace, which becomes the instance.
-   Names below are resolved by Jasmin's outward namespace lookup.
+   Library module, i.e. template (see README, sections 1 and 2): it is meant
+   to be `require`d inside a namespace, which becomes the instance; the tag
+   in the file name (@fp) gives the kind of namespace. Names below are
+   resolved by Jasmin's outward namespace lookup.
 
    Instance:  required inside a field namespace, before fp_mont (or fp_base)
    Expects:   param int nlimbs;

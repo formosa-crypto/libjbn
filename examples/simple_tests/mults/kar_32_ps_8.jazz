@@ -19,10 +19,10 @@ namespace H { // 32 limbs
     param int nlimbs = 2*nlimbsL;
     namespace H { // 8 limbs
       param int nlimbs = nlimbsL;
-      namespace BN  { from Libjbn require "bn_base.jinc" }
-      namespace MUL { from Libjbn require "bn_mul.jinc" }
+      namespace BN  { from Libjbn require "bn_base@n.jinc" }
+      namespace MUL { from Libjbn require "bn_mul@n.jinc" }
     }
-    namespace BN  { from Libjbn require "bn_base.jinc" }
+    namespace BN  { from Libjbn require "bn_base@n.jinc" }
     inline fn fun_kmuln
     ( reg mut ptr u64[nlimbs] r
     , reg const ptr u64[H::nlimbs] a b
@@ -30,9 +30,9 @@ namespace H { // 32 limbs
       r = H::MUL::_ps_muln_(r, a, b);
       return r;
     }
-    namespace KAR { from Libjbn require "bn_karatsuba.jinc" }
+    namespace KAR { from Libjbn require "bn_karatsuba@2n.jinc" }
   }
-  namespace BN  { from Libjbn require "bn_base.jinc" }
+  namespace BN  { from Libjbn require "bn_base@n.jinc" }
   inline fn fun_kmuln
   ( reg mut ptr u64[nlimbs] r
   , reg const ptr u64[H::nlimbs] a b
@@ -40,10 +40,10 @@ namespace H { // 32 limbs
     r = H::KAR::_kar_muln_(r, a, b);
     return r;
   }
-  namespace KAR { from Libjbn require "bn_karatsuba.jinc" }
+  namespace KAR { from Libjbn require "bn_karatsuba@2n.jinc" }
 }
 
-namespace BN { from Libjbn require "bn_base.jinc" } // 64 limbs
+namespace BN { from Libjbn require "bn_base@n.jinc" } // 64 limbs
 
 /* C entry points */
-from Libjbn require "bn_karatsuba_export.jinc"
+from Libjbn require "bn_karatsuba_export@2n.jinc"

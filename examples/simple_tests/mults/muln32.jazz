@@ -11,11 +11,11 @@ namespace UTIL { from Libjbn require "bn_util.jinc" }
 
 namespace H {
   param int nlimbs = 32;
-  namespace BN  { from Libjbn require "bn_base.jinc" }
-  namespace MUL { from Libjbn require "bn_mul.jinc" }
+  namespace BN  { from Libjbn require "bn_base@n.jinc" }
+  namespace MUL { from Libjbn require "bn_mul@n.jinc" }
 }
 
-namespace BN { from Libjbn require "bn_base.jinc" }
+namespace BN { from Libjbn require "bn_base@n.jinc" }
 
 /* C entry points */
-from Libjbn require "bn_mul_export.jinc"
+from Libjbn require "bn_mul_export@2n.jinc"

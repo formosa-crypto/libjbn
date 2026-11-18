@@ -1,6 +1,6 @@
 /* RSA-CRT: one half of the decryption, written for a Montgomery field.
 
-   Required inside a field namespace (see rsapss.jinc: FPMP and FPMQ), so
+   Required inside a field namespace (see rsapss.jazz: FPMP and FPMQ), so
    that the names below refer to that field's own operations; the two
    requires give one instance per prime.
 

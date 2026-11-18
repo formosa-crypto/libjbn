@@ -272,9 +272,9 @@ void params_print_jasmin(
          fprintf(fout, "namespace UTIL { from Libjbn require \"bn_util.jinc\" }\n\n");
          fprintf(fout, "namespace H {\n");
          fprintf(fout, "param int nlimbs = NLIMBS;\n");
-         fprintf(fout, "namespace BN  { from Libjbn require \"bn_base.jinc\" }\n");
-         fprintf(fout, "namespace RND { from Libjbn require \"bn_rnd.jinc\" }\n");
-         fprintf(fout, "namespace MUL { from Libjbn require \"bn_mul.jinc\" }\n\n");
+         fprintf(fout, "namespace BN  { from Libjbn require \"bn_base@n.jinc\" }\n");
+         fprintf(fout, "namespace RND { from Libjbn require \"bn_rnd@n.jinc\" }\n");
+         fprintf(fout, "namespace MUL { from Libjbn require \"bn_mul@n.jinc\" }\n\n");
          fprintf(fout, "namespace FPM {\n");
          fprintf(fout, "param int nlimbsexp = nlimbs;\n\n");
 
@@ -296,12 +296,12 @@ void params_print_jasmin(
          fprintf(fout, "// glob_rMP = R^2 mod P == 2^(2*NLIMBS*64) mod P\n");
   params_fprintf(fout, "u64[nlimbs] glob_rMP = {", R2modP, NLIMBS, "};");
 
-         fprintf(fout, "from Libjbn require \"fp_mul_ps.jinc\"\n");
-         fprintf(fout, "from Libjbn require \"fp_mont.jinc\"\n");
+         fprintf(fout, "from Libjbn require \"fp_mul_ps@fp.jinc\"\n");
+         fprintf(fout, "from Libjbn require \"fp_mont@fp.jinc\"\n");
          fprintf(fout, "} // FPM\n");
          fprintf(fout, "} // H\n\n");
 
-         fprintf(fout, "from Libjbn require \"bn_base_export.jinc\" \"fp_mont_export.jinc\"\n");
+         fprintf(fout, "from Libjbn require \"bn_base_export@2n.jinc\" \"fp_mont_export@2n.jinc\"\n");
 }
 
 

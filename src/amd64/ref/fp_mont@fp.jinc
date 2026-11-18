@@ -1,8 +1,9 @@
 /* libjbn -- fp_mont: prime fields in Montgomery representation.
 
-   Library module (see README, "Library modules and instantiation"): it is
-   meant to be `require`d inside a namespace, which becomes the instance.
-   Names below are resolved by Jasmin's outward namespace lookup.
+   Library module, i.e. template (see README, sections 1 and 2): it is meant
+   to be `require`d inside a namespace, which becomes the instance; the tag
+   in the file name (@fp) gives the kind of namespace. Names below are
+   resolved by Jasmin's outward namespace lookup.
 
    Instance:  a field namespace (e.g. FPM, FQM) in a size scope
    Expects:   param int nlimbs;  param int nlimbsexp;   // nlimbsexp = nlimbs
@@ -70,7 +71,7 @@ inline fn fun_red
   return r;
 }
 
-require "fp_base.jinc"
+require "fp_base@fp.jinc"
 
 // ////////////////////////////////////
 

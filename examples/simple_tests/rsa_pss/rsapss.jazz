@@ -10,7 +10,7 @@
                                 and EXPE (exponents of nlimbsE limbs, e.g. e)
      H::H    : 16 limbs   BN, RND, MUL
                           FPMP (mod p), FPMQ (mod q), each with the
-                          CRT half-decryption of rsa_crt.jinc
+                          CRT half-decryption of rsa_crt@fp.jinc
      H::RSA  : encryption with a short exponent, CRT decryption
      E       : nlimbsE limbs (public exponent): BN
 
@@ -27,41 +27,41 @@ namespace H {
   namespace H {
     param int nlimbs = nlimbsP;
 
-    namespace BN  { from Libjbn require "bn_base.jinc" }
-    namespace RND { from Libjbn require "bn_rnd.jinc" }
-    namespace MUL { from Libjbn require "bn_mul.jinc" }
+    namespace BN  { from Libjbn require "bn_base@n.jinc" }
+    namespace RND { from Libjbn require "bn_rnd@n.jinc" }
+    namespace MUL { from Libjbn require "bn_mul@n.jinc" }
 
     namespace FPMP {
       param int nlimbsexp = nlimbs;
-      require "rsa_key_p.jinc"
-      from Libjbn require "fp_mul_ps.jinc"
-      from Libjbn require "fp_mont.jinc"
-      require "rsa_crt.jinc"                  // _crt_exp_
+      require "rsa_key_p@fp.jinc"
+      from Libjbn require "fp_mul_ps@fp.jinc"
+      from Libjbn require "fp_mont@fp.jinc"
+      require "rsa_crt@fp.jinc"                  // _crt_exp_
     }
 
     namespace FPMQ {
       param int nlimbsexp = nlimbs;
-      require "rsa_key_q.jinc"
-      from Libjbn require "fp_mul_ps.jinc"
-      from Libjbn require "fp_mont.jinc"
-      require "rsa_crt.jinc"                  // _crt_exp_
+      require "rsa_key_q@fp.jinc"
+      from Libjbn require "fp_mul_ps@fp.jinc"
+      from Libjbn require "fp_mont@fp.jinc"
+      require "rsa_crt@fp.jinc"                  // _crt_exp_
     }
   }
 
-  namespace BN  { from Libjbn require "bn_base.jinc" }
-  namespace RND { from Libjbn require "bn_rnd.jinc" }
-  namespace MUL { from Libjbn require "bn_mul.jinc" }
+  namespace BN  { from Libjbn require "bn_base@n.jinc" }
+  namespace RND { from Libjbn require "bn_rnd@n.jinc" }
+  namespace MUL { from Libjbn require "bn_mul@n.jinc" }
 
   namespace FPM {
     param int nlimbsexp = nlimbs;
-    require "rsa_key_n.jinc"
-    from Libjbn require "fp_mul_ps.jinc"
-    from Libjbn require "fp_mont.jinc"
+    require "rsa_key_n@fp.jinc"
+    from Libjbn require "fp_mul_ps@fp.jinc"
+    from Libjbn require "fp_mont@fp.jinc"
 
     /* second exponentiation over this field, for short exponents */
     namespace EXPE {
       param int nlimbsexp = nlimbsE;
-      from Libjbn require "bn_exp.jinc"
+      from Libjbn require "bn_exp@exp.jinc"
     }
   }
 
@@ -143,11 +143,11 @@ namespace H {
 
 namespace E {
   param int nlimbs = nlimbsE;
-  namespace BN { from Libjbn require "bn_base.jinc" }
+  namespace BN { from Libjbn require "bn_base@n.jinc" }
 }
 
 /* C entry points */
-from Libjbn require "bn_base_export.jinc" "fp_mont_export.jinc"
+from Libjbn require "bn_base_export@2n.jinc" "fp_mont_export@2n.jinc"
 
 /* rp = mp^ep mod n, with ep a short exponent (nlimbsE limbs) */
 export fn rsa_enc(reg u64 rp mp ep)

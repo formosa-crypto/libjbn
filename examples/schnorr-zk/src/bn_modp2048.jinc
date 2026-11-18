@@ -10,15 +10,15 @@ param int nlimbs = 32;
 
 namespace UTIL { from Libjbn require "bn_util.jinc" }
 
-namespace BN  { from Libjbn require "bn_base.jinc" }
-namespace RND { from Libjbn require "bn_rnd.jinc" }
-namespace MUL { from Libjbn require "bn_mul.jinc" }
+namespace BN  { from Libjbn require "bn_base@n.jinc" }
+namespace RND { from Libjbn require "bn_rnd@n.jinc" }
+namespace MUL { from Libjbn require "bn_mul@n.jinc" }
 
 namespace FPM {
   param int nlimbsexp = nlimbs;
-  from Libjbn require "params/rfc3526/modp2048_p.jinc"
-  from Libjbn require "fp_mul_ps.jinc"
-  from Libjbn require "fp_mont.jinc"
+  from Libjbn require "params/rfc3526/modp2048_p@fp.jinc"
+  from Libjbn require "fp_mul_ps@fp.jinc"
+  from Libjbn require "fp_mont@fp.jinc"
 
   /* exponentiation of the generator (in Montgomery form) */
   inline fn _gexp_
@@ -34,7 +34,7 @@ namespace FPM {
 
 namespace FQM {
   param int nlimbsexp = nlimbs;
-  from Libjbn require "params/rfc3526/modp2048_q.jinc"
-  from Libjbn require "fp_mul_ps.jinc"
-  from Libjbn require "fp_mont.jinc"
+  from Libjbn require "params/rfc3526/modp2048_q@fp.jinc"
+  from Libjbn require "fp_mul_ps@fp.jinc"
+  from Libjbn require "fp_mont@fp.jinc"
 }

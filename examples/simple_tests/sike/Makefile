@@ -31,7 +31,7 @@ test_bn_sike434: test_bn_sike434.c bn_sike434.s
 	$(GCC) -o $@ $^
 
 
-%.s: %.jinc $(LIBJBN_SRC)
+%.s: %.jazz $(LIBJBN_SRC)
 	$(JASMINC) $(JFLAGS) -o $@ $<
 
 clean:

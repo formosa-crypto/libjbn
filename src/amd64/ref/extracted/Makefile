@@ -7,7 +7,7 @@ SRCDIR = $(abspath ..)
 JASMIN2EC = jasmin2ec --array-model=old -I Libjbn=$(SRCDIR)
 
 LIBJBN_SRC = $(wildcard $(SRCDIR)/*.jinc)
-HARNESS = libjbn_abs.jazz preamb.jinc
+HARNESS = libjbn_abs.jazz preamb@n.jinc
 
 MJAZZ_EC = BNUTIL_bn_util.ec BN_bn_base.ec BNRND_bn_rnd.ec BNMUL_bn_mul.ec BNMULREG_bn_mulreg.ec BNKAR_bn_karatsuba.ec BNE_bn_exp.ec FP_fp_base.ec FPM_fp_mont.ec
 

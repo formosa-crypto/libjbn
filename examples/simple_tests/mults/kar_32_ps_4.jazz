@@ -1,12 +1,12 @@
 /* libjbn instance: 32x32-limb Karatsuba multiplication, recursing down to
-   4-limb schoolbook multiplication (operand-scanning, second argument in registers).
+   4-limb schoolbook multiplication (product-scanning).
 
    Size scopes, one bn_base instance each (halving nesting, see README):
      top          : 64 limbs, result store of the exports
      H            : 32 limbs, KAR
      H::H         : 16 limbs, KAR
      H::H::H      : 8 limbs, KAR
-     H::H::H::H   : 4 limbs, MULREG
+     H::H::H::H   : 4 limbs, MUL
 */
 
 param int nlimbsL = 4;
@@ -22,20 +22,20 @@ namespace H { // 32 limbs
       param int nlimbs = 2*nlimbsL;
       namespace H { // 4 limbs
         param int nlimbs = nlimbsL;
-        namespace BN  { from Libjbn require "bn_base.jinc" }
-        namespace MULREG { from Libjbn require "bn_mulreg.jinc" }
+        namespace BN  { from Libjbn require "bn_base@n.jinc" }
+        namespace MUL { from Libjbn require "bn_mul@n.jinc" }
       }
-      namespace BN  { from Libjbn require "bn_base.jinc" }
+      namespace BN  { from Libjbn require "bn_base@n.jinc" }
       inline fn fun_kmuln
       ( reg mut ptr u64[nlimbs] r
       , reg const ptr u64[H::nlimbs] a b
       ) -> reg ptr u64[nlimbs] {
-        r = H::MULREG::_osreg_muln_(r, a, b);
+        r = H::MUL::_ps_muln_(r, a, b);
         return r;
       }
-      namespace KAR { from Libjbn require "bn_karatsuba.jinc" }
+      namespace KAR { from Libjbn require "bn_karatsuba@2n.jinc" }
     }
-    namespace BN  { from Libjbn require "bn_base.jinc" }
+    namespace BN  { from Libjbn require "bn_base@n.jinc" }
     inline fn fun_kmuln
     ( reg mut ptr u64[nlimbs] r
     , reg const ptr u64[H::nlimbs] a b
@@ -43,9 +43,9 @@ namespace H { // 32 limbs
       r = H::KAR::_kar_muln_(r, a, b);
       return r;
     }
-    namespace KAR { from Libjbn require "bn_karatsuba.jinc" }
+    namespace KAR { from Libjbn require "bn_karatsuba@2n.jinc" }
   }
-  namespace BN  { from Libjbn require "bn_base.jinc" }
+  namespace BN  { from Libjbn require "bn_base@n.jinc" }
   inline fn fun_kmuln
   ( reg mut ptr u64[nlimbs] r
   , reg const ptr u64[H::nlimbs] a b
@@ -53,10 +53,10 @@ namespace H { // 32 limbs
     r = H::KAR::_kar_muln_(r, a, b);
     return r;
   }
-  namespace KAR { from Libjbn require "bn_karatsuba.jinc" }
+  namespace KAR { from Libjbn require "bn_karatsuba@2n.jinc" }
 }
 
-namespace BN { from Libjbn require "bn_base.jinc" } // 64 limbs
+namespace BN { from Libjbn require "bn_base@n.jinc" } // 64 limbs
 
 /* C entry points */
-from Libjbn require "bn_karatsuba_export.jinc"
+from Libjbn require "bn_karatsuba_export@2n.jinc"

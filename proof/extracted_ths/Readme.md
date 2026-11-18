@@ -11,7 +11,7 @@ own namespace, by the harness `libjbn_abs.jazz`, following the same
 layout as any libjbn program (see the top-level README): the top level
 is the 2n scope, `H` is the size scope n.
 
-- Integer parameters and globals are dummies (`preamb.jinc`, required
+- Integer parameters and globals are dummies (`preamb@n.jinc`, required
   inside `H`): `nlimbs = 11` (so `2*nlimbs` appears as `22`, or as
   `2 * 11`), `nlimbsexp = 13`, and `glob_P`, `glob_mP`, `glob_P0i`,
   `glob_Pm2`, `glob_exp0`, `glob_rMP` filled with zeros.
@@ -67,7 +67,7 @@ functions such as `bn_rnd` -- these can be handled with a specific theory...)
      (? remove SC module parameter ?)
   ```
 - Undo the inlining of integer parameters (e.g. `nlimbs`): this is
-  done by replacing the placeholder used in `preamb.jinc` (see
+  done by replacing the placeholder used in `preamb@n.jinc` (see
   above) by the original parameter:
   ```
 	  11 (nlimbs parameter)  ==>  nlimbs
