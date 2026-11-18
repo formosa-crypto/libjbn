@@ -1,3 +1,9 @@
+**Note.** For `Bn_util.ec`, `Bn_base.eca` and `Bn_mul.eca` this manual
+procedure is replaced by `scripts/xtr_sync.py`, which generates their module
+`M` from the extraction and checks it (`make -C proof update`,
+`make -C proof checkxtr`; see the top-level README, "Keeping the theories in
+sync with the code"). The rest of this file applies to the theories that
+are not generated yet (`Bn_rnd`, `Bn_exp`, `Fp_base`, `Fp_mont`).
 
 We need to perform a manual transformation on the files extracted from
 the libjbn modules in order to emulate the treatment prescribed in

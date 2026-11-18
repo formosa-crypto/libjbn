@@ -7,6 +7,7 @@
      )
      (setq easycrypt-prog-args
       `( "-emacs", "-pp-width", "120"
+       , "-I", (pre "../src/amd64/ref/extracted")
        , "-I", (concat "JExtract:" (pre "extracted"))
        , "-I", (concat "JPExtract:" (pre "extracted_ths"))
        ))

@@ -13,9 +13,10 @@ all: check
 check:
 	$(JASMINC) $(JASMINC_OPT) -o /dev/null extracted/libjbn_abs.jazz
 
-# extraction to EasyCrypt (proofs)
+# extraction to EasyCrypt (proofs); the generated Array*.ec/WArray*.ec are
+# kept, since the sanity checks of proof/ load them (see proof/Makefile)
 extract:
-	(cd extracted; $(MAKE); $(MAKE) clean)
+	(cd extracted; $(MAKE))
 
 clean:
 	(cd extracted; $(MAKE) clean)
