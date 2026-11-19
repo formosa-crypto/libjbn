@@ -260,15 +260,12 @@ What is *not* settled:
   | 96 | – | 10 885 | 5 978 | – | 134 654 | 74 495 |
   | 128 | – | 19 935 | 10 293 | – | 328 049 | 172 910 |
 
-  * `bn_mulx_loop` is the fastest at every size. On `fpc_exp` it is 15%
-    faster than the unrolled `bn_mul` at 4 limbs, 25% at 8, 28% at 16 and
-    35% at 32 and 64, and its cost per limb product does not grow up to
-    128 limbs. The two differ in instructions and in scanning order as
-    well as in the loop, so this does not say that the loop is what makes
-    it faster. An unrolled MULX/ADCX/ADOX squaring and reduction, to
-    compare with, do not exist; the multiplication does (`_os_muln` of
-    `bn_mul`), and `make -C examples/simple_tests/mults bench` times the
-    four schoolbook multiplications alone (not measured on hardware yet).
+  * `bn_mulx_loop` is the fastest of the three at every size. On `fpc_exp`
+    it is 15% faster than the unrolled `bn_mul` at 4 limbs, 25% at 8, 28%
+    at 16 and 35% at 32 and 64, and its cost per limb product does not
+    grow up to 128 limbs. The two differ in instructions and in scanning
+    order as well as in the loop, so this does not say that the loop is
+    what makes it faster: see the multiplications alone, below.
   * `bn_mul_loop`, which uses the instructions of the unrolled code, is
     within 3% of it on `fpc_exp` up to 16 limbs (slightly faster at 4 and
     8, equal at 16), then slower: 8% at 32 limbs, 16% at 64. On `fpc_mul`
@@ -283,6 +280,45 @@ What is *not* settled:
 
   Rosetta is no guide here: it had `bn_mul_loop` 41% faster than the
   unrolled code at 64 limbs.
+
+  The loop kind and the instructions are separated by the schoolbook
+  multiplications alone, since `bn_mul` has an unrolled operand scanning
+  with MULX/ADCX/ADOX (`_os_muln`; there is no such squaring or
+  reduction). Same CPU, `taskset -c 2 make -C examples/simple_tests/mults
+  bench`, in ns (entry points that copy 6 `nlimbs` words, the same code in
+  the four columns):
+
+  | `nlimbs` | `bn_mul` ps, MUL, unrolled | `bn_mul_loop` os, MUL, looped | `bn_mul` os, MULX, unrolled | `bn_mulx_loop` os, MULX, looped |
+  |---:|---:|---:|---:|---:|
+  | 4 | 9.5 | 11.1 | 9.9 | 10.2 |
+  | 8 | 38.1 | 38.4 | 27.9 | 32.3 |
+  | 16 | 140.0 | 136.3 | 95.8 | 107.5 |
+  | 32 | 542.3 | 540.6 | 346.4 | 331.9 |
+  | 64 | 2 119 | 2 268 | 2 616 | 1 299 |
+
+  * The gain of `bn_mulx_loop` comes from the instructions, not from the
+    loop: with the same instructions, the looped multiplication is 3%
+    slower than the unrolled one at 4 limbs, 16% at 8 and 12% at 16.
+  * It is 4% faster at 32 limbs and twice as fast at 64, where the
+    unrolled MULX code breaks down: its cost per limb product nearly
+    doubles from 32 to 64 limbs, as the routine goes from 33 675 to
+    139 851 bytes (7 467 at 16 limbs; the looped one is 3 590 bytes at 64).
+    The unrolled product scanning (93 751 bytes at 64 limbs) does not
+    break down; a likely reason, not checked with performance counters,
+    is that the MULX code needs about twice as many instruction bytes per
+    unit of time, more than can be fetched once the routine no longer
+    fits the 32 KB instruction cache.
+  * With MUL/ADC the loop kind (and scanning order) changes the
+    multiplication by less than 3% from 8 to 32 limbs; the looped one is
+    17% slower at 4 limbs and 7% at 64.
+  * At 4 limbs the four multiplications are within 17% and product
+    scanning is the fastest: the gain of `bn_mulx_loop` on `fpc_mul` at
+    that size is in the reduction.
+
+  So neither kind is the best at every size. With MULX/ADCX/ADOX,
+  unrolled multiplication is ahead up to 16 limbs and looped from 32 on;
+  an unrolled MULX squaring and reduction, which the field operations
+  would need to profit from it, are not written.
 * **Proofs.** The looped modules have no theory in `proof/`: they are
   tested, not proved (section 5).
 * **Speculative constant time.** `jasmin-ct --sct --after=unroll` accepts
