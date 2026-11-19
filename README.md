@@ -332,11 +332,47 @@ What is *not* settled:
     that size is in the reduction.
 
   So neither kind is the best at every size. With MULX/ADCX/ADOX,
-  unrolled multiplication is ahead up to 16 limbs and looped from 32 on;
-  the unrolled squaring and reduction that the field operations need to
-  profit from it are those of `bn_mulx`, written after these measurements
-  and not timed yet (`mulx_unr` in both `bench` targets; in `mults`, the
-  `bn_mul` column of this table is now labelled `os`).
+  unrolled multiplication is ahead up to 16 limbs and looped from 32 on.
+
+  `bn_mulx`, written after these measurements, gives the field operations
+  an unrolled MULX squaring and reduction. Against `bn_mulx_loop` (same
+  CPU and commands, a later run; `mulx_unr` and `mulx` in both `bench`
+  targets; in `mults`, the `bn_mul` operand scanning of the table above is
+  now labelled `os`, and `bn_mulx` multiplies in the same time, within 3%):
+
+  | `nlimbs` | `fpc_mul` (ns): `bn_mulx` | `bn_mulx_loop` | `fpc_sqr` (ns): `bn_mulx` | `bn_mulx_loop` | `fpc_exp` (µs): `bn_mulx` | `bn_mulx_loop` | squaring alone (ns): `bn_mulx` | `bn_mulx_loop` |
+  |---:|---:|---:|---:|---:|---:|---:|---:|---:|
+  | 4 | 20.1 | 22.4 | 17.7 | 21.2 | 11.0 | 11.9 | 7.4 | 9.2 |
+  | 8 | 60.8 | 64.0 | 51.8 | 62.1 | 58.5 | 65.4 | 18.8 | 30.1 |
+  | 16 | 198.7 | 209.6 | 162.5 | 202.8 | 379.9 | 424.6 | 60.9 | 104.6 |
+  | 32 | 1 256 | 693 | 982 | 687 | 4 548 | 2 856 | 199.3 | 324.8 |
+  | 64 | 5 167 | 2 644 | 3 975 | 2 619 | 37 436 | 22 052 | 1 416 | 1 279 |
+
+  * Up to 16 limbs `bn_mulx` is the fastest module: on `fpc_exp`, 8%
+    faster than `bn_mulx_loop` at 4 limbs and 11% at 8 and 16 (22%, 33%
+    and 36% faster than the unrolled `bn_mul`).
+  * From 32 limbs on it is the wrong choice: on `fpc_exp`, 59% slower than
+    `bn_mulx_loop` at 32 limbs and 70% at 64.
+  * That is a matter of code size. Whenever the unrolled MULX code run by
+    a call does not fit the 32 KB instruction cache, the time is the one
+    of fetching it at 52 to 54 bytes per ns: `fpc_mul` and `fpc_sqr` at 32
+    and 64 limbs (multiplication or squaring, plus reduction: 66 and 51 KB
+    at 32 limbs, 276 and 211 KB at 64), and the multiplication and the
+    squaring alone at 64 limbs (140 and 75 KB). Code that fits runs at 75
+    to 95 bytes per ns; the product-scanning code of `bn_mul` needs 40 to
+    44, which is why its size costs nothing. (From sizes and times; not
+    checked with performance counters.) The multiplication and the
+    reduction of `bn_mulx` are 15 KB together at 16 limbs, and would reach
+    32 KB at about 24 limbs: sizes between 16 and 32 are not measured.
+  * The squaring is where most of the gain is: alone, it is 20% faster
+    than the looped module's (a multiplication) at 4 limbs, 38% at 8, 42%
+    at 16 and 39% at 32, where its 19 KB still fit; on `fpc_sqr`, 17% at 4
+    and 8 limbs and 20% at 16.
+  * The reduction gains little from being unrolled. Taking `fpc_mul`
+    minus the multiplication alone as its cost, it is 10.7 against 12.2
+    ns at 4 limbs, 32.9 against 31.6 at 8 and 102 against 103 at 16: the
+    register that carries the first word of the window pays at 4 limbs
+    at most.
 
   Karatsuba (`bn_karatsuba`, one or two levels over each of the four
   multiplications above; same CPU, `make bench-kar` in the same
@@ -680,13 +716,13 @@ the wiring of a Montgomery field instance (used by `test/misc` and
   `bn_mulx_loop` only where BMI2 and ADX are available (its tests passed
   on an Intel Core i7-14700K): `testmul_os_mulx_loop_32` in `mults`,
   `make run-mulx` in `fp_ctx`.
-* `bn_mulx` is not extracted and has no theory either, and it has not been
-  run on a CPU yet (`testmul_os_mulx_32` in `mults`, `make run-mulx` in
-  `fp_ctx`): its generated assembly was only checked with an interpreter
-  of the few instructions it uses (multiplication, squaring and reduction
-  against Python, from 1 to 32 limbs; the `fpc_*` entry points of a field
-  instance on the vectors of `fp_ctx`, at 1 to 5, 7 and 16 limbs).
-  `jasmin-ct` accepts it, and
+* `bn_mulx` is not extracted and has no theory either. Its tests passed on
+  the same CPU (`testmul_os_mulx_32` in `mults`, at 32 limbs; `make
+  run-mulx` in `fp_ctx`, at 7 and 16 limbs); at the other sizes its
+  generated assembly was checked with an interpreter of the few
+  instructions it uses (multiplication, squaring and reduction against
+  Python, from 1 to 32 limbs; the `fpc_*` entry points of a field instance
+  on the vectors of `fp_ctx`, at 1 to 5 limbs). `jasmin-ct` accepts it, and
   `jasmin-ct --sct --after=unroll` as well, as the other unrolled code.
 * `Bn_rnd.eca` and `UsageExample.ec` do not load: they require
   `MLeakage.ec`, which uses `leakages_t`, no longer provided by the Jasmin
