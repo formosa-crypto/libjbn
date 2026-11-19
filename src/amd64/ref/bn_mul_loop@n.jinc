@@ -1,0 +1,222 @@
+/* libjbn -- bn_mul_loop: multiplication, squaring and Montgomery reduction
+   with a run-time loop over the rows (code size linear in nlimbs).
+
+   Library module, i.e. template (see README, sections 1 and 2): it is meant
+   to be `require`d inside a namespace, which becomes the instance; the tag
+   in the file name (@n) gives the kind of namespace. Names below are
+   resolved by Jasmin's outward namespace lookup.
+
+   The routines of bn_mul@n.jinc are nested `for` loops, which the compiler
+   unrolls into straight-line code whose size is quadratic in nlimbs. Here
+   the outer loop (over the rows of operand scanning) is a run-time `while`,
+   and only the row is unrolled. The carry between the limbs of a row is a
+   word (c, or w in the reduction): a * b[i] + r[k+i] + c < 2^128, so the
+   two additions into the product never overflow its high word. No flag is
+   live across a row boundary.
+
+   The rows use MUL/ADD/ADC only (as the product-scanning code of bn_mul);
+   bn_mulx_loop@n.jinc is the same module with MULX/ADCX/ADOX rows.
+
+   Instance:  MUL (in a size scope), in the place of bn_mul@n.jinc: the names
+              and contracts provided are the ones of that module, so that a
+              field (fp_mont) takes either
+   Expects:   param int nlimbs;
+              BN::                         // bn_base, same size
+   Provides:  _os_muln _os_muln_ _os_sqrn _os_sqrn_
+              __mont_redM
+              (constants: P || R-P packed in an array, and -P^-1 mod 2^64)
+*/
+
+/******************************************************************
+                      OPERAND-SCANNING
+*******************************************************************/
+
+/* first row: r[0..nlimbs] = a * b */
+inline fn __mul1
+( reg mut ptr u64[2*nlimbs] r
+, reg u64 a
+, reg const ptr u64[nlimbs] b
+) -> reg ptr u64[2*nlimbs]
+{
+  inline int i;
+  reg bool cf;
+  reg u64 hi lo c;
+
+  lo = b[0];
+  hi, lo = lo * a;
+  r[0] = lo;
+  c = hi;
+  for i = 1 to nlimbs {
+    lo = b[i];
+    hi, lo = lo * a;
+    cf, lo += c;
+    _, hi += 0 + cf;
+    r[i] = lo;
+    c = hi;
+  }
+  r[nlimbs] = c;
+
+  return r;
+}
+
+/* row k (run-time, 0 < k < nlimbs): r[k..k+nlimbs] += a * b,
+   where r[k+nlimbs] is not read (it is still to be defined) */
+inline fn __mul1acc
+( reg u64 k
+, reg mut ptr u64[2*nlimbs] r
+, reg u64 a
+, reg const ptr u64[nlimbs] b
+) -> reg ptr u64[2*nlimbs]
+{
+  inline int i;
+  reg bool cf;
+  reg u64 hi lo c;
+
+  lo = b[0];
+  hi, lo = lo * a;
+  cf, r[k] += lo;
+  _, hi += 0 + cf;
+  c = hi;
+  for i = 1 to nlimbs {
+    lo = b[i];
+    hi, lo = lo * a;
+    cf, lo += r[k + i];     // (off the carry chain)
+    _, hi += 0 + cf;
+    cf, lo += c;            // carry chain: c -> lo -> hi -> c
+    _, hi += 0 + cf;
+    r[k + i] = lo;
+    c = hi;
+  }
+  r[k + nlimbs] = c;
+
+  return r;
+}
+
+/* Operand-scanning multiplication */
+fn _os_muln
+( reg mut ptr u64[2*nlimbs] r
+, reg const ptr u64[nlimbs] a b
+) -> reg ptr u64[2*nlimbs]
+{
+  reg u64 ai k;
+
+  ai = a[0];
+  r = __mul1(r, ai, b);
+
+  k = 1;
+  while (k < nlimbs) {
+    ai = a[k];
+    r = __mul1acc(k, r, ai, b);
+    k += 1;
+  }
+
+  return r;
+}
+
+inline fn _os_muln_
+( reg mut ptr u64[2*nlimbs] r
+, reg const ptr u64[nlimbs] a b
+) -> reg ptr u64[2*nlimbs]
+{
+  r = r; a = a; b = b;
+  r = _os_muln(r, a, b);
+  r = r;
+  return r;
+}
+
+/* Squaring (by the multiplication: the symmetry is not exploited) */
+fn _os_sqrn
+( reg mut ptr u64[2*nlimbs] r
+, reg const ptr u64[nlimbs] a
+) -> reg ptr u64[2*nlimbs]
+{
+  reg u64 ai k;
+
+  ai = a[0];
+  r = __mul1(r, ai, a);
+
+  k = 1;
+  while (k < nlimbs) {
+    ai = a[k];
+    r = __mul1acc(k, r, ai, a);
+    k += 1;
+  }
+
+  return r;
+}
+
+inline fn _os_sqrn_
+( reg mut ptr u64[2*nlimbs] r
+, reg const ptr u64[nlimbs] a
+) -> reg ptr u64[2*nlimbs]
+{
+  r = r; a = a;
+  r = _os_sqrn(r, a);
+  r = r;
+  return r;
+}
+
+
+// ////////////////////////////////////
+/* Montgomery reduction: r = a * R^-1 mod P, for a < P * R (R = 2^(64*nlimbs)).
+   _P_mP packs P and R - P; _U0 = -P^-1 mod 2^64 (kept on the stack, which
+   leaves registers to the callers of a non-inline wrapper).
+
+   r is a window of nlimbs words over the running value: it starts as the
+   low half of a and, at row k,
+       [r ; c]  :=  ( r + m * P ) / 2^64  +  ( a[nlimbs+k] + c ) * 2^(64*(nlimbs-1))
+   with m = r[0] * _U0 (so that the division is exact) and c the carry (one
+   bit) out of the window. After nlimbs rows, [r ; c] = (a + M * P) / R < 2*P. */
+inline fn __mont_redM
+( reg mut ptr u64[nlimbs] r
+, reg const ptr u64[2*nlimbs] a
+, reg const ptr u64[2*nlimbs] _P_mP
+, stack u64 _U0
+) -> reg ptr u64[nlimbs] {
+  inline int i;
+  reg bool cf;
+  reg ptr u64[nlimbs] mP;
+  reg u64 hi lo w m k c;
+
+  for i = 0 to nlimbs {
+    lo = a[i];
+    r[i] = lo;
+  }
+
+  c = 0;
+  k = 0;
+  while (k < nlimbs) {
+    m = r[0];
+    m *= _U0;
+
+    // word 0 of r + m * P is zero: only its carry is kept
+    lo = _P_mP[0];
+    hi, lo = lo * m;
+    cf, lo += r[0];
+    _, hi += 0 + cf;
+    w = hi;
+    for i = 1 to nlimbs {
+      lo = _P_mP[i];
+      hi, lo = lo * m;
+      cf, lo += r[i];       // (off the carry chain)
+      _, hi += 0 + cf;
+      cf, lo += w;          // carry chain: w -> lo -> hi -> w
+      _, hi += 0 + cf;
+      r[i-1] = lo;
+      w = hi;
+    }
+
+    // top word: w + a[nlimbs+k] + c
+    _, cf, _, _, _, c = #NEG ( c );
+    cf, w += a[k + nlimbs] + cf;
+    r[nlimbs-1] = w;
+    c = #MOV ( 0 );
+    _, c += 0 + cf;
+
+    k += 1;
+  }
+
+  mP = _P_mP[nlimbs:nlimbs];
+  r = BN::_cminusP_(r, mP, c);
+  return r;
+}

@@ -15,6 +15,9 @@ endif
 .DEFAULT_GOAL := all
 
 PROGS = testmul_ps_32 testmul_os_32 testmul_kar_32_ps_16 testmul_kar_32_ps_8 testmul_kar_32_ps_4 testmul_kar_32_os_16 testmul_kar_32_os_8 testmul_kar_32_os_4 testmul_kar_32_osreg_4
+# row-looped operand scanning (bn_mul_loop: MUL/ADC rows; bn_mulx_loop:
+# MULX/ADCX/ADOX rows, which, as the other `os` programs, need BMI2 and ADX)
+PROGS += testmul_os_loop_32 testmul_os_mulx_loop_32
 
 all: $(PROGS)
 
@@ -26,6 +29,12 @@ testmul_ps_32: testmul_ps_32.c muln32.s
 
 testmul_os_32: testmul_os_32.c muln32.s
 	$(GCC) -o $@ $^
+
+testmul_os_loop_32: testmul_os_loop.c muln32_loop.s
+	$(GCC) -DNLIMBS=32 -o $@ $^
+
+testmul_os_mulx_loop_32: testmul_os_loop.c muln32_mulx_loop.s
+	$(GCC) -DNLIMBS=32 -o $@ $^
 
 testmul_kar_32_ps_16: testmul_kar_32_ps_16.c kar_32_ps_16.s
 	$(GCC) -o $@ $^

@@ -78,15 +78,18 @@ expects to find in scope and the names it provides.
 |---|---|---|---|
 | `bn_util` | flag/mask helpers, 3-limb accumulators used by multiplication | `UTIL` (top level) | — |
 | `bn_base@n` | load/store, comparison, (conditional) moves and swaps, add/sub/neg with carry, `cminusP`, `pack2` | `BN` | `nlimbs`, `UTIL::` |
-| `bn_rnd@n` | uniform sampling (`_rnd_`, `_rsample_`) | `RND` | `nlimbs`, `BN::` |
+| `bn_rnd@n` | uniform sampling (`_rnd_`; `_rsample_`: rejection sampling below a public bound, each sample being masked to the bit length of the bound) | `RND` | `nlimbs`, `BN::` |
 | `bn_mul@n` | operand-scanning (`os`) and product-scanning (`ps`) multiplication and squaring; Montgomery reduction `__mont_redM` (constants: `P \|\| R-P` packed in an array, and `-P^-1 mod 2^64`) | `MUL` | `nlimbs`, `BN::`, `UTIL::` |
 | `bn_mulreg@n` | operand-scanning multiplication with the second operand in registers | `MULREG` | `nlimbs` |
+| `bn_mul_loop@n` | the `MUL` module with a run-time loop over the rows: operand-scanning multiplication and squaring, row-wise Montgomery reduction `__mont_redM` (same contract and constants); rows with `mul`/`adc` (see [Unrolled or looped](#unrolled-or-looped-multiplication-and-reduction)) | `MUL`, in the place of `bn_mul` | `nlimbs`, `BN::` |
+| `bn_mulx_loop@n` | the same module, with `mulx`/`adcx`/`adox` rows (BMI2 and ADX) | `MUL`, in the place of `bn_mul` | `nlimbs`, `BN::` |
 | `bn_karatsuba@2n` | one Karatsuba level on top of a given multiplication | `KAR` (in the 2n scope) | `nlimbs` (2n), `H::nlimbs` (n), `fun_kmuln`, `BN::`, `H::BN::`, `UTIL::` |
 | `bn_exp@exp` | modular exponentiation (constant-time and not) | `EXP` (inside a field) | `nlimbs`, `nlimbsexp`, `CTXLEN`, `CTX_ONE`, `fun_mulU`, `fun_sqrU` (both take the context), `BN::`, `UTIL::` |
 | `fp_ctx@n` | layout of a field context (`CTX_P`, `CTX_MP`, `CTX_ONE`, `CTX_R2`, `CTX_U0`, `CTXLEN`) | required by `fp_base` | `nlimbs` |
 | `fp_base@fp` | prime-field operations, generic in the reduction; each takes the context of its modulus | a field (e.g. `FPM`), shared by all moduli of the size | `nlimbs`, `fun_muln`, `fun_sqrn`, `fun_red`, `BN::`, `RND::`, `UTIL::` |
 | `fp_mont@fp` | Montgomery-form field (`_redM_`, `_fromM_`, `_toM_`, `_ctx_init_`) plus all of `fp_base` | a field (e.g. `FPM`) | as `fp_base` (except `fun_red`), plus `MUL::` |
 | `fp_mul_ps@fp` | binds `fun_muln`/`fun_sqrn` to product-scanning multiplication | inside a field | `nlimbs`, `MUL::` |
+| `fp_mul_os@fp` | binds `fun_muln`/`fun_sqrn` to the operand-scanning multiplication of `bn_mul_loop`/`bn_mulx_loop` | inside a field | `nlimbs`, `MUL::` |
 | `*_export@2n` | `export fn` wrappers forming the C interface: `fp_mont_export` (static modulus `H::FPM::glob_ctx`), `fp_mont_ctx_export` (context argument, `fpc_*`) | top level | see the file headers |
 
 ### File names
@@ -194,6 +197,76 @@ fields. Because functions cannot be shadowed, a wrapper must not be visible
 from an enclosing namespace when an inner one defines the same name: define
 the outer level's wrapper *after* the inner namespace has closed.
 
+### Unrolled or looped multiplication and reduction
+
+The loops of the library are Jasmin `for` loops, which the compiler unrolls.
+For the single loops of `bn_base` the code is linear in `nlimbs`; for the
+nested loops of `bn_mul` (multiplication, squaring, Montgomery reduction)
+it is quadratic, and these three routines are most of a large instance.
+
+`bn_mul_loop@n.jinc` and `bn_mulx_loop@n.jinc` provide the same three
+operations with a run-time `while` over the rows of operand scanning; only
+the row is unrolled, so the code is linear in `nlimbs`. They take the place
+of `bn_mul` as the `MUL` instance of a size scope; the field code is
+unchanged, since `fp_mont` only uses `MUL::__mont_redM`, `fun_muln` and
+`fun_sqrn`:
+
+```
+  namespace MUL { from Libjbn require "bn_mul_loop@n.jinc" }   // was bn_mul@n.jinc
+  namespace FPM {
+    from Libjbn require "fp_mul_os@fp.jinc"                    // was fp_mul_ps@fp.jinc
+    from Libjbn require "fp_mont@fp.jinc"
+  }
+```
+
+`bn_mul_loop` uses `mul`/`adc` only, as the product-scanning code;
+`bn_mulx_loop` uses `mulx`/`adcx`/`adox` (two carry chains per row) and
+needs a CPU with BMI2 and ADX.
+
+Size of a whole field instance with run-time moduli (the `fpc_*` entry
+points of `examples/simple_tests/fp_ctx`; bytes of code, Jasmin 2026.09):
+
+| `nlimbs` | `bn_mul` (unrolled) | `bn_mul_loop` | `bn_mulx_loop` |
+|---:|---:|---:|---:|
+| 4 | 5 536 | 4 919 | 5 114 |
+| 8 | 10 683 | 7 541 | 7 558 |
+| 16 | 26 842 | 13 144 | 12 927 |
+| 32 | 90 132 | 26 351 | 26 055 |
+| 64 | 326 500 | 52 929 | 50 969 |
+| 96 | 709 300 | 79 544 | 77 570 |
+| 128 | (not built) | 106 058 | 104 208 |
+
+At 32 limbs the three routines take 16 567 instructions unrolled, 1 247
+with `bn_mul_loop` and 791 with `bn_mulx_loop`; what remains is mostly the
+exponentiations, whose loop over the limbs of the exponent is still
+unrolled. Compilation of the 96-limb instance takes about 5 minutes
+unrolled and 9 seconds looped.
+
+What is *not* settled:
+
+* **Speed.** No measurement on x86-64 hardware exists yet
+  (`make -C examples/simple_tests/fp_ctx bench` times `fpc_mul`, `fpc_sqr`
+  and `fpc_exp` for the three modules, from 4 to 64 limbs). Under Rosetta
+  (which says nothing about instruction caches or decoding on a real x86-64
+  CPU, and cannot run `bn_mulx_loop`), `fpc_mul` with `bn_mul_loop` is
+  within 20% of the unrolled product scanning from 4 to 32 limbs (faster up
+  to 16 limbs, 9% slower at 32) and 41% faster at 64.
+* **Proofs.** The looped modules have no theory in `proof/`: they are
+  tested, not proved (section 5).
+* **Speculative constant time.** `jasmin-ct --sct --after=unroll` accepts
+  the unrolled multiplication, squaring and reduction as they are, given
+  an export wrapper that initialises the misspeculation flag and protects
+  its pointers. (Checked before unrolling, the compile-time `if` of
+  `__ps_sqrn` counts as a branch.) It rejects the looped ones ("this
+  function call destroys MSFs") until the flag is threaded through them:
+  an extra `#[msf]` argument and result, and two `#update_msf` (one per
+  row, one after the loop); with these they are accepted. That changes
+  their signatures, hence those of `fun_muln`, `fun_sqrn` and `fun_red`.
+  The exponentiations, which already loop at run time, need the same
+  whatever the multiplication. Plain constant time (`jasmin-ct --infer`)
+  is accepted for all variants. None of these annotations is in the
+  library yet.
+
 ### Field contexts
 
 The field code does not depend on the modulus: every field operation takes
@@ -246,7 +319,8 @@ from Libjbn require "bn_base_export@2n.jinc" "fp_mont_export@2n.jinc"
 several levels; `examples/schnorr-zk/src/bn_modp2048.jinc` and
 `examples/simple_tests/rsa_pss/rsapss.jazz` several moduli sharing one
 field namespace (contexts `FPM::P::glob_ctx`, `FPM::Q::glob_ctx`); and
-`examples/simple_tests/fp_ctx` moduli given at run time.
+`examples/simple_tests/fp_ctx` moduli given at run time (and, in
+`fp_ctx_loop*.jazz`, the looped multiplication and reduction).
 
 Compile with the library bound to the include name `Libjbn`:
 
@@ -432,8 +506,8 @@ make clean
 |---|---|
 | `simple_tests/sike` | Montgomery field arithmetic for the SIKE primes (434, 503, 610, 751 bits) |
 | `simple_tests/rsa_pss` | 2048-bit RSA: `dec(enc(t)) == t`, CRT decryption |
-| `simple_tests/fp_ctx` | moduli given at run time (7 and 16 limbs): `fpc_ctx_init` and every `fpc_*` operation, against Python (`make run`) |
-| `simple_tests/mults` | 32-limb multiplication: `ps`, `os`, `osreg` and Karatsuba variants |
+| `simple_tests/fp_ctx` | moduli given at run time (7 and 16 limbs): `fpc_ctx_init` and every `fpc_*` operation, against Python (`make run`); each size is built twice, with `bn_mul` (`fp_ctx*.jazz`) and with `bn_mul_loop` (`fp_ctx_loop*.jazz`) |
+| `simple_tests/mults` | 32-limb multiplication: `ps`, `os`, `osreg` and Karatsuba variants; the row-looped `os` of `bn_mul_loop` and `bn_mulx_loop` (`testmul_os_loop.c`, against a C reference) |
 | `schnorr-zk` | a Schnorr zero-knowledge protocol over the RFC 3526 2048-bit group |
 
 The test programs print `TESTING <name>:` followed by `...OK!`, or by the
@@ -443,7 +517,8 @@ The code is x86-64. On macOS the Makefiles compile with
 `gcc -arch x86_64` and the programs run under Rosetta. Rosetta does not
 support the ADX instructions (`mulx`/`adcx`/`adox`) used by the
 operand-scanning multiplications, so the `os`/`osreg` tests in
-`simple_tests/mults` must be run on an x86-64 machine (Broadwell or later).
+`simple_tests/mults` must be run on an x86-64 machine (Broadwell or later);
+this includes `testmul_os_mulx_loop_32`, but not `testmul_os_loop_32`.
 Override the compiler with `make GCC=...` if needed.
 
 `test/misc/params.c` generates, for a given modulus, the constants *and*
@@ -487,6 +562,11 @@ the wiring of a Montgomery field instance (used by `test/misc` and
 * The examples whose operand-scanning code uses ADX/MULX (e.g.
   `simple_tests/mults/testmul_*os*`) stop with "Illegal instruction" under
   Rosetta 2 on Apple silicon; they need a native x86-64 CPU with ADX/BMI2.
+* `bn_mul_loop` and `bn_mulx_loop` are not extracted and have no theory.
+  `bn_mul_loop` is tested natively (`simple_tests/mults`,
+  `simple_tests/fp_ctx`). `bn_mulx_loop` has not been run on a CPU yet: its
+  generated assembly was only checked with an interpreter of the few
+  instructions it uses.
 * `Bn_rnd.eca` and `UsageExample.ec` do not load: they require
   `MLeakage.ec`, which uses `leakages_t`, no longer provided by the Jasmin
   `eclib`. `Bn_rnd` is not synchronised with the extraction yet (it still

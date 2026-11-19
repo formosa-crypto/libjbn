@@ -3,7 +3,11 @@
 
 + [Done] parameter order convention: change to "results first".
 + [Done] systematic definition of `_xxx_` procedure variants (preferred user access to the library code)
-- ?? `for` vs `while` ?? (e.g. in mult/red innerloops)
+- `for` vs `while` in mult/red: both exist now (`bn_mul` unrolled; `bn_mul_loop`, `bn_mulx_loop` with a run-time loop over the rows -- see README, "Unrolled or looped"). Still to do:
+  - time them on x86-64 hardware (`make -C examples/simple_tests/fp_ctx bench`; `bench/` stops at 8 limbs) and choose a default per size;
+  - run `bn_mulx_loop` on a CPU with BMI2/ADX (`make -C examples/simple_tests/mults testmul_os_mulx_loop_32`);
+  - prove the variants that are kept (`_os_muln`, row-wise `__mont_redM`), with the contracts of `Bn_mul.eca`;
+  - run-time loop over the limbs of the exponent in `_expm`/`_expm_noct` (now the largest routines of a looped instance).
 
 
 ## Proof
@@ -20,6 +24,6 @@
 - a good profile of the efficiency/size of multiplication code and reductions
 - efficient operand-scanning multiplication (with upto 4/5/6 limbs... -- base: curve25519)
 - [In progress] karatsuba
-- add some safeguards to rsample (e.g. mask leading zeros on bnd, etc.)
++ [Done] rsample masks each sample to the bit length of bnd (a bound shorter than the array is met with probability > 1/2); its theory `Bn_rnd.eca` is still to be revived
 
 

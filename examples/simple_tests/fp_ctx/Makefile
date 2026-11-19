@@ -15,9 +15,15 @@ endif
 .DEFAULT_GOAL := all
 
 SIZES = 7 16
-PROGS = $(addprefix test_fp_ctx, $(SIZES))
+# the same instances with row-looped multiplication and reduction
+# (bn_mul_loop in the place of bn_mul): same entry points, same vectors
+PROGS = $(addprefix test_fp_ctx, $(SIZES)) $(addprefix test_fp_ctx_loop, $(SIZES))
 
 all: $(PROGS)
+
+# (the more specific pattern first: make 3.81 takes the first match)
+test_fp_ctx_loop%: test_fp_ctx.c fp_ctx_loop%.s
+	$(GCC) -DNLIMBS=$* -o $@ $^
 
 test_fp_ctx%: test_fp_ctx.c fp_ctx%.s
 	$(GCC) -DNLIMBS=$* -o $@ $^
@@ -27,13 +33,37 @@ vectors%.txt: gen_vectors.py
 
 run: $(PROGS) $(addprefix vectors, $(addsuffix .txt, $(SIZES)))
 	for n in $(SIZES); do ./test_fp_ctx$$n < vectors$$n.txt || exit 1; done
+	for n in $(SIZES); do ./test_fp_ctx_loop$$n < vectors$$n.txt || exit 1; done
 
 %.s: %.jazz $(LIBJBN_SRC)
 	$(JASMINC) $(JFLAGS) -o $@ $<
 
+# Timing of the multiplication modules: bn_mul (unr), bn_mul_loop (loop) and
+# bn_mulx_loop (mulx: needs BMI2 and ADX, so it does not run under Rosetta).
+# The instances (tmpbench_<variant>_<size>.*) are generated from fp_ctx7.jazz.
+BENCH_SIZES    ?= 4 8 16 32 64
+BENCH_VARIANTS ?= unr loop mulx
+
+bench: bench_fp_ctx.c fp_ctx7.jazz $(LIBJBN_SRC)
+	@for n in $(BENCH_SIZES); do for v in $(BENCH_VARIANTS); do \
+	  case $$v in \
+	    unr)  m=bn_mul;       s=fp_mul_ps;; \
+	    loop) m=bn_mul_loop;  s=fp_mul_os;; \
+	    mulx) m=bn_mulx_loop; s=fp_mul_os;; \
+	    *) echo "unknown variant $$v"; exit 1;; \
+	  esac; \
+	  f=tmpbench_$${v}_$$n; \
+	  sed -e "s/param int nlimbs = 7;/param int nlimbs = $$n;/" \
+	      -e "s/bn_mul@n.jinc/$$m@n.jinc/" -e "s/fp_mul_ps@fp.jinc/$$s@fp.jinc/" \
+	      fp_ctx7.jazz > $$f.jazz; \
+	  $(JASMINC) $(JFLAGS) -o $$f.s $$f.jazz 2> $$f.log || { cat $$f.log; exit 1; }; \
+	  $(GCC) -O2 -DNLIMBS=$$n -DVARIANT=\"$$v\" -o $$f bench_fp_ctx.c $$f.s || exit 1; \
+	  ./$$f || echo "$$v n=$$n: did not run (mulx needs a CPU with BMI2 and ADX)"; \
+	done; done
+
 .PRECIOUS: fp_ctx%.s
 
 clean:
-	rm -f $(PROGS) fp_ctx*.s vectors*.txt
+	rm -f $(PROGS) fp_ctx*.s vectors*.txt tmpbench_*
 
 realclean: clean
