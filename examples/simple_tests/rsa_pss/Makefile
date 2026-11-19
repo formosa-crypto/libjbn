@@ -22,7 +22,7 @@ test_rsapss: test_rsapss.c rsapss.s
 	$(GCC) -o $@ $^
 
 
-%.s: %.jazz rsa_keys.jinc rsa_key_p@fp.jinc rsa_key_q@fp.jinc rsa_key_n@fp.jinc rsa_crt@fp.jinc $(LIBJBN_SRC)
+%.s: %.jazz rsa_keys.jinc rsa_key_p@n.jinc rsa_key_q@n.jinc rsa_key_n@n.jinc rsa_crt@fp.jinc $(LIBJBN_SRC)
 	$(JASMINC) $(JFLAGS) -o $@ $<
 
 clean:

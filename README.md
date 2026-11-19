@@ -26,7 +26,7 @@ This document describes that workflow.
 
 ```
  src/amd64/ref/<module>@<tag>.jinc   library modules (templates): generic code
-                                 whose free names (nlimbs, glob_P, fun_muln, BN::,
+                                 whose free names (nlimbs, fun_muln, BN::,
               │                  H::BN::, ...) are its parameters
               │  require "<module>@<tag>.jinc" inside namespaces
               │
@@ -56,11 +56,12 @@ There is no code-generation step: instances are written in Jasmin.
 | Path | Contents |
 |---|---|
 | `src/amd64/ref/*@*.jinc` | The library modules, i.e. templates (see [Library modules](#1-library-modules) and [File names](#file-names)). |
-| `src/amd64/ref/params/` | Constants of concrete prime fields (`sike/`, `nistp/`, `rfc3526/`), one file per modulus, under the names the field modules expect. |
+| `src/amd64/ref/params/` | Contexts of concrete moduli (`sike/`, `nistp/`, `rfc3526/`), one file per modulus: `glob_ctx` (see [Field contexts](#field-contexts)), plus application constants (generators, curve coefficients). |
 | `src/amd64/ref/extracted/` | Abstract instantiation and extraction used by the proofs (see [Extraction](#3-extraction-for-the-proofs)). |
 | `src/amd64/ref/legacy/` | Kept for reference: pre-modular multiplication code and its C tests; `mjazz/`, the former template-based instantiation (`mjazz_proc.py`, `templates/`, and the modules in the proposed #519 parametric-module syntax). |
 | `proof/` | EasyCrypt development: value semantics (`JBigNumber.ec`) and one abstract theory per module (`*.eca`). |
-| `examples/` | Concrete programs with C test programs: `simple_tests/{sike,rsa_pss,mults}`, `schnorr-zk/`. |
+| `examples/` | Concrete programs with C test programs: `simple_tests/{sike,rsa_pss,mults,fp_ctx}`, `schnorr-zk/`. |
+| `scripts/` | `xtr_sync.py` (generated modules of the theories, section 4), `fp_ctx.py` (field contexts of given moduli). |
 | `test/misc/` | Generator of field instances for many moduli (compilation tests); `bench/` uses its output. |
 | `bench/`, `ext/` | Benchmarks, external code (`randombytes`). |
 | `src/attic/`, `proof/attic/` | Older code and proofs, kept for reference. |
@@ -78,14 +79,15 @@ expects to find in scope and the names it provides.
 | `bn_util` | flag/mask helpers, 3-limb accumulators used by multiplication | `UTIL` (top level) | — |
 | `bn_base@n` | load/store, comparison, (conditional) moves and swaps, add/sub/neg with carry, `cminusP`, `pack2` | `BN` | `nlimbs`, `UTIL::` |
 | `bn_rnd@n` | uniform sampling (`_rnd_`, `_rsample_`) | `RND` | `nlimbs`, `BN::` |
-| `bn_mul@n` | operand-scanning (`os`) and product-scanning (`ps`) multiplication and squaring; Montgomery reduction `__mont_redM` (constants packed: `P` then `-P mod R`) and `__mont_redM_stk` (constants on the stack) | `MUL` | `nlimbs`, `BN::`, `UTIL::` |
+| `bn_mul@n` | operand-scanning (`os`) and product-scanning (`ps`) multiplication and squaring; Montgomery reduction `__mont_redM` (constants: `P \|\| R-P` packed in an array, and `-P^-1 mod 2^64`) | `MUL` | `nlimbs`, `BN::`, `UTIL::` |
 | `bn_mulreg@n` | operand-scanning multiplication with the second operand in registers | `MULREG` | `nlimbs` |
 | `bn_karatsuba@2n` | one Karatsuba level on top of a given multiplication | `KAR` (in the 2n scope) | `nlimbs` (2n), `H::nlimbs` (n), `fun_kmuln`, `BN::`, `H::BN::`, `UTIL::` |
-| `bn_exp@exp` | modular exponentiation (constant-time and not) | `EXP` (inside a field) | `nlimbs`, `nlimbsexp`, `glob_exp0`, `fun_mulU`, `fun_sqrU`, `BN::`, `UTIL::` |
-| `fp_base@fp` | prime-field operations, generic in the reduction | a field (e.g. `FPM`) | `nlimbs`, `nlimbsexp`, `glob_P`, `glob_mP`, `glob_exp0`, `glob_Pm2`, `fun_muln`, `fun_sqrn`, `fun_red`, `BN::`, `RND::`, `UTIL::` |
-| `fp_mont@fp` | Montgomery-form field (`_redM_`, `_fromM_`, `_toM_`) plus all of `fp_base` | a field (e.g. `FPM`, `FQM`) | as `fp_base` (except `fun_red`), plus `glob_P0i`, `glob_rMP`, `MUL::` |
+| `bn_exp@exp` | modular exponentiation (constant-time and not) | `EXP` (inside a field) | `nlimbs`, `nlimbsexp`, `CTXLEN`, `CTX_ONE`, `fun_mulU`, `fun_sqrU` (both take the context), `BN::`, `UTIL::` |
+| `fp_ctx@n` | layout of a field context (`CTX_P`, `CTX_MP`, `CTX_ONE`, `CTX_R2`, `CTX_U0`, `CTXLEN`) | required by `fp_base` | `nlimbs` |
+| `fp_base@fp` | prime-field operations, generic in the reduction; each takes the context of its modulus | a field (e.g. `FPM`), shared by all moduli of the size | `nlimbs`, `fun_muln`, `fun_sqrn`, `fun_red`, `BN::`, `RND::`, `UTIL::` |
+| `fp_mont@fp` | Montgomery-form field (`_redM_`, `_fromM_`, `_toM_`, `_ctx_init_`) plus all of `fp_base` | a field (e.g. `FPM`) | as `fp_base` (except `fun_red`), plus `MUL::` |
 | `fp_mul_ps@fp` | binds `fun_muln`/`fun_sqrn` to product-scanning multiplication | inside a field | `nlimbs`, `MUL::` |
-| `*_export@2n` | `export fn` wrappers forming the C interface | top level | see the file headers |
+| `*_export@2n` | `export fn` wrappers forming the C interface: `fp_mont_export` (static modulus `H::FPM::glob_ctx`), `fp_mont_ctx_export` (context argument, `fpc_*`) | top level | see the file headers |
 
 ### File names
 
@@ -100,23 +102,23 @@ it must be required:
 
 | Tag | Required in | Names expected in scope |
 |---|---|---|
-| `@n` | a module slot of a size scope (`BN`, `RND`, `MUL`, `MULREG`) | `nlimbs`, `UTIL`, other instances of the same scope |
+| `@n` | a module slot of a size scope (`BN`, `RND`, `MUL`, `MULREG`), or any namespace whose `nlimbs` is the size (context files `params/**/*@n.jinc`, `fp_ctx@n.jinc`) | `nlimbs`, `UTIL`, other instances of the same scope |
 | `@2n` | a 2n scope (or the top level acting as one) | `nlimbs` (2n), the half scope `H` (`H::nlimbs`, `H::BN`, …) |
-| `@fp` | a field namespace (`FPM`, `FQM`, …) | the size scope's names, `nlimbsexp`, the field constants `glob_*`, `fun_muln`/`fun_sqrn` |
-| `@exp` | an exponentiation sub-namespace (`EXP`) | `nlimbs`, `nlimbsexp`, `glob_exp0`, `fun_mulU`/`fun_sqrU`, `BN`, `UTIL` |
+| `@fp` | a field namespace (`FPM`), one per size and choice of multiplication and reduction | the size scope's names, `fun_muln`/`fun_sqrn` |
+| `@exp` | an exponentiation sub-namespace (`EXP`) | `nlimbs`, `nlimbsexp`, `CTXLEN`/`CTX_ONE`, `fun_mulU`/`fun_sqrU`, `BN`, `UTIL` |
 
 The tag gives the kind of context, which is stable; the header of each file
-lists the exact names it uses (field-constant files, `params/**/*@fp.jinc`,
-only use `nlimbs`). `@` is used as separator because `::`, or any `:`,
-breaks make prerequisites and is not portable to Windows.
+lists the exact names it uses. `@` is used as separator because `::`, or
+any `:`, breaks make prerequisites and is not portable to Windows.
 
 Two modules instantiate others themselves, because the instance depends on
 their own functions (they correspond to `clone ... with` inside the
 EasyCrypt theories):
 
 * `fp_base` defines `fun_mulU`/`fun_sqrU` (inline wrappers of its
-  `_mulmU_`/`_sqrmU_`) and then `namespace EXP { require "bn_exp@exp.jinc" }`;
-  inversion (`_invm_`, `_invmU_`) uses `EXP::`.
+  `_mulmU_`/`_sqrmU_`) and then `namespace EXP { param int nlimbsexp =
+  nlimbs; require "bn_exp@exp.jinc" }`; inversion (`_invm_`, `_invmU_`)
+  uses `EXP::`.
 * `fp_mont` defines `fun_red` (wrapper of `_redM_`) and then requires
   `fp_base` *in its own namespace*, so a Montgomery field `FPM` provides
   both `FPM::_toM_` and `FPM::_addm_`.
@@ -165,9 +167,10 @@ Jasmin file of namespaces and `require`s. Every module is instantiated
 
 1. **One size scope per limb count.** A *size scope* is a namespace
    holding `param int nlimbs` and at most one instance of each module at
-   that size (`BN`, `RND`, `MUL`, `MULREG`, `KAR`), plus any number of
-   fields (`FPM`, `FQM`, …), each with its own constants. `UTIL` is
-   instantiated once, at the top level.
+   that size (`BN`, `RND`, `MUL`, `MULREG`, `KAR`), plus a field namespace
+   (`FPM`) per choice of multiplication and reduction, shared by every
+   modulus of that size (moduli are values: [contexts](#field-contexts)).
+   `UTIL` is instantiated once, at the top level.
 2. **Halving nesting.** When a module needs sizes n and 2n, the n scope is
    the child `H` of the 2n scope. Inner scopes are defined (and closed)
    first: instances are created bottom-up, smallest size first, while the
@@ -191,11 +194,33 @@ fields. Because functions cannot be shadowed, a wrapper must not be visible
 from an enclosing namespace when an inner one defines the same name: define
 the outer level's wrapper *after* the inner namespace has closed.
 
-**Field constants** live in `src/amd64/ref/params/`, one file per modulus,
-under the expected names (`glob_P`, `glob_mP`, `glob_P0i`, `glob_Pm2`,
-`glob_exp0`, `glob_rMP`), typed with the enclosing `nlimbs`; the file is
-required inside the field namespace. The limb count is stated once, by the
-wiring; a mismatch is a type error.
+### Field contexts
+
+The field code does not depend on the modulus: every field operation takes
+the *context* of its modulus P as its last argument, an array
+`u64[CTXLEN]` (`fp_ctx@n.jinc`, R = 2^(64*nlimbs)):
+
+```
+ctx = [ P | R-P | R mod P | R^2 mod P | -P^-1 mod 2^64 ]     (4*nlimbs+1 words)
+```
+
+The first `2*nlimbs` words are the packed constants of `MUL::__mont_redM`.
+A context is either
+
+* **static**: a global `glob_ctx`, from a file of `src/amd64/ref/params/`
+  (or one generated by `scripts/fp_ctx.py gen N P`), required in any
+  namespace whose `nlimbs` is the size; code passes it as `ctx = glob_ctx;`
+  (a register holding its address). The limb count is stated once, by the
+  wiring; a mismatch is a type error;
+* **computed at run time** by `FPM::_ctx_init_(ctx, P)` (constant time:
+  Newton's iteration for `-P^-1 mod 2^64`, modular doublings of 1 for
+  `R mod P` and `R^2 mod P`), e.g. through the C entry point
+  `fpc_ctx_init` of `fp_mont_ctx_export@2n.jinc`.
+
+All operations are constant time in their operands and in the context,
+except `_rnd_` (rejection sampling against P) and `_invm(U)_` (Fermat
+inversion with the variable-time exponentiation on P-2), which assume a
+public modulus.
 
 Example (`examples/simple_tests/sike/bn_sike434.jazz`):
 
@@ -208,19 +233,20 @@ namespace H {                                   // working size
   namespace RND { from Libjbn require "bn_rnd@n.jinc" }
   namespace MUL { from Libjbn require "bn_mul@n.jinc" }
   namespace FPM {
-    param int nlimbsexp = nlimbs;
-    from Libjbn require "params/sike/sike434@fp.jinc"   // glob_P, glob_mP, ...
     from Libjbn require "fp_mul_ps@fp.jinc"             // fun_muln, fun_sqrn
     from Libjbn require "fp_mont@fp.jinc"
-  }
+    from Libjbn require "params/sike/sike434@n.jinc"    // glob_ctx, the modulus
+  }                                                     // of the fp_* exports
 }
 
 from Libjbn require "bn_base_export@2n.jinc" "fp_mont_export@2n.jinc"
 ```
 
 `examples/simple_tests/mults/kar_32_*.jazz` show the halving nesting over
-several levels, and `examples/schnorr-zk/src/bn_modp2048.jinc` two fields
-sharing one size scope (there the top level is the size scope itself).
+several levels; `examples/schnorr-zk/src/bn_modp2048.jinc` and
+`examples/simple_tests/rsa_pss/rsapss.jazz` several moduli sharing one
+field namespace (contexts `FPM::P::glob_ctx`, `FPM::Q::glob_ctx`); and
+`examples/simple_tests/fp_ctx` moduli given at run time.
 
 Compile with the library bound to the include name `Libjbn`:
 
@@ -243,8 +269,8 @@ All of this lives in `src/amd64/ref/extracted/`:
   `H::RND`, `H::MUL`, `H::MULREG`, `H::EXP`, `H::FP`, `H::FPM`, `BN`
   (2n) and `KAR`. Function parameters are stubs, declared inside the
   namespace of the module that takes them;
-* `preamb@n.jinc`: the placeholder constants (`nlimbsexp = 13`, zero globals
-  `glob_P`, `glob_mP`, …), required inside `H`, whose `nlimbs` is 11;
+* `preamb@n.jinc`: the placeholder parameter `nlimbsexp = 13`, required
+  inside `H`, whose `nlimbs` is 11 (contexts then have 45 words);
 * `Makefile`: the list of procedures extracted from each module and the
   extraction command.
 
@@ -381,7 +407,8 @@ make clean
 | Example | What it tests |
 |---|---|
 | `simple_tests/sike` | Montgomery field arithmetic for the SIKE primes (434, 503, 610, 751 bits) |
-| `simple_tests/rsa_pss` | 2048-bit RSA: `dec(enc(t)) == t` |
+| `simple_tests/rsa_pss` | 2048-bit RSA: `dec(enc(t)) == t`, CRT decryption |
+| `simple_tests/fp_ctx` | moduli given at run time (7 and 16 limbs): `fpc_ctx_init` and every `fpc_*` operation, against Python (`make run`) |
 | `simple_tests/mults` | 32-limb multiplication: `ps`, `os`, `osreg` and Karatsuba variants |
 | `schnorr-zk` | a Schnorr zero-knowledge protocol over the RFC 3526 2048-bit group |
 
@@ -416,8 +443,7 @@ the wiring of a Montgomery field instance (used by `test/misc` and
   their modules `M` are generated from the extraction (`make -C proof`).
   None of them has admits. `Bn_mul.eca` proves the correctness of the
   product-scanning multiplication and squaring (`_ps_muln_`, `_ps_sqrn_`)
-  and of both Montgomery reductions (`__mont_redM_stk`, and `__mont_redM` by
-  equivalence with it), under the parameter axiom
+  and of the Montgomery reduction `__mont_redM`, under the parameter axiom
   `nlimbs_bnd: 4 * nlimbs < W64.modulus` (the top word of the 3-word
   accumulator counts carries); for the operand-scanning procedures only
   losslessness is proved.
@@ -426,7 +452,10 @@ the wiring of a Montgomery field instance (used by `test/misc` and
   Rosetta 2 on Apple silicon; they need a native x86-64 CPU with ADX/BMI2.
 * `Bn_rnd.eca`, `Bn_exp.eca`, `Fp_base.eca`, `Fp_mont.eca` and
   `UsageExample.ec` do not load: they require `MLeakage.ec`, which uses
-  `leakages_t`, no longer provided by the Jasmin `eclib`.
+  `leakages_t`, no longer provided by the Jasmin `eclib`. `Bn_exp`,
+  `Fp_base` and `Fp_mont` also still describe the former interface (field
+  constants as globals `glob_*`); they are to be rewritten over contexts,
+  with a ghost modulus P and the precondition that the context is P's.
 * The theories were written against the template-based extraction; their
   procedure names are unaffected, but `Fp_base`/`Fp_mont` extracted code now
   contains the concrete sub-instances described in section 3.

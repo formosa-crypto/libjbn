@@ -1,14 +1,8 @@
 /* Dummy parameters for the abstract extraction (see libjbn_abs.jazz):
    required inside the size scope H (nlimbs = 11); the function parameters
-   (fun_*) are stubs in libjbn_abs.jazz. After extraction, the
-   numerals 11, 13, 22, ... are replaced by the abstract parameters
-   (proof/extracted_ths/Readme.md). */
+   (fun_*) are stubs in libjbn_abs.jazz, and the field constants are passed
+   in contexts (fp_ctx@n.jinc: 4*nlimbs+1 = 45 words). After extraction,
+   the numerals 11, 13, 22, ... are replaced by the abstract parameters
+   (scripts/xtr_sync.py). */
 
 param int nlimbsexp = 13;
-
-u64[nlimbs] glob_P = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
-u64[nlimbs] glob_mP = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
-u64 glob_P0i = 0;
-u64[nlimbsexp] glob_Pm2 = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
-u64[nlimbs] glob_exp0 = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
-u64[nlimbs] glob_rMP = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};

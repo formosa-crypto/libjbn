@@ -5,32 +5,40 @@
    in the file name (@fp) gives the kind of namespace. Names below are
    resolved by Jasmin's outward namespace lookup.
 
-   Instance:  a field namespace (e.g. FPM); normally included by fp_mont
+   Instance:  a field namespace (e.g. FPM), in a size scope: it serves every
+              modulus of that size; normally included by fp_mont
    Expects:   param int nlimbs;
-              param int nlimbsexp;         // = nlimbs (size of glob_Pm2)
-              u64[nlimbs] glob_P;          // modulus
-              u64[nlimbs] glob_mP;         // 2^(64*nlimbs) - P
-              u64[nlimbs] glob_exp0;       // representation of 1
-              u64[nlimbsexp] glob_Pm2;     // P-2
               fn fun_muln (reg mut ptr u64[2*nlimbs], reg const ptr u64[nlimbs],
                            reg const ptr u64[nlimbs]) -> reg ptr u64[2*nlimbs]
               fn fun_sqrn (reg mut ptr u64[2*nlimbs], reg const ptr u64[nlimbs])
                           -> reg ptr u64[2*nlimbs]
-              fn fun_red  (reg mut ptr u64[nlimbs], reg const ptr u64[2*nlimbs])
-                          -> reg ptr u64[nlimbs]
+              fn fun_red  (reg mut ptr u64[nlimbs], reg const ptr u64[2*nlimbs],
+                           reg const ptr u64[CTXLEN]) -> reg ptr u64[nlimbs]
               UTIL::  BN::  RND::          // same size
    Provides:  _chk_bnds_ _rnd_ _addm(U)_ _subm(U)_ _mulm(U)_ _sqrm(U)_ _invm(U)_
-   Sub-instance: EXP (bn_exp with fun_mulU/fun_sqrU := _mulmU_/_sqrmU_)
+              and the context layout (fp_ctx@n.jinc: CTXLEN, CTX_P, ...).
+              Every operation takes the field context ctx (the constants of
+              the modulus P) as its last argument.
+   Sub-instance: EXP (bn_exp with fun_mulU/fun_sqrU := _mulmU_/_sqrmU_, and
+              exponents of nlimbs limbs)
+
+   Constant time: the operations are constant time in their operands and in
+   the context, except _rnd_ (rejection sampling: its number of iterations
+   depends on P) and _invm(U)_ (Fermat inversion, with the variable-time
+   exponentiation on P-2): these two assume a public modulus.
 */
+
+require "fp_ctx@n.jinc"
 
 inline fn _chk_bnds_
 ( stack u64 err
 , reg const ptr u64[nlimbs] a
+, reg const ptr u64[CTXLEN] ctx
 ) -> stack u64 {
  reg ptr u64[nlimbs] P;
  reg bool cf;
  reg u64 t;
- P = glob_P;
+ P = ctx[CTX_P:nlimbs];
  cf = BN::_lt_cf_(a, P);
  t = UTIL::__ncf_mask(cf);
  err |= t;
@@ -39,9 +47,10 @@ inline fn _chk_bnds_
 
 inline fn _rnd_
 ( reg mut ptr u64[nlimbs] a
+, reg const ptr u64[CTXLEN] ctx
 ) -> reg ptr u64[nlimbs] {
  reg ptr u64[nlimbs] P;
- P = glob_P;
+ P = ctx[CTX_P:nlimbs];
  a = RND::_rsample_(a, P);
  return a;
 }
@@ -49,7 +58,8 @@ inline fn _rnd_
 inline fn _addm_
  ( reg mut ptr u64[nlimbs] r
  , reg const ptr u64[nlimbs] a b
- ) -> reg ptr u64[nlimbs]
+, reg const ptr u64[CTXLEN] ctx
+) -> reg ptr u64[nlimbs]
 {
   reg bool cf;
   reg u64 lastbit;
@@ -59,7 +69,7 @@ inline fn _addm_
 
   lastbit = 0;
   _, lastbit += 0 + cf;
-  tmp = glob_mP;
+  tmp = ctx[CTX_MP:nlimbs];
   r = BN::_cminusP_(r, tmp, lastbit);
   return r;
 }
@@ -67,7 +77,8 @@ inline fn _addm_
 inline fn _addmU_
  ( reg mut ptr u64[nlimbs] a
  , reg const ptr u64[nlimbs] b
- ) -> reg ptr u64[nlimbs]
+, reg const ptr u64[CTXLEN] ctx
+) -> reg ptr u64[nlimbs]
 {
   reg bool cf;
   reg u64 lastbit;
@@ -77,7 +88,7 @@ inline fn _addmU_
 
   lastbit = 0;
   _, lastbit += 0 + cf;
-  tmp = glob_mP;
+  tmp = ctx[CTX_MP:nlimbs];
   a = BN::_cminusP_(a, tmp, lastbit);
   return a;
 }
@@ -87,11 +98,12 @@ inline fn _addmU_
 inline fn _subm_
 ( reg mut ptr u64[nlimbs] r
 , reg const ptr u64[nlimbs] a b
+, reg const ptr u64[CTXLEN] ctx
 ) -> reg ptr u64[nlimbs] {
  reg bool cf;
  reg ptr u64[nlimbs] tmp;
  cf, r = BN::_sub_(r, a, b);
- tmp = glob_P;
+ tmp = ctx[CTX_P:nlimbs];
  r = BN::_caddU_(r, cf, tmp);
  return r;
 }
@@ -99,11 +111,12 @@ inline fn _subm_
 inline fn _submU_
 ( reg mut ptr u64[nlimbs] a
 , reg const ptr u64[nlimbs] b
+, reg const ptr u64[CTXLEN] ctx
 ) -> reg ptr u64[nlimbs] {
  reg bool cf;
  reg ptr u64[nlimbs] tmp;
  cf, a = BN::_subU_(a, b);
- tmp = glob_P;
+ tmp = ctx[CTX_P:nlimbs];
  a = BN::_caddU_(a, cf, tmp);
  return a;
 }
@@ -112,13 +125,14 @@ inline fn _submU_
 inline fn _mulm_
 ( reg mut ptr u64[nlimbs] r
 , reg ptr u64[nlimbs] a b
+, reg const ptr u64[CTXLEN] ctx
 ) -> reg ptr u64[nlimbs] {
   stack u64[2*nlimbs] _tmp;
   reg ptr u64[2*nlimbs] tmp;
 
   tmp = _tmp;
   tmp = fun_muln(tmp, a, b);
-  r = fun_red(r, tmp);
+  r = fun_red(r, tmp, ctx);
   return r;
 }
 
@@ -127,12 +141,13 @@ inline fn _mulm_
 inline fn _mulmU_ // update inplace
 ( reg mut ptr u64[nlimbs] a
 , reg ptr u64[nlimbs] b
+, reg const ptr u64[CTXLEN] ctx
 ) -> reg ptr u64[nlimbs] {
   stack u64[2*nlimbs] _tmp;
   reg ptr u64[2*nlimbs] tmp;
   tmp = _tmp;
   tmp = fun_muln(tmp, a, b);
-  a = fun_red(a, tmp);
+  a = fun_red(a, tmp, ctx);
   return a;
 }
 
@@ -141,12 +156,13 @@ inline fn _mulmU_ // update inplace
 inline fn _sqrm_
 ( reg mut ptr u64[nlimbs] r
 , reg const ptr u64[nlimbs] a
+, reg const ptr u64[CTXLEN] ctx
 ) -> reg ptr u64[nlimbs] {
   stack u64[2*nlimbs] _tmp;
   reg ptr u64[2*nlimbs] tmp;
   tmp = _tmp;
   tmp = fun_sqrn(tmp, a);
-  r = fun_red(r, tmp);
+  r = fun_red(r, tmp, ctx);
   return r;
 }
 
@@ -154,12 +170,13 @@ inline fn _sqrm_
 
 inline fn _sqrmU_ // update inplace
 ( reg mut ptr u64[nlimbs] a
+, reg const ptr u64[CTXLEN] ctx
 ) -> reg ptr u64[nlimbs] {
   stack u64[2*nlimbs] _tmp;
   reg ptr u64[2*nlimbs] tmp;
   tmp = _tmp;
   tmp = fun_sqrn(tmp, a);
-  a = fun_red(a, tmp);
+  a = fun_red(a, tmp, ctx);
   return a;
 }
 
@@ -171,40 +188,70 @@ inline fn _sqrmU_ // update inplace
 inline fn fun_mulU
 ( reg mut ptr u64[nlimbs] a
 , reg const ptr u64[nlimbs] b
+, reg const ptr u64[CTXLEN] ctx
 ) -> reg ptr u64[nlimbs] {
-  a = _mulmU_(a, b);
+  a = _mulmU_(a, b, ctx);
   return a;
 }
 
 inline fn fun_sqrU
 ( reg mut ptr u64[nlimbs] a
+, reg const ptr u64[CTXLEN] ctx
 ) -> reg ptr u64[nlimbs] {
-  a = _sqrmU_(a);
+  a = _sqrmU_(a, ctx);
   return a;
 }
 
-namespace EXP { require "bn_exp@exp.jinc" }
+namespace EXP {
+  param int nlimbsexp = nlimbs;
+  require "bn_exp@exp.jinc"
+}
 
+
+/* P-2, the exponent of Fermat inversion */
+inline fn __Pm2
+( reg mut ptr u64[nlimbs] r
+, reg const ptr u64[CTXLEN] ctx
+) -> reg ptr u64[nlimbs] {
+  inline int i;
+  reg bool cf;
+  reg u64 t;
+  t = ctx[CTX_P];
+  cf, t -= 2;
+  r[0] = t;
+  for i = 1 to nlimbs {
+    t = ctx[CTX_P + i];
+    cf, t -= 0 - cf;
+    r[i] = t;
+  }
+  return r;
+}
 
 /* Modular Inversion (fermat) */
 inline fn _invmU_
 ( reg mut ptr u64[nlimbs] a
+, reg const ptr u64[CTXLEN] ctx
 ) -> reg ptr u64[nlimbs] {
   /* a^{p-2} */
-  reg ptr u64[nlimbsexp] Pm2;
-  Pm2 = glob_Pm2;
-  a = EXP::_expmU_noct_(a, Pm2);
+  stack u64[nlimbs] _Pm2;
+  reg ptr u64[nlimbs] Pm2;
+  Pm2 = _Pm2;
+  Pm2 = __Pm2(Pm2, ctx);
+  a = EXP::_expmU_noct_(a, Pm2, ctx);
   return a;
 }
 
 inline fn _invm_
 ( reg mut ptr u64[nlimbs] r
 , reg const ptr u64[nlimbs] a
+, reg const ptr u64[CTXLEN] ctx
 ) -> reg ptr u64[nlimbs] {
   /* a^{p-2} */
-  reg ptr u64[nlimbsexp] Pm2;
-  Pm2 = glob_Pm2;
-  r = EXP::_expm_noct_(r, a, Pm2);
+  stack u64[nlimbs] _Pm2;
+  reg ptr u64[nlimbs] Pm2;
+  Pm2 = _Pm2;
+  Pm2 = __Pm2(Pm2, ctx);
+  r = EXP::_expm_noct_(r, a, Pm2, ctx);
   return r;
 }
 

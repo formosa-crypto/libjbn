@@ -2,8 +2,8 @@
    EasyCrypt (see Makefile and README, "Extraction for the proofs").
 
    Same layout as any other program (README): the top level is the 2n scope,
-   H is the size scope n. Integer parameters and globals are dummies
-   (nlimbs = 11, preamb@n.jinc); function parameters (fun_*) are stubs, so that
+   H is the size scope n. Integer parameters are dummies (nlimbs = 11,
+   preamb@n.jinc); function parameters (fun_*) are stubs, so that
    each module is extracted against abstract arguments. Each stub is declared
    inside the namespace of the module that uses it: Jasmin does not allow a
    function to shadow a function visible from an enclosing namespace, and
@@ -16,7 +16,7 @@ namespace UTIL { from Libjbn require "bn_util.jinc" }
 
 namespace H {
   param int nlimbs = 11;
-  require "preamb@n.jinc"            // nlimbsexp, glob_* dummies
+  require "preamb@n.jinc"            // nlimbsexp
 
   namespace BN     { from Libjbn require "bn_base@n.jinc" }
   namespace RND    { from Libjbn require "bn_rnd@n.jinc" }
@@ -24,13 +24,16 @@ namespace H {
   namespace MULREG { from Libjbn require "bn_mulreg@n.jinc" }
 
   namespace EXP {
+    from Libjbn require "fp_ctx@n.jinc"   // CTXLEN, CTX_ONE
     fn fun_mulU
     ( reg mut ptr u64[nlimbs] r
     , reg const ptr u64[nlimbs] a
-    ) -> reg ptr u64[nlimbs] { a=a; return r; }
+    , reg const ptr u64[CTXLEN] ctx
+    ) -> reg ptr u64[nlimbs] { a=a; ctx=ctx; return r; }
     fn fun_sqrU
     ( reg mut ptr u64[nlimbs] r
-    ) -> reg ptr u64[nlimbs] { return r; }
+    , reg const ptr u64[CTXLEN] ctx
+    ) -> reg ptr u64[nlimbs] { ctx=ctx; return r; }
     from Libjbn require "bn_exp@exp.jinc"
   }
 
@@ -43,10 +46,12 @@ namespace H {
     ( reg mut ptr u64[2*nlimbs] r
     , reg const ptr u64[nlimbs] a
     ) -> reg ptr u64[2*nlimbs] { a=a; return r; }
+    from Libjbn require "fp_ctx@n.jinc"   // CTXLEN (for the stub below)
     fn fun_red
     ( reg mut ptr u64[nlimbs] r
     , reg const ptr u64[2*nlimbs] a
-    ) -> reg ptr u64[nlimbs] { a=a; return r; }
+    , reg const ptr u64[CTXLEN] ctx
+    ) -> reg ptr u64[nlimbs] { a=a; ctx=ctx; return r; }
     from Libjbn require "fp_base@fp.jinc"
   }
 

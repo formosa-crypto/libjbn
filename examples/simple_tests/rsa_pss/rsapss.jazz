@@ -6,11 +6,13 @@
 
      top     : C entry points (fp_* operate modulo n)
      H       : 32 limbs   BN, RND, MUL
-                          FPM  (mod n), with EXP (full-size exponents)
-                                and EXPE (exponents of nlimbsE limbs, e.g. e)
+                          FPM: the field code, with EXP (full-size
+                                exponents) and EXPE (exponents of nlimbsE
+                                limbs, e.g. e); its context glob_ctx is n's
      H::H    : 16 limbs   BN, RND, MUL
-                          FPMP (mod p), FPMQ (mod q), each with the
-                          CRT half-decryption of rsa_crt@fp.jinc
+                          FPM: the field code, shared by p and q (contexts
+                                FPM::P::glob_ctx and FPM::Q::glob_ctx), with
+                                the CRT half-decryption of rsa_crt@fp.jinc
      H::RSA  : encryption with a short exponent, CRT decryption
      E       : nlimbsE limbs (public exponent): BN
 
@@ -31,20 +33,12 @@ namespace H {
     namespace RND { from Libjbn require "bn_rnd@n.jinc" }
     namespace MUL { from Libjbn require "bn_mul@n.jinc" }
 
-    namespace FPMP {
-      param int nlimbsexp = nlimbs;
-      require "rsa_key_p@fp.jinc"
+    namespace FPM {
       from Libjbn require "fp_mul_ps@fp.jinc"
       from Libjbn require "fp_mont@fp.jinc"
       require "rsa_crt@fp.jinc"                  // _crt_exp_
-    }
-
-    namespace FPMQ {
-      param int nlimbsexp = nlimbs;
-      require "rsa_key_q@fp.jinc"
-      from Libjbn require "fp_mul_ps@fp.jinc"
-      from Libjbn require "fp_mont@fp.jinc"
-      require "rsa_crt@fp.jinc"                  // _crt_exp_
+      namespace P { require "rsa_key_p@n.jinc" } // glob_ctx: p
+      namespace Q { require "rsa_key_q@n.jinc" } // glob_ctx: q
     }
   }
 
@@ -53,10 +47,9 @@ namespace H {
   namespace MUL { from Libjbn require "bn_mul@n.jinc" }
 
   namespace FPM {
-    param int nlimbsexp = nlimbs;
-    require "rsa_key_n@fp.jinc"
     from Libjbn require "fp_mul_ps@fp.jinc"
     from Libjbn require "fp_mont@fp.jinc"
+    require "rsa_key_n@n.jinc"                   // glob_ctx: n
 
     /* second exponentiation over this field, for short exponents */
     namespace EXPE {
@@ -77,12 +70,16 @@ namespace H {
     ) -> reg ptr u64[nlimbs] {
       stack u64[nlimbs] _mM;
       reg ptr u64[nlimbs] mM;
+      reg ptr u64[FPM::CTXLEN] ctx;
 
       mM = _mM;
       mM = BN::_mov_(mM, m);
-      mM = FPM::_toM_(mM);
-      c = FPM::EXPE::_expmLR_noct_(c, mM, e);
-      c = FPM::_fromM_(c);
+      ctx = FPM::glob_ctx;
+      mM = FPM::_toM_(mM, ctx);
+      ctx = FPM::glob_ctx;
+      c = FPM::EXPE::_expmLR_noct_(c, mM, e, ctx);
+      ctx = FPM::glob_ctx;
+      c = FPM::_fromM_(c, ctx);
       return c;
     }
 
@@ -98,32 +95,40 @@ namespace H {
       stack u64[nlimbs] _w _hq;
       reg ptr u64[H::nlimbs] x y k;
       reg ptr u64[nlimbs] w hq;
+      reg ptr u64[H::FPM::CTXLEN] ctx;
 
-      x = _mp; k = dP;
-      x = H::FPMP::_crt_exp_(x, c, k);
+      x = _mp; k = dP; ctx = H::FPM::P::glob_ctx;
+      x = H::FPM::_crt_exp_(x, c, k, ctx);
       _mp = x;
-      x = _mq; k = dQ;
-      x = H::FPMQ::_crt_exp_(x, c, k);
+      x = _mq; k = dQ; ctx = H::FPM::Q::glob_ctx;
+      x = H::FPM::_crt_exp_(x, c, k, ctx);
       _mq = x;
 
-      /* h = qInv * (mp - mq) mod p, in Montgomery form in FPMP
+      /* h = qInv * (mp - mq) mod p, in Montgomery form modulo p
          (_toM_ accepts any 16-limb value, e.g. mq < q) */
       x = _t; y = _mp;
       x = H::BN::_mov_(x, y);
-      x = H::FPMP::_toM_(x);
+      ctx = H::FPM::P::glob_ctx;
+      x = H::FPM::_toM_(x, ctx);
       y = _u; k = _mq;
       y = H::BN::_mov_(y, k);
-      y = H::FPMP::_toM_(y);
-      x = H::FPMP::_submU_(x, y);
+      ctx = H::FPM::P::glob_ctx;
+      y = H::FPM::_toM_(y, ctx);
+      ctx = H::FPM::P::glob_ctx;
+      x = H::FPM::_submU_(x, y, ctx);
       y = _u; k = qInv;
       y = H::BN::_mov_(y, k);
-      y = H::FPMP::_toM_(y);
-      x = H::FPMP::_mulmU_(x, y);
-      x = H::FPMP::_fromM_(x);
+      ctx = H::FPM::P::glob_ctx;
+      y = H::FPM::_toM_(y, ctx);
+      ctx = H::FPM::P::glob_ctx;
+      x = H::FPM::_mulmU_(x, y, ctx);
+      ctx = H::FPM::P::glob_ctx;
+      x = H::FPM::_fromM_(x, ctx);
       _t = x;
 
       /* m = mq + h * q */
-      hq = _hq; x = _t; k = H::FPMQ::glob_P;
+      ctx = H::FPM::Q::glob_ctx;
+      hq = _hq; x = _t; k = ctx[H::FPM::CTX_P:H::nlimbs];
       hq = H::MUL::_ps_muln_(hq, x, k);
       _hq = hq;
       x = _w[0:H::nlimbs]; y = _mq;

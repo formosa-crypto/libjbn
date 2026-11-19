@@ -1,11 +1,16 @@
-/* libjbn -- fp_mont_export: C entry points for a Montgomery field.
+/* libjbn -- fp_mont_export: C entry points for a Montgomery field, with a
+   static modulus.
 
    Required at the top level (the 2n scope), so that symbols are unqualified.
-   Expects:   H::nlimbs, H::BN::, H::FPM:: // working size n, field FPM
+   Expects:   H::nlimbs, H::BN::, H::FPM::  // working size n, field FPM
+              H::FPM::glob_ctx              // the context of the modulus
+                                            // (e.g. a params/**/*@n.jinc file
+                                            // required inside FPM)
 */
 
 export fn fp_add(reg u64 rp ap bp)
 {
+  reg ptr u64[H::FPM::CTXLEN] ctx;
   stack u64[H::nlimbs] _a _b;
   reg ptr u64[H::nlimbs] a b;
 
@@ -13,13 +18,16 @@ export fn fp_add(reg u64 rp ap bp)
   b = _b;
   a = H::BN::_load_(a,ap);
   b = H::BN::_load_(b,bp);
-  a = H::FPM::_addmU_(a, b);
+  ctx = H::FPM::glob_ctx;
+
+  a = H::FPM::_addmU_(a, b, ctx);
   H::BN::_store_(rp, a);
 }
 
 
 export fn fp_sub( reg u64 rp ap bp)
 {
+  reg ptr u64[H::FPM::CTXLEN] ctx;
   stack u64[H::nlimbs] _a _b;
   reg ptr u64[H::nlimbs] a b;
 
@@ -27,12 +35,15 @@ export fn fp_sub( reg u64 rp ap bp)
   b = _b;
   a = H::BN::_load_(a,ap);
   b = H::BN::_load_(b,bp);
-  a = H::FPM::_submU_(a, b);
+  ctx = H::FPM::glob_ctx;
+
+  a = H::FPM::_submU_(a, b, ctx);
   H::BN::_store_(rp, a);
 }
 
 export fn fp_mul(reg u64 rp ap bp)
 {
+  reg ptr u64[H::FPM::CTXLEN] ctx;
   stack u64[H::nlimbs] _a _b _r;
   reg ptr u64[H::nlimbs] a b r;
 
@@ -41,24 +52,30 @@ export fn fp_mul(reg u64 rp ap bp)
   a = H::BN::_load_(a,ap);
   b = H::BN::_load_(b,bp);
   r = _r;
-  r = H::FPM::_mulm_(r, a, b);
+  ctx = H::FPM::glob_ctx;
+
+  r = H::FPM::_mulm_(r, a, b, ctx);
   H::BN::_store_(rp, r);
 }
 
 export fn fp_sqr(reg u64 rp ap)
 {
+  reg ptr u64[H::FPM::CTXLEN] ctx;
   stack u64[H::nlimbs] _a _r;
   reg ptr u64[H::nlimbs] a r;
 
   a = _a;
   a = H::BN::_load_(a,ap);
   r = _r;
-  r = H::FPM::_sqrm_(r, a);
+  ctx = H::FPM::glob_ctx;
+
+  r = H::FPM::_sqrm_(r, a, ctx);
   H::BN::_store_(rp, r);
 }
 
 export fn fp_exp_noct(reg u64 rp ap bp)
 {
+  reg ptr u64[H::FPM::CTXLEN] ctx;
   stack u64[H::nlimbs] _a _b _r;
   reg ptr u64[H::nlimbs] a b r;
   stack u64 _rp;
@@ -69,13 +86,16 @@ export fn fp_exp_noct(reg u64 rp ap bp)
   b = _b;
   b = H::BN::_load_(b,bp);
   r = _r;
-  r = H::FPM::EXP::_expm_noct_(r, a, b);
+  ctx = H::FPM::glob_ctx;
+
+  r = H::FPM::EXP::_expm_noct_(r, a, b, ctx);
   rp = _rp;
   H::BN::_store_(rp, r);
 }
 
 export fn fp_expLR_noct(reg u64 rp ap bp)
 {
+  reg ptr u64[H::FPM::CTXLEN] ctx;
   stack u64[H::nlimbs] _a _b _r;
   reg ptr u64[H::nlimbs] a b r;
   stack u64 _rp;
@@ -86,13 +106,16 @@ export fn fp_expLR_noct(reg u64 rp ap bp)
   b = _b;
   b = H::BN::_load_(b,bp);
   r = _r;
-  r = H::FPM::EXP::_expmLR_noct_(r, a, b);
+  ctx = H::FPM::glob_ctx;
+
+  r = H::FPM::EXP::_expmLR_noct_(r, a, b, ctx);
   rp = _rp;
   H::BN::_store_(rp, r);
 }
 
 export fn fp_exp(reg u64 rp ap bp)
 {
+  reg ptr u64[H::FPM::CTXLEN] ctx;
   stack u64[H::nlimbs] _a _b _r;
   reg ptr u64[H::nlimbs] a b r;
   stack u64 _rp;
@@ -103,13 +126,16 @@ export fn fp_exp(reg u64 rp ap bp)
   b = _b;
   b = H::BN::_load_(b,bp);
   r = _r;
-  r = H::FPM::EXP::_expm_(r, a, b);
+  ctx = H::FPM::glob_ctx;
+
+  r = H::FPM::EXP::_expm_(r, a, b, ctx);
   rp = _rp;
   H::BN::_store_(rp, r);
 }
 
 export fn fp_inv(reg u64 rp ap)
 {
+  reg ptr u64[H::FPM::CTXLEN] ctx;
   stack u64[H::nlimbs] _a _r;
   reg ptr u64[H::nlimbs] a r;
   stack u64 _rp;
@@ -118,13 +144,16 @@ export fn fp_inv(reg u64 rp ap)
   a = _a;
   a = H::BN::_load_(a,ap);
   r = _r;
-  r = H::FPM::_invm_(r, a);
+  ctx = H::FPM::glob_ctx;
+
+  r = H::FPM::_invm_(r, a, ctx);
   rp = _rp;
   H::BN::_store_(rp, r);
 }
 
 export fn fp_toM(reg u64 rp ap)
 {
+  reg ptr u64[H::FPM::CTXLEN] ctx;
   stack u64[H::nlimbs] _a;
   reg ptr u64[H::nlimbs] a;
   stack u64 _rp;
@@ -132,13 +161,16 @@ export fn fp_toM(reg u64 rp ap)
   _rp = rp;
   a = _a;
   a = H::BN::_load_(a,ap);
-  a = H::FPM::_toM_(a);
+  ctx = H::FPM::glob_ctx;
+
+  a = H::FPM::_toM_(a, ctx);
   rp = _rp;
   H::BN::_store_(rp, a);
 }
 
 export fn fp_fromM(reg u64 rp ap)
 {
+  reg ptr u64[H::FPM::CTXLEN] ctx;
   stack u64[H::nlimbs] _a;
   reg ptr u64[H::nlimbs] a;
   stack u64 _rp;
@@ -146,7 +178,9 @@ export fn fp_fromM(reg u64 rp ap)
   _rp = rp;
   a = _a;
   a = H::BN::_load_(a,ap);
-  a = H::FPM::_fromM_(a);
+  ctx = H::FPM::glob_ctx;
+
+  a = H::FPM::_fromM_(a, ctx);
   rp = _rp;
   H::BN::_store_(rp, a);
 }

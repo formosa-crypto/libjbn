@@ -7,9 +7,11 @@ inline fn __commitment(
 ) -> stack u64[nlimbs], stack u64[nlimbs] {
  stack u64[nlimbs] _secret_power _commitment;
  reg ptr u64[nlimbs] secret_power commitment;
+ reg ptr u64[FPM::CTXLEN] ctx;
  secret_power = _secret_power;
  commitment = _commitment;
- secret_power = FQM::_rnd_(secret_power);
+ ctx = FPM::Q::glob_ctx;
+ secret_power = FPM::_rnd_(secret_power, ctx);
  commitment = FPM::_gexp_(commitment, secret_power);
  _secret_power = secret_power;
  _commitment = commitment; //OBS: in Montgomery form
@@ -20,8 +22,10 @@ inline fn __challenge(
 ) -> stack u64[nlimbs] {
  stack u64[nlimbs] _challenge;
  reg ptr u64[nlimbs] challenge order;
+ reg ptr u64[FPM::CTXLEN] ctx;
  challenge = _challenge;
- order = FQM::glob_P;
+ ctx = FPM::Q::glob_ctx;
+ order = ctx[FPM::CTX_P:nlimbs];
  challenge = RND::_rsample_(challenge, order);
  _challenge = challenge;
  return _challenge;
@@ -32,25 +36,32 @@ inline fn __response
 ) -> stack u64[nlimbs] {
  stack u64[nlimbs] _t;
  reg ptr u64[nlimbs] t witness secret_power challenge;
+ reg ptr u64[FPM::CTXLEN] ctx;
  stack u64 _err;
 
  // Check miss-representation errors
  _err = 0;
  witness = _witness;
- _err = FQM::_chk_bnds_(_err, witness);
+ ctx = FPM::Q::glob_ctx;
+ _err = FPM::_chk_bnds_(_err, witness, ctx);
  secret_power = _secret_power;
- _err = FQM::_chk_bnds_(_err, secret_power);
+ ctx = FPM::Q::glob_ctx;
+ _err = FPM::_chk_bnds_(_err, secret_power, ctx);
  challenge = _challenge;
- _err = FQM::_chk_bnds_(_err, challenge);
+ ctx = FPM::Q::glob_ctx;
+ _err = FPM::_chk_bnds_(_err, challenge, ctx);
 
  // actual prover code
  t = _t;
  t = BN::_mov_(t, witness);
- t = FQM::_toM_(t);
+ ctx = FPM::Q::glob_ctx;
+ t = FPM::_toM_(t, ctx);
  challenge = _challenge;
- t = FQM::_mulmU_(t, challenge);
+ ctx = FPM::Q::glob_ctx;
+ t = FPM::_mulmU_(t, challenge, ctx);
  secret_power = _secret_power;
- t = FQM::_addmU_(t, secret_power);
+ ctx = FPM::Q::glob_ctx;
+ t = FPM::_addmU_(t, secret_power, ctx);
 
  // set ERR on error
  t = BN::_set_err_(t, _err);
@@ -63,35 +74,43 @@ inline fn __verify
 ) -> reg u64 {
  stack u64[nlimbs] _t1 _t2;
  reg ptr u64[nlimbs] t1 t2 statement commitment challenge response;
+ reg ptr u64[FPM::CTXLEN] ctx;
  reg u64 r err;
  stack u64  _err;
 
  // Check miss-representation errors (0: no-err; -1: err)
  _err = 0;
  statement = _statement;
- _err = FPM::_chk_bnds_(_err, statement);
+ ctx = FPM::P::glob_ctx;
+ _err = FPM::_chk_bnds_(_err, statement, ctx);
  commitment = _commitment;
- _err = FPM::_chk_bnds_(_err, commitment);
+ ctx = FPM::P::glob_ctx;
+ _err = FPM::_chk_bnds_(_err, commitment, ctx);
  challenge = _challenge;
- _err = FQM::_chk_bnds_(_err, challenge);
+ ctx = FPM::Q::glob_ctx;
+ _err = FPM::_chk_bnds_(_err, challenge, ctx);
  response = _response;
- _err = FQM::_chk_bnds_(_err, response);
+ ctx = FPM::Q::glob_ctx;
+ _err = FPM::_chk_bnds_(_err, response, ctx);
 
  // actual verifier code
  t2 = _t2;
  statement = _statement;
 
  t2 = BN::_mov_(t2, statement);
- t2 = FPM::_toM_(t2); // statM
+ ctx = FPM::P::glob_ctx;
+ t2 = FPM::_toM_(t2, ctx); // statM
 
  challenge = _challenge;
  t2 = t2;
  t1 = _t1;
- t1 = FPM::EXP::_expm_(t1, t2, challenge); // statM ^ chall
+ ctx = FPM::P::glob_ctx;
+ t1 = FPM::EXP::_expm_(t1, t2, challenge, ctx); // statM ^ chall
 
  t1 = t1;
  commitment = _commitment;
- t1 = FPM::_mulmU_(t1, commitment); // commM *M statM ^ chall
+ ctx = FPM::P::glob_ctx;
+ t1 = FPM::_mulmU_(t1, commitment, ctx); // commM *M statM ^ chall
  _t1 = t1;
  t2 = _t2;
  response = _response;

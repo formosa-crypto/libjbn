@@ -1,9 +1,10 @@
 /* libjbn instance for the Schnorr example: the RFC 3526 2048-bit MODP group.
 
-   Layout (see README): a single size (32 limbs), which is the top level.
-   The two fields share the size scope's BN, RND and MUL instances:
-     FPM : arithmetic modulo P (the group modulus)
-     FQM : arithmetic modulo Q = (P-1)/2 (the group order)
+   Layout (see README): a single size (32 limbs), which is the top level,
+   with one field namespace FPM, shared by the two moduli through their
+   contexts:
+     FPM::P::glob_ctx : arithmetic modulo P (the group modulus)
+     FPM::Q::glob_ctx : arithmetic modulo Q = (P-1)/2 (the group order)
 */
 
 param int nlimbs = 32;
@@ -15,10 +16,10 @@ namespace RND { from Libjbn require "bn_rnd@n.jinc" }
 namespace MUL { from Libjbn require "bn_mul@n.jinc" }
 
 namespace FPM {
-  param int nlimbsexp = nlimbs;
-  from Libjbn require "params/rfc3526/modp2048_p@fp.jinc"
   from Libjbn require "fp_mul_ps@fp.jinc"
   from Libjbn require "fp_mont@fp.jinc"
+  namespace P { from Libjbn require "params/rfc3526/modp2048_p@n.jinc" }
+  namespace Q { from Libjbn require "params/rfc3526/modp2048_q@n.jinc" }
 
   /* exponentiation of the generator (in Montgomery form) */
   inline fn _gexp_
@@ -26,15 +27,11 @@ namespace FPM {
   , reg const ptr u64[nlimbs] x
   ) -> reg ptr u64[nlimbs] {
     reg ptr u64[nlimbs] gM;
-    gM = glob_gM;
-    r = EXP::_expm_(r, gM, x);
+    reg ptr u64[CTXLEN] ctx;
+    gM = P::glob_gM;
+    ctx = P::glob_ctx;
+    r = EXP::_expm_(r, gM, x, ctx);
     return r;
   }
 }
 
-namespace FQM {
-  param int nlimbsexp = nlimbs;
-  from Libjbn require "params/rfc3526/modp2048_q@fp.jinc"
-  from Libjbn require "fp_mul_ps@fp.jinc"
-  from Libjbn require "fp_mont@fp.jinc"
-}

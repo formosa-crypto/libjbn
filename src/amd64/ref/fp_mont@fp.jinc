@@ -5,37 +5,45 @@
    in the file name (@fp) gives the kind of namespace. Names below are
    resolved by Jasmin's outward namespace lookup.
 
-   Instance:  a field namespace (e.g. FPM, FQM) in a size scope
-   Expects:   param int nlimbs;  param int nlimbsexp;   // nlimbsexp = nlimbs
-              u64[nlimbs] glob_P;          // modulus (P)
-              u64[nlimbs] glob_mP;         // 2^(64*nlimbs) - P
-              u64 glob_P0i;                // -P^-1 mod 2^64
-              u64[nlimbs] glob_Pm2;        // P-2
-              u64[nlimbs] glob_exp0;       // 1 in Montgomery form
-              u64[nlimbs] glob_rMP;        // R^2 mod P (conversion into Montgomery form)
+   Instance:  a field namespace (e.g. FPM) in a size scope: it serves every
+              modulus of that size, whose constants are passed in a context
+              (fp_ctx@n.jinc; P odd, with R mod P as the representation of 1)
+   Expects:   param int nlimbs;
               fn fun_muln, fn fun_sqrn     // as in fp_base
               BN::  MUL::  (and UTIL::, RND:: for fp_base)
-   Provides:  _redM _redM_ _fromM_ _toM_, plus everything from fp_base
+   Provides:  _redM _redM_ _fromM_ _toM_, plus everything from fp_base; all
+              take the context ctx as their last argument;
+              _ctx_init_, which computes the context of a modulus
    Includes:  fp_base, in the same namespace, with fun_red := _redM_
 */
 
-// regs: params(2) + call(3) + 4 = 9
+require "fp_ctx@n.jinc"
+
+
+/* a * R^-1 mod P, for a < P * R; the first 2*nlimbs words of the context
+   (P || R-P) are the packed constants of __mont_redM */
 fn _redM
 ( reg mut ptr u64[nlimbs] r
 , reg const ptr u64[2*nlimbs] a
+, reg const ptr u64[CTXLEN] ctx
 ) -> reg ptr u64[nlimbs] {
-  stack u64 _P0i;
-  _P0i = glob_P0i;
-  r = MUL::__mont_redM_stk(r, a, glob_P, glob_mP, _P0i);
+  reg ptr u64[2*nlimbs] PmP;
+  stack u64 _u0;
+  reg u64 t;
+  t = ctx[CTX_U0];
+  _u0 = t;
+  PmP = ctx[CTX_P:2*nlimbs];
+  r = MUL::__mont_redM(r, a, PmP, _u0);
   return r;
 }
 
 inline fn _redM_
 ( reg mut ptr u64[nlimbs] r
 , reg const ptr u64[2*nlimbs] a
+, reg const ptr u64[CTXLEN] ctx
 ) -> reg ptr u64[nlimbs] {
-  r = r; a = a;
-  r = _redM( r, a);
+  r = r; a = a; ctx = ctx;
+  r = _redM(r, a, ctx);
   r = r;
   return r;
 }
@@ -43,6 +51,7 @@ inline fn _redM_
 /* Conversion-out from Montgomery form */
 inline fn _fromM_
 ( reg mut ptr u64[nlimbs] a
+, reg const ptr u64[CTXLEN] ctx
 ) -> reg ptr u64[nlimbs] {
   stack u64[2*nlimbs] _tmp;
   reg ptr u64[2*nlimbs] tmp;
@@ -55,7 +64,7 @@ inline fn _fromM_
   tmp2 = BN::_set0_(tmp2);
   _tmp[nlimbs:nlimbs] = tmp2;
   tmp = _tmp;
-  a = _redM_(a, tmp);
+  a = _redM_(a, tmp, ctx);
   return a;
 }
 
@@ -66,8 +75,9 @@ inline fn _fromM_
 inline fn fun_red
 ( reg mut ptr u64[nlimbs] r
 , reg const ptr u64[2*nlimbs] a
+, reg const ptr u64[CTXLEN] ctx
 ) -> reg ptr u64[nlimbs] {
-  r = _redM_(r, a);
+  r = _redM_(r, a, ctx);
   return r;
 }
 
@@ -78,11 +88,94 @@ require "fp_base@fp.jinc"
 /* Conversion into Montgomery form */
 inline fn _toM_
 ( reg mut ptr u64[nlimbs] a
+, reg const ptr u64[CTXLEN] ctx
 ) -> reg ptr u64[nlimbs] {
-  reg ptr u64[nlimbs] rMP;
-  rMP = glob_rMP;
-  a = _mulmU_(a, rMP);
+  reg ptr u64[nlimbs] R2;
+  R2 = ctx[CTX_R2:nlimbs];
+  a = _mulmU_(a, R2, ctx);
   a = a;
   return a;
 }
 
+// ////////////////////////////////////
+
+/* The context of P (odd, 1 < P < R = 2^(64*nlimbs)), computed in constant
+   time:
+     R - P            by negation;
+     -P^-1 mod 2^64   by Newton's iteration inv := inv * (2 - P[0]*inv), from
+                      inv = P[0] (3 correct bits: P[0]^2 = 1 mod 8; each step
+                      doubles them, so 5 steps reach 96 >= 64 bits);
+     R mod P, R^2 mod P by 64*nlimbs, then 64*nlimbs more, modular doublings
+                      of 1 (with _addm_, which only needs the R - P part of
+                      the context). */
+inline fn _ctx_init_
+( reg mut ptr u64[CTXLEN] ctx
+, reg const ptr u64[nlimbs] P
+) -> reg ptr u64[CTXLEN] {
+  inline int j;
+  stack u64[nlimbs] _x _y;
+  stack u64 _i;
+  reg ptr u64[nlimbs] t x y;
+  reg u64 p0 inv u0 d i;
+
+  t = ctx[CTX_P:nlimbs];
+  t = BN::_mov_(t, P);
+  ctx[CTX_P:nlimbs] = t;
+
+  t = ctx[CTX_MP:nlimbs];
+  _, t = BN::_neg_(t, P);
+  ctx[CTX_MP:nlimbs] = t;
+
+  p0 = P[0];
+  inv = p0;
+  for j = 0 to 5 {
+    d = p0;
+    d *= inv;
+    d = -d;
+    d += 2;
+    inv = inv * d;
+  }
+  u0 = -inv;
+  ctx[CTX_U0] = u0;
+
+  /* 2^(2k) mod P, for k = 32*nlimbs, ..., then 64*nlimbs */
+  x = _x;
+  x = BN::_set0_(x);
+  x[0] = 1;
+  _x = x;
+  i = 32*nlimbs;
+  while (i > 0) {
+    _i = i;
+    x = _x; y = _y;
+    y = _addm_(y, x, x, ctx);
+    _y = y;
+    x = _x; y = _y;
+    x = _addm_(x, y, y, ctx);
+    _x = x;
+    i = _i;
+    i -= 1;
+  }
+  x = _x;
+  t = ctx[CTX_ONE:nlimbs];
+  t = BN::_mov_(t, x);
+  ctx[CTX_ONE:nlimbs] = t;
+
+  i = 32*nlimbs;
+  while (i > 0) {
+    _i = i;
+    x = _x; y = _y;
+    y = _addm_(y, x, x, ctx);
+    _y = y;
+    x = _x; y = _y;
+    x = _addm_(x, y, y, ctx);
+    _x = x;
+    i = _i;
+    i -= 1;
+  }
+  x = _x;
+  t = ctx[CTX_R2:nlimbs];
+  t = BN::_mov_(t, x);
+  ctx[CTX_R2:nlimbs] = t;
+
+  return ctx;
+}

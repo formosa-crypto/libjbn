@@ -308,67 +308,6 @@ module M = {
     r <@ _ps_sqrn_ (r, a);
     return (tmp, r);
   }
-  proc __mont_redM_stk (r:BN.t, a:BN2.t,
-                                _P:BN.t, _mP:BN.t,
-                                _U0:W64.t) : BN.t = {
-    var aux_0:W64.t;
-    var aux:bool;
-    var inc:int;
-    var x:W64.t Array3.t;
-    var p:BN.t;
-    var k:int;
-    var zero:W64.t;
-    var t0:W64.t;
-    var t1:W64.t;
-    var lastbit:W64.t;
-    var cf:bool;
-    var mP:BN.t;
-    var  _0:W64.t;
-    var  _1:bool;
-    p <- witness;
-    mP <- witness;
-    x <- witness;
-    x.[0] <- (W64.of_int 0);
-    x.[1] <- (W64.of_int 0);
-    x.[2] <- (W64.of_int 0);
-    k <- 0;
-    while ((k < nlimbs)) {
-      p <- _P;
-      x <@ __muln_innerloop (x, k, 0, k, r, p);
-      zero <- (W64.of_int 0);
-      t0 <- a.[k];
-      x <@ BNUTIL_M.__addacc3 (x, zero, t0, k);
-      t0 <- x.[(k %% 3)];
-      ( _0, t0) <- (mulu_64 t0 _U0);
-      r.[k] <- t0;
-      (t1, t0) <- (mulu_64 t0 _P.[0]);
-      x <@ BNUTIL_M.__addacc3 (x, t1, t0, k);
-      k <- (k + 1);
-    }
-    inc <- ((2 * nlimbs) - 1);
-    k <- nlimbs;
-    while ((k < inc)) {
-      p <- _P;
-      x <@ __muln_innerloop (x, k, ((k - nlimbs) + 1), nlimbs, r, p);
-      zero <- (W64.of_int 0);
-      t0 <- a.[k];
-      x <@ BNUTIL_M.__addacc3 (x, zero, t0, k);
-      t0 <- x.[(k %% 3)];
-      r.[(k - nlimbs)] <- t0;
-      x.[(k %% 3)] <- (W64.of_int 0);
-      k <- (k + 1);
-    }
-    lastbit <- x.[((2 * nlimbs) %% 3)];
-    (aux, aux_0) <-
-    (adc_64 x.[(((2 * nlimbs) - 1) %% 3)] a.[((2 * nlimbs) - 1)] false);
-    cf <- aux;
-    x.[(((2 * nlimbs) - 1) %% 3)] <- aux_0;
-    ( _1, lastbit) <- (adc_64 lastbit (W64.of_int 0) cf);
-    r.[(nlimbs - 1)] <- x.[(((2 * nlimbs) - 1) %% 3)];
-    mP <- _mP;
-    r <@ BNB_M._cminusP_ (r, mP, lastbit);
-    return r;
-  }
   proc __mont_redM (r:BN.t, a:BN2.t,
                             _P_mP:BN2.t, _U0:W64.t) : BN.t = {
     var aux_0:W64.t;
@@ -510,19 +449,6 @@ proof. by proc; inline _ps_sqrn; wp; call __ps_sqrn_ll; auto. qed.
 
 lemma _ps_ksqrn__ll: islossless M._ps_ksqrn_.
 proof. by proc; wp; call _ps_sqrn__ll; auto. qed.
-
-lemma __mont_redM_stk_ll: islossless M.__mont_redM_stk.
-proof.
-proc; call BNB._cminusP__ll; wp.
-while (true) (inc - k).
- move=> z; wp; call BNUTIL.__addacc3_ll; wp; call __muln_innerloop_ll.
- by auto => /#.
-wp; while (true) (nlimbs - k).
- move=> z; wp; call BNUTIL.__addacc3_ll; wp; call BNUTIL.__addacc3_ll; wp.
- call __muln_innerloop_ll.
- by auto => /#.
-by auto => /#.
-qed.
 
 lemma __mont_redM_ll: islossless M.__mont_redM.
 proof.
@@ -937,23 +863,26 @@ by rewrite modz_small 1:/#; smt().
 qed.
 
 (* obs: [bn _a < bn __P * bn_modulus] ensures that a single final
-   conditional subtraction suffices *)
-lemma __mont_redM_stk_h rInv __P __mP __U0 _a:
+   conditional subtraction suffices; this version takes the two halves of
+   the packed constants [_P_mP] as arrays *)
+lemma __mont_redM_halves_h rInv __P __mP __U0 _a:
  (rInv * BN.bn_modulus) %% BN.bn __P = 1 =>
  bn __P + BN.bn __mP = BN.bn_modulus =>
  __U0 * __P.[0] = W64.of_int (-1) =>
  bn _a < bn __P * BN.bn_modulus =>
- hoare [ M.__mont_redM_stk
-       : _P=__P /\ _mP=__mP /\ _U0=__U0 /\ a=_a ==> bn res = (bn _a * rInv) %% bn __P
+ hoare [ M.__mont_redM
+       : BN.A.init (fun i => _P_mP.[i]) = __P
+         /\ BN.A.init (fun i => _P_mP.[nlimbs + i]) = __mP /\ _U0=__U0 /\ a=_a
+         ==> bn res = (bn _a * rInv) %% bn __P
        ].
 proof.
 move => rInv_r P_mP U0_P0 a_bnd.
 proc.
 (* first loop: the multipliers m_k (column k of a + m*P is a multiple of
    W64.modulus^(k+1)), stored in r *)
-seq 8 : (a = _a /\ _P = __P /\ _mP = __mP /\ _U0 = __U0 /\ k = nlimbs /\ to_uint x.[(nlimbs+2)%%3] = 0 /\ BNUTIL.valAcc nlimbs x * W64.modulus^nlimbs = BN2.bnk nlimbs _a + val_mul_comba_up nlimbs r __P).
-while (a = _a /\ _P = __P /\ _mP = __mP /\ _U0 = __U0 /\ 0 <= k <= nlimbs /\ to_uint x.[(k+2)%%3] = 0 /\ BNUTIL.valAcc k x * W64.modulus^k = BN2.bnk k _a + val_mul_comba_up k r __P).
-wp; ecall (BNUTIL.__addacc3_acc_h x t0 t1 k); wp; ecall (BNUTIL.__addacc3_acc_h x t0 zero k); wp; ecall (__muln_innerloop_h x k 0 k r p); wp; skip => /> &hr Hk0 Hk1 Htop Hinv Hk2.
+seq 9 : (a = _a /\ p = __P /\ BN.A.init (fun i => _P_mP.[nlimbs + i]) = __mP /\ _U0 = __U0 /\ k = nlimbs /\ to_uint x.[(nlimbs+2)%%3] = 0 /\ BNUTIL.valAcc nlimbs x * W64.modulus^nlimbs = BN2.bnk nlimbs _a + val_mul_comba_up nlimbs r __P).
+while (a = _a /\ p = __P /\ BN.A.init (fun i => _P_mP.[nlimbs + i]) = __mP /\ _U0 = __U0 /\ 0 <= k <= nlimbs /\ to_uint x.[(k+2)%%3] = 0 /\ BNUTIL.valAcc k x * W64.modulus^k = BN2.bnk k _a + val_mul_comba_up k r __P).
+wp; ecall (BNUTIL.__addacc3_acc_h x t0 t1 k); wp; ecall (BNUTIL.__addacc3_acc_h x t0 zero k); wp; ecall (__muln_innerloop_h x k 0 k r p); wp; skip => /> &hr _ Hk0 Hk1 Htop Hinv Hk2.
 split; first smt(nlimbs_bndN).
 move=> _ x1 Hx1 Ht1.
 split; first smt(nlimbs_bndN).
@@ -984,7 +913,7 @@ apply eq_big_seq => i; rewrite mem_range => Hi /=.
 by rewrite BN.A.get_setE 1:/# (_: i <> k{hr}) 1:/#.
 by rewrite !mulzDl Hinv; ring.
 wp; skip => />.
-move=> &hr; split.
+move=> &hr -> _; split.
 split; first smt(gt0_nlimbs).
 by rewrite BNUTIL.valAccE /= BN2.bnk0 val_mul_comba_up0.
 move=> k0 r0 x0 Hk Hk0 Hk1 Htop Hinv.
@@ -994,8 +923,8 @@ by move: Htop Hinv; rewrite E.
    (the ghost m keeps the multipliers that r still holds) *)
 exists* r; elim* => m.
 ecall (BNB._cminusP__h r mP lastbit).
-wp; while (a = _a /\ _P = __P /\ _mP = __mP /\ _U0 = __U0 /\ inc = 2*nlimbs - 1 /\ nlimbs <= k <= 2*nlimbs-1 /\ to_uint x.[(k+2)%%3] = 0 /\ (forall j, k - nlimbs <= j < nlimbs => r.[j] = m.[j]) /\ BN.bnk (k - nlimbs) r * W64.modulus^nlimbs + BNUTIL.valAcc k x * W64.modulus^k = BN2.bnk k _a + val_mul_comba_up nlimbs m __P + val_mul_comba_down k m __P).
-wp; ecall (BNUTIL.__addacc3_acc_h x t0 zero k); wp; ecall (__muln_innerloop_h x k (k - nlimbs + 1) nlimbs r p); wp; skip => /> &hr Hk0 Hk1 Htop Hrm Hinv Hk2.
+wp; while (a = _a /\ p = __P /\ BN.A.init (fun i => _P_mP.[nlimbs + i]) = __mP /\ _U0 = __U0 /\ inc = 2*nlimbs - 1 /\ nlimbs <= k <= 2*nlimbs-1 /\ to_uint x.[(k+2)%%3] = 0 /\ (forall j, k - nlimbs <= j < nlimbs => r.[j] = m.[j]) /\ BN.bnk (k - nlimbs) r * W64.modulus^nlimbs + BNUTIL.valAcc k x * W64.modulus^k = BN2.bnk k _a + val_mul_comba_up nlimbs m __P + val_mul_comba_down k m __P).
+wp; ecall (BNUTIL.__addacc3_acc_h x t0 zero k); wp; ecall (__muln_innerloop_h x k (k - nlimbs + 1) nlimbs r p); wp; skip => /> &hr _ Hk0 Hk1 Htop Hrm Hinv Hk2.
 have Hn := gt0_nlimbs.
 split; first smt(nlimbs_bndN).
 move=> _ _ x1 Hx1 Ht1.
@@ -1015,7 +944,7 @@ have ->: BNUTIL.valAcc k{hr} x{hr} * 18446744073709551616 ^ k{hr} = BN2.bnk k{hr
 by rewrite -Hinv; ring.
 by ring.
 (* the last column, with its extra bit, and the final subtraction *)
-wp; skip => /> &hr Htop Hinv.
+wp; skip => /> &hr -> Htop Hinv.
 have Hn := gt0_nlimbs.
 split.
 split; first smt().
@@ -1064,31 +993,8 @@ by move=> <-; rewrite BN.bn_ofintK.
 done.
 qed.
 
-(* the variant with packed constants [_P_mP] (P, then -P mod R) computes as
-   the stack variant on the two halves of [_P_mP] *)
-equiv __mont_redM_stk_eq:
- M.__mont_redM ~ M.__mont_redM_stk
- : ={r, a, _U0} /\ _P{2} = BN.A.init (fun i => _P_mP{1}.[i])
-   /\ _mP{2} = BN.A.init (fun i => _P_mP{1}.[nlimbs + i])
- ==> ={res}.
-proof.
-proc.
-call (: ={arg} ==> ={res}); first by sim.
-wp; while (={k, x, r, a, inc} /\ p{1} = _P{2}
-           /\ _mP{2} = BN.A.init (fun i => _P_mP{1}.[nlimbs + i])).
- wp; call (: ={arg} ==> ={res}); first by sim.
- wp; call (: ={arg} ==> ={res}); first by sim.
- by auto.
-wp; while (={k, x, r, a, _U0} /\ p{1} = _P{2}
-           /\ _mP{2} = BN.A.init (fun i => _P_mP{1}.[nlimbs + i])).
- wp; call (: ={arg} ==> ={res}); first by sim.
- wp; call (: ={arg} ==> ={res}); first by sim.
- wp; call (: ={arg} ==> ={res}); first by sim.
- by auto.
-by auto.
-qed.
-
-(* [_P_mP] packs P and mP = R - P, e.g. as computed by [BN::_pack2_] *)
+(* [_P_mP] packs P and mP = R - P (the first 2*nlimbs words of a field
+   context, or the result of [BN::_pack2_]) *)
 lemma __mont_redM_h rInv __P __mP __U0 _a:
  (rInv * BN.bn_modulus) %% BN.bn __P = 1 =>
  bn __P + BN.bn __mP = BN.bn_modulus =>
@@ -1100,10 +1006,8 @@ lemma __mont_redM_h rInv __P __mP __U0 _a:
        ].
 proof.
 move => rInv_r P_mP U0_P0 a_bnd.
-conseq __mont_redM_stk_eq (__mont_redM_stk_h rInv __P __mP __U0 _a rInv_r P_mP U0_P0 a_bnd) => //.
-move=> &1 [H [-> ->]].
-have [E1 E2] := BNB.bn2_unpack _ _ _ H.
-by exists (r{1}, _a, __P, __mP, __U0) => /=; rewrite E1 E2.
+conseq (__mont_redM_halves_h rInv __P __mP __U0 _a rInv_r P_mP U0_P0 a_bnd) => // &hr [H [-> ->]].
+by have [-> ->] := BNB.bn2_unpack _ _ _ H.
 qed.
 
 
@@ -1122,19 +1026,6 @@ phoare _ps_sqrn__ph _a:
  : a=_a ==> bn res = bn _a * bn _a
  ] = 1%r.
 proof. by conseq _ps_sqrn__ll (_ps_sqrn__h _a). qed.
-
-lemma __mont_redM_stk_ph rInv __P __mP __U0 _a:
- (rInv * BN.bn_modulus) %% BN.bn __P = 1 =>
- bn __P + BN.bn __mP = BN.bn_modulus =>
- __U0 * __P.[0] = W64.of_int (-1) =>
- bn _a < bn __P * BN.bn_modulus =>
- phoare [ M.__mont_redM_stk
-        : _P=__P /\ _mP=__mP /\ _U0=__U0 /\ a=_a ==> bn res = (bn _a * rInv) %% bn __P
-        ] = 1%r.
-proof.
-move => rInv_r P_mP U0_P0 a_bnd.
-by conseq __mont_redM_stk_ll (__mont_redM_stk_h rInv __P __mP __U0 _a rInv_r P_mP U0_P0 a_bnd).
-qed.
 
 lemma __mont_redM_ph rInv __P __mP __U0 _a:
  (rInv * BN.bn_modulus) %% BN.bn __P = 1 =>

@@ -9,12 +9,16 @@
               with another exponent size may be added by the wiring)
    Expects:   param int nlimbs;
               param int nlimbsexp;         // number of limbs of the exponent
-              u64[nlimbs] glob_exp0;       // representation of 1
-              fn fun_mulU (reg mut ptr u64[nlimbs], reg const ptr u64[nlimbs])
+              param int CTXLEN CTX_ONE;    // the context: its size, and the
+                                           // offset of the representation of 1
+                                           // (fp_ctx@n.jinc)
+              fn fun_mulU (reg mut ptr u64[nlimbs], reg const ptr u64[nlimbs],
+                           reg const ptr u64[CTXLEN]) -> reg ptr u64[nlimbs]
+              fn fun_sqrU (reg mut ptr u64[nlimbs], reg const ptr u64[CTXLEN])
                           -> reg ptr u64[nlimbs]
-              fn fun_sqrU (reg mut ptr u64[nlimbs]) -> reg ptr u64[nlimbs]
               UTIL::  BN::                 // bn_util, bn_base (same size)
-   Provides:  _expm_noct_ _expmU_noct_ _expm_ _expmU_ (and LR variants)
+   Provides:  _expm_noct_ _expmU_noct_ _expm_ _expmU_ (and LR variants); all
+              take the context ctx as their last argument
 */
 
 // ////////////////////////////////////
@@ -23,6 +27,7 @@ inline fn _exp1mLR_first_noct
 ( reg mut ptr u64[nlimbs] r
 , reg const ptr u64[nlimbs] x
 , reg u64 w // assumed to be non-zero!!!
+, reg const ptr u64[CTXLEN] ctx
 ) -> reg ptr u64[nlimbs] {
   reg u64 k;
   reg bool cf;
@@ -37,10 +42,10 @@ inline fn _exp1mLR_first_noct
   k -= 1;
   // remaining bits
   while (k >s 0) {
-    r = fun_sqrU(r);
+    r = fun_sqrU(r, ctx);
     _, cf, _, _, _, w = #SHL(w, 1);
     if (cf) {
-      r = fun_mulU(r, x);
+      r = fun_mulU(r, x, ctx);
     }
     k -= 1;
   }
@@ -51,15 +56,16 @@ inline fn _exp1mLR_noct
 ( reg mut ptr u64[nlimbs] r
 , reg const ptr u64[nlimbs] x
 , reg u64 w
+, reg const ptr u64[CTXLEN] ctx
 ) -> reg ptr u64[nlimbs] {
   reg u64 k;
   reg bool cf;
   k = 64;
   while (k >s 0) {
-    r = fun_sqrU(r);
+    r = fun_sqrU(r, ctx);
     _, cf, _, _, _, w = #SHL(w, 1);
     if (cf) {
-      r = fun_mulU(r, x);
+      r = fun_mulU(r, x, ctx);
     }
     k -= 1;
   }
@@ -73,6 +79,7 @@ fn _expmLR_noct
 ( reg mut ptr u64[nlimbs] r
 , reg const ptr u64[nlimbs] x
 , reg const ptr u64[nlimbsexp] e
+, reg const ptr u64[CTXLEN] ctx
 ) -> reg ptr u64[nlimbs] {
   reg ptr u64[nlimbs] exp0;
   reg u64 i w;
@@ -90,17 +97,17 @@ fn _expmLR_noct
   }
   if (i >=s 0) {
     i_s = i;
-    r = _exp1mLR_first_noct(r, x, w);
+    r = _exp1mLR_first_noct(r, x, w, ctx);
     i = i_s;
     i -= 1;
   } else {
-    exp0 = glob_exp0;
+    exp0 = ctx[CTX_ONE:nlimbs];
     r = BN::_mov_(r, exp0);
   }
   while (i >=s 0) {
     w = e[(int) i];
     i_s = i;
-    r = _exp1mLR_noct(r, x, w);
+    r = _exp1mLR_noct(r, x, w, ctx);
     i = i_s;
     i -= 1;
   }
@@ -111,12 +118,13 @@ inline fn _expmLR_noct_
 ( reg mut ptr u64[nlimbs] r
 , reg const ptr u64[nlimbs] a
 , reg const ptr u64[nlimbsexp] b
+, reg const ptr u64[CTXLEN] ctx
 ) -> reg ptr u64[nlimbs] {
   reg ptr u64[nlimbs] exp0;
-  exp0 = glob_exp0;
+  exp0 = ctx[CTX_ONE:nlimbs];
   r = BN::_mov_(r, exp0);
   a = a; b = b;
-  r = _expmLR_noct(r, a, b);
+  r = _expmLR_noct(r, a, b, ctx);
   r = r;
   return r;
 }
@@ -128,6 +136,7 @@ fn _expm_noct
 ( reg mut ptr u64[nlimbs] r
 , reg const ptr u64[nlimbs] a
 , reg const ptr u64[nlimbsexp] b
+, reg const ptr u64[CTXLEN] ctx
 ) -> reg ptr u64[nlimbs] {
   inline int j;
   reg u64 t;
@@ -150,9 +159,9 @@ fn _expm_noct
       _, cf, _, _, _, t = #SHR(t, 1);
       x = _x;
       if (cf) {
-        r = fun_mulU(r, x);
+        r = fun_mulU(r, x, ctx);
       }
-      x = fun_sqrU(x);
+      x = fun_sqrU(x, ctx);
       _x = x;
       _, _, _, zf, _k = #DEC(_k);
     } (!zf)
@@ -164,12 +173,13 @@ inline fn _expm_noct_
 ( reg mut ptr u64[nlimbs] r
 , reg const ptr u64[nlimbs] a
 , reg const ptr u64[nlimbsexp] b
+, reg const ptr u64[CTXLEN] ctx
 ) -> reg ptr u64[nlimbs] {
   reg ptr u64[nlimbs] exp0;
-  exp0 = glob_exp0;
+  exp0 = ctx[CTX_ONE:nlimbs];
   r = BN::_mov_(r, exp0);
   a = a; b = b;
-  r = _expm_noct(r, a, b);
+  r = _expm_noct(r, a, b, ctx);
   r = r;
   return r;
 }
@@ -177,14 +187,13 @@ inline fn _expm_noct_
 inline fn _expmU_noct_
 ( reg mut ptr u64[nlimbs] a
 , reg const ptr u64[nlimbsexp] b
+, reg const ptr u64[CTXLEN] ctx
 ) -> reg ptr u64[nlimbs] {
   stack u64[nlimbs] _tmp;
-  reg ptr u64[nlimbs] tmp exp0;
+  reg ptr u64[nlimbs] tmp;
   tmp = _tmp;
   tmp = BN::_mov_(tmp, a);
-  exp0 = glob_exp0;
-  a = BN::_mov_(a, exp0);
-  a = _expm_noct_(a, tmp, b);
+  a = _expm_noct_(a, tmp, b, ctx);
   return a;
 }
 
@@ -192,6 +201,7 @@ inline fn _expmU_noct_
 fn _expm
 ( reg mut ptr u64[nlimbs] x0 x1
 , reg const ptr u64[nlimbsexp] b
+, reg const ptr u64[CTXLEN] ctx
 ) -> reg ptr u64[nlimbs], reg ptr u64[nlimbs] {
   inline int j;
   reg u64 t mask;
@@ -211,8 +221,8 @@ fn _expm
       mask = UTIL::__cf_mask(cf);
       x0, x1 = BN::_cswap_mask_(x0, x1, mask);
       _mask = mask;
-      x1 = fun_mulU(x1, x0);
-      x0 = fun_sqrU(x0);
+      x1 = fun_mulU(x1, x0, ctx);
+      x0 = fun_sqrU(x0, ctx);
       mask = _mask;
       x0, x1 = BN::_cswap_mask_(x0, x1, mask);
       t = _t;
@@ -226,15 +236,16 @@ inline fn _expm_
 ( reg mut ptr u64[nlimbs] x0
 , reg const ptr u64[nlimbs] a
 , reg const ptr u64[nlimbsexp] b
+, reg const ptr u64[CTXLEN] ctx
 ) -> reg ptr u64[nlimbs] {
   stack u64[nlimbs] _x1;
   reg ptr u64[nlimbs] x1 exp0;
   x1 = _x1;
   x1 = BN::_mov_(x1, a);
-  exp0 = glob_exp0;
+  exp0 = ctx[CTX_ONE:nlimbs];
   x0 = BN::_mov_(x0, exp0);
   b = b;
-  x0, _ = _expm(x0, x1, b);
+  x0, _ = _expm(x0, x1, b, ctx);
   x0 = x0;
   return x0;
 }
@@ -242,15 +253,16 @@ inline fn _expm_
 inline fn _expmU_
 ( reg mut ptr u64[nlimbs] a
 , reg const ptr u64[nlimbsexp] b
+, reg const ptr u64[CTXLEN] ctx
 ) -> reg ptr u64[nlimbs] {
   stack u64[nlimbs] _x1;
   reg ptr u64[nlimbs] x1 exp0;
   x1 = _x1;
   x1 = BN::_mov_(x1, a);
-  exp0 = glob_exp0;
+  exp0 = ctx[CTX_ONE:nlimbs];
   a = BN::_mov_(a, exp0);
   b = b;
-  a, _ = _expm(a, x1, b);
+  a, _ = _expm(a, x1, b, ctx);
   a = a;
   return a;
 }

@@ -15,10 +15,10 @@ namespace H {
   namespace MUL { from Libjbn require "bn_mul@n.jinc" }
 
   namespace FPM {
-    param int nlimbsexp = nlimbs;
-    from Libjbn require "params/sike/sike751@fp.jinc"
     from Libjbn require "fp_mul_ps@fp.jinc"
     from Libjbn require "fp_mont@fp.jinc"
+    from Libjbn require "params/sike/sike751@n.jinc"  // glob_ctx, the modulus
+                                                       // of the fp_* exports
   }
 }
 
