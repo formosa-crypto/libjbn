@@ -8,7 +8,8 @@
 
    Instance:  required inside a field namespace, before fp_mont (or fp_base)
    Expects:   param int nlimbs;
-              MUL::                        // bn_mul_loop, same size
+              MUL::                        // bn_mul_loop, bn_mulx_loop or
+                                           // bn_mulx, same size
    Provides:  fun_muln fun_sqrn            // inline, hence free
 */
 

@@ -1,7 +1,8 @@
 /* Timing of fpc_mul, fpc_sqr and fpc_exp for one field instance (best of a
    few runs, wall-clock time): see the `bench` target of the Makefile, which
    builds this program for each size and each multiplication module
-   (bn_mul, unrolled; bn_mul_loop and bn_mulx_loop, looping over the rows).
+   (bn_mul and bn_mulx, unrolled; bn_mul_loop and bn_mulx_loop, looping over
+   the rows).
 
    Build with -DNLIMBS=<n> -DVARIANT=\"<name>\". */
 #include <stdint.h>
@@ -57,7 +58,7 @@ int main(void) {
     t = now(); for (i = 0; i < ereps; i++) fpc_exp(r, a, e, ctx);
     t = (now() - t) / ereps; if (t < best_e) best_e = t;
   }
-  printf("%-5s n=%-3d fpc_mul %9.1f ns  fpc_sqr %9.1f ns  fpc_exp %12.1f us\n",
+  printf("%-8s n=%-3d fpc_mul %9.1f ns  fpc_sqr %9.1f ns  fpc_exp %12.1f us\n",
          VARIANT, NLIMBS, best_m, best_s, best_e / 1e3);
   return 0;
 }

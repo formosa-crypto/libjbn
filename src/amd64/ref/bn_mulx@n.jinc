@@ -1,0 +1,347 @@
+/* libjbn -- bn_mulx: multiplication, squaring and Montgomery reduction with
+   MULX/ADCX/ADOX rows (BMI2 and ADX extensions), unrolled.
+
+   Library module, i.e. template (see README, sections 1 and 2): it is meant
+   to be `require`d inside a namespace, which becomes the instance; the tag
+   in the file name (@n) gives the kind of namespace. Names below are
+   resolved by Jasmin's outward namespace lookup.
+
+   This is bn_mulx_loop@n.jinc with a `for` over the rows in the place of
+   its run-time `while`: straight-line code, of size quadratic in nlimbs,
+   meant for small sizes (see README, "Unrolled or looped multiplication
+   and reduction"). Being unrolled, it also has
+   - a squaring of its own (the rows of the products a[i]*a[j], i < j, get
+     shorter with i, which a run-time loop over fixed rows cannot do);
+   - a reduction that reads its first row from the argument (no copy) and
+     keeps the word that defines the next multiplier in a register.
+   Every row starts with both carry flags cleared and ends with both clear:
+   no flag is live across a row boundary.
+
+   Instance:  MUL (in a size scope), in the place of bn_mul@n.jinc: the names
+              and contracts provided are the ones of bn_mulx_loop@n.jinc, so
+              that a field (fp_mont, with fp_mul_os) takes either
+   Expects:   param int nlimbs;
+              BN::                         // bn_base, same size
+   Provides:  _os_muln _os_muln_ _os_sqrn _os_sqrn_
+              __mont_redM
+              (constants: P || R-P packed in an array, and -P^-1 mod 2^64)
+*/
+
+/******************************************************************
+                      OPERAND-SCANNING
+*******************************************************************/
+
+/* first row: r[0..nlimbs] = a * b */
+inline fn __mul1
+( reg mut ptr u64[2*nlimbs] r
+, reg u64 a
+, reg const ptr u64[nlimbs] b
+) -> reg ptr u64[2*nlimbs]
+{
+  inline int i;
+  reg bool cf;
+  reg u64 _zero hi lo t;
+
+  _, cf, _, _, _, _zero = #set0();
+
+  hi, lo = #MULX ( a, b[0] );
+  r[0] = lo;
+  for i = 1 to nlimbs {
+    t = hi;
+    hi, lo = #MULX ( a, b[i] );
+    cf, t = #ADCX ( t, lo, cf );
+    r[i] = t;
+  }
+  cf, hi = #ADCX ( hi, _zero, cf );
+  r[nlimbs] = hi;
+  // cf = 0
+
+  return r;
+}
+
+/* row k (0 < k < nlimbs): r[k..k+nlimbs] += a * b,
+   where r[k+nlimbs] is not read (it is still to be defined) */
+inline fn __mul1acc
+( inline int k
+, reg mut ptr u64[2*nlimbs] r
+, reg u64 a
+, reg const ptr u64[nlimbs] b
+) -> reg ptr u64[2*nlimbs]
+{
+  inline int i;
+  reg bool of cf;
+  reg u64 _zero hi lo t;
+
+  of, cf, _, _, _, _zero = #set0();
+
+  hi, lo = #MULX ( a, b[0] );
+  t = r[k];
+  of, t = #ADOX ( t, lo, of );
+  r[k] = t;
+  for i = 1 to nlimbs {
+    t = r[k + i];
+    cf, t = #ADCX ( t, hi, cf );
+    hi, lo = #MULX ( a, b[i] );
+    of, t = #ADOX ( t, lo, of );
+    r[k + i] = t;
+  }
+  cf, hi = #ADCX ( hi, _zero, cf );
+  of, hi = #ADOX ( hi, _zero, of );
+  r[k + nlimbs] = hi;
+  // cf = 0, of = 0
+
+  return r;
+}
+
+/* Operand-scanning multiplication */
+fn _os_muln
+( reg mut ptr u64[2*nlimbs] r
+, reg const ptr u64[nlimbs] a b
+) -> reg ptr u64[2*nlimbs]
+{
+  inline int k;
+  reg u64 ai;
+
+  ai = a[0];
+  r = __mul1(r, ai, b);
+
+  for k = 1 to nlimbs {
+    ai = a[k];
+    r = __mul1acc(k, r, ai, b);
+  }
+
+  return r;
+}
+
+inline fn _os_muln_
+( reg mut ptr u64[2*nlimbs] r
+, reg const ptr u64[nlimbs] a b
+) -> reg ptr u64[2*nlimbs]
+{
+  r = r; a = a; b = b;
+  r = _os_muln(r, a, b);
+  r = r;
+  return r;
+}
+
+
+/******************************************************************
+                          SQUARING
+*******************************************************************/
+
+/* a^2 = 2 * X + D, where
+     X = sum_{i<j} a[i]*a[j] * 2^(64*(i+j))    (words 1 .. 2*nlimbs-2)
+     D = sum_i a[i]^2 * 2^(128*i)
+   X is accumulated by rows (__sqr_row0, __sqr_rowacc), then doubled and
+   added to D in one pass (__sqr_diag). */
+
+/* row 0 of X (nlimbs >= 2): r[1..nlimbs] = a[0] * a[1..nlimbs-1] */
+inline fn __sqr_row0
+( reg mut ptr u64[2*nlimbs] r
+, reg const ptr u64[nlimbs] a
+) -> reg ptr u64[2*nlimbs]
+{
+  inline int j;
+  reg bool cf;
+  reg u64 _zero ai hi lo t;
+
+  _, cf, _, _, _, _zero = #set0();
+
+  ai = a[0];
+  hi, lo = #MULX ( ai, a[1] );
+  r[1] = lo;
+  for j = 2 to nlimbs {
+    t = hi;
+    hi, lo = #MULX ( ai, a[j] );
+    cf, t = #ADCX ( t, lo, cf );
+    r[j] = t;
+  }
+  cf, hi = #ADCX ( hi, _zero, cf );
+  r[nlimbs] = hi;
+  // cf = 0
+
+  return r;
+}
+
+/* row i of X (0 < i < nlimbs-1): r[2i+1..i+nlimbs] += a[i] * a[i+1..nlimbs-1],
+   where r[i+nlimbs] is not read (it is still to be defined) */
+inline fn __sqr_rowacc
+( inline int i
+, reg mut ptr u64[2*nlimbs] r
+, reg const ptr u64[nlimbs] a
+) -> reg ptr u64[2*nlimbs]
+{
+  inline int j;
+  reg bool of cf;
+  reg u64 _zero ai hi lo t;
+
+  of, cf, _, _, _, _zero = #set0();
+
+  ai = a[i];
+  hi, lo = #MULX ( ai, a[i + 1] );
+  t = r[2*i + 1];
+  of, t = #ADOX ( t, lo, of );
+  r[2*i + 1] = t;
+  for j = i + 2 to nlimbs {
+    t = r[i + j];
+    cf, t = #ADCX ( t, hi, cf );
+    hi, lo = #MULX ( ai, a[j] );
+    of, t = #ADOX ( t, lo, of );
+    r[i + j] = t;
+  }
+  cf, hi = #ADCX ( hi, _zero, cf );
+  of, hi = #ADOX ( hi, _zero, of );
+  r[i + nlimbs] = hi;
+  // cf = 0, of = 0
+
+  return r;
+}
+
+/* r = 2 * X + D (nlimbs >= 2), for X in r[1..2*nlimbs-2]: the doubling runs
+   on the CF chain (t + t + cf) and the addition of D on the OF chain.
+   r[0] and r[2*nlimbs-1] are not read (X is zero there). */
+inline fn __sqr_diag
+( reg mut ptr u64[2*nlimbs] r
+, reg const ptr u64[nlimbs] a
+) -> reg ptr u64[2*nlimbs]
+{
+  inline int i;
+  reg bool of cf;
+  reg u64 _zero ai hi lo t;
+
+  of, cf, _, _, _, _zero = #set0();
+
+  ai = a[0];
+  hi, lo = #MULX ( ai, a[0] );
+  r[0] = lo;
+  t = r[1];
+  cf, t = #ADCX ( t, t, cf );
+  of, t = #ADOX ( t, hi, of );
+  r[1] = t;
+  for i = 1 to nlimbs - 1 {
+    ai = a[i];
+    hi, lo = #MULX ( ai, a[i] );
+    t = r[2*i];
+    cf, t = #ADCX ( t, t, cf );
+    of, t = #ADOX ( t, lo, of );
+    r[2*i] = t;
+    t = r[2*i + 1];
+    cf, t = #ADCX ( t, t, cf );
+    of, t = #ADOX ( t, hi, of );
+    r[2*i + 1] = t;
+  }
+  ai = a[nlimbs - 1];
+  hi, lo = #MULX ( ai, a[nlimbs - 1] );
+  t = r[2*nlimbs - 2];
+  cf, t = #ADCX ( t, t, cf );
+  of, t = #ADOX ( t, lo, of );
+  r[2*nlimbs - 2] = t;
+  cf, hi = #ADCX ( hi, _zero, cf );
+  of, hi = #ADOX ( hi, _zero, of );
+  r[2*nlimbs - 1] = hi;
+  // cf = 0, of = 0
+
+  return r;
+}
+
+/* Squaring */
+fn _os_sqrn
+( reg mut ptr u64[2*nlimbs] r
+, reg const ptr u64[nlimbs] a
+) -> reg ptr u64[2*nlimbs]
+{
+  inline int i;
+  reg u64 ai hi lo;
+
+  if (nlimbs == 1) {
+    ai = a[0];
+    hi, lo = #MULX ( ai, a[0] );
+    r[0] = lo;
+    r[1] = hi;
+  } else {
+    r = __sqr_row0(r, a);
+    for i = 1 to nlimbs - 1 {
+      r = __sqr_rowacc(i, r, a);
+    }
+    r = __sqr_diag(r, a);
+  }
+
+  return r;
+}
+
+inline fn _os_sqrn_
+( reg mut ptr u64[2*nlimbs] r
+, reg const ptr u64[nlimbs] a
+) -> reg ptr u64[2*nlimbs]
+{
+  r = r; a = a;
+  r = _os_sqrn(r, a);
+  r = r;
+  return r;
+}
+
+
+// ////////////////////////////////////
+/* Montgomery reduction: r = a * R^-1 mod P, for a < P * R (R = 2^(64*nlimbs)).
+   _P_mP packs P and R - P; _U0 = -P^-1 mod 2^64 (kept on the stack, which
+   leaves registers to the callers of a non-inline wrapper).
+
+   r is a window of nlimbs words over the running value: at row k,
+       [r ; c]  :=  ( w + m * P ) / 2^64  +  ( a[nlimbs+k] + c ) * 2^(64*(nlimbs-1))
+   where w is the window before the row (the low half of a at row 0, r
+   afterwards), m = w[0] * _U0 (so that the division is exact) and c is the
+   carry (one bit, zero at row 0) out of the window. After nlimbs rows,
+   [r ; c] = (a + M * P) / R < 2*P.
+
+   The multiplier of a row depends on word 0 of the previous one: that word
+   (w0) is carried in a register besides being stored, so that the chain
+   from one multiplier to the next does not go through memory. */
+inline fn __mont_redM
+( reg mut ptr u64[nlimbs] r
+, reg const ptr u64[2*nlimbs] a
+, reg const ptr u64[2*nlimbs] _P_mP
+, stack u64 _U0
+) -> reg ptr u64[nlimbs] {
+  inline int i k;
+  reg bool of cf;
+  reg ptr u64[nlimbs] mP;
+  reg u64 _zero hi lo t m w0 c;
+
+  w0 = a[0];
+  for k = 0 to nlimbs {
+    m = w0;
+    m *= _U0;
+    of, cf, _, _, _, _zero = #set0();
+
+    // word 0 of w + m * P is zero: only its carry is kept
+    hi, lo = #MULX ( m, _P_mP[0] );
+    of, w0 = #ADOX ( w0, lo, of );
+    for i = 1 to nlimbs {
+      if (k == 0) { t = a[i]; } else { t = r[i]; }
+      cf, t = #ADCX ( t, hi, cf );
+      hi, lo = #MULX ( m, _P_mP[i] );
+      of, t = #ADOX ( t, lo, of );
+      r[i-1] = t;
+      if (i == 1) { w0 = t; }
+    }
+    cf, hi = #ADCX ( hi, _zero, cf );
+    of, hi = #ADOX ( hi, _zero, of );
+    // cf = 0, of = 0
+
+    // top word: hi + a[nlimbs+k] + c
+    if (k == 0) {
+      cf, hi += a[nlimbs];
+    } else {
+      _, cf, _, _, _, c = #NEG ( c );
+      cf, hi += a[k + nlimbs] + cf;
+    }
+    r[nlimbs-1] = hi;
+    if (nlimbs == 1) { w0 = hi; }
+    c = #MOV ( 0 );
+    _, c += 0 + cf;
+  }
+
+  mP = _P_mP[nlimbs:nlimbs];
+  r = BN::_cminusP_(r, mP, c);
+  return r;
+}

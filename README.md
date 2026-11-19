@@ -83,13 +83,14 @@ expects to find in scope and the names it provides.
 | `bn_mulreg@n` | operand-scanning multiplication with the second operand in registers | `MULREG` | `nlimbs` |
 | `bn_mul_loop@n` | the `MUL` module with a run-time loop over the rows: operand-scanning multiplication and squaring, row-wise Montgomery reduction `__mont_redM` (same contract and constants); rows with `mul`/`adc` (see [Unrolled or looped](#unrolled-or-looped-multiplication-and-reduction)) | `MUL`, in the place of `bn_mul` | `nlimbs`, `BN::` |
 | `bn_mulx_loop@n` | the same module, with `mulx`/`adcx`/`adox` rows (BMI2 and ADX) | `MUL`, in the place of `bn_mul` | `nlimbs`, `BN::` |
+| `bn_mulx@n` | `bn_mulx_loop` unrolled (a `for` over the rows), for small sizes, with a squaring of its own (BMI2 and ADX) | `MUL`, in the place of `bn_mul` | `nlimbs`, `BN::` |
 | `bn_karatsuba@2n` | one Karatsuba level on top of a given multiplication | `KAR` (in the 2n scope) | `nlimbs` (2n), `H::nlimbs` (n), `fun_kmuln`, `BN::`, `H::BN::`, `UTIL::` |
 | `bn_exp@exp` | modular exponentiation (constant-time and not) | `EXP` (inside a field) | `nlimbs`, `nlimbsexp`, `CTXLEN`, `CTX_ONE`, `fun_mulU`, `fun_sqrU` (both take the context), `BN::`, `UTIL::` |
 | `fp_ctx@n` | layout of a field context (`CTX_P`, `CTX_MP`, `CTX_ONE`, `CTX_R2`, `CTX_U0`, `CTXLEN`) | required by `fp_base` | `nlimbs` |
 | `fp_base@fp` | prime-field operations, generic in the reduction; each takes the context of its modulus | a field (e.g. `FPM`), shared by all moduli of the size | `nlimbs`, `fun_muln`, `fun_sqrn`, `fun_red`, `BN::`, `RND::`, `UTIL::` |
 | `fp_mont@fp` | Montgomery-form field (`_redM_`, `_fromM_`, `_toM_`, `_ctx_init_`) plus all of `fp_base` | a field (e.g. `FPM`) | as `fp_base` (except `fun_red`), plus `MUL::` |
 | `fp_mul_ps@fp` | binds `fun_muln`/`fun_sqrn` to product-scanning multiplication | inside a field | `nlimbs`, `MUL::` |
-| `fp_mul_os@fp` | binds `fun_muln`/`fun_sqrn` to the operand-scanning multiplication of `bn_mul_loop`/`bn_mulx_loop` | inside a field | `nlimbs`, `MUL::` |
+| `fp_mul_os@fp` | binds `fun_muln`/`fun_sqrn` to the operand-scanning multiplication of `bn_mul_loop`/`bn_mulx_loop`/`bn_mulx` | inside a field | `nlimbs`, `MUL::` |
 | `*_export@2n` | `export fn` wrappers forming the C interface: `fp_mont_export` (static modulus `H::FPM::glob_ctx`), `fp_mont_ctx_export` (context argument, `fpc_*`) | top level | see the file headers |
 
 ### File names
@@ -223,18 +224,33 @@ unchanged, since `fp_mont` only uses `MUL::__mont_redM`, `fun_muln` and
 `bn_mulx_loop` uses `mulx`/`adcx`/`adox` (two carry chains per row) and
 needs a CPU with BMI2 and ADX.
 
+`bn_mulx@n.jinc` is `bn_mulx_loop` with a `for` over the rows: the same
+rows and the same names, in straight-line code again quadratic in `nlimbs`.
+It is meant for small sizes, where the unrolled `mulx` multiplication is
+the faster one (see the timings below), and it is wired in the same way.
+Being unrolled, it differs from the looped module in two places:
+
+* a squaring of its own, `a^2 = 2 X + D`: the products `a[i]*a[j]`, `i < j`,
+  are accumulated by rows that get shorter with `i`, then `X` is doubled
+  on one carry chain while the squares `a[i]^2` are added on the other
+  (`nlimbs (nlimbs+1) / 2` multiplications instead of `nlimbs^2`);
+* a reduction whose first row reads the argument (no initial copy) and
+  which keeps the word that defines the next multiplier in a register, so
+  that the dependency from one row to the next does not go through
+  memory.
+
 Size of a whole field instance with run-time moduli (the `fpc_*` entry
 points of `examples/simple_tests/fp_ctx`; bytes of code, Jasmin 2026.09):
 
-| `nlimbs` | `bn_mul` (unrolled) | `bn_mul_loop` | `bn_mulx_loop` |
-|---:|---:|---:|---:|
-| 4 | 5 536 | 4 919 | 5 114 |
-| 8 | 10 683 | 7 541 | 7 558 |
-| 16 | 26 842 | 13 144 | 12 927 |
-| 32 | 90 132 | 26 351 | 26 055 |
-| 64 | 326 500 | 52 929 | 50 969 |
-| 96 | 709 300 | 79 544 | 77 570 |
-| 128 | (not built) | 106 058 | 104 208 |
+| `nlimbs` | `bn_mul` (unrolled) | `bn_mul_loop` | `bn_mulx_loop` | `bn_mulx` (unrolled) |
+|---:|---:|---:|---:|---:|
+| 4 | 5 482 | 4 864 | 5 001 | 5 668 |
+| 8 | 10 665 | 7 596 | 7 674 | 11 169 |
+| 16 | 26 902 | 13 089 | 13 194 | 30 236 |
+| 32 | 90 123 | 26 369 | 25 861 | 105 933 |
+| 64 | 326 482 | 52 929 | 52 238 | 392 317 |
+| 96 | 709 349 | 79 486 | 77 573 | (not built) |
+| 128 | (not built) | 106 040 | 102 711 | (not built) |
 
 At 32 limbs the three routines take 16 567 instructions unrolled, 1 247
 with `bn_mul_loop` and 791 with `bn_mulx_loop`; what remains is mostly the
@@ -317,8 +333,10 @@ What is *not* settled:
 
   So neither kind is the best at every size. With MULX/ADCX/ADOX,
   unrolled multiplication is ahead up to 16 limbs and looped from 32 on;
-  an unrolled MULX squaring and reduction, which the field operations
-  would need to profit from it, are not written.
+  the unrolled squaring and reduction that the field operations need to
+  profit from it are those of `bn_mulx`, written after these measurements
+  and not timed yet (`mulx_unr` in both `bench` targets; in `mults`, the
+  `bn_mul` column of this table is now labelled `os`).
 
   Karatsuba (`bn_karatsuba`, one or two levels over each of the four
   multiplications above; same CPU, `make bench-kar` in the same
@@ -345,8 +363,8 @@ What is *not* settled:
   So Karatsuba does not change the choice up to 32 limbs; at 64 limbs it
   is a gain on the multiplication only, and there is no Karatsuba
   squaring.
-* **Proofs.** The looped modules have no theory in `proof/`: they are
-  tested, not proved (section 5).
+* **Proofs.** The looped modules and `bn_mulx` have no theory in `proof/`:
+  they are tested, not proved (section 5).
 * **Speculative constant time.** `jasmin-ct --sct --after=unroll` accepts
   the unrolled multiplication, squaring and reduction as they are, given
   an export wrapper that initialises the misspeculation flag and protects
@@ -600,8 +618,8 @@ make clean
 |---|---|
 | `simple_tests/sike` | Montgomery field arithmetic for the SIKE primes (434, 503, 610, 751 bits) |
 | `simple_tests/rsa_pss` | 2048-bit RSA: `dec(enc(t)) == t`, CRT decryption |
-| `simple_tests/fp_ctx` | moduli given at run time (7 and 16 limbs): `fpc_ctx_init` and every `fpc_*` operation, against Python (`make run`); each size is also built with `bn_mul_loop` (`fp_ctx_loop*.jazz`, in `make run`) and with `bn_mulx_loop` (`fp_ctx_mulx_loop*.jazz`, `make run-mulx`, which needs BMI2 and ADX); `make bench` times the three |
-| `simple_tests/mults` | 32-limb multiplication: `ps`, `os`, `osreg` and Karatsuba variants; the row-looped `os` of `bn_mul_loop` and `bn_mulx_loop` (`testmul_os_loop.c`, against a C reference) |
+| `simple_tests/fp_ctx` | moduli given at run time (7 and 16 limbs): `fpc_ctx_init` and every `fpc_*` operation, against Python (`make run`); each size is also built with `bn_mul_loop` (`fp_ctx_loop*.jazz`, in `make run`) and with `bn_mulx_loop` and `bn_mulx` (`fp_ctx_mulx_loop*.jazz`, `fp_ctx_mulx*.jazz`; `make run-mulx`, which needs BMI2 and ADX); `make bench` times the four |
+| `simple_tests/mults` | 32-limb multiplication: `ps`, `os`, `osreg` and Karatsuba variants; the `os` multiplication and squaring of `bn_mul_loop`, `bn_mulx_loop` and `bn_mulx` (`testmul_os_loop.c`, against a C reference); `make bench` and `make bench-kar` time the multiplications and squarings alone |
 | `schnorr-zk` | a Schnorr zero-knowledge protocol over the RFC 3526 2048-bit group |
 
 The test programs print `TESTING <name>:` followed by `...OK!`, or by the
@@ -612,8 +630,8 @@ The code is x86-64. On macOS the Makefiles compile with
 support the ADX instructions (`mulx`/`adcx`/`adox`) used by the
 operand-scanning multiplications, so the `os`/`osreg` tests in
 `simple_tests/mults` must be run on an x86-64 machine (Broadwell or later);
-this includes `testmul_os_mulx_loop_32` (but not `testmul_os_loop_32`),
-and `make run-mulx` in `simple_tests/fp_ctx`.
+this includes `testmul_os_mulx_loop_32` and `testmul_os_mulx_32` (but not
+`testmul_os_loop_32`), and `make run-mulx` in `simple_tests/fp_ctx`.
 Override the compiler with `make GCC=...` if needed.
 
 `test/misc/params.c` generates, for a given modulus, the constants *and*
@@ -662,6 +680,14 @@ the wiring of a Montgomery field instance (used by `test/misc` and
   `bn_mulx_loop` only where BMI2 and ADX are available (its tests passed
   on an Intel Core i7-14700K): `testmul_os_mulx_loop_32` in `mults`,
   `make run-mulx` in `fp_ctx`.
+* `bn_mulx` is not extracted and has no theory either, and it has not been
+  run on a CPU yet (`testmul_os_mulx_32` in `mults`, `make run-mulx` in
+  `fp_ctx`): its generated assembly was only checked with an interpreter
+  of the few instructions it uses (multiplication, squaring and reduction
+  against Python, from 1 to 32 limbs; the `fpc_*` entry points of a field
+  instance on the vectors of `fp_ctx`, at 1 to 5, 7 and 16 limbs).
+  `jasmin-ct` accepts it, and
+  `jasmin-ct --sct --after=unroll` as well, as the other unrolled code.
 * `Bn_rnd.eca` and `UsageExample.ec` do not load: they require
   `MLeakage.ec`, which uses `leakages_t`, no longer provided by the Jasmin
   `eclib`. `Bn_rnd` is not synchronised with the extraction yet (it still

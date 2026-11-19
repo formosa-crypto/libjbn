@@ -1,4 +1,5 @@
-/* libjbn -- bn_mul_loop_export: C entry points for bn_mul_loop.
+/* libjbn -- bn_mul_loop_export: C entry points for bn_mul_loop (and for the
+   modules with its names: bn_mulx_loop, bn_mulx).
 
    Required at the top level (the 2n scope), so that symbols are unqualified.
    Expects:   H::nlimbs, H::BN::, H::MUL:: // working size n (MUL: bn_mul_loop)
