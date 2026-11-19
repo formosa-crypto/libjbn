@@ -964,4 +964,44 @@ clone WArray as BN_WAbytes
  with op size <- 8*nlimbs.
 (*      proof ge0_size by smt(gt0_nlimbs).*)
 
+(* a double-size number packing two halves *)
+import BN2.A.
+
+lemma bn2_pack (r: BN2.t) (lo hi: BN.t):
+ (forall j, 0 <= j < nlimbs => r.[j] = lo.[j]) =>
+ (forall j, 0 <= j < nlimbs => r.[nlimbs + j] = hi.[j]) =>
+ BN2.bn r = BN.bn lo + BN.bn hi * BN.bn_modulus.
+proof.
+move=> Hlo Hhi; have Hlimbs:= gt0_nlimbs.
+have L: forall k, 0 <= k <= nlimbs => BN2.bnk k r = BN.bnk k lo.
+ elim/natind => [k Hk Hk0|k Hk IH Hk0].
+  by rewrite (_:k=0) 1:/# BN2.bnk0 BN.bnk0.
+ by rewrite BN2.bnkS // BN.bnkS //= IH 1:/# Hlo 1:/#.
+have H: forall k, 0 <= k <= nlimbs =>
+         BN2.bnk (nlimbs + k) r = BN.bnk nlimbs lo + BN.bnk k hi * W64.modulus ^ nlimbs.
+ elim/natind => [k Hk Hk0|k Hk IH Hk0].
+  by rewrite (_:k=0) 1:/# /= L 1:/# BN.bnk0.
+ rewrite addzA BN2.bnkS 1:/# BN.bnkS //= IH 1:/# Hhi 1:/# exprD_nneg 1..2:/#.
+ by rewrite /=; ring.
+by rewrite BN.bn_modulusE -H 1:/# (_: 2 * nlimbs = nlimbs + nlimbs) 1:/#.
+qed.
+
+(* conversely, the halves of a packed pair are determined by its value *)
+lemma bn2_unpack (r: BN2.t) (lo hi: BN.t):
+ BN2.bn r = BN.bn lo + BN.bn hi * BN.bn_modulus =>
+ BN.A.init (fun i => r.[i]) = lo /\ BN.A.init (fun i => r.[nlimbs + i]) = hi.
+proof.
+move=> H.
+have E: BN2.bn r = BN.bn (BN.A.init (fun i => r.[i]))
+                   + BN.bn (BN.A.init (fun i => r.[nlimbs + i])) * BN.bn_modulus.
+ by apply bn2_pack => j Hj; rewrite BN.A.initiE.
+have HR: 0 < BN.bn_modulus by rewrite BN.bn_modulusE StdOrder.IntOrder.expr_gt0.
+have Elo: BN.bn (BN.A.init (fun i => r.[i])) = BN.bn lo.
+ have := congr1 (fun z => z %% BN.bn_modulus) _ _ E; rewrite H /= !modzMDr.
+ by rewrite !modz_small; smt(BN.bnk_cmp BN.bn_modulusE).
+split; first by apply BN.bn_inj.
+apply BN.bn_inj; move: E; rewrite H Elo => /addzI E2.
+by have := congr1 (fun z => z %/ BN.bn_modulus) _ _ E2; rewrite /= !mulzK 1,2:/# => ->.
+qed.
+
 end BigN.

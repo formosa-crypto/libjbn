@@ -1,0 +1,66 @@
+require import AllCore Int IntDiv.
+from Jasmin require import JModel_x86.
+import SLH64.
+
+require JBigNumber.
+
+(* Field contexts (src/amd64/ref/fp_ctx@n.jinc): the constants of a modulus
+   P packed in one array, with R = 2^(64*nlimbs):
+
+     ctx = [ P | R-P | ONE | R2 | U0 ]                  (4*nlimbs+1 words)
+
+   ONE is the representation of 1 (R mod P in Montgomery form), R2 is
+   R^2 mod P and U0 is -P^-1 mod 2^64. *)
+
+(* Parameters *)
+op nlimbs: int.
+axiom gt0_nlimbs: 0 < nlimbs.
+
+clone export JBigNumber.BigN
+ with op nlimbs <- nlimbs
+      proof gt0_nlimbs by exact gt0_nlimbs.
+
+import BN2.
+import BN.
+
+clone import PolyArray as CTX with op size <- 4*nlimbs + 1.
+
+(* the parts of a context *)
+op ctxP   (c: W64.t CTX.t) : BN.t = BN.A.init (fun i => c.[i]).
+op ctxMP  (c: W64.t CTX.t) : BN.t = BN.A.init (fun i => c.[nlimbs + i]).
+op ctxONE (c: W64.t CTX.t) : BN.t = BN.A.init (fun i => c.[2 * nlimbs + i]).
+op ctxR2  (c: W64.t CTX.t) : BN.t = BN.A.init (fun i => c.[3 * nlimbs + i]).
+op ctxU0  (c: W64.t CTX.t) : W64.t = c.[4 * nlimbs].
+(* P || R-P, the packed constants of the Montgomery reduction *)
+op ctxPmP (c: W64.t CTX.t) : BN2.t = BN2.A.init (fun i => c.[i]).
+
+(* c is a context of the modulus p (odd, 1 < p < R): it holds p and R - p *)
+pred ctx_mod (p: int) (c: W64.t CTX.t) =
+  1 < p /\ p %% 2 = 1 /\ BN.bn (ctxP c) = p /\ BN.bn (ctxMP c) = BN.bn_modulus - p.
+
+(* a Montgomery context of p: also R mod p, R^2 mod p and -p^-1 mod 2^64 *)
+pred ctx_mont (p: int) (c: W64.t CTX.t) =
+  ctx_mod p c
+  /\ BN.bn (ctxONE c) = BN.bn_modulus %% p
+  /\ BN.bn (ctxR2 c) = BN.bn_modulus ^ 2 %% p
+  /\ ctxU0 c * (ctxP c).[0] = W64.of_int (-1).
+
+lemma ctx_mod_bnd p c: ctx_mod p c => 1 < p < BN.bn_modulus.
+proof.
+move=> [H1 [_ [HP _]]]; split => // _.
+by rewrite -HP BN.bn_modulusE; move: (BN.bnk_cmp nlimbs (ctxP c)).
+qed.
+
+(* the packed constants have the value P + (R-P)*R *)
+lemma ctxPmP_val c:
+  BN2.bn (ctxPmP c) = BN.bn (ctxP c) + BN.bn (ctxMP c) * BN.bn_modulus.
+proof.
+have Hn := gt0_nlimbs.
+apply bn2_pack => j Hj; rewrite /ctxPmP.
+- by rewrite BN2.A.initiE 1:/# BN.A.initiE.
+- by rewrite BN2.A.initiE 1:/# BN.A.initiE.
+qed.
+
+lemma ctxPmP_ctx_mod p c:
+  ctx_mod p c => BN2.bn (ctxPmP c) = p + (BN.bn_modulus - p) * BN.bn_modulus.
+proof. by move=> [_ [_ [HP HmP]]]; rewrite ctxPmP_val HP HmP. qed.

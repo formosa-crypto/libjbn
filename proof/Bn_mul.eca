@@ -1007,7 +1007,7 @@ lemma __mont_redM_h rInv __P __mP __U0 _a:
 proof.
 move => rInv_r P_mP U0_P0 a_bnd.
 conseq (__mont_redM_halves_h rInv __P __mP __U0 _a rInv_r P_mP U0_P0 a_bnd) => // &hr [H [-> ->]].
-by have [-> ->] := BNB.bn2_unpack _ _ _ H.
+by have [-> ->] := bn2_unpack _ _ _ H.
 qed.
 
 

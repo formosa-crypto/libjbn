@@ -33,13 +33,13 @@ BN_KAR_NS  = KAR::
 BN_KAR_FNS = _kar_muln_
 
 BN_EXP_NS  = H::EXP::
-BN_EXP_FNS = _expm_noct_ _expmU_noct_ _expm_ _expmU_
+BN_EXP_FNS = _expm_noct_ _expmU_noct_ _expm_ _expmU_ _expmLR_noct_
 
 FP_BASE_NS  = H::FP::
-FP_BASE_FNS = _chk_bnds_ _rnd_ _addm_ _addmU_ _subm_ _submU_ _mulm_ _mulmU_ _sqrm_ _sqrmU_ _invm_ _invmU_
+FP_BASE_FNS = _chk_bnds_ _addm_ _addmU_ _subm_ _submU_ _mulm_ _mulmU_ _sqrm_ _sqrmU_ _invm_ _invmU_
 
 FP_MONT_NS  = H::FPM::
-FP_MONT_FNS = _redM_ _fromM_ _toM_
+FP_MONT_FNS = fun_muln fun_sqrn _redM_ _fromM_ _toM_ _ctx_init_
 
 xtr = $(JASMIN2EC) $(foreach fn, $(2), -f '$(1)$(fn)') -o $@ libjbn_abs.jazz
 

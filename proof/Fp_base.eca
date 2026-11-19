@@ -1,718 +1,700 @@
-require import AllCore Int IntDiv List.
-
-
+require import AllCore Int IntDiv List StdOrder.
 from Jasmin require import JModel_x86.
 import SLH64.
 
-require import MLeakage.
-require JBigNumber Bn_util Bn_base Bn_exp Bn_rnd.
+require JBigNumber.
 
+(* Correctness contracts for fp_base@fp.jinc: arithmetic modulo P, given by
+   a context, and generic in the multiplication (fun_muln/fun_sqrn) and in
+   the reduction (fun_red), the module parameter of M.
+
+   The reduction is abstract: it multiplies by a factor redK p, invertible
+   modulo p, i.e. red p x = x * redK p mod p (R^-1 for Montgomery, 1 for a
+   plain reduction). red p x is also the value that a representative x
+   stands for, and red p (x * y) represents the product of the values of x
+   and y. *)
 
 (* Parameters *)
 op nlimbs: int.
 axiom gt0_nlimbs: 0 < nlimbs.
+(* the limb indices of the exponentiation are signed words *)
+axiom nlimbs_bnd: 64 * nlimbs < W64.modulus.
 
-clone import JBigNumber.BigN
+clone export JBigNumber.BigN
  with op nlimbs <- nlimbs
       proof gt0_nlimbs by exact gt0_nlimbs.
 
+import BN2.
+import BN.
 
-op glob_P: BN.t.
-op glob_mP: BN.t.
-op glob_exp0: BN.t.
-op glob_Pm2: BN.t.
-op red_op: BN2.t -> BN.t.
-
-axiom prime_P: prime (bn glob_P).
-axiom def_mP: bn glob_mP = bn_modulus - bn glob_P.
-axiom def_Pm2: bn glob_Pm2 = bn glob_P - 2.
-
-
-op mul_op (x y: BN.t): BN.t =
- red_op (BN2.bn_ofint (BN.bn x * BN.bn y)).
-
-
+require Bn_util.
 clone Bn_util as BNUTIL.
 module BNUTIL_M = BNUTIL.M.
-module BNUTIL_MLeak = BNUTIL.MLeak.
 
+require Bn_base.
 clone Bn_base as BNB
  with op nlimbs <- nlimbs,
       theory BigN <- BigN,
       theory BNUTIL <- BNUTIL
       proof gt0_nlimbs by exact gt0_nlimbs.
-module BN_M = BNB.M. 
-module BN_MLeak = BNB.MLeak. 
+module BNB_M = BNB.M.
 
-clone Bn_rnd as BNRND
+require Fp_ctx.
+clone Fp_ctx as FPC
  with op nlimbs <- nlimbs,
-      theory BigN <- BigN,
-      theory BNUTIL <- BNUTIL,
-      theory BNB <- BNB
+      theory BigN <- BigN
       proof gt0_nlimbs by exact gt0_nlimbs.
-module BNRND_M = BNRND.M. 
-module BNRND_MLeak = BNRND.MLeak. 
+import FPC.CTX.
 
+(* the reduction: its factor, and what it needs from a context *)
+op redK : int -> int.
+op red_ctx : int -> W64.t FPC.CTX.t -> bool.
+
+op red (p x: int) : int = x * redK p %% p.
+
+(* c is a context of p for this reduction: it holds p and R - p, what the
+   reduction needs, and ONE, a representative of 1 *)
+pred ctx_fp (p: int) (c: W64.t FPC.CTX.t) =
+  FPC.ctx_mod p c /\ red_ctx p c
+  /\ 0 <= bn (FPC.ctxONE c) < p /\ red p (bn (FPC.ctxONE c)) = 1.
+
+(* the arithmetic of representatives *)
+lemma red_range p x: 0 < p => 0 <= red p x < p.
+proof. by move=> Hp; rewrite /red; smt(modz_ge0 ltz_pmod). qed.
+
+lemma redMr p x y: red p (x * (y %% p)) = red p (x * y).
+proof.
+rewrite /red (_: x * (y %% p) * redK p = (y %% p) * (x * redK p)) 1:/# modzMml.
+by rewrite (_: y * (x * redK p) = x * y * redK p); first by ring.
+qed.
+
+lemma redC p x y: red p (x * y) = red p (y * x).
+proof. by rewrite mulzC. qed.
+
+(* the value of a product of representatives *)
+lemma red_mul p x y: red p (red p (x * y)) = red p x * red p y %% p.
+proof.
+rewrite {1}/red (_: x * y * redK p %% p * redK p = redK p * (x * y * redK p %% p)) 1:/#.
+rewrite modzMmr /red modzMml modzMmr.
+by rewrite (_: redK p * (x * y * redK p) = x * redK p * (y * redK p)); first by ring.
+qed.
+
+lemma red_assoc p x y z: red p (x * red p (y * z)) = red p (red p (x * y) * z).
+proof.
+rewrite /red.
+rewrite (_: x * (y * z * redK p %% p) * redK p = (y * z * redK p %% p) * (x * redK p)) 1:/# modzMml.
+rewrite (_: (x * y * redK p %% p) * z * redK p = (x * y * redK p %% p) * (z * redK p)) 1:/# modzMml.
+by rewrite (_: y * z * redK p * (x * redK p) = x * y * redK p * (z * redK p)); first by ring.
+qed.
+
+lemma red_one p one x:
+  red p one = 1 => 0 <= x < p => red p (one * x) = x.
+proof.
+rewrite /red => H1 Hx.
+rewrite (_: one * x * redK p = (one * redK p) * x) 1:/# -modzMml H1 /=.
+by rewrite modz_small /#.
+qed.
+
+lemma ctx_fp_p p c: ctx_fp p c => bn (FPC.ctxP c) = p /\ 1 < p.
+proof. by move=> [[H1 [_ [HP _]]] _]. qed.
+
+(* the monoid of representatives of a context *)
+lemma fp_mmul_dom c x y:
+  ctx_fp (bn (FPC.ctxP c)) c => 0 <= x < bn (FPC.ctxP c) => 0 <= y < bn (FPC.ctxP c) =>
+  0 <= red (bn (FPC.ctxP c)) (x * y) < bn (FPC.ctxP c).
+proof. by move=> Hc _ _; apply red_range; smt(ctx_fp_p). qed.
+
+lemma fp_mone_dom c:
+  ctx_fp (bn (FPC.ctxP c)) c => 0 <= bn (FPC.ctxONE c) < bn (FPC.ctxP c).
+proof. by move=> [_ [_ [H _]]]. qed.
+
+lemma fp_mmul1 c x:
+  ctx_fp (bn (FPC.ctxP c)) c => 0 <= x < bn (FPC.ctxP c) =>
+  red (bn (FPC.ctxP c)) (bn (FPC.ctxONE c) * x) = x.
+proof. by move=> [_ [_ [_ H]]] Hx; apply red_one. qed.
+
+(* the conditional corrections of the modular addition and subtraction *)
+lemma addm_math (p R a b lb r: int):
+  0 < p < R => 0 <= a < p => 0 <= b < p =>
+  lb * R + r = a + b => 0 <= r < R => 0 <= lb <= 1 =>
+  (if R <= lb * R + r + (R - p) then (r + (R - p)) %% R else r) = (a + b) %% p.
+proof.
+move=> [Hp HpR] [Ha0 Ha1] [Hb0 Hb1] Hs [Hr0 Hr1] Hlb.
+case: (p <= a + b) => Hab.
+- rewrite (_: (a + b) %% p = a + b - p).
+  + by rewrite (_: a + b = (a + b - p) + 1 * p) 1:/# modzMDr modz_small /#.
+  rewrite (_: R <= lb * R + r + (R - p)) 1:/# /=.
+  case: (lb = 0) => Hl.
+  + by rewrite (_: r + (R - p) = (a + b - p) + 1 * R) 1:/# modzMDr modz_small /#.
+  + by rewrite modz_small /#.
+- by rewrite modz_small 1:/# (_: !(R <= lb * R + r + (R - p))) 1:/# /= /#.
+qed.
+
+lemma subm_math (p R a b c r: int):
+  0 < p < R => 0 <= a < p => 0 <= b < p =>
+  r - c * R = a - b => 0 <= r < R => (c = 0 \/ c = 1) =>
+  (if c = 1 then (r + p) %% R else r) = (a - b) %% p.
+proof.
+move=> [Hp HpR] [Ha0 Ha1] [Hb0 Hb1] Hs [Hr0 Hr1] [Hc|Hc]; rewrite Hc /=.
+- by rewrite (_: r = a - b) 1:/# modz_small /#.
+- rewrite (_: r + p = (a - b + p) + 1 * R) 1:/# modzMDr modz_small 1:/#.
+  by rewrite (_: a - b = (a - b + p) + (-1) * p) 1:/# modzMDr modz_small /#.
+qed.
+
+(* exponentiation in the monoid of representatives *)
+require Bn_exp.
 clone Bn_exp as BNE
  with op nlimbs <- nlimbs,
       op nlimbsexp <- nlimbs,
-      op glob_exp0 <- glob_exp0,
-      op mul_op <- mul_op,
       theory BigN <- BigN,
       theory BNexp <- BN,
       theory BNUTIL <- BNUTIL,
-      theory BNB <- BNB
-      proof gt0_nlimbs by exact gt0_nlimbs
-      proof gt0_nlimbsexp by exact gt0_nlimbs.
-module BNE_M = BNE.M.
-module BNE_MLeak = BNE.MLeak.
+      theory BNB <- BNB,
+      theory FPC <- FPC,
+      op mok <- (fun c => ctx_fp (bn (FPC.ctxP c)) c),
+      op mdom <- (fun c x => 0 <= x < bn (FPC.ctxP c)),
+      op mmul <- (fun c x y => red (bn (FPC.ctxP c)) (x * y))
+ proof gt0_nlimbs by exact gt0_nlimbs,
+       gt0_nlimbsexp by exact gt0_nlimbs,
+       nlimbsexp_bnd by exact nlimbs_bnd,
+       mmul_dom by exact fp_mmul_dom,
+       mmulA by smt(red_assoc),
+       mmulC by smt(redC),
+       mone_dom by exact fp_mone_dom,
+       mmul1 by exact fp_mmul1.
 
-(******************************************************************************
- **                inclusion of the (parametric) extracted module            **
- ** (collected from "extracted_ths/Fp_base_extr.ec)                          **
- ******************************************************************************)
-
+(* BEGIN generated by scripts/xtr_sync.py from src/amd64/ref/extracted/FP_fp_base.ec
+   (fp_base@fp.jinc); do not edit: run `make -C proof update` *)
 module type MParam = {
-  proc fun_red (r:BN.t, a:BN2.t) : BN.t
+  proc fun_muln (r:BN2.t, a:BN.t, b:BN.t) : BN2.t
+  proc fun_sqrn (r:BN2.t, a:BN.t) : BN2.t
+  proc fun_red (r:BN.t, a:BN2.t, ctx:W64.t FPC.CTX.t) : BN.t
 }.
-
 
 module M(P: MParam) = {
-
-  proc _chk_bnds_ (err:W64.t, a:BN.t) : W64.t = {
-    
+  proc _chk_bnds_ (err:W64.t, a:BN.t, ctx:W64.t FPC.CTX.t) : 
+  W64.t = {
     var p:BN.t;
     var cf:bool;
     var t:W64.t;
     p <- witness;
-    p <- glob_P;
-    cf <@ BN_M._lt_cf_ (a, p);
+    p <- (BN.A.init (fun i => ctx.[(0 + i)]));
+    cf <@ BNB_M._lt_cf_ (a, p);
     t <@ BNUTIL_M.__ncf_mask (cf);
     err <- (err `|` t);
-    return (err);
+    return err;
   }
-  
-  proc _rnd_ (a:BN.t) : BN.t = {
-    
-    var p:BN.t;
-    p <- witness;
-    p <- glob_P;
-    a <@ BNRND_M._rsample_ (a, p);
-    return (a);
-  }
-  
-  proc _addm_ (r:BN.t, a:BN.t, b:BN.t) : 
-  BN.t = {
-    
+  proc _addm_ (r:BN.t, a:BN.t,
+                      b:BN.t, ctx:W64.t FPC.CTX.t) : BN.t = {
     var cf:bool;
     var lastbit:W64.t;
     var tmp:BN.t;
     var  _0:bool;
     tmp <- witness;
-    (cf, r) <@ BN_M._add_ (r, a, b);
+    (cf, r) <@ BNB_M._add_ (r, a, b);
     lastbit <- (W64.of_int 0);
-    ( _0, lastbit) <- adc_64 lastbit (W64.of_int 0) cf;
-    tmp <- glob_mP;
-    r <@ BN_M._cminusP_ (r, tmp, lastbit);
-    return (r);
+    ( _0, lastbit) <- (adc_64 lastbit (W64.of_int 0) cf);
+    tmp <- (BN.A.init (fun i => ctx.[(nlimbs + i)]));
+    r <@ BNB_M._cminusP_ (r, tmp, lastbit);
+    return r;
   }
-  
-  proc _addmU_ (a:BN.t, b:BN.t) : BN.t = {
-    
+  proc _addmU_ (a:BN.t, b:BN.t,
+                       ctx:W64.t FPC.CTX.t) : BN.t = {
     var cf:bool;
     var lastbit:W64.t;
     var tmp:BN.t;
     var  _0:bool;
     tmp <- witness;
-    (cf, a) <@ BN_M._addU_ (a, b);
+    (cf, a) <@ BNB_M._addU_ (a, b);
     lastbit <- (W64.of_int 0);
-    ( _0, lastbit) <- adc_64 lastbit (W64.of_int 0) cf;
-    tmp <- glob_mP;
-    a <@ BN_M._cminusP_ (a, tmp, lastbit);
-    return (a);
+    ( _0, lastbit) <- (adc_64 lastbit (W64.of_int 0) cf);
+    tmp <- (BN.A.init (fun i => ctx.[(nlimbs + i)]));
+    a <@ BNB_M._cminusP_ (a, tmp, lastbit);
+    return a;
   }
-  
-  proc _subm_ (r:BN.t, a:BN.t, b:BN.t) : 
-  BN.t = {
-    
+  proc _subm_ (r:BN.t, a:BN.t,
+                      b:BN.t, ctx:W64.t FPC.CTX.t) : BN.t = {
     var cf:bool;
     var tmp:BN.t;
     tmp <- witness;
-    (cf, r) <@ BN_M._sub_ (r, a, b);
-    tmp <- glob_P;
-    r <@ BN_M._caddU_ (r, cf, tmp);
-    return (r);
+    (cf, r) <@ BNB_M._sub_ (r, a, b);
+    tmp <- (BN.A.init (fun i => ctx.[(0 + i)]));
+    r <@ BNB_M._caddU_ (r, cf, tmp);
+    return r;
   }
-  
-  proc _submU_ (a:BN.t, b:BN.t) : BN.t = {
-    
+  proc _submU_ (a:BN.t, b:BN.t,
+                       ctx:W64.t FPC.CTX.t) : BN.t = {
     var cf:bool;
     var tmp:BN.t;
     tmp <- witness;
-    (cf, a) <@ BN_M._subU_ (a, b);
-    tmp <- glob_P;
-    a <@ BN_M._caddU_ (a, cf, tmp);
-    return (a);
+    (cf, a) <@ BNB_M._subU_ (a, b);
+    tmp <- (BN.A.init (fun i => ctx.[(0 + i)]));
+    a <@ BNB_M._caddU_ (a, cf, tmp);
+    return a;
   }
-  
-  proc _mulm_ (r:BN.t, a:BN.t, b:BN.t) : 
-  BN.t = {
-    
+  proc _mulm_ (r:BN.t, a:BN.t,
+                      b:BN.t, ctx:W64.t FPC.CTX.t) : BN.t = {
     var _tmp:BN2.t;
     var tmp:BN2.t;
     _tmp <- witness;
     tmp <- witness;
     tmp <- _tmp;
-    tmp <@ BN_M._muln_ (tmp, a, b);
-    r <@ P.fun_red (r, tmp);
-    return (r);
+    tmp <@ P.fun_muln (tmp, a, b);
+    r <@ P.fun_red (r, tmp, ctx);
+    return r;
   }
-  
-  proc _mulmU_ (a:BN.t, b:BN.t) : BN.t = {
-    
+  proc _mulmU_ (a:BN.t, b:BN.t,
+                       ctx:W64.t FPC.CTX.t) : BN.t = {
     var _tmp:BN2.t;
     var tmp:BN2.t;
     _tmp <- witness;
     tmp <- witness;
     tmp <- _tmp;
-    tmp <@ BN_M._muln_ (tmp, a, b);
-    a <@ P.fun_red (a, tmp);
-    return (a);
+    tmp <@ P.fun_muln (tmp, a, b);
+    a <@ P.fun_red (a, tmp, ctx);
+    return a;
   }
-  
-  proc _sqrm_ (r:BN.t, a:BN.t) : BN.t = {
-    
+  proc _sqrm_ (r:BN.t, a:BN.t,
+                      ctx:W64.t FPC.CTX.t) : BN.t = {
     var _tmp:BN2.t;
     var tmp:BN2.t;
     _tmp <- witness;
     tmp <- witness;
     tmp <- _tmp;
-    tmp <@ BN_M._sqrn_ (tmp, a);
-    r <@ P.fun_red (r, tmp);
-    return (r);
+    tmp <@ P.fun_sqrn (tmp, a);
+    r <@ P.fun_red (r, tmp, ctx);
+    return r;
   }
-  
-  proc _sqrmU_ (a:BN.t) : BN.t = {
-    
+  proc _sqrmU_ (a:BN.t, ctx:W64.t FPC.CTX.t) : BN.t = {
     var _tmp:BN2.t;
     var tmp:BN2.t;
     _tmp <- witness;
     tmp <- witness;
     tmp <- _tmp;
-    tmp <@ BN_M._sqrn_ (tmp, a);
-    a <@ P.fun_red (a, tmp);
-    return (a);
+    tmp <@ P.fun_sqrn (tmp, a);
+    a <@ P.fun_red (a, tmp, ctx);
+    return a;
   }
-  
-  module P_BNEXP = { proc fun_mulU = _mulmU_ 
-                     proc fun_sqrU = _sqrmU_ }
-  
-  proc _invmU_ (a:BN.t) : BN.t = {
+  proc fun_mulU (a:BN.t, b:BN.t,
+                        ctx:W64.t FPC.CTX.t) : BN.t = {
     
-    var pm2:BN.t;
-    pm2 <- witness;
-    pm2 <- glob_Pm2;
-    a <@ BNE_M(P_BNEXP)._expmU_noct_ (a, pm2);
-    return (a);
+    a <@ _mulmU_ (a, b, ctx);
+    return a;
   }
-
-  proc _invm_ (r a:BN.t) : BN.t = {
+  proc fun_sqrU (a:BN.t, ctx:W64.t FPC.CTX.t) : BN.t = {
     
-    var pm2:BN.t;
-    pm2 <- witness;
-    pm2 <- glob_Pm2;
-    r <@ BNE_M(P_BNEXP)._expm_noct_ (r, a, pm2);
-    return (r);
+    a <@ _sqrmU_ (a, ctx);
+    return a;
   }
-}.
-
-
-
-module MLeak(P: MParam) = {
-  proc _chk_bnds_ (err:W64.t, a:BN.t) : W64.t = {
-    var aux_0: bool;
-    var aux_1: W64.t;
-    var aux: BN.t;
-    
-    var p:BN.t;
-    var cf:bool;
+  proc __Pm2 (r:BN.t, ctx:W64.t FPC.CTX.t) : BN.t = {
     var t:W64.t;
-    p <- witness;
-    LEAK.leakages <- LeakAddr([]) :: LEAK.leakages;
-    aux <- glob_P;
-    p <- aux;
-    LEAK.leakages <- LeakAddr([]) :: LEAK.leakages;
-    aux_0 <@ BN_MLeak._lt_cf_ (a, p);
-    cf <- aux_0;
-    LEAK.leakages <- LeakAddr([]) :: LEAK.leakages;
-    aux_1 <@ BNUTIL_MLeak.__ncf_mask (cf);
-    t <- aux_1;
-    LEAK.leakages <- LeakAddr([]) :: LEAK.leakages;
-    aux_1 <- (err `|` t);
-    err <- aux_1;
-    return (err);
-  }
-  
-  proc _rnd_ (a:BN.t) : BN.t = {
-    var aux: BN.t;
-    
-    var p:BN.t;
-    p <- witness;
-    LEAK.leakages <- LeakAddr([]) :: LEAK.leakages;
-    aux <- glob_P;
-    p <- aux;
-    LEAK.leakages <- LeakAddr([]) :: LEAK.leakages;
-    aux <@ BNRND_MLeak._rsample_ (a, p);
-    a <- aux;
-    return (a);
-  }
-  
-  proc _addm_ (r:BN.t, a:BN.t, b:BN.t) : 
-  BN.t = {
-    var aux: bool;
-    var aux_1: W64.t;
-    var aux_0: BN.t;
-    
     var cf:bool;
-    var lastbit:W64.t;
-    var tmp:BN.t;
-    var  _0:bool;
-    tmp <- witness;
-    LEAK.leakages <- LeakAddr([]) :: LEAK.leakages;
-    (aux, aux_0) <@ BN_MLeak._add_ (r, a, b);
-    cf <- aux;
-    r <- aux_0;
-    LEAK.leakages <- LeakAddr([]) :: LEAK.leakages;
-    aux_1 <- (W64.of_int 0);
-    lastbit <- aux_1;
-    LEAK.leakages <- LeakAddr([]) :: LEAK.leakages;
-    (aux, aux_1) <- adc_64 lastbit (W64.of_int 0) cf;
-     _0 <- aux;
-    lastbit <- aux_1;
-    LEAK.leakages <- LeakAddr([]) :: LEAK.leakages;
-    aux_0 <- glob_mP;
-    tmp <- aux_0;
-    LEAK.leakages <- LeakAddr([]) :: LEAK.leakages;
-    aux_0 <@ BN_MLeak._cminusP_ (r, tmp, lastbit);
-    r <- aux_0;
-    return (r);
+    var i:int;
+    t <- ctx.[0];
+    (cf, t) <- (sbb_64 t (W64.of_int 2) false);
+    r.[0] <- t;
+    i <- 1;
+    while ((i < nlimbs)) {
+      t <- ctx.[(0 + i)];
+      (cf, t) <- (sbb_64 t (W64.of_int 0) cf);
+      r.[i] <- t;
+      i <- (i + 1);
+    }
+    return r;
   }
-  
-  proc _addmU_ (a:BN.t, b:BN.t) : BN.t = {
-    var aux: bool;
-    var aux_1: W64.t;
-    var aux_0: BN.t;
-    
-    var cf:bool;
-    var lastbit:W64.t;
-    var tmp:BN.t;
-    var  _0:bool;
-    tmp <- witness;
-    LEAK.leakages <- LeakAddr([]) :: LEAK.leakages;
-    (aux, aux_0) <@ BN_MLeak._addU_ (a, b);
-    cf <- aux;
-    a <- aux_0;
-    LEAK.leakages <- LeakAddr([]) :: LEAK.leakages;
-    aux_1 <- (W64.of_int 0);
-    lastbit <- aux_1;
-    LEAK.leakages <- LeakAddr([]) :: LEAK.leakages;
-    (aux, aux_1) <- adc_64 lastbit (W64.of_int 0) cf;
-     _0 <- aux;
-    lastbit <- aux_1;
-    LEAK.leakages <- LeakAddr([]) :: LEAK.leakages;
-    aux_0 <- glob_mP;
-    tmp <- aux_0;
-    LEAK.leakages <- LeakAddr([]) :: LEAK.leakages;
-    aux_0 <@ BN_MLeak._cminusP_ (a, tmp, lastbit);
-    a <- aux_0;
-    return (a);
+  module P_EXP = {
+    proc fun_mulU = fun_mulU
+    proc fun_sqrU = fun_sqrU
   }
-  
-  proc _subm_ (r:BN.t, a:BN.t, b:BN.t) : 
-  BN.t = {
-    var aux: bool;
-    var aux_0: BN.t;
-    
-    var cf:bool;
-    var tmp:BN.t;
-    tmp <- witness;
-    LEAK.leakages <- LeakAddr([]) :: LEAK.leakages;
-    (aux, aux_0) <@ BN_MLeak._sub_ (r, a, b);
-    cf <- aux;
-    r <- aux_0;
-    LEAK.leakages <- LeakAddr([]) :: LEAK.leakages;
-    aux_0 <- glob_P;
-    tmp <- aux_0;
-    LEAK.leakages <- LeakAddr([]) :: LEAK.leakages;
-    aux_0 <@ BN_MLeak._caddU_ (r, cf, tmp);
-    r <- aux_0;
-    return (r);
-  }
-  
-  proc _submU_ (a:BN.t, b:BN.t) : BN.t = {
-    var aux: bool;
-    var aux_0: BN.t;
-    
-    var cf:bool;
-    var tmp:BN.t;
-    tmp <- witness;
-    LEAK.leakages <- LeakAddr([]) :: LEAK.leakages;
-    (aux, aux_0) <@ BN_MLeak._subU_ (a, b);
-    cf <- aux;
-    a <- aux_0;
-    LEAK.leakages <- LeakAddr([]) :: LEAK.leakages;
-    aux_0 <- glob_P;
-    tmp <- aux_0;
-    LEAK.leakages <- LeakAddr([]) :: LEAK.leakages;
-    aux_0 <@ BN_MLeak._caddU_ (a, cf, tmp);
-    a <- aux_0;
-    return (a);
-  }
-  
-  proc _mulm_ (r:BN.t, a:BN.t, b:BN.t) : 
-  BN.t = {
-    var aux_0: BN.t;
-    var aux: BN2.t;
-    
-    var _tmp:BN2.t;
-    var tmp:BN2.t;
-    _tmp <- witness;
-    tmp <- witness;
-    LEAK.leakages <- LeakAddr([]) :: LEAK.leakages;
-    aux <- _tmp;
-    tmp <- aux;
-    LEAK.leakages <- LeakAddr([]) :: LEAK.leakages;
-    aux <@ BN_MLeak._muln_ (tmp, a, b);
-    tmp <- aux;
-    LEAK.leakages <- LeakAddr([]) :: LEAK.leakages;
-    aux_0 <@ P.fun_red (r, tmp);
-    r <- aux_0;
-    return (r);
-  }
-  
-  proc _mulmU_ (a:BN.t, b:BN.t) : BN.t = {
-    var aux_0: BN.t;
-    var aux: BN2.t;
-    
-    var _tmp:BN2.t;
-    var tmp:BN2.t;
-    _tmp <- witness;
-    tmp <- witness;
-    LEAK.leakages <- LeakAddr([]) :: LEAK.leakages;
-    aux <- _tmp;
-    tmp <- aux;
-    LEAK.leakages <- LeakAddr([]) :: LEAK.leakages;
-    aux <@ BN_MLeak._muln_ (tmp, a, b);
-    tmp <- aux;
-    LEAK.leakages <- LeakAddr([]) :: LEAK.leakages;
-    aux_0 <@ P.fun_red (a, tmp);
-    a <- aux_0;
-    return (a);
-  }
-  
-  proc _sqrm_ (r:BN.t, a:BN.t) : BN.t = {
-    var aux_0: BN.t;
-    var aux: BN2.t;
-    
-    var _tmp:BN2.t;
-    var tmp:BN2.t;
-    _tmp <- witness;
-    tmp <- witness;
-    LEAK.leakages <- LeakAddr([]) :: LEAK.leakages;
-    aux <- _tmp;
-    tmp <- aux;
-    LEAK.leakages <- LeakAddr([]) :: LEAK.leakages;
-    aux <@ BN_MLeak._sqrn_ (tmp, a);
-    tmp <- aux;
-    LEAK.leakages <- LeakAddr([]) :: LEAK.leakages;
-    aux_0 <@ P.fun_red (r, tmp);
-    r <- aux_0;
-    return (r);
-  }
-  
-  proc _sqrmU_ (a:BN.t) : BN.t = {
-    var aux_0: BN.t;
-    var aux: BN2.t;
-    
-    var _tmp:BN2.t;
-    var tmp:BN2.t;
-    _tmp <- witness;
-    tmp <- witness;
-    LEAK.leakages <- LeakAddr([]) :: LEAK.leakages;
-    aux <- _tmp;
-    tmp <- aux;
-    LEAK.leakages <- LeakAddr([]) :: LEAK.leakages;
-    aux <@ BN_MLeak._sqrn_ (tmp, a);
-    tmp <- aux;
-    LEAK.leakages <- LeakAddr([]) :: LEAK.leakages;
-    aux_0 <@ P.fun_red (a, tmp);
-    a <- aux_0;
-    return (a);
-  }
-  
-  module P_BNEXP = { proc fun_mulU = _mulmU_
-                     proc fun_sqrU = _sqrmU_ }
-
-  proc _invmU_ (a:BN.t) : BN.t = {
-    var aux_0: BN.t;
-    var aux: BN.t;
-    
+  proc _invmU_ (a:BN.t, ctx:W64.t FPC.CTX.t) : BN.t = {
+    var _Pm2:BN.t;
     var pm2:BN.t;
     pm2 <- witness;
-    LEAK.leakages <- LeakAddr([]) :: LEAK.leakages;
-    aux <- glob_Pm2;
-    pm2 <- aux;
-    LEAK.leakages <- LeakAddr([]) :: LEAK.leakages;
-    aux_0 <@ BNE_MLeak(P_BNEXP)._expmU_noct_ (a, pm2);
-    a <- aux_0;
-    return (a);
+    _Pm2 <- witness;
+    pm2 <- _Pm2;
+    pm2 <@ __Pm2 (pm2, ctx);
+    a <@ BNE.M(P_EXP)._expmU_noct_ (a, pm2, ctx);
+    return a;
   }
-
-  proc _invm_ (r a:BN.t) : BN.t = {
-    var aux_0: BN.t;
-    var aux: BN.t;
-    
+  proc _invm_ (r:BN.t, a:BN.t,
+                      ctx:W64.t FPC.CTX.t) : BN.t = {
+    var _Pm2:BN.t;
     var pm2:BN.t;
     pm2 <- witness;
-    LEAK.leakages <- LeakAddr([]) :: LEAK.leakages;
-    aux <- glob_Pm2;
-    pm2 <- aux;
-    LEAK.leakages <- LeakAddr([]) :: LEAK.leakages;
-    aux_0 <@ BNE_MLeak(P_BNEXP)._expm_noct_ (r, a, pm2);
-    r <- aux_0;
-    return (a);
+    _Pm2 <- witness;
+    pm2 <- _Pm2;
+    pm2 <@ __Pm2 (pm2, ctx);
+    r <@ BNE.M(P_EXP)._expm_noct_ (r, a, pm2, ctx);
+    return r;
   }
 }.
+(* END generated *)
 
 
 (******************************************************************************
- **               Library LEMMAS                                             **
- **                                                                          **
+ **                                 CONTRACTS                                **
  ******************************************************************************)
-
-
-
 
 section.
 
 declare module P <: MParam.
-declare axiom red_ph _a:
- phoare [ P.fun_red : a=_a ==> res = red_op _a ] = 1%r.
 
-local lemma red_ll: islossless P.fun_red.
+declare axiom fun_muln_ll: islossless P.fun_muln.
+declare axiom fun_sqrn_ll: islossless P.fun_sqrn.
+declare axiom fun_red_ll: islossless P.fun_red.
+
+declare axiom fun_muln_h _a _b:
+ hoare [ P.fun_muln : arg.`2 = _a /\ arg.`3 = _b ==> BN2.bn res = bn _a * bn _b ].
+
+declare axiom fun_sqrn_h _a:
+ hoare [ P.fun_sqrn : arg.`2 = _a ==> BN2.bn res = bn _a * bn _a ].
+
+declare axiom fun_red_h p _x:
+ hoare [ P.fun_red
+       : FPC.ctx_mod p arg.`3 /\ red_ctx p arg.`3 /\ arg.`2 = _x
+         /\ BN2.bn _x < p * BN.bn_modulus
+         ==> bn res = red p (BN2.bn _x) ].
+
+(* products: the reduction of the product of the operands *)
+hoare _mulm__h _p _a _b:
+ M(P)._mulm_
+ : FPC.ctx_mod _p ctx /\ red_ctx _p ctx /\ a = _a /\ b = _b /\ bn _a < _p /\ bn _b < _p
+   ==> bn res = red _p (bn _a * bn _b).
 proof.
-proc*; exlim a => _a.
-by call (red_ph _a).
+proc.
+ecall (fun_red_h _p tmp).
+ecall (fun_muln_h a b).
+wp; skip => &hr /= [Hc [Hr [-> [-> [Ha Hb]]]]] t Ht.
+have HPR := FPC.ctx_mod_bnd _ _ Hc.
+split; last by move=> _ r ->; rewrite Ht.
+do 2! (split => //).
+rewrite Ht; apply (StdOrder.IntOrder.ltr_pmul); smt(BN.bnk_cmp).
 qed.
 
-local lemma red_h _a:
- hoare [ P.fun_red : a=_a ==> res = red_op _a ].
+hoare _mulmU__h _p _a _b:
+ M(P)._mulmU_
+ : FPC.ctx_mod _p ctx /\ red_ctx _p ctx /\ a = _a /\ b = _b /\ bn _a < _p /\ bn _b < _p
+   ==> bn res = red _p (bn _a * bn _b).
 proof.
-bypr => &m Ha.
-rewrite Pr [mu_not].
-have ->: Pr[P.fun_red(r{m}, a{m}) @ &m : true] = 1%r.
- byphoare => //.
- by apply red_ll.
-have ->//: Pr[P.fun_red(r{m}, a{m}) @ &m : res = red_op _a] = 1%r.
-byphoare (: a=_a ==> _) => //.
-by apply red_ph. 
+proc.
+ecall (fun_red_h _p tmp).
+ecall (fun_muln_h a b).
+wp; skip => &hr /= [Hc [Hr [-> [-> [Ha Hb]]]]] t Ht.
+have HPR := FPC.ctx_mod_bnd _ _ Hc.
+split; last by move=> _ r ->; rewrite Ht.
+do 2! (split => //).
+rewrite Ht; apply (StdOrder.IntOrder.ltr_pmul); smt(BN.bnk_cmp).
 qed.
 
-(** Lossless lemmas *)
-
-lemma _chk_bnds__ll: islossless M(P)._chk_bnds_.
+hoare _sqrm__h _p _a:
+ M(P)._sqrm_
+ : FPC.ctx_mod _p ctx /\ red_ctx _p ctx /\ a = _a /\ bn _a < _p
+   ==> bn res = red _p (bn _a * bn _a).
 proof.
-proc; wp.
-call BNUTIL.__ncf_mask_ll.
-call BNB._lt_cf__ll.
-by auto.
+proc.
+ecall (fun_red_h _p tmp).
+ecall (fun_sqrn_h a).
+wp; skip => &hr /= [Hc [Hr [-> Ha]]] t Ht.
+have HPR := FPC.ctx_mod_bnd _ _ Hc.
+split; last by move=> _ r ->; rewrite Ht.
+do 2! (split => //).
+rewrite Ht; apply (StdOrder.IntOrder.ltr_pmul); smt(BN.bnk_cmp).
 qed.
 
-hoare _chk_bnds__h _err _a:
+hoare _sqrmU__h _p _a:
+ M(P)._sqrmU_
+ : FPC.ctx_mod _p ctx /\ red_ctx _p ctx /\ a = _a /\ bn _a < _p
+   ==> bn res = red _p (bn _a * bn _a).
+proof.
+proc.
+ecall (fun_red_h _p tmp).
+ecall (fun_sqrn_h a).
+wp; skip => &hr /= [Hc [Hr [-> Ha]]] t Ht.
+have HPR := FPC.ctx_mod_bnd _ _ Hc.
+split; last by move=> _ r ->; rewrite Ht.
+do 2! (split => //).
+rewrite Ht; apply (StdOrder.IntOrder.ltr_pmul); smt(BN.bnk_cmp).
+qed.
+
+(* the parameters of the exponentiation, as Bn_exp expects them *)
+hoare fun_mulU_h _c _x _y:
+ M(P).fun_mulU
+ : arg.`3 = _c /\ ctx_fp (bn (FPC.ctxP _c)) _c
+   /\ 0 <= bn arg.`1 < bn (FPC.ctxP _c) /\ 0 <= bn arg.`2 < bn (FPC.ctxP _c)
+   /\ bn arg.`1 = _x /\ bn arg.`2 = _y
+   ==> bn res = red (bn (FPC.ctxP _c)) (_x * _y).
+proof.
+proc; exlim a, b => __a __b.
+call (_mulmU__h (bn (FPC.ctxP _c)) __a __b); auto => />.
+qed.
+
+hoare fun_sqrU_h _c _x:
+ M(P).fun_sqrU
+ : arg.`2 = _c /\ ctx_fp (bn (FPC.ctxP _c)) _c
+   /\ 0 <= bn arg.`1 < bn (FPC.ctxP _c) /\ bn arg.`1 = _x
+   ==> bn res = red (bn (FPC.ctxP _c)) (_x * _x).
+proof.
+proc; exlim a => __a.
+call (_sqrmU__h (bn (FPC.ctxP _c)) __a); auto => />.
+qed.
+
+(* additions and subtractions *)
+lemma adc00 cf: to_uint (addc (W64.of_int 0) (W64.of_int 0) cf).`2 = b2i cf.
+proof. by case: cf; rewrite addcE /=. qed.
+
+hoare _addm__h _p _a _b:
+ M(P)._addm_
+ : FPC.ctx_mod _p ctx /\ a = _a /\ b = _b /\ bn _a < _p /\ bn _b < _p
+   ==> bn res = (bn _a + bn _b) %% _p.
+proof.
+proc.
+ecall (BNB._cminusP__h r tmp lastbit).
+wp; ecall (BNB._add__h a b).
+wp; skip => &hr [Hc [-> [-> [Ha Hb]]]] [cf r] /= Hs.
+have [H1 [_ [_ HmP]]] := Hc.
+have HPR := FPC.ctx_mod_bnd _ _ Hc.
+rewrite adc00; split; first by case: cf Hs.
+move=> _ rx ->.
+have := addm_math _p BN.bn_modulus (bn _a) (bn _b) (b2i cf) (bn r) _ _ _ _ _ _.
+- smt().
+- smt(BN.bnk_cmp).
+- smt(BN.bnk_cmp).
+- by move: Hs; rewrite /bnk_withcarry BN.bn_modulusE /= /#.
+- smt(BN.bnk_cmp BN.bn_modulusE).
+- by case: cf Hs.
+rewrite HmP.
+by case: (BN.bn_modulus <= b2i cf * BN.bn_modulus + bn r + (BN.bn_modulus - _p)) => C /=;
+ [rewrite BN.bn_ofintK | ].
+qed.
+
+hoare _addmU__h _p _a _b:
+ M(P)._addmU_
+ : FPC.ctx_mod _p ctx /\ a = _a /\ b = _b /\ bn _a < _p /\ bn _b < _p
+   ==> bn res = (bn _a + bn _b) %% _p.
+proof.
+proc.
+ecall (BNB._cminusP__h a tmp lastbit).
+wp; ecall (BNB._addU__h a b).
+wp; skip => &hr [Hc [-> [-> [Ha Hb]]]] [cf r] /= Hs.
+have [H1 [_ [_ HmP]]] := Hc.
+have HPR := FPC.ctx_mod_bnd _ _ Hc.
+rewrite adc00; split; first by case: cf Hs.
+move=> _ rx ->.
+have := addm_math _p BN.bn_modulus (bn _a) (bn _b) (b2i cf) (bn r) _ _ _ _ _ _.
+- smt().
+- smt(BN.bnk_cmp).
+- smt(BN.bnk_cmp).
+- by move: Hs; rewrite /bnk_withcarry BN.bn_modulusE /= /#.
+- smt(BN.bnk_cmp BN.bn_modulusE).
+- by case: cf Hs.
+rewrite HmP.
+by case: (BN.bn_modulus <= b2i cf * BN.bn_modulus + bn r + (BN.bn_modulus - _p)) => C /=;
+ [rewrite BN.bn_ofintK | ].
+qed.
+
+hoare _subm__h _p _a _b:
+ M(P)._subm_
+ : FPC.ctx_mod _p ctx /\ a = _a /\ b = _b /\ bn _a < _p /\ bn _b < _p
+   ==> bn res = (bn _a - bn _b) %% _p.
+proof.
+proc.
+ecall (BNB._caddU__h r tmp cf).
+wp; ecall (BNB._sub__h a b).
+wp; skip => &hr [Hc [-> [-> [Ha Hb]]]] [cf r] /= Hs.
+have [H1 [_ [HP _]]] := Hc.
+have HPR := FPC.ctx_mod_bnd _ _ Hc.
+move=> rx ->.
+have := subm_math _p BN.bn_modulus (bn _a) (bn _b) (b2i cf) (bn r) _ _ _ _ _ _.
+- smt().
+- smt(BN.bnk_cmp).
+- smt(BN.bnk_cmp).
+- by move: Hs; rewrite /bnk_withborrow BN.bn_modulusE /= /#.
+- smt(BN.bnk_cmp BN.bn_modulusE).
+- by case: cf Hs.
+move=> H; case: cf Hs H => /= Hs H.
+- by rewrite BN.bn_ofintK HP -H.
+- by rewrite -H.
+qed.
+
+hoare _submU__h _p _a _b:
+ M(P)._submU_
+ : FPC.ctx_mod _p ctx /\ a = _a /\ b = _b /\ bn _a < _p /\ bn _b < _p
+   ==> bn res = (bn _a - bn _b) %% _p.
+proof.
+proc.
+ecall (BNB._caddU__h a tmp cf).
+wp; ecall (BNB._subU__h a b).
+wp; skip => &hr [Hc [-> [-> [Ha Hb]]]] [cf r] /= Hs.
+have [H1 [_ [HP _]]] := Hc.
+have HPR := FPC.ctx_mod_bnd _ _ Hc.
+move=> rx ->.
+have := subm_math _p BN.bn_modulus (bn _a) (bn _b) (b2i cf) (bn r) _ _ _ _ _ _.
+- smt().
+- smt(BN.bnk_cmp).
+- smt(BN.bnk_cmp).
+- by move: Hs; rewrite /bnk_withborrow BN.bn_modulusE /= /#.
+- smt(BN.bnk_cmp BN.bn_modulusE).
+- by case: cf Hs.
+move=> H; case: cf Hs H => /= Hs H.
+- by rewrite BN.bn_ofintK HP -H.
+- by rewrite -H.
+qed.
+
+(* the bound check: err is set (all ones) unless a < p *)
+hoare _chk_bnds__h _p _err _a:
  M(P)._chk_bnds_
- : err=_err /\ a = _a ==> res = _err `|` W64.of_int (-b2i (! bn _a < bn glob_P)).
+ : FPC.ctx_mod _p ctx /\ err = _err /\ a = _a
+   ==> res = _err `|` W64.of_int (- b2i (! (bn _a < _p))).
 proof.
 proc.
 wp; ecall (BNUTIL.__ncf_mask_h cf).
-by ecall (BNB._lt_cf__h a p); auto.
+ecall (BNB._lt_cf__h a p).
+wp; skip => &hr [Hc [-> ->]] /=.
+have [_ [_ [HP _]]] := Hc.
+by rewrite HP.
 qed.
 
-phoare _chk_bnds__ph _err _a:
- [ M(P)._chk_bnds_
- : err=_err /\ a = _a ==> res = _err `|` W64.of_int (-b2i (! bn _a < bn glob_P))
- ] = 1%r.
-proof. by conseq _chk_bnds__ll (_chk_bnds__h _err _a). qed.
-
-
-lemma _rnd__ll: islossless M(P)._rnd_.
+(* P-2, the exponent of Fermat inversion *)
+hoare __Pm2_h _p:
+ M(P).__Pm2 : FPC.ctx_mod _p ctx ==> bn res = _p - 2.
 proof.
+have Hn := gt0_nlimbs.
 proc.
-call BNRND._rsample__ll.
-auto => />.
-smt(gt0_prime prime_P).
+while (1 <= i <= nlimbs /\ FPC.ctx_mod _p ctx /\ BN.bnk i r - b2i cf * W64.modulus ^ i = BN.bnk i (FPC.ctxP ctx) - 2).
+- wp; skip => &hr [[[Hi1 Hi2] [Hc Hinv]] Hi] /=.
+split; first smt().
+split => //.
+have := W64.subcP ctx{hr}.[i{hr}] (W64.of_int 0) cf{hr}.
+case: (W64.subc ctx{hr}.[i{hr}] (W64.of_int 0) cf{hr}) => c' z /= E.
+rewrite BN.bnkS 1:/# BN.bnkS 1:/# /= BN.A.get_setE 1:/# /= BN.bnk_setO 1:/#.
+rewrite /FPC.ctxP BN.A.initiE 1:/# /= -/(FPC.ctxP ctx{hr}).
+rewrite exprS 1:/#.
+move: Hinv; rewrite (_: W64.modulus = 18446744073709551616) // => Hinv.
+have Hz: to_uint z = to_uint ctx{hr}.[i{hr}] - b2i cf{hr} + 18446744073709551616 * b2i c' by smt().
+have HB: bnk i{hr} r{hr} = bnk i{hr} (FPC.ctxP ctx{hr}) - 2 + b2i cf{hr} * 18446744073709551616 ^ i{hr} by smt().
+by rewrite Hz HB; ring.
+wp; skip => &hr /= Hc.
+have [H1 [Hodd [HP HmP]]] := Hc.
+split.
+split; first smt().
+split => //.
+have := W64.subcP ctx{hr}.[0] (W64.of_int 2) false.
+case: (W64.subc ctx{hr}.[0] (W64.of_int 2) false) => c' z /= E.
+rewrite BN.bnk1 BN.bnk1 /= BN.A.get_setE 1:/# /= /FPC.ctxP BN.A.initiE 1:/# /=.
+smt().
+move=> cf0 i0 r0 Hi0 [[Hi1 Hi2] [_ Hinv]].
+move: Hinv; rewrite (_: i0 = nlimbs) 1:/# HP -BN.bn_modulusE => Hinv.
+have Hr := BN.bnk_cmp nlimbs r0.
+move: Hr; rewrite -BN.bn_modulusE => Hr.
+case: cf0 Hinv => /= Hinv; smt().
 qed.
+
+(* the exponentiation parameters of the sub-instance BNE *)
+lemma P_EXP_mulU_h c x y:
+ hoare [ M(P).P_EXP.fun_mulU
+       : ctx = c /\ ctx_fp (bn (FPC.ctxP c)) c
+         /\ 0 <= bn a < bn (FPC.ctxP c) /\ 0 <= bn b < bn (FPC.ctxP c)
+         /\ bn a = x /\ bn b = y
+         ==> bn res = red (bn (FPC.ctxP c)) (x * y) ].
+proof. by proc*; call (fun_mulU_h c x y); auto. qed.
+
+lemma P_EXP_sqrU_h c x:
+ hoare [ M(P).P_EXP.fun_sqrU
+       : ctx = c /\ ctx_fp (bn (FPC.ctxP c)) c
+         /\ 0 <= bn a < bn (FPC.ctxP c) /\ bn a = x
+         ==> bn res = red (bn (FPC.ctxP c)) (x * x) ].
+proof. by proc*; call (fun_sqrU_h c x); auto. qed.
+
+(* losslessness *)
+lemma _chk_bnds__ll: islossless M(P)._chk_bnds_.
+proof. by proc; wp; call BNUTIL.__ncf_mask_ll; call BNB._lt_cf__ll; auto. qed.
 
 lemma _addm__ll: islossless M(P)._addm_.
-proc.
-call BNB._cminusP__ll.
-by wp; call BNB._add__ll; auto.
-qed.
+proof. by proc; call BNB._cminusP__ll; wp; call BNB._add__ll; auto. qed.
 
 lemma _addmU__ll: islossless M(P)._addmU_.
-proc.
-call BNB._cminusP__ll.
-by wp; call BNB._addU__ll; auto.
-qed.
+proof. by proc; call BNB._cminusP__ll; wp; call BNB._addU__ll; auto. qed.
 
 lemma _subm__ll: islossless M(P)._subm_.
-proc.
-call BNB._caddU__ll.
-by wp; call BNB._sub__ll; auto.
-qed.
+proof. by proc; call BNB._caddU__ll; wp; call BNB._sub__ll; auto. qed.
 
 lemma _submU__ll: islossless M(P)._submU_.
-proc.
-call BNB._caddU__ll.
-by wp; call BNB._subU__ll; auto.
-qed.
+proof. by proc; call BNB._caddU__ll; wp; call BNB._subU__ll; auto. qed.
 
 lemma _mulm__ll: islossless M(P)._mulm_.
-proc.
-call red_ll.
-by call BNB._muln__ll; auto.
-qed.
-
-hoare _mulm__h _a _b:
- M(P)._mulm_: a=_a /\ b=_b ==> res = mul_op _a _b.
-proof.
-proc; simplify.
-wp; ecall (red_h tmp).
-wp; ecall (BNB._muln__h a b).
-auto => /> r H; rewrite /mul_op.
-by rewrite -H BN2.bnK.
-qed.
-
-phoare _mulm__ph _a _b:
- [ M(P)._mulm_: a=_a /\ b=_b ==> res = mul_op _a _b ]=1%r.
-proof. by conseq _mulm__ll (_mulm__h _a _b). qed.
-
+proof. by proc; call fun_red_ll; call fun_muln_ll; auto. qed.
 
 lemma _mulmU__ll: islossless M(P)._mulmU_.
-proc.
-call red_ll.
-by call BNB._muln__ll; auto.
-qed.
-
-hoare _mulmU__h _a _b:
- M(P)._mulmU_: a=_a /\ b=_b ==> res = mul_op _a _b.
-proof.
-proc; simplify.
-wp; ecall (red_h tmp).
-wp; ecall (BNB._muln__h a b).
-auto => /> r H; rewrite /mul_op.
-by rewrite -H BN2.bnK.
-qed.
-
-phoare _mulmU__ph _a _b:
- [ M(P)._mulmU_: a=_a /\ b=_b ==> res = mul_op _a _b ]=1%r.
-proof. by conseq _mulmU__ll (_mulmU__h _a _b). qed.
-
-
+proof. by proc; call fun_red_ll; call fun_muln_ll; auto. qed.
 
 lemma _sqrm__ll: islossless M(P)._sqrm_.
-proc.
-call red_ll.
-by call BNB._sqrn__ll; auto.
-qed.
-
-hoare _sqrm__h _a:
- M(P)._sqrm_: a=_a ==> res = mul_op _a _a.
-proof.
-proc; simplify.
-wp; ecall (red_h tmp).
-wp; ecall (BNB._sqrn__h a).
-auto => /> r H; rewrite /mul_op.
-by rewrite -H BN2.bnK.
-qed.
-
-phoare _sqrm__ph _a:
- [ M(P)._sqrm_: a=_a ==> res = mul_op _a _a ] = 1%r.
-proof. by conseq _sqrm__ll (_sqrm__h _a). qed.
-
+proof. by proc; call fun_red_ll; call fun_sqrn_ll; auto. qed.
 
 lemma _sqrmU__ll: islossless M(P)._sqrmU_.
-proc.
-call red_ll.
-by call BNB._sqrn__ll; auto.
-qed.
+proof. by proc; call fun_red_ll; call fun_sqrn_ll; auto. qed.
 
-hoare _sqrmU__h _a:
- M(P)._sqrmU_: a=_a ==> res = mul_op _a _a.
+lemma fun_mulU_ll: islossless M(P).fun_mulU.
+proof. by proc; call _mulmU__ll. qed.
+
+lemma fun_sqrU_ll: islossless M(P).fun_sqrU.
+proof. by proc; call _sqrmU__ll. qed.
+
+lemma __Pm2_ll: islossless M(P).__Pm2.
+proof. proc; while (true) (nlimbs - i); by auto => /#. qed.
+
+lemma P_EXP_mulU_ll: islossless M(P).P_EXP.fun_mulU.
+proof. by proc*; call fun_mulU_ll. qed.
+
+lemma P_EXP_sqrU_ll: islossless M(P).P_EXP.fun_sqrU.
+proof. by proc*; call fun_sqrU_ll. qed.
+
+(* inversion (Fermat): a^(p-2) in the monoid of representatives; see
+   red_mexp for its value *)
+hoare _invmU__h _p _c _a:
+ M(P)._invmU_
+ : ctx = _c /\ a = _a /\ ctx_fp _p _c /\ bn _a < _p
+   ==> bn res = BNE.mexp _c (bn _a) (_p - 2).
 proof.
-proc; simplify.
-wp; ecall (red_h tmp).
-wp; ecall (BNB._sqrn__h a).
-auto => /> r H; rewrite /mul_op.
-by rewrite -H BN2.bnK.
-qed.
-
-phoare _sqrmU__ph _a:
- [ M(P)._sqrmU_: a=_a ==> res = mul_op _a _a ] = 1%r.
-proof. by conseq _sqrmU__ll (_sqrmU__h _a). qed.
-
-
-module MP = M(P).
-
-local equiv sqr_mul_eq:
-  MP._sqrmU_ ~ MP._mulmU_
-       : ={a} /\ b{2}=a{2} ==> ={res}.
-proof.
-proc*.
-ecall{1} (_sqrmU__ph a{1}).
-by ecall{2} (_mulmU__ph a{2} b{2}).
-qed.
-
-lemma _invm__ll: islossless M(P)._invm_.
 proc.
-have H := (BNE._expm_noct__ll MP.P_BNEXP sqr_mul_eq _mulmU__ph).
-by call H; auto.
+ecall (BNE._expmU_noct__h (<: M(P).P_EXP) P_EXP_mulU_ll P_EXP_sqrU_ll P_EXP_mulU_h P_EXP_sqrU_h _c a pm2).
+ecall (__Pm2_h _p).
+by wp; skip => /> *; split; [smt(BN.bnk_cmp) | move=> *; smt()].
+qed.
+
+hoare _invm__h _p _c _a:
+ M(P)._invm_
+ : ctx = _c /\ a = _a /\ ctx_fp _p _c /\ bn _a < _p
+   ==> bn res = BNE.mexp _c (bn _a) (_p - 2).
+proof.
+proc.
+ecall (BNE._expm_noct__h (<: M(P).P_EXP) P_EXP_mulU_ll P_EXP_sqrU_ll P_EXP_mulU_h P_EXP_sqrU_h _c a pm2).
+ecall (__Pm2_h _p).
+by wp; skip => /> *; split; [smt(BN.bnk_cmp) | move=> *; smt()].
 qed.
 
 lemma _invmU__ll: islossless M(P)._invmU_.
-proc.
-have H := (BNE._expmU_noct__ll MP.P_BNEXP sqr_mul_eq _mulmU__ph).
-by call H; auto.
-qed.
-
-hoare _invm__h _a:
- M(P)._invm_ :
- a=_a ==> res = iterop (bn glob_Pm2) mul_op _a glob_exp0.
 proof.
 proc.
-have H := (BNE._expm_noct__h MP.P_BNEXP sqr_mul_eq _mulmU__ph).
-by ecall (H a pm2); auto.
+call (BNE._expmU_noct__ll (<: M(P).P_EXP) P_EXP_mulU_ll P_EXP_sqrU_ll P_EXP_mulU_h P_EXP_sqrU_h).
+by call __Pm2_ll; auto.
 qed.
 
-hoare _invmU__h _a:
- M(P)._invmU_ :
- a=_a ==> res = iterop (bn glob_Pm2) mul_op _a glob_exp0.
+lemma _invm__ll: islossless M(P)._invm_.
 proof.
 proc.
-have H := (BNE._expmU_noct__h MP.P_BNEXP sqr_mul_eq _mulmU__ph).
-by ecall (H a pm2); auto.
+call (BNE._expm_noct__ll (<: M(P).P_EXP) P_EXP_mulU_ll P_EXP_sqrU_ll P_EXP_mulU_h P_EXP_sqrU_h).
+by call __Pm2_ll; auto.
 qed.
-
-phoare _invm__ph _a:
- [ M(P)._invm_
- : a=_a ==> res = iterop (bn glob_Pm2) mul_op _a glob_exp0
- ] =1%r.
-proof. by conseq _invm__ll (_invm__h _a). qed.
-
-phoare _invmU__ph _a:
- [ M(P)._invmU_
- : a=_a ==> res = iterop (bn glob_Pm2) mul_op _a glob_exp0
- ] =1%r.
-proof. by conseq _invmU__ll (_invmU__h _a). qed.
 
 end section.
 
+(* the value of a power of representatives *)
+lemma red_mexp p c x n: ctx_fp p c => 0 <= x < p => 0 <= n =>
+  red p (BNE.mexp c x n) = (red p x) ^ n %% p.
+proof.
+move=> Hc Hx; have [HP H1] := ctx_fp_p _ _ Hc.
+elim/natind: n => [n Hn H0|n Hn IH _].
+- rewrite (_: n = 0) 1:/# BNE.mexp0 expr0 modz_small 1:/#.
+  by have [_ [_ [_ ->]]] := Hc.
+- rewrite BNE.mexpS //= HP red_mul IH // modzMmr exprS //.
+qed.

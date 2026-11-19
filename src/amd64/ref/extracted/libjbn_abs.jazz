@@ -26,14 +26,14 @@ namespace H {
   namespace EXP {
     from Libjbn require "fp_ctx@n.jinc"   // CTXLEN, CTX_ONE
     fn fun_mulU
-    ( reg mut ptr u64[nlimbs] r
-    , reg const ptr u64[nlimbs] a
+    ( reg mut ptr u64[nlimbs] a
+    , reg const ptr u64[nlimbs] b
     , reg const ptr u64[CTXLEN] ctx
-    ) -> reg ptr u64[nlimbs] { a=a; ctx=ctx; return r; }
+    ) -> reg ptr u64[nlimbs] { b=b; ctx=ctx; return a; }
     fn fun_sqrU
-    ( reg mut ptr u64[nlimbs] r
+    ( reg mut ptr u64[nlimbs] a
     , reg const ptr u64[CTXLEN] ctx
-    ) -> reg ptr u64[nlimbs] { ctx=ctx; return r; }
+    ) -> reg ptr u64[nlimbs] { ctx=ctx; return a; }
     from Libjbn require "bn_exp@exp.jinc"
   }
 
