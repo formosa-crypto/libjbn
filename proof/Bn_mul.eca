@@ -308,9 +308,9 @@ module M = {
     r <@ _ps_sqrn_ (r, a);
     return (tmp, r);
   }
-  proc __mont_redM (r:BN.t, a:BN2.t,
-                            _P:BN.t, _mP:BN.t,
-                            _U0:W64.t) : BN.t = {
+  proc __mont_redM_stk (r:BN.t, a:BN2.t,
+                                _P:BN.t, _mP:BN.t,
+                                _U0:W64.t) : BN.t = {
     var aux_0:W64.t;
     var aux:bool;
     var inc:int;
@@ -366,6 +366,65 @@ module M = {
     ( _1, lastbit) <- (adc_64 lastbit (W64.of_int 0) cf);
     r.[(nlimbs - 1)] <- x.[(((2 * nlimbs) - 1) %% 3)];
     mP <- _mP;
+    r <@ BNB_M._cminusP_ (r, mP, lastbit);
+    return r;
+  }
+  proc __mont_redM (r:BN.t, a:BN2.t,
+                            _P_mP:BN2.t, _U0:W64.t) : BN.t = {
+    var aux_0:W64.t;
+    var aux:bool;
+    var inc:int;
+    var x:W64.t Array3.t;
+    var p:BN.t;
+    var k:int;
+    var zero:W64.t;
+    var t0:W64.t;
+    var t1:W64.t;
+    var lastbit:W64.t;
+    var cf:bool;
+    var mP:BN.t;
+    var  _0:W64.t;
+    var  _1:bool;
+    p <- witness;
+    mP <- witness;
+    x <- witness;
+    x.[0] <- (W64.of_int 0);
+    x.[1] <- (W64.of_int 0);
+    x.[2] <- (W64.of_int 0);
+    p <- (BN.A.init (fun i => _P_mP.[(0 + i)]));
+    k <- 0;
+    while ((k < nlimbs)) {
+      x <@ __muln_innerloop (x, k, 0, k, r, p);
+      zero <- (W64.of_int 0);
+      t0 <- a.[k];
+      x <@ BNUTIL_M.__addacc3 (x, zero, t0, k);
+      t0 <- x.[(k %% 3)];
+      ( _0, t0) <- (mulu_64 t0 _U0);
+      r.[k] <- t0;
+      (t1, t0) <- (mulu_64 t0 p.[0]);
+      x <@ BNUTIL_M.__addacc3 (x, t1, t0, k);
+      k <- (k + 1);
+    }
+    inc <- ((2 * nlimbs) - 1);
+    k <- nlimbs;
+    while ((k < inc)) {
+      x <@ __muln_innerloop (x, k, ((k - nlimbs) + 1), nlimbs, r, p);
+      zero <- (W64.of_int 0);
+      t0 <- a.[k];
+      x <@ BNUTIL_M.__addacc3 (x, zero, t0, k);
+      t0 <- x.[(k %% 3)];
+      r.[(k - nlimbs)] <- t0;
+      x.[(k %% 3)] <- (W64.of_int 0);
+      k <- (k + 1);
+    }
+    lastbit <- x.[((2 * nlimbs) %% 3)];
+    (aux, aux_0) <-
+    (adc_64 x.[(((2 * nlimbs) - 1) %% 3)] a.[((2 * nlimbs) - 1)] false);
+    cf <- aux;
+    x.[(((2 * nlimbs) - 1) %% 3)] <- aux_0;
+    ( _1, lastbit) <- (adc_64 lastbit (W64.of_int 0) cf);
+    r.[(nlimbs - 1)] <- x.[(((2 * nlimbs) - 1) %% 3)];
+    mP <- (BN.A.init (fun i => _P_mP.[(nlimbs + i)]));
     r <@ BNB_M._cminusP_ (r, mP, lastbit);
     return r;
   }
@@ -451,6 +510,19 @@ proof. by proc; inline _ps_sqrn; wp; call __ps_sqrn_ll; auto. qed.
 
 lemma _ps_ksqrn__ll: islossless M._ps_ksqrn_.
 proof. by proc; wp; call _ps_sqrn__ll; auto. qed.
+
+lemma __mont_redM_stk_ll: islossless M.__mont_redM_stk.
+proof.
+proc; call BNB._cminusP__ll; wp.
+while (true) (inc - k).
+ move=> z; wp; call BNUTIL.__addacc3_ll; wp; call __muln_innerloop_ll.
+ by auto => /#.
+wp; while (true) (nlimbs - k).
+ move=> z; wp; call BNUTIL.__addacc3_ll; wp; call BNUTIL.__addacc3_ll; wp.
+ call __muln_innerloop_ll.
+ by auto => /#.
+by auto => /#.
+qed.
 
 lemma __mont_redM_ll: islossless M.__mont_redM.
 proof.
@@ -866,12 +938,12 @@ qed.
 
 (* obs: [bn _a < bn __P * bn_modulus] ensures that a single final
    conditional subtraction suffices *)
-lemma __mont_redM_h rInv __P __mP __U0 _a:
+lemma __mont_redM_stk_h rInv __P __mP __U0 _a:
  (rInv * BN.bn_modulus) %% BN.bn __P = 1 =>
  bn __P + BN.bn __mP = BN.bn_modulus =>
  __U0 * __P.[0] = W64.of_int (-1) =>
  bn _a < bn __P * BN.bn_modulus =>
- hoare [ M.__mont_redM
+ hoare [ M.__mont_redM_stk
        : _P=__P /\ _mP=__mP /\ _U0=__U0 /\ a=_a ==> bn res = (bn _a * rInv) %% bn __P
        ].
 proof.
@@ -992,6 +1064,48 @@ by move=> <-; rewrite BN.bn_ofintK.
 done.
 qed.
 
+(* the variant with packed constants [_P_mP] (P, then -P mod R) computes as
+   the stack variant on the two halves of [_P_mP] *)
+equiv __mont_redM_stk_eq:
+ M.__mont_redM ~ M.__mont_redM_stk
+ : ={r, a, _U0} /\ _P{2} = BN.A.init (fun i => _P_mP{1}.[i])
+   /\ _mP{2} = BN.A.init (fun i => _P_mP{1}.[nlimbs + i])
+ ==> ={res}.
+proof.
+proc.
+call (: ={arg} ==> ={res}); first by sim.
+wp; while (={k, x, r, a, inc} /\ p{1} = _P{2}
+           /\ _mP{2} = BN.A.init (fun i => _P_mP{1}.[nlimbs + i])).
+ wp; call (: ={arg} ==> ={res}); first by sim.
+ wp; call (: ={arg} ==> ={res}); first by sim.
+ by auto.
+wp; while (={k, x, r, a, _U0} /\ p{1} = _P{2}
+           /\ _mP{2} = BN.A.init (fun i => _P_mP{1}.[nlimbs + i])).
+ wp; call (: ={arg} ==> ={res}); first by sim.
+ wp; call (: ={arg} ==> ={res}); first by sim.
+ wp; call (: ={arg} ==> ={res}); first by sim.
+ by auto.
+by auto.
+qed.
+
+(* [_P_mP] packs P and mP = R - P, e.g. as computed by [BN::_pack2_] *)
+lemma __mont_redM_h rInv __P __mP __U0 _a:
+ (rInv * BN.bn_modulus) %% BN.bn __P = 1 =>
+ bn __P + BN.bn __mP = BN.bn_modulus =>
+ __U0 * __P.[0] = W64.of_int (-1) =>
+ bn _a < bn __P * BN.bn_modulus =>
+ hoare [ M.__mont_redM
+       : BN2.bn _P_mP = BN.bn __P + BN.bn __mP * BN.bn_modulus /\ _U0=__U0 /\ a=_a
+         ==> bn res = (bn _a * rInv) %% bn __P
+       ].
+proof.
+move => rInv_r P_mP U0_P0 a_bnd.
+conseq __mont_redM_stk_eq (__mont_redM_stk_h rInv __P __mP __U0 _a rInv_r P_mP U0_P0 a_bnd) => //.
+move=> &1 [H [-> ->]].
+have [E1 E2] := BNB.bn2_unpack _ _ _ H.
+by exists (r{1}, _a, __P, __mP, __U0) => /=; rewrite E1 E2.
+qed.
+
 
 (******************************************************************************
  **                           CORRECTNESS lemmas [phoare]                    **
@@ -1009,13 +1123,27 @@ phoare _ps_sqrn__ph _a:
  ] = 1%r.
 proof. by conseq _ps_sqrn__ll (_ps_sqrn__h _a). qed.
 
+lemma __mont_redM_stk_ph rInv __P __mP __U0 _a:
+ (rInv * BN.bn_modulus) %% BN.bn __P = 1 =>
+ bn __P + BN.bn __mP = BN.bn_modulus =>
+ __U0 * __P.[0] = W64.of_int (-1) =>
+ bn _a < bn __P * BN.bn_modulus =>
+ phoare [ M.__mont_redM_stk
+        : _P=__P /\ _mP=__mP /\ _U0=__U0 /\ a=_a ==> bn res = (bn _a * rInv) %% bn __P
+        ] = 1%r.
+proof.
+move => rInv_r P_mP U0_P0 a_bnd.
+by conseq __mont_redM_stk_ll (__mont_redM_stk_h rInv __P __mP __U0 _a rInv_r P_mP U0_P0 a_bnd).
+qed.
+
 lemma __mont_redM_ph rInv __P __mP __U0 _a:
  (rInv * BN.bn_modulus) %% BN.bn __P = 1 =>
  bn __P + BN.bn __mP = BN.bn_modulus =>
  __U0 * __P.[0] = W64.of_int (-1) =>
  bn _a < bn __P * BN.bn_modulus =>
  phoare [ M.__mont_redM
-        : _P=__P /\ _mP=__mP /\ _U0=__U0 /\ a=_a ==> bn res = (bn _a * rInv) %% bn __P
+        : BN2.bn _P_mP = BN.bn __P + BN.bn __mP * BN.bn_modulus /\ _U0=__U0 /\ a=_a
+          ==> bn res = (bn _a * rInv) %% bn __P
         ] = 1%r.
 proof.
 move => rInv_r P_mP U0_P0 a_bnd.

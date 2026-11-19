@@ -78,7 +78,7 @@ expects to find in scope and the names it provides.
 | `bn_util` | flag/mask helpers, 3-limb accumulators used by multiplication | `UTIL` (top level) | — |
 | `bn_base@n` | load/store, comparison, (conditional) moves and swaps, add/sub/neg with carry, `cminusP`, `pack2` | `BN` | `nlimbs`, `UTIL::` |
 | `bn_rnd@n` | uniform sampling (`_rnd_`, `_rsample_`) | `RND` | `nlimbs`, `BN::` |
-| `bn_mul@n` | operand-scanning (`os`) and product-scanning (`ps`) multiplication and squaring; Montgomery reduction `__mont_redM` | `MUL` | `nlimbs`, `BN::`, `UTIL::` |
+| `bn_mul@n` | operand-scanning (`os`) and product-scanning (`ps`) multiplication and squaring; Montgomery reduction `__mont_redM` (constants packed: `P` then `-P mod R`) and `__mont_redM_stk` (constants on the stack) | `MUL` | `nlimbs`, `BN::`, `UTIL::` |
 | `bn_mulreg@n` | operand-scanning multiplication with the second operand in registers | `MULREG` | `nlimbs` |
 | `bn_karatsuba@2n` | one Karatsuba level on top of a given multiplication | `KAR` (in the 2n scope) | `nlimbs` (2n), `H::nlimbs` (n), `fun_kmuln`, `BN::`, `H::BN::`, `UTIL::` |
 | `bn_exp@exp` | modular exponentiation (constant-time and not) | `EXP` (inside a field) | `nlimbs`, `nlimbsexp`, `glob_exp0`, `fun_mulU`, `fun_sqrU`, `BN::`, `UTIL::` |
@@ -416,7 +416,8 @@ the wiring of a Montgomery field instance (used by `test/misc` and
   their modules `M` are generated from the extraction (`make -C proof`).
   None of them has admits. `Bn_mul.eca` proves the correctness of the
   product-scanning multiplication and squaring (`_ps_muln_`, `_ps_sqrn_`)
-  and of the Montgomery reduction `__mont_redM`, under the parameter axiom
+  and of both Montgomery reductions (`__mont_redM_stk`, and `__mont_redM` by
+  equivalence with it), under the parameter axiom
   `nlimbs_bnd: 4 * nlimbs < W64.modulus` (the top word of the 3-word
   accumulator counts carries); for the operand-scanning procedures only
   losslessness is proved.

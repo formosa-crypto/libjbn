@@ -10,7 +10,10 @@
               UTIL::                       // bn_util
               BN::                         // bn_base, same size
    Provides:  operand-scanning (_os_*) and product-scanning (_ps_*)
-              multiplication/squaring, __mont_redM
+              multiplication/squaring; Montgomery reduction, with the
+              constants P, -P mod R and -P^-1 mod 2^64 either packed in an
+              array (__mont_redM: P || -P mod R) or on the stack
+              (__mont_redM_stk)
 */
 
 /******************************************************************
@@ -324,7 +327,7 @@ inline fn _ps_ksqrn_
 
 // ////////////////////////////////////
 // regs: params(3) + call(3) + 3 = 9
-inline fn __mont_redM
+inline fn __mont_redM_stk
 ( reg mut ptr u64[nlimbs] r
 , reg const ptr u64[2*nlimbs] a
 , stack u64[nlimbs] _P
@@ -337,17 +340,13 @@ inline fn __mont_redM
   reg u64 t0 t1 zero lastbit;
   reg u64[3] x;
 
-//  _, _, _, _, _, x[0] = #set0();
   x[0] = 0;
-//  _, _, _, _, _, x[1] = #set0();
   x[1] = 0;
-//  _, _, _, _, _, x[2] = #set0();
   x[2] = 0;
 
   for k = 0 to nlimbs {
     P = _P;
     x = __muln_innerloop(x, k, 0, k, r, P); //+3
-//    _, _, _, _, _, zero = #set0();
     zero = 0;
     t0 = a[k];
     x = UTIL::__addacc3(x, zero, t0, k);
@@ -360,13 +359,11 @@ inline fn __mont_redM
   for k = nlimbs to 2*nlimbs-1 {
     P = _P;
     x = __muln_innerloop(x, k, k-nlimbs+1, nlimbs, r, P); //+3
-//    _, _, _, _, _, zero = #set0();
     zero = 0;
     t0 = a[k];
     x = UTIL::__addacc3(x, zero, t0, k);
     t0 = x[k % 3];
     r[k-nlimbs] = t0;
-//    _, _, _, _, _, x[k % 3] = #set0();
     x[k % 3] = 0;
   }
 
@@ -383,4 +380,55 @@ inline fn __mont_redM
   return r;
 }
 
+inline fn __mont_redM
+( reg mut ptr u64[nlimbs] r
+, reg const ptr u64[2*nlimbs] a
+, reg const ptr u64[2*nlimbs] _P_mP
+, reg u64 _U0
+) -> reg ptr u64[nlimbs] {
+  inline int k;
+  reg bool cf;
+  reg ptr u64[nlimbs] P mP;
+  reg u64 t0 t1 zero lastbit;
+  reg u64[3] x;
+
+  x[0] = 0;
+  x[1] = 0;
+  x[2] = 0;
+
+  P = _P_mP[0:nlimbs];
+
+  for k = 0 to nlimbs {
+    x = __muln_innerloop(x, k, 0, k, r, P); //+3
+    zero = 0;
+    t0 = a[k];
+    x = UTIL::__addacc3(x, zero, t0, k);
+    t0 = x[k % 3];
+    _, t0 = t0 * _U0;
+    r[k] = t0;
+    t1, t0 = t0 * P[0];
+    x = UTIL::__addacc3(x, t1, t0, k);
+  }
+  for k = nlimbs to 2*nlimbs-1 {
+    x = __muln_innerloop(x, k, k-nlimbs+1, nlimbs, r, P); //+3
+    zero = 0;
+    t0 = a[k];
+    x = UTIL::__addacc3(x, zero, t0, k);
+    t0 = x[k % 3];
+    r[k-nlimbs] = t0;
+    x[k % 3] = 0;
+  }
+
+  // the accumulator (column 2*nlimbs-1) may exceed one word: its second
+  // word is the initial value of the extra (most significant) bit
+  lastbit = x[(2*nlimbs) % 3];
+  cf, x[(2*nlimbs-1) % 3] += a[2*nlimbs-1];
+  _, lastbit += 0 + cf;
+
+  r[nlimbs-1] = x[(2*nlimbs-1) % 3];
+
+  mP = _P_mP[nlimbs:nlimbs];
+  r = BN::_cminusP_(r, mP, lastbit);
+  return r;
+}
 

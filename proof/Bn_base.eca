@@ -1854,6 +1854,24 @@ have H: forall k, 0 <= k <= nlimbs =>
 by rewrite BN.bn_modulusE -H 1:/# (_: 2 * nlimbs = nlimbs + nlimbs) 1:/#.
 qed.
 
+(* conversely, the halves of a packed pair are determined by its value *)
+lemma bn2_unpack (r: BN2.t) (lo hi: BN.t):
+ BN2.bn r = BN.bn lo + BN.bn hi * BN.bn_modulus =>
+ BN.A.init (fun i => r.[i]) = lo /\ BN.A.init (fun i => r.[nlimbs + i]) = hi.
+proof.
+move=> H.
+have E: BN2.bn r = BN.bn (BN.A.init (fun i => r.[i]))
+                   + BN.bn (BN.A.init (fun i => r.[nlimbs + i])) * BN.bn_modulus.
+ by apply bn2_pack => j Hj; rewrite BN.A.initiE.
+have HR: 0 < BN.bn_modulus by rewrite BN.bn_modulusE StdOrder.IntOrder.expr_gt0.
+have Elo: BN.bn (BN.A.init (fun i => r.[i])) = BN.bn lo.
+ have := congr1 (fun z => z %% BN.bn_modulus) _ _ E; rewrite H /= !modzMDr.
+ by rewrite !modz_small; smt(BN.bnk_cmp BN.bn_modulusE).
+split; first by apply BN.bn_inj.
+apply BN.bn_inj; move: E; rewrite H Elo => /addzI E2.
+by have := congr1 (fun z => z %/ BN.bn_modulus) _ _ E2; rewrite /= !mulzK 1,2:/# => ->.
+qed.
+
 hoare __pack2_h _lo _hi:
  M.__pack2 : lo=_lo /\ hi=_hi ==> bn res = bn _lo + bn _hi * BN.bn_modulus.
 proof.

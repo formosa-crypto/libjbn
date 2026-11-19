@@ -24,7 +24,7 @@ BN_RND_NS  = H::RND::
 BN_RND_FNS = _rnd_ _rsample_
 
 BN_MUL_NS  = H::MUL::
-BN_MUL_FNS = _os_muln_ _ps_muln_ _ps_sqrn_ _ps_ksqrn_ __mont_redM
+BN_MUL_FNS = _os_muln_ _ps_muln_ _ps_sqrn_ _ps_ksqrn_ __mont_redM_stk __mont_redM
 
 BN_MULREG_NS  = H::MULREG::
 BN_MULREG_FNS = _osreg_muln_
