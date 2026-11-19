@@ -60,8 +60,39 @@ testmul_kar_32_osreg_4: testmul_kar_32_osreg_4.c kar_32_osreg_4.s
 %.s: %.jazz $(LIBJBN_SRC)
 	$(JASMINC) $(JFLAGS) -o $@ $<
 
+# Timing of the schoolbook multiplications alone, which separates the loop
+# kind from the instructions (the instances, tmpbench_<variant>_<size>.*,
+# are generated from muln32.jazz):
+#   ps        bn_mul        product scanning,  MUL/ADC,        unrolled
+#   loop      bn_mul_loop   operand scanning,  MUL/ADC,        looped rows
+#   mulx_unr  bn_mul        operand scanning,  MULX/ADCX/ADOX, unrolled
+#   mulx      bn_mulx_loop  operand scanning,  MULX/ADCX/ADOX, looped rows
+# (the last two need BMI2 and ADX, so they do not run under Rosetta)
+BENCH_SIZES    ?= 4 8 16 32 64
+BENCH_VARIANTS ?= ps loop mulx_unr mulx
+
+bench: bench_mul.c muln32.jazz $(LIBJBN_SRC)
+	@for n in $(BENCH_SIZES); do for v in $(BENCH_VARIANTS); do \
+	  case $$v in \
+	    ps)       m=bn_mul;       x=bn_mul_export;      fn=bn_ps_muln;; \
+	    loop)     m=bn_mul_loop;  x=bn_mul_loop_export; fn=bn_os_muln;; \
+	    mulx_unr) m=bn_mul;       x=bn_mul_export;      fn=bn_os_muln;; \
+	    mulx)     m=bn_mulx_loop; x=bn_mul_loop_export; fn=bn_os_muln;; \
+	    *) echo "unknown variant $$v"; exit 1;; \
+	  esac; \
+	  f=tmpbench_$${v}_$$n; \
+	  sed -e "s/param int nlimbs = 64;/param int nlimbs = TOP;/" \
+	      -e "s/param int nlimbs = 32;/param int nlimbs = $$n;/" \
+	      -e "s/param int nlimbs = TOP;/param int nlimbs = $$((2*n));/" \
+	      -e "s/bn_mul@n.jinc/$$m@n.jinc/" -e "s/bn_mul_export@2n.jinc/$$x@2n.jinc/" \
+	      muln32.jazz > $$f.jazz; \
+	  $(JASMINC) $(JFLAGS) -o $$f.s $$f.jazz 2> $$f.log || { cat $$f.log; exit 1; }; \
+	  $(GCC) -O2 -DNLIMBS=$$n -DFN=$$fn -DVARIANT=\"$$v\" -o $$f bench_mul.c $$f.s || exit 1; \
+	  ./$$f || echo "$$v n=$$n: did not run (the mulx variants need a CPU with BMI2 and ADX)"; \
+	done; done
+
 clean:
-	rm -f $(PROGS)
+	rm -f $(PROGS) tmpbench_*
 
 realclean: clean
 	rm -f *.s *~

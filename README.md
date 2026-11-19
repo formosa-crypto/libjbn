@@ -264,8 +264,11 @@ What is *not* settled:
     faster than the unrolled `bn_mul` at 4 limbs, 25% at 8, 28% at 16 and
     35% at 32 and 64, and its cost per limb product does not grow up to
     128 limbs. The two differ in instructions and in scanning order as
-    well as in the loop; an unrolled MULX/ADCX/ADOX squaring and
-    reduction, to compare with, do not exist.
+    well as in the loop, so this does not say that the loop is what makes
+    it faster. An unrolled MULX/ADCX/ADOX squaring and reduction, to
+    compare with, do not exist; the multiplication does (`_os_muln` of
+    `bn_mul`), and `make -C examples/simple_tests/mults bench` times the
+    four schoolbook multiplications alone (not measured on hardware yet).
   * `bn_mul_loop`, which uses the instructions of the unrolled code, is
     within 3% of it on `fpc_exp` up to 16 limbs (slightly faster at 4 and
     8, equal at 16), then slower: 8% at 32 limbs, 16% at 64. On `fpc_mul`
