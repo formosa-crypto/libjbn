@@ -18,10 +18,16 @@ SIZES = 7 16
 # the same instances with row-looped multiplication and reduction
 # (bn_mul_loop in the place of bn_mul): same entry points, same vectors
 PROGS = $(addprefix test_fp_ctx, $(SIZES)) $(addprefix test_fp_ctx_loop, $(SIZES))
+# and with bn_mulx_loop (MULX/ADCX/ADOX rows): these only run on a CPU with
+# BMI2 and ADX (not under Rosetta), hence the separate target run-mulx
+MULX_PROGS = $(addprefix test_fp_ctx_mulx_loop, $(SIZES))
 
-all: $(PROGS)
+all: $(PROGS) $(MULX_PROGS)
 
-# (the more specific pattern first: make 3.81 takes the first match)
+# (the more specific patterns first: make 3.81 takes the first match)
+test_fp_ctx_mulx_loop%: test_fp_ctx.c fp_ctx_mulx_loop%.s
+	$(GCC) -DNLIMBS=$* -o $@ $^
+
 test_fp_ctx_loop%: test_fp_ctx.c fp_ctx_loop%.s
 	$(GCC) -DNLIMBS=$* -o $@ $^
 
@@ -34,6 +40,9 @@ vectors%.txt: gen_vectors.py
 run: $(PROGS) $(addprefix vectors, $(addsuffix .txt, $(SIZES)))
 	for n in $(SIZES); do ./test_fp_ctx$$n < vectors$$n.txt || exit 1; done
 	for n in $(SIZES); do ./test_fp_ctx_loop$$n < vectors$$n.txt || exit 1; done
+
+run-mulx: $(MULX_PROGS) $(addprefix vectors, $(addsuffix .txt, $(SIZES)))
+	for n in $(SIZES); do ./test_fp_ctx_mulx_loop$$n < vectors$$n.txt || exit 1; done
 
 %.s: %.jazz $(LIBJBN_SRC)
 	$(JASMINC) $(JFLAGS) -o $@ $<
@@ -64,6 +73,6 @@ bench: bench_fp_ctx.c fp_ctx7.jazz $(LIBJBN_SRC)
 .PRECIOUS: fp_ctx%.s
 
 clean:
-	rm -f $(PROGS) fp_ctx*.s vectors*.txt tmpbench_*
+	rm -f $(PROGS) $(MULX_PROGS) fp_ctx*.s vectors*.txt tmpbench_*
 
 realclean: clean

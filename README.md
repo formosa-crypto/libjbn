@@ -244,13 +244,42 @@ unrolled and 9 seconds looped.
 
 What is *not* settled:
 
-* **Speed.** No measurement on x86-64 hardware exists yet
-  (`make -C examples/simple_tests/fp_ctx bench` times `fpc_mul`, `fpc_sqr`
-  and `fpc_exp` for the three modules, from 4 to 64 limbs). Under Rosetta
-  (which says nothing about instruction caches or decoding on a real x86-64
-  CPU, and cannot run `bn_mulx_loop`), `fpc_mul` with `bn_mul_loop` is
-  within 20% of the unrolled product scanning from 4 to 32 limbs (faster up
-  to 16 limbs, 9% slower at 32) and 41% faster at 64.
+* **Speed.** Measured on one CPU only, an Intel Core i7-14700K, with
+  `taskset -c 2 make -C examples/simple_tests/fp_ctx bench`, which times
+  `fpc_mul`, `fpc_sqr` and `fpc_exp` for the three modules (wall-clock
+  time, best of a few runs; the unrolled module was not built above 64
+  limbs):
+
+  | `nlimbs` | `fpc_mul` (ns): `bn_mul` | `bn_mul_loop` | `bn_mulx_loop` | `fpc_exp` (µs): `bn_mul` | `bn_mul_loop` | `bn_mulx_loop` |
+  |---:|---:|---:|---:|---:|---:|---:|
+  | 4 | 26.0 | 25.8 | 22.2 | 14.1 | 13.8 | 12.0 |
+  | 8 | 86.8 | 83.2 | 63.8 | 87.9 | 85.1 | 66.0 |
+  | 16 | 313 | 286 | 208 | 591 | 589 | 425 |
+  | 32 | 1 138 | 1 143 | 693 | 4 383 | 4 714 | 2 868 |
+  | 64 | 4 305 | 4 694 | 2 670 | 33 941 | 39 387 | 22 155 |
+  | 96 | – | 10 885 | 5 978 | – | 134 654 | 74 495 |
+  | 128 | – | 19 935 | 10 293 | – | 328 049 | 172 910 |
+
+  * `bn_mulx_loop` is the fastest at every size. On `fpc_exp` it is 15%
+    faster than the unrolled `bn_mul` at 4 limbs, 25% at 8, 28% at 16 and
+    35% at 32 and 64, and its cost per limb product does not grow up to
+    128 limbs. The two differ in instructions and in scanning order as
+    well as in the loop; an unrolled MULX/ADCX/ADOX squaring and
+    reduction, to compare with, do not exist.
+  * `bn_mul_loop`, which uses the instructions of the unrolled code, is
+    within 3% of it on `fpc_exp` up to 16 limbs (slightly faster at 4 and
+    8, equal at 16), then slower: 8% at 32 limbs, 16% at 64. On `fpc_mul`
+    alone it is faster up to 16 limbs (by 1%, 4% and 9%), equal at 32 and
+    9% slower at 64.
+  * The looped modules have no squaring of their own (`_os_sqrn` is a
+    multiplication), whereas the unrolled `fpc_sqr` is 8% to 16% faster
+    than `fpc_mul`: this accounts for the loss of `bn_mul_loop` on
+    `fpc_exp` at 32 limbs, and for about half of it at 64.
+  * The unrolled code shows no penalty for its size: its `fpc_mul` grows
+    by 3.8 from 32 to 64 limbs.
+
+  Rosetta is no guide here: it had `bn_mul_loop` 41% faster than the
+  unrolled code at 64 limbs.
 * **Proofs.** The looped modules have no theory in `proof/`: they are
   tested, not proved (section 5).
 * **Speculative constant time.** `jasmin-ct --sct --after=unroll` accepts
@@ -506,7 +535,7 @@ make clean
 |---|---|
 | `simple_tests/sike` | Montgomery field arithmetic for the SIKE primes (434, 503, 610, 751 bits) |
 | `simple_tests/rsa_pss` | 2048-bit RSA: `dec(enc(t)) == t`, CRT decryption |
-| `simple_tests/fp_ctx` | moduli given at run time (7 and 16 limbs): `fpc_ctx_init` and every `fpc_*` operation, against Python (`make run`); each size is built twice, with `bn_mul` (`fp_ctx*.jazz`) and with `bn_mul_loop` (`fp_ctx_loop*.jazz`) |
+| `simple_tests/fp_ctx` | moduli given at run time (7 and 16 limbs): `fpc_ctx_init` and every `fpc_*` operation, against Python (`make run`); each size is also built with `bn_mul_loop` (`fp_ctx_loop*.jazz`, in `make run`) and with `bn_mulx_loop` (`fp_ctx_mulx_loop*.jazz`, `make run-mulx`, which needs BMI2 and ADX); `make bench` times the three |
 | `simple_tests/mults` | 32-limb multiplication: `ps`, `os`, `osreg` and Karatsuba variants; the row-looped `os` of `bn_mul_loop` and `bn_mulx_loop` (`testmul_os_loop.c`, against a C reference) |
 | `schnorr-zk` | a Schnorr zero-knowledge protocol over the RFC 3526 2048-bit group |
 
@@ -518,7 +547,8 @@ The code is x86-64. On macOS the Makefiles compile with
 support the ADX instructions (`mulx`/`adcx`/`adox`) used by the
 operand-scanning multiplications, so the `os`/`osreg` tests in
 `simple_tests/mults` must be run on an x86-64 machine (Broadwell or later);
-this includes `testmul_os_mulx_loop_32`, but not `testmul_os_loop_32`.
+this includes `testmul_os_mulx_loop_32` (but not `testmul_os_loop_32`),
+and `make run-mulx` in `simple_tests/fp_ctx`.
 Override the compiler with `make GCC=...` if needed.
 
 `test/misc/params.c` generates, for a given modulus, the constants *and*
@@ -563,10 +593,10 @@ the wiring of a Montgomery field instance (used by `test/misc` and
   `simple_tests/mults/testmul_*os*`) stop with "Illegal instruction" under
   Rosetta 2 on Apple silicon; they need a native x86-64 CPU with ADX/BMI2.
 * `bn_mul_loop` and `bn_mulx_loop` are not extracted and have no theory.
-  `bn_mul_loop` is tested natively (`simple_tests/mults`,
-  `simple_tests/fp_ctx`). `bn_mulx_loop` has not been run on a CPU yet: its
-  generated assembly was only checked with an interpreter of the few
-  instructions it uses.
+  Both are tested (`simple_tests/mults`, `simple_tests/fp_ctx`);
+  `bn_mulx_loop` only where BMI2 and ADX are available (its tests passed
+  on an Intel Core i7-14700K): `testmul_os_mulx_loop_32` in `mults`,
+  `make run-mulx` in `fp_ctx`.
 * `Bn_rnd.eca` and `UsageExample.ec` do not load: they require
   `MLeakage.ec`, which uses `leakages_t`, no longer provided by the Jasmin
   `eclib`. `Bn_rnd` is not synchronised with the extraction yet (it still
