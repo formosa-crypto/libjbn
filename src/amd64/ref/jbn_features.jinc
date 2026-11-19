@@ -1,0 +1,16 @@
+/* libjbn -- jbn_features: the CPU features the library can use, as bits of
+   the parameter JBN_FEATURES that a profile sets (directory profiles;
+   README, "Profiles and the selection of the multiplication").
+
+   Required at the top level, by the profile (not in a namespace): the
+   modules that test a feature find these names by outward lookup.
+   A module tests a set of features F (a sum of bits) with
+       if ((JBN_FEATURES & F) == F) { ... } else { ... }
+   which is evaluated at compile time: the other branch is not emitted.
+*/
+
+param int JBN_FEATURE_BMI2 = 0x1;     // MULX
+param int JBN_FEATURE_ADX  = 0x2;     // ADCX, ADOX
+
+/* the multiplication rows with MULX/ADCX/ADOX need both */
+param int JBN_FEATURES_MULX = JBN_FEATURE_BMI2 + JBN_FEATURE_ADX;

@@ -2,7 +2,7 @@ PWD = $(shell pwd)
 SRCDIR = $(PWD)/../../../src/amd64/ref
 
 # libjbn library modules (rebuild instances when they change)
-LIBJBN_SRC = $(wildcard $(SRCDIR)/*.jinc $(SRCDIR)/params/*/*.jinc)
+LIBJBN_SRC = $(wildcard $(SRCDIR)/*.jinc $(SRCDIR)/params/*/*.jinc $(SRCDIR)/profiles/*.jinc)
 
 JASMINC ?= jasminc -lazy-regalloc -I Libjbn=$(SRCDIR)
 # x86-64 C compiler (on macOS/Apple Silicon: cross-compile, run under Rosetta)
@@ -22,10 +22,21 @@ PROGS = $(addprefix test_fp_ctx, $(SIZES)) $(addprefix test_fp_ctx_loop, $(SIZES
 # (unrolled): these only run on a CPU with BMI2 and ADX (not under Rosetta),
 # hence the separate target run-mulx
 MULX_PROGS = $(addprefix test_fp_ctx_mulx_loop, $(SIZES)) $(addprefix test_fp_ctx_mulx, $(SIZES))
+# the selector bn_mulsel, with a profile (fp_ctx_sel*: x86_64, in `run`;
+# fp_ctx_selx*: x86_64_adx, in `run-mulx`); the 16-limb instances shadow
+# the threshold, so that the four modules are selected once each
+PROGS += $(addprefix test_fp_ctx_sel, $(SIZES))
+MULX_PROGS += $(addprefix test_fp_ctx_selx, $(SIZES))
 
 all: $(PROGS) $(MULX_PROGS)
 
 # (the more specific patterns first: make 3.81 takes the first match)
+test_fp_ctx_selx%: test_fp_ctx.c fp_ctx_selx%.s
+	$(GCC) -DNLIMBS=$* -o $@ $^
+
+test_fp_ctx_sel%: test_fp_ctx.c fp_ctx_sel%.s
+	$(GCC) -DNLIMBS=$* -o $@ $^
+
 test_fp_ctx_mulx_loop%: test_fp_ctx.c fp_ctx_mulx_loop%.s
 	$(GCC) -DNLIMBS=$* -o $@ $^
 
@@ -44,10 +55,12 @@ vectors%.txt: gen_vectors.py
 run: $(PROGS) $(addprefix vectors, $(addsuffix .txt, $(SIZES)))
 	for n in $(SIZES); do ./test_fp_ctx$$n < vectors$$n.txt || exit 1; done
 	for n in $(SIZES); do ./test_fp_ctx_loop$$n < vectors$$n.txt || exit 1; done
+	for n in $(SIZES); do ./test_fp_ctx_sel$$n < vectors$$n.txt || exit 1; done
 
 run-mulx: $(MULX_PROGS) $(addprefix vectors, $(addsuffix .txt, $(SIZES)))
 	for n in $(SIZES); do ./test_fp_ctx_mulx_loop$$n < vectors$$n.txt || exit 1; done
 	for n in $(SIZES); do ./test_fp_ctx_mulx$$n < vectors$$n.txt || exit 1; done
+	for n in $(SIZES); do ./test_fp_ctx_selx$$n < vectors$$n.txt || exit 1; done
 
 %.s: %.jazz $(LIBJBN_SRC)
 	$(JASMINC) $(JFLAGS) -o $@ $<

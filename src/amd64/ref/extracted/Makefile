@@ -9,7 +9,7 @@ JASMIN2EC = jasmin2ec --array-model=old -I Libjbn=$(SRCDIR)
 LIBJBN_SRC = $(wildcard $(SRCDIR)/*.jinc)
 HARNESS = libjbn_abs.jazz preamb@n.jinc
 
-MJAZZ_EC = BNUTIL_bn_util.ec BN_bn_base.ec BNRND_bn_rnd.ec BNMUL_bn_mul.ec BNMULREG_bn_mulreg.ec BNKAR_bn_karatsuba.ec BNE_bn_exp.ec FP_fp_base.ec FPM_fp_mont.ec
+MJAZZ_EC = BNUTIL_bn_util.ec BN_bn_base.ec BNRND_bn_rnd.ec BNMUL_bn_mul.ec BNMULL_bn_mul_loop.ec BNMULX_bn_mulx.ec BNMULXL_bn_mulx_loop.ec BNMULSEL_bn_mulsel.ec BNMULREG_bn_mulreg.ec BNKAR_bn_karatsuba.ec BNE_bn_exp.ec FP_fp_base.ec FPM_fp_mont.ec
 
 all: $(MJAZZ_EC)
 
@@ -23,8 +23,21 @@ BN_BASE_FNS = _load_ _store_ _eq_ _test0_ __copy _mov_ _cmov_ _cswap_cf_ _set0_ 
 BN_RND_NS  = H::RND::
 BN_RND_FNS = _rnd_ _rsample_
 
-BN_MUL_NS  = H::MUL::
+# the four multiplication modules, instantiated by the selector (MUL)
+BN_MUL_NS  = H::MUL::UNR::
 BN_MUL_FNS = _os_muln_ _ps_muln_ _ps_sqrn_ _ps_ksqrn_ __mont_redM
+
+BN_MULL_NS  = H::MUL::LOOP::
+BN_MULL_FNS = _os_muln_ _os_sqrn_ __mont_redM
+
+BN_MULX_NS  = H::MUL::XUNR::
+BN_MULX_FNS = _os_muln_ _os_sqrn_ __mont_redM
+
+BN_MULXL_NS  = H::MUL::XLOOP::
+BN_MULXL_FNS = _os_muln_ _os_sqrn_ __mont_redM
+
+BN_MULSEL_NS  = H::MUL::
+BN_MULSEL_FNS = _muln_ _sqrn_ __mont_redM
 
 BN_MULREG_NS  = H::MULREG::
 BN_MULREG_FNS = _osreg_muln_
@@ -54,6 +67,18 @@ BNRND_bn_rnd.ec: $(HARNESS) $(LIBJBN_SRC)
 
 BNMUL_bn_mul.ec: $(HARNESS) $(LIBJBN_SRC)
 	$(call xtr,$(BN_MUL_NS),$(BN_MUL_FNS))
+
+BNMULL_bn_mul_loop.ec: $(HARNESS) $(LIBJBN_SRC)
+	$(call xtr,$(BN_MULL_NS),$(BN_MULL_FNS))
+
+BNMULX_bn_mulx.ec: $(HARNESS) $(LIBJBN_SRC)
+	$(call xtr,$(BN_MULX_NS),$(BN_MULX_FNS))
+
+BNMULXL_bn_mulx_loop.ec: $(HARNESS) $(LIBJBN_SRC)
+	$(call xtr,$(BN_MULXL_NS),$(BN_MULXL_FNS))
+
+BNMULSEL_bn_mulsel.ec: $(HARNESS) $(LIBJBN_SRC)
+	$(call xtr,$(BN_MULSEL_NS),$(BN_MULSEL_FNS))
 
 BNMULREG_bn_mulreg.ec: $(HARNESS) $(LIBJBN_SRC)
 	$(call xtr,$(BN_MULREG_NS),$(BN_MULREG_FNS))

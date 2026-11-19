@@ -25,7 +25,12 @@ an extraction into the *abstract* `module M` of the corresponding theory:
     `BNE.M(P_EXP)._expm_`); its procedures are not part of `M`;
   * a module required in the same namespace (fp_base in fp_mont, key
     `includes`) likewise, and its procedures are re-exported by aliases
-    (`proc _mulm_ = FPB.M(P_FPB)._mulm_`).
+    (`proc _mulm_ = FPB.M(P_FPB)._mulm_`);
+  * a module required in a sub-namespace that has a theory of its own and
+    no parameter (the four multiplication modules in the selector
+    bn_mulsel) is an entry of `calls` whose prefix extends the module's
+    own (e.g. `h__MUL__UNR__` in `h__MUL__`): its procedures are not part
+    of `M`, and calls to them go to that theory's module.
 
 Modes (THEORY is a key of THEORIES below):
 
@@ -59,6 +64,9 @@ DUMMY_LITERALS = {
     '12': '(nlimbs + 1)',
     '22': '(2 * nlimbs)',
     '13': 'nlimbsexp',
+    # the dummy profile (preamb@n.jinc)
+    '17': 'jbn_unroll_max',
+    '19': 'jbn_features',
 }
 # derived sizes that must not survive in an abstract module (unmapped)
 SUSPICIOUS_LITERALS = ('44', '88', '96', '104', '176')
@@ -86,12 +94,51 @@ THEORIES = {
     'bn_mul': dict(
         source='bn_mul@n.jinc',
         xtr='BNMUL_bn_mul.ec',
-        prefix='h__MUL__',
+        prefix='h__MUL__UNR__',          # instantiated by the selector
         target='proof/Bn_mul.eca',
         calls={'uTIL__': 'BNUTIL_M.', 'h__BN__': 'BNB_M.'},
         arrays={'Array11': ('BN.t', 'BN.A', 'BigN.BN.A'),
                 'Array22': ('BN2.t', 'BN2.A', 'BigN.BN2.A'),
                 'Array12': ('W64.t BN1.t', 'BN1', 'BN1')},
+    ),
+    'bn_mul_loop': dict(
+        source='bn_mul_loop@n.jinc',
+        xtr='BNMULL_bn_mul_loop.ec',
+        prefix='h__MUL__LOOP__',
+        target='proof/Bn_mul_loop.eca',
+        calls={'uTIL__': 'BNUTIL_M.', 'h__BN__': 'BNB_M.'},
+        arrays={'Array11': ('BN.t', 'BN.A', 'BigN.BN.A'),
+                'Array22': ('BN2.t', 'BN2.A', 'BigN.BN2.A')},
+    ),
+    'bn_mulx': dict(
+        source='bn_mulx@n.jinc',
+        xtr='BNMULX_bn_mulx.ec',
+        prefix='h__MUL__XUNR__',
+        target='proof/Bn_mulx.eca',
+        calls={'uTIL__': 'BNUTIL_M.', 'h__BN__': 'BNB_M.'},
+        arrays={'Array11': ('BN.t', 'BN.A', 'BigN.BN.A'),
+                'Array22': ('BN2.t', 'BN2.A', 'BigN.BN2.A')},
+    ),
+    'bn_mulx_loop': dict(
+        source='bn_mulx_loop@n.jinc',
+        xtr='BNMULXL_bn_mulx_loop.ec',
+        prefix='h__MUL__XLOOP__',
+        target='proof/Bn_mulx_loop.eca',
+        calls={'uTIL__': 'BNUTIL_M.', 'h__BN__': 'BNB_M.'},
+        arrays={'Array11': ('BN.t', 'BN.A', 'BigN.BN.A'),
+                'Array22': ('BN2.t', 'BN2.A', 'BigN.BN2.A')},
+    ),
+    'bn_mulsel': dict(
+        source='bn_mulsel@n.jinc',
+        xtr='BNMULSEL_bn_mulsel.ec',
+        prefix='h__MUL__',
+        target='proof/Bn_mulsel.eca',
+        # the four modules it instantiates in sub-namespaces
+        calls={'h__MUL__UNR__': 'BNMUL_M.', 'h__MUL__LOOP__': 'BNMULL_M.',
+               'h__MUL__XUNR__': 'BNMULX_M.', 'h__MUL__XLOOP__': 'BNMULXL_M.'},
+        arrays={'Array11': ('BN.t', 'BN.A', 'BigN.BN.A'),
+                'Array22': ('BN2.t', 'BN2.A', 'BigN.BN2.A')},
+        clone_ops=['op jbn_features <- 19', 'op jbn_unroll_max <- 17'],
     ),
     'bn_exp': dict(
         source='bn_exp@exp.jinc',
@@ -126,6 +173,7 @@ THEORIES = {
         target='proof/Fp_mont.eca',
         calls={'uTIL__': 'BNUTIL_M.', 'h__BN__': 'BNB_M.', 'h__MUL__': 'BNMUL_M.'},
         params=['fun_muln', 'fun_sqrn'],
+        clone_ops=['op jbn_features <- 19', 'op jbn_unroll_max <- 17'],
         includes=dict(theory='fp_base', module='FPB.M(P_FPB)', nested='P_FPB',
                       bind=[('fun_muln', 'P.fun_muln'), ('fun_sqrn', 'P.fun_sqrn'),
                             ('fun_red', 'fun_red')]),
@@ -228,12 +276,17 @@ def abstract_proc(name, text, cfg):
     # calls to unit procedures, which have none) is renamed; sub-instance
     # prefixes extend the module's own, so they are tried first
     prefixes = sorted(subinst, key=len, reverse=True) + [prefix] + list(cfg['calls'])
+    sub_calls = sorted((p for p in cfg['calls'] if p.startswith(prefix)),
+                       key=len, reverse=True)
 
     def rename(m):
         tok = m.group(0)
         for p in sorted(subinst, key=len, reverse=True):
             if tok.startswith(p):
                 return subinst[p]['module'] + '.' + tok[len(p):]
+        for p in sub_calls:
+            if tok.startswith(p):
+                return cfg['calls'][p] + tok[len(p):]
         if tok.startswith(prefix):
             short = tok[len(prefix):]
             kind = classify(short, cfg)
@@ -284,8 +337,9 @@ def generate(theory):
     procs = split_module_m(open(xtr).read().splitlines(keepends=True))
     prefix = cfg['prefix']
     subinst = cfg.get('subinstances', {})
+    sub_calls = tuple(p for p in cfg['calls'] if p.startswith(prefix))
     mine = [(n, t) for n, t in procs if n.startswith(prefix)
-            and not n.startswith(tuple(subinst))]
+            and not n.startswith(tuple(subinst) + sub_calls)]
     if not mine:
         die('no procedure with prefix %s in %s' % (prefix, cfg['xtr']))
     params = cfg.get('params', [])

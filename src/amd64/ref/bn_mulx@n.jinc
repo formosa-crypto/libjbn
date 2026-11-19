@@ -307,6 +307,10 @@ inline fn __mont_redM
   reg ptr u64[nlimbs] mP;
   reg u64 _zero hi lo t m w0 c;
 
+  // c is only read from row 1 on; it is set here as well because in the
+  // extracted model the test on k below is a run-time one, and c would be
+  // read uninitialised there (which defeats `sim` in proof/checkxtr)
+  c = 0;
   w0 = a[0];
   for k = 0 to nlimbs {
     m = w0;

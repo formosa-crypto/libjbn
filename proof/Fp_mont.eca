@@ -6,7 +6,8 @@ require JBigNumber.
 
 (* Correctness contracts for fp_mont@fp.jinc: arithmetic modulo P in
    Montgomery form, generic in the multiplication (fun_muln/fun_sqrn, the
-   module parameter of M). The field operations are those of Fp_base, with
+   module parameter of M). Its MUL is the selector bn_mulsel (Bn_mulsel),
+   so the contracts hold for every profile. The field operations are those of Fp_base, with
    the Montgomery reduction (factor R^-1): a representative x stands for
    x * R^-1 mod P. *)
 
@@ -19,6 +20,11 @@ axiom nlimbs_bnd: 64 * nlimbs < W64.modulus.
 lemma nlimbs_bndN: 64 * nlimbs < 18446744073709551616 by have := nlimbs_bnd.
 lemma nlimbs_bnd4: 4 * nlimbs < W64.modulus.
 proof. rewrite (_: W64.modulus = 18446744073709551616) //; smt(nlimbs_bndN gt0_nlimbs). qed.
+
+(* the profile (src/amd64/ref/profiles), which selects the Montgomery
+   reduction (Bn_mulsel): any values *)
+op jbn_features: int.
+op jbn_unroll_max: int.
 
 clone export JBigNumber.BigN
  with op nlimbs <- nlimbs
@@ -39,9 +45,11 @@ clone Bn_base as BNB
       proof gt0_nlimbs by exact gt0_nlimbs.
 module BNB_M = BNB.M.
 
-require Bn_mul.
-clone Bn_mul as BNMUL
+require Bn_mulsel.
+clone Bn_mulsel as BNMUL
  with op nlimbs <- nlimbs,
+      op jbn_features <- jbn_features,
+      op jbn_unroll_max <- jbn_unroll_max,
       theory BigN <- BigN,
       theory BNUTIL <- BNUTIL,
       theory BNB <- BNB

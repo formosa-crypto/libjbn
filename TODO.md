@@ -3,12 +3,14 @@
 
 + [Done] parameter order convention: change to "results first".
 + [Done] systematic definition of `_xxx_` procedure variants (preferred user access to the library code)
-- `for` vs `while` in mult/red: both exist now (`bn_mul` unrolled; `bn_mulx` unrolled; `bn_mul_loop`, `bn_mulx_loop` with a run-time loop over the rows -- see README, "Unrolled or looped", which has the timings on an i7-14700K). Still to do:
-  - choose the defaults. Where BMI2/ADX can be required: `bn_mulx` (unrolled) up to 16 limbs, 8% to 11% faster than `bn_mulx_loop` on `fpc_exp`, and `bn_mulx_loop` from 32 limbs on, where `bn_mulx` is 59% slower (its code no longer fits the instruction cache). Without them, `bn_mul_loop` and the unrolled `bn_mul` are within 3% up to 16 limbs and the unrolled one is faster above. Missing: sizes between 16 and 32 limbs (the crossover is expected near 24), and a second CPU (AMD, or an older Intel; the crossover depends on the size of the instruction cache);
+- `for` vs `while` in mult/red: four modules (`bn_mul`, `bn_mulx` unrolled; `bn_mul_loop`, `bn_mulx_loop` with a run-time loop over the rows -- see README, "Unrolled or looped", which has the timings on an i7-14700K).
+  + [Done] selection at compile time: `bn_mulsel` (the `MUL` of a size scope, with `fp_mul_sel` in the field) chooses from a profile (`profiles/x86_64.jinc`, `profiles/x86_64_adx.jinc`: `JBN_FEATURES`, `JBN_UNROLL_MAX`, which a size scope may shadow) -- see README, "Profiles and the selection of the multiplication". The theories are proved for every profile (`Bn_mulsel.eca`, `Fp_mont.eca`), with the contracts of the three new modules admitted. Still to do:
+  - prove the admitted contracts of `Bn_mul_loop.eca`, `Bn_mulx.eca`, `Bn_mulx_loop.eca` (`_os_muln_`, `_os_sqrn_`, `__mont_redM`, losslessness included), on which `Bn_mulsel` and `Fp_mont` depend;
+  - the thresholds of the profiles come from one CPU: time 16 to 32 limbs with MULX (the crossover is expected near 24), above 64 limbs without, and a second CPU (AMD, or an older Intel; the crossover depends on the size of the instruction cache);
+  - move the examples (sike, rsa_pss, schnorr-zk) to the selector and a profile (they still wire `bn_mul` directly, which remains possible);
   - the register that carries the first word of the window in the reduction of `bn_mulx` pays at 4 limbs at most: not worth porting to the looped modules;
   - Karatsuba in the field multiplication: measured on the multiplication alone (README), with MULX it loses up to 32 limbs and gains 11% at 64 (about 5% of `fpc_mul`); with MUL/ADC it gains 14% at 32 limbs and 27% at 64. Worth wiring into a field only for 64 limbs and more, or where BMI2/ADX cannot be required; it has no squaring;
   - a squaring of their own for the looped modules (they square by multiplying): the largest gain left from 32 limbs on. The unrolled squaring of `bn_mulx` alone is 39% faster than the looped multiplication at 32 limbs (199 against 325 ns). Until it exists, a 32-limb field could take `fun_sqrn` from a `bn_mulx` instance (19 KB, which still fits the instruction cache) and the rest from `bn_mulx_loop`: not tried;
-  - prove the variants that are kept (`_os_muln`, row-wise `__mont_redM`), with the contracts of `Bn_mul.eca`;
   - run-time loop over the limbs of the exponent in `_expm`/`_expm_noct` (now the largest routines of a looped instance).
 
 
