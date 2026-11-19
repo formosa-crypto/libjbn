@@ -62,7 +62,7 @@ int main(void) {
   }
   ref_mul(e, a, b);
   if (memcmp(r, e, sizeof r) != 0) { printf("%s n=%d: WRONG PRODUCT\n", VARIANT, NLIMBS); return 1; }
-  printf("%-9s n=%-3d mul %9.1f ns  (%.3f ns per limb product)\n",
+  printf("%-13s n=%-3d mul %9.1f ns  (%.3f ns per limb product)\n",
          VARIANT, NLIMBS, best, best / (NLIMBS * NLIMBS));
   return 0;
 }

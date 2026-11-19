@@ -91,6 +91,35 @@ bench: bench_mul.c muln32.jazz $(LIBJBN_SRC)
 	  ./$$f || echo "$$v n=$$n: did not run (the mulx variants need a CPU with BMI2 and ADX)"; \
 	done; done
 
+# The same for Karatsuba (bn_karatsuba, one or two levels: kar1, kar2) over
+# each of the four schoolbook multiplications above, as its base case; the
+# instances are generated from kar_32_os_16.jazz and kar_32_os_8.jazz.
+# To be compared with the lines of `bench` for the same size.
+BENCH_KAR_SIZES ?= 16 32 64
+BENCH_KAR_BASES ?= ps loop mulx_unr mulx
+
+bench-kar: bench_mul.c kar_32_os_16.jazz kar_32_os_8.jazz $(LIBJBN_SRC)
+	@for n in $(BENCH_KAR_SIZES); do for b in $(BENCH_KAR_BASES); do for l in 1 2; do \
+	  case $$b in \
+	    ps)       m=bn_mul;       fn=_ps_muln_;; \
+	    loop)     m=bn_mul_loop;  fn=_os_muln_;; \
+	    mulx_unr) m=bn_mul;       fn=_os_muln_;; \
+	    mulx)     m=bn_mulx_loop; fn=_os_muln_;; \
+	    *) echo "unknown base $$b"; exit 1;; \
+	  esac; \
+	  case $$l in \
+	    1) t=kar_32_os_16.jazz; nl=$$((n/2));; \
+	    2) t=kar_32_os_8.jazz;  nl=$$((n/4));; \
+	  esac; \
+	  f=tmpbench_kar$${l}_$${b}_$$n; \
+	  sed -e "s/param int nlimbsL = [0-9]*;/param int nlimbsL = $$nl;/" \
+	      -e "s/bn_mul@n.jinc/$$m@n.jinc/" -e "s/_os_muln_/$$fn/" \
+	      $$t > $$f.jazz; \
+	  $(JASMINC) $(JFLAGS) -o $$f.s $$f.jazz 2> $$f.log || { cat $$f.log; exit 1; }; \
+	  $(GCC) -O2 -DNLIMBS=$$n -DFN=bn_kar_muln -DVARIANT=\"kar$$l/$$b\" -o $$f bench_mul.c $$f.s || exit 1; \
+	  ./$$f || echo "kar$$l/$$b n=$$n: did not run (the mulx bases need a CPU with BMI2 and ADX)"; \
+	done; done; done
+
 clean:
 	rm -f $(PROGS) tmpbench_*
 
