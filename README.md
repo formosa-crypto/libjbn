@@ -319,6 +319,32 @@ What is *not* settled:
   unrolled multiplication is ahead up to 16 limbs and looped from 32 on;
   an unrolled MULX squaring and reduction, which the field operations
   would need to profit from it, are not written.
+
+  Karatsuba (`bn_karatsuba`, one or two levels over each of the four
+  multiplications above; same CPU, `make bench-kar` in the same
+  directory) against the best schoolbook multiplication of each
+  instruction set, in ns:
+
+  | `nlimbs` | MUL/ADC: schoolbook | Karatsuba | MULX/ADCX/ADOX: schoolbook | Karatsuba |
+  |---:|---:|---:|---:|---:|
+  | 16 | 136.3 (looped) | 146.7 (1 level, ps) | 95.8 (unrolled) | 114.1 (1 level, unrolled) |
+  | 32 | 540.6 (looped) | 467.4 (1 level, looped) | 331.9 (looped) | 353.1 (1 level, unrolled) |
+  | 64 | 2 119 (ps) | 1 544 (2 levels, looped) | 1 299 (looped) | 1 155 (1 level, looped) |
+
+  * With MULX/ADCX/ADOX, Karatsuba is 19% slower at 16 limbs, 6% slower
+    at 32 and 11% faster at 64. On a field multiplication at 64 limbs,
+    where the Montgomery reduction (which Karatsuba does not touch) is
+    half of the time, that would be about 5%.
+  * With MUL/ADC it pays earlier: 8% slower at 16 limbs, 14% faster at 32
+    and 27% faster at 64.
+  * One level costs about 4 to 5 ns per limb of the half size, on top of
+    the three products (66 ns at 32 limbs, 159 ns at 64).
+  * One level over the unrolled 32-limb MULX multiplication is 1 449 ns,
+    worse than over the looped one although the two are within 4% alone.
+
+  So Karatsuba does not change the choice up to 32 limbs; at 64 limbs it
+  is a gain on the multiplication only, and there is no Karatsuba
+  squaring.
 * **Proofs.** The looped modules have no theory in `proof/`: they are
   tested, not proved (section 5).
 * **Speculative constant time.** `jasmin-ct --sct --after=unroll` accepts
