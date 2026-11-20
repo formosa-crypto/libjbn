@@ -482,8 +482,9 @@ What is *not* settled:
   So Karatsuba does not change the choice up to 32 limbs; at 64 limbs it
   is a gain on the multiplication only, and there is no Karatsuba
   squaring.
-* **Proofs.** The looped modules and `bn_mulx` have no theory in `proof/`:
-  they are tested, not proved (section 5).
+* **Proofs.** The four modules are proved, with one contract
+  (`Bn_mul.eca`, `Bn_mul_loop.eca`, `Bn_mulx.eca`, `Bn_mulx_loop.eca`;
+  section 4).
 * **Speculative constant time.** `jasmin-ct --sct --after=unroll` accepts
   the unrolled multiplication, squaring and reduction as they are, given
   an export wrapper that initialises the misspeculation flag and protects
@@ -612,7 +613,10 @@ exponentiation used by `_invm_` calls the field's own `_mulmU_`; in
 ### Value semantics: `JBigNumber.ec`
 
 * `bn_seq`: value of a list of limbs, plus generic lemmas on limb
-  arithmetic (`bn_seq_cmp`, `addc_to_uint`, `addc3P`, `dbl_mulu`, …).
+  arithmetic (`bn_seq_cmp`, `addc_to_uint`, `addc3P`, `dbl_mulu`,
+  `mulu_to_uint`, the product-and-carry steps `mac1P`/`mac2P`, …) and on
+  Montgomery reduction (`mont_low0`, `montred_math`), shared by the
+  multiplication theories.
 * `abstract theory BN`, parametrised by `nlimbs`: the type `BN.t`
   (an array of `nlimbs` words), its value `bn`, prefixes `bnk`,
   carry/borrow views (`bn_withcarry`, `bn_withborrow`), conversions
@@ -627,7 +631,7 @@ exponentiation used by `_invm_` calls the field's own `_mulmU_`; in
 | `Bn_util.ec` | none (concrete theory) | `bn_util` |
 | `Bn_base.eca` | `nlimbs` (clones `BigN` and `Bn_util`) | `bn_base` |
 | `Bn_mul.eca` | `nlimbs` (clones `BigN`, `Bn_util` and `Bn_base`) | `bn_mul` |
-| `Bn_mul_loop.eca`, `Bn_mulx.eca`, `Bn_mulx_loop.eca` | `nlimbs` (as `Bn_mul`) | `bn_mul_loop`, `bn_mulx`, `bn_mulx_loop`: the contracts of `Bn_mul` (`_os_muln_`, `_os_sqrn_`, `__mont_redM`), **admitted** |
+| `Bn_mul_loop.eca`, `Bn_mulx.eca`, `Bn_mulx_loop.eca` | `nlimbs` (the looped ones with `4 * nlimbs < W64.modulus`, as `Bn_mul`: the row index is a word) | `bn_mul_loop`, `bn_mulx`, `bn_mulx_loop`: the contracts of `Bn_mul` (`_os_muln_`, `_os_sqrn_`, `__mont_redM`) |
 | `Bn_mulsel.eca` | `nlimbs`, the profile `jbn_features`, `jbn_unroll_max` (any values; clones the four theories above) | `bn_mulsel`: `_muln_`, `_sqrn_`, `__mont_redM`, proved for the four branches |
 | `Bn_rnd.eca` | `nlimbs` | `bn_rnd` (not yet rewritten, see the status) |
 | `Fp_ctx.eca` | `nlimbs` | `fp_ctx` (layout of a context: `ctxP`, `ctxMP`, `ctxONE`, `ctxR2`, `ctxU0`; `ctx_mod p c`, `ctx_mont p c`) |
@@ -783,10 +787,16 @@ the wiring of a Montgomery field instance (used by `test/misc` and
   `Bn_mul_loop.eca`, `Bn_mulx.eca`, `Bn_mulx_loop.eca`, `Bn_mulsel.eca`,
   `Fp_ctx.eca`, `Bn_exp.eca`, `Fp_base.eca` and `Fp_mont.eca` check, and
   their modules `M` are generated from the extraction (`make -C proof`).
-  **Admitted:** the contracts of `Bn_mul_loop`, `Bn_mulx` and
-  `Bn_mulx_loop` (losslessness and correctness of `_os_muln_`, `_os_sqrn_`
-  and `__mont_redM`, stated as in `Bn_mul`). `Bn_mulsel`, hence `Fp_mont`,
-  depend on them; the other theories have no admits.
+  None of them has admits.
+  * `Bn_mul_loop.eca`, `Bn_mulx_loop.eca` and `Bn_mulx.eca` prove the
+    contracts of `Bn_mul` for the other three modules: losslessness and
+    correctness of `_os_muln_`, `_os_sqrn_` and `__mont_redM`. The rows
+    carry the pending value of the next word (a word, or a word plus the
+    carries of the CF and OF chains), which a bound on the row keeps from
+    overflowing; the reductions track the sum of the multipliers as a
+    ghost. `Bn_mulx.eca` also proves its squaring (`a^2 = 2 X + D`, the
+    products above the diagonal by rows, then the doubling pass) and its
+    reduction, whose first row reads the argument (a ghost "window").
   * `Bn_mulsel.eca` proves the selector's `_muln_`, `_sqrn_` and
     `__mont_redM` for every profile, from the contracts of the four
     modules (one per branch).
@@ -811,14 +821,12 @@ the wiring of a Montgomery field instance (used by `test/misc` and
 * The examples whose operand-scanning code uses ADX/MULX (e.g.
   `simple_tests/mults/testmul_*os*`) stop with "Illegal instruction" under
   Rosetta 2 on Apple silicon; they need a native x86-64 CPU with ADX/BMI2.
-* `bn_mul_loop` and `bn_mulx_loop` are extracted, but their contracts are
-  admitted. Both are tested (`simple_tests/mults`, `simple_tests/fp_ctx`);
+* `bn_mul_loop` and `bn_mulx_loop` are proved (above), and tested
+  (`simple_tests/mults`, `simple_tests/fp_ctx`);
   `bn_mulx_loop` only where BMI2 and ADX are available (its tests passed
   on an Intel Core i7-14700K): `testmul_os_mulx_loop_32` in `mults`,
   `make run-mulx` in `fp_ctx`.
-* `bn_mulx` is extracted, and its contracts are admitted as well. Its
-  tests passed on
-  the same CPU (`testmul_os_mulx_32` in `mults`, at 32 limbs; `make
+* `bn_mulx` is proved as well. Its tests passed on the same CPU (`testmul_os_mulx_32` in `mults`, at 32 limbs; `make
   run-mulx` in `fp_ctx`, at 7 and 16 limbs); at the other sizes its
   generated assembly was checked with an interpreter of the few
   instructions it uses (multiplication, squaring and reduction against

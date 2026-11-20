@@ -10,15 +10,15 @@ require JBigNumber.
    among bn_mul, bn_mul_loop, bn_mulx and bn_mulx_loop.
 
    The profile (features and unrolling threshold) is abstract: each
-   contract holds for every profile, by the contracts of the four modules,
-   one per branch of the selection. Those of Bn_mul are proved; those of
-   Bn_mul_loop, Bn_mulx and Bn_mulx_loop are admitted (in their theories).
-   The statements are those of Bn_mul. *)
+   contract holds for every profile, by the contracts of the four modules
+   (Bn_mul, Bn_mul_loop, Bn_mulx, Bn_mulx_loop), one per branch of the
+   selection. The statements are those of Bn_mul. *)
 
 (* Parameters *)
 op nlimbs: int.
 axiom gt0_nlimbs: 0 < nlimbs.
-(* for Bn_mul (the 3-word accumulators of product scanning) *)
+(* for Bn_mul (the 3-word accumulators of product scanning), and for the
+   word row index of Bn_mul_loop and Bn_mulx_loop *)
 axiom nlimbs_bnd: 4 * nlimbs < W64.modulus.
 
 (* the profile (src/amd64/ref/profiles): JBN_FEATURES and JBN_UNROLL_MAX;
@@ -62,7 +62,8 @@ clone Bn_mul_loop as BNMULL
       theory BigN <- BigN,
       theory BNUTIL <- BNUTIL,
       theory BNB <- BNB
-      proof gt0_nlimbs by exact gt0_nlimbs.
+      proof gt0_nlimbs by exact gt0_nlimbs,
+            nlimbs_bnd by exact nlimbs_bnd.
 module BNMULL_M = BNMULL.M.
 
 require Bn_mulx.
@@ -80,7 +81,8 @@ clone Bn_mulx_loop as BNMULXL
       theory BigN <- BigN,
       theory BNUTIL <- BNUTIL,
       theory BNB <- BNB
-      proof gt0_nlimbs by exact gt0_nlimbs.
+      proof gt0_nlimbs by exact gt0_nlimbs,
+            nlimbs_bnd by exact nlimbs_bnd.
 module BNMULXL_M = BNMULXL.M.
 
 (* module M: the extracted code of bn_mulsel@n.jinc (see proof/Makefile) *)

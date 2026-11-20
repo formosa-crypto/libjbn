@@ -817,56 +817,8 @@ by rewrite -exprD_nneg 1,2:/#; congr; ring.
 rewrite {3}E; ring Ek.
 qed.
 
-(* the multiplier [m = w * U0] makes the least significant word vanish *)
-lemma mont_low0 (w U0 P0: W64.t):
-  U0 * P0 = W64.of_int (-1) =>
-  (to_uint w + to_uint (w * U0) * to_uint P0) %% W64.modulus = 0.
-proof.
-move=> H.
-rewrite -modzDmr -W64.to_uintM -W64.to_uintD.
-have ->: w + w * U0 * P0 = W64.zero.
-rewrite -W64.WRingA.mulrA H.
-have ->: W64.of_int (-1) = - W64.one by rewrite W64.of_intN.
-by rewrite W64.WRingA.mulrN1 W64.WRingA.subrr.
-by rewrite W64.to_uint0.
-qed.
-
-(* the final conditional subtraction: [T = r + lb*R] satisfies
-   [T*R = A + m*P], hence [T < 2*P] and the result is [A * R^-1 mod P] *)
-lemma montred_math (A m P R T rInv lb r: int):
-  0 <= P <= R => (rInv * R) %% P = 1 =>
-  0 <= A < P * R => 0 <= m < R =>
-  T * R = A + m * P => T = r + lb * R => 0 <= r < R => 0 <= lb =>
-  lb <= 1
-  /\ (if R <= lb * R + r + (R - P) then (r + (R - P)) %% R else r)
-     = (A * rInv) %% P.
-proof.
-move=> [HP0 HPR] Hinv [HA0 HA1] [Hm0 Hm1] HT HTr [Hr0 Hr1] Hlb.
-have HP: 0 < P by case: (P = 0) => [E|/#]; move: HA1; rewrite E /#.
-have HR: 0 < R by smt().
-have HPR': P < R by case: (P = R) => [E|/#]; move: Hinv; rewrite E modzMl.
-have HmP: m * P < R * P by rewrite StdOrder.IntOrder.ltr_pmul2r.
-have HT2: T < 2 * P by rewrite -(StdOrder.IntOrder.ltr_pmul2r R) // HT; smt().
-have HT0: 0 <= T by rewrite -(StdOrder.IntOrder.ler_pmul2r R) // HT /=; smt(StdOrder.IntOrder.mulr_ge0).
-have Hlb1: lb < 2 by rewrite -(StdOrder.IntOrder.ltr_pmul2r R) //; smt().
-have HTm: (A * rInv) %% P = T %% P.
-rewrite (_: A = T * R - m * P) 1:/#.
-rewrite (_: (T * R - m * P) * rInv = T * (R * rInv) + (- m * rInv) * P); first by ring.
-by rewrite modzMDr -modzMmr (mulzC R) Hinv.
-rewrite HTm.
-case: (P <= T) => HPT.
-have ->: lb * R + r + (R - P) = R + (T - P) by smt().
-rewrite (_: R <= R + (T - P) = true) 1:/# /=.
-have ->: r + (R - P) = (T - P) + (1 - lb) * R by smt().
-rewrite modzMDr modz_small 1:/#.
-have ->: T %% P = T - P.
-rewrite {1}(_: T = T - P + 1 * P); first by ring.
-by rewrite modzMDr modz_small /#.
-smt().
-have Hlb0: lb = 0 by smt().
-rewrite (_: R <= lb * R + r + (R - P) = false) 1:/# /=.
-by rewrite modz_small 1:/#; smt().
-qed.
+(* (the multiplier lemma mont_low0 and the final step montred_math are in
+   JBigNumber.ec, shared with the other multiplication theories) *)
 
 (* obs: [bn _a < bn __P * bn_modulus] ensures that a single final
    conditional subtraction suffices; this version takes the two halves of
@@ -901,7 +853,7 @@ rewrite Hx3 W64.muluE /= -addzA; congr.
 by have := W64.mulhiP ((mulu x2.[k{hr} %% 3] __U0).`2) __P.[0]; rewrite W64.muluE /=; smt().
 have Hlow: to_uint x3.[k{hr} %% 3] = 0.
 rewrite -BNUTIL.valAcc_mod Hm3 -modzDml BNUTIL.valAcc_mod W64.muluE /=.
-by apply mont_low0.
+by apply JBigNumber.mont_low0.
 split; first smt().
 split; first by rewrite (_: (k{hr} + 3) %% 3 = k{hr} %% 3) 1:/#.
 have Hx3e: x3.[k{hr} %% 3 <- W64.zero] = x3.
@@ -988,7 +940,7 @@ have HA: 0 <= BN2.bnk (2*nlimbs) _a < BN.bnk nlimbs __P * BN.bn_modulus by move:
 have Hm: 0 <= BN.bnk nlimbs m < BN.bn_modulus by move: (BN.bnk_cmp nlimbs m); rewrite BN.bn_modulusE.
 have Hr: 0 <= BN.bnk nlimbs r1 < BN.bn_modulus by move: (BN.bnk_cmp nlimbs r1); rewrite BN.bn_modulusE.
 have Hlb0: 0 <= to_uint x0.[2*nlimbs %% 3] + b2i c by smt(W64.to_uint_cmp).
-have [Hlb1 HMR] := montred_math (BN2.bnk (2*nlimbs) _a) (BN.bnk nlimbs m) (BN.bnk nlimbs __P) BN.bn_modulus (BN.bnk nlimbs r1 + (to_uint x0.[2*nlimbs %% 3] + b2i c) * BN.bn_modulus) rInv (to_uint x0.[2*nlimbs %% 3] + b2i c) (BN.bnk nlimbs r1) HP rInv_r HA Hm HT _ Hr Hlb0; first done.
+have [Hlb1 HMR] := JBigNumber.montred_math (BN2.bnk (2*nlimbs) _a) (BN.bnk nlimbs m) (BN.bnk nlimbs __P) BN.bn_modulus (BN.bnk nlimbs r1 + (to_uint x0.[2*nlimbs %% 3] + b2i c) * BN.bn_modulus) rInv (to_uint x0.[2*nlimbs %% 3] + b2i c) (BN.bnk nlimbs r1) HP rInv_r HA Hm HT _ Hr Hlb0; first done.
 have Elb: to_uint lbw = to_uint x0.[2*nlimbs %% 3] + b2i c.
 move: Flb (W64.to_uint_cmp lbw); rewrite (_: W64.modulus = 18446744073709551616) //; smt().
 rewrite Elb; split; first smt().

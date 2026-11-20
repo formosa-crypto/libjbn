@@ -204,6 +204,163 @@ qed.
 
 
 
+(* the two words of a 64x64-bit product *)
+lemma mulu_to_uint (x y: W64.t):
+ to_uint (W64.mulu x y).`2 + W64.modulus * to_uint (W64.mulu x y).`1
+ = to_uint x * to_uint y.
+proof. by rewrite W64.muluE /= W64.mulhiP. qed.
+
+(* the word index k + i (no wrap-around) *)
+lemma to_uint_kD (k: W64.t) i:
+ 0 <= i => to_uint k + i < W64.modulus =>
+ to_uint (k + W64.of_int i) = to_uint k + i.
+proof.
+move=> Hi Hk; have Hc := W64.to_uint_cmp k.
+have E: to_uint (W64.of_int i) = i by rewrite W64.to_uint_small //; move: Hi Hk Hc; smt().
+by rewrite W64.to_uintD_small E.
+qed.
+
+(* the high word of a product is at most W - 2 *)
+lemma mulu_hi_bnd (x y: W64.t): to_uint (W64.mulu x y).`1 <= W64.modulus - 2.
+proof.
+have M := mulu_to_uint x y.
+have [Hx0 Hx1] := W64.to_uint_cmp x; have [Hy0 Hy1] := W64.to_uint_cmp y.
+have [Hl0 Hl1] := W64.to_uint_cmp (W64.mulu x y).`2.
+have Hxy: to_uint x * to_uint y <= (W64.modulus - 1) * (W64.modulus - 1).
+ by apply StdOrder.IntOrder.ler_pmul; move: Hx0 Hx1 Hy0 Hy1; smt().
+move: M Hxy Hl0; rewrite (_: W64.modulus = 18446744073709551616) //; smt().
+qed.
+
+(* an addition with carry that does not overflow *)
+lemma addc_nc (x y: W64.t) c:
+ to_uint x + to_uint y + b2i c < W64.modulus =>
+ !(W64.addc x y c).`1 /\ to_uint (W64.addc x y c).`2 = to_uint x + to_uint y + b2i c.
+proof.
+move=> H; have := addc_to_uint x y c.
+move: (W64.to_uint_cmp (W64.addc x y c).`2); case: ((W64.addc x y c).`1) => /= /#.
+qed.
+
+(* a product and an addition, the carry going into the high word (which
+   cannot overflow): [hi:lo] = x * y + c *)
+lemma mac1P (x y c: W64.t):
+ to_uint (W64.addc (W64.mulu x y).`2 c false).`2
+ + 18446744073709551616
+   * to_uint (W64.addc (W64.mulu x y).`1 W64.zero
+                (W64.addc (W64.mulu x y).`2 c false).`1).`2
+ = to_uint x * to_uint y + to_uint c.
+proof.
+have M := mulu_to_uint x y; have Hh := mulu_hi_bnd x y.
+have A1 := addc_to_uint (W64.mulu x y).`2 c false.
+have [_ A2] := addc_nc (W64.mulu x y).`1 W64.zero
+                 (W64.addc (W64.mulu x y).`2 c false).`1 _.
+ by rewrite W64.to_uint0; move: Hh; case: (W64.addc (W64.mulu x y).`2 c false).`1 => /= /#.
+rewrite A2 W64.to_uint0; move: M A1; rewrite (_: W64.modulus = 18446744073709551616) //.
+by case: (W64.addc (W64.mulu x y).`2 c false).`1 => /= /#.
+qed.
+
+(* the same, the low word being added to [z] (operand order of a row's
+   first addition) *)
+lemma mac1rP (x y z: W64.t):
+ to_uint (W64.addc z (W64.mulu x y).`2 false).`2
+ + 18446744073709551616
+   * to_uint (W64.addc (W64.mulu x y).`1 W64.zero
+                (W64.addc z (W64.mulu x y).`2 false).`1).`2
+ = to_uint x * to_uint y + to_uint z.
+proof.
+have M := mulu_to_uint x y; have Hh := mulu_hi_bnd x y.
+have A1 := addc_to_uint z (W64.mulu x y).`2 false.
+have [_ A2] := addc_nc (W64.mulu x y).`1 W64.zero
+                 (W64.addc z (W64.mulu x y).`2 false).`1 _.
+ by rewrite W64.to_uint0; move: Hh; case: (W64.addc z (W64.mulu x y).`2 false).`1 => /= /#.
+rewrite A2 W64.to_uint0; move: M A1; rewrite (_: W64.modulus = 18446744073709551616) //.
+by case: (W64.addc z (W64.mulu x y).`2 false).`1 => /= /#.
+qed.
+
+(* a product and two additions: [hi:lo] = x * y + z + c (no overflow) *)
+lemma mac2P (x y z c: W64.t):
+ to_uint (W64.addc (W64.addc (W64.mulu x y).`2 z false).`2 c false).`2
+ + 18446744073709551616
+   * to_uint (W64.addc
+                (W64.addc (W64.mulu x y).`1 W64.zero
+                   (W64.addc (W64.mulu x y).`2 z false).`1).`2 W64.zero
+                (W64.addc (W64.addc (W64.mulu x y).`2 z false).`2 c false).`1).`2
+ = to_uint x * to_uint y + to_uint z + to_uint c.
+proof.
+have M := mulu_to_uint x y; have Hh := mulu_hi_bnd x y.
+have [Hx0 Hx1] := W64.to_uint_cmp x; have [Hy0 Hy1] := W64.to_uint_cmp y.
+have [Hz0 Hz1] := W64.to_uint_cmp z; have [Hc0 Hc1] := W64.to_uint_cmp c.
+have Hxy: to_uint x * to_uint y <= (W64.modulus - 1) * (W64.modulus - 1).
+ by apply StdOrder.IntOrder.ler_pmul; move: Hx0 Hx1 Hy0 Hy1; smt().
+pose lo := (W64.mulu x y).`2; pose hi := (W64.mulu x y).`1.
+pose s1 := W64.addc lo z false.
+pose h1 := (W64.addc hi W64.zero s1.`1).`2.
+pose s2 := W64.addc s1.`2 c false.
+have A1 := addc_to_uint lo z false.
+have [_ E1] := addc_nc hi W64.zero s1.`1 _.
+ by rewrite W64.to_uint0; move: Hh; case: (s1.`1) => /= /#.
+have A2 := addc_to_uint s1.`2 c false.
+have [Hl10 Hl11] := W64.to_uint_cmp s1.`2; have [Hl20 Hl21] := W64.to_uint_cmp s2.`2.
+have [_ E2] := addc_nc h1 W64.zero s2.`1 _.
+ rewrite W64.to_uint0 /h1 E1 W64.to_uint0.
+ move: M Hxy A1 A2 Hl10 Hl11 Hl20 Hl21 Hz1 Hc1.
+ rewrite -/lo -/hi -/s1 -/s2 (_: W64.modulus = 18446744073709551616) //.
+ by case: (s1.`1); case: (s2.`1) => /= /#.
+rewrite -/lo -/hi -/s1 -/h1 -/s2 E2 /h1 E1 !W64.to_uint0.
+move: M A1 A2; rewrite -/lo -/hi -/s1 -/s2 (_: W64.modulus = 18446744073709551616) //.
+by case: (s1.`1); case: (s2.`1) => /= /#.
+qed.
+
+(* the multiplier [m = w * U0] makes the least significant word vanish *)
+lemma mont_low0 (w U0 P0: W64.t):
+  U0 * P0 = W64.of_int (-1) =>
+  (to_uint w + to_uint (w * U0) * to_uint P0) %% W64.modulus = 0.
+proof.
+move=> H.
+rewrite -modzDmr -W64.to_uintM -W64.to_uintD.
+have ->: w + w * U0 * P0 = W64.zero.
+rewrite -W64.WRingA.mulrA H.
+have ->: W64.of_int (-1) = - W64.one by rewrite W64.of_intN.
+by rewrite W64.WRingA.mulrN1 W64.WRingA.subrr.
+by rewrite W64.to_uint0.
+qed.
+
+(* the final conditional subtraction: [T = r + lb*R] satisfies
+   [T*R = A + m*P], hence [T < 2*P] and the result is [A * R^-1 mod P] *)
+lemma montred_math (A m P R T rInv lb r: int):
+  0 <= P <= R => (rInv * R) %% P = 1 =>
+  0 <= A < P * R => 0 <= m < R =>
+  T * R = A + m * P => T = r + lb * R => 0 <= r < R => 0 <= lb =>
+  lb <= 1
+  /\ (if R <= lb * R + r + (R - P) then (r + (R - P)) %% R else r)
+     = (A * rInv) %% P.
+proof.
+move=> [HP0 HPR] Hinv [HA0 HA1] [Hm0 Hm1] HT HTr [Hr0 Hr1] Hlb.
+have HP: 0 < P by case: (P = 0) => [E|/#]; move: HA1; rewrite E /#.
+have HR: 0 < R by smt().
+have HPR': P < R by case: (P = R) => [E|/#]; move: Hinv; rewrite E modzMl.
+have HmP: m * P < R * P by rewrite StdOrder.IntOrder.ltr_pmul2r.
+have HT2: T < 2 * P by rewrite -(StdOrder.IntOrder.ltr_pmul2r R) // HT; smt().
+have HT0: 0 <= T by rewrite -(StdOrder.IntOrder.ler_pmul2r R) // HT /=; smt(StdOrder.IntOrder.mulr_ge0).
+have Hlb1: lb < 2 by rewrite -(StdOrder.IntOrder.ltr_pmul2r R) //; smt().
+have HTm: (A * rInv) %% P = T %% P.
+rewrite (_: A = T * R - m * P) 1:/#.
+rewrite (_: (T * R - m * P) * rInv = T * (R * rInv) + (- m * rInv) * P); first by ring.
+by rewrite modzMDr -modzMmr (mulzC R) Hinv.
+rewrite HTm.
+case: (P <= T) => HPT.
+have ->: lb * R + r + (R - P) = R + (T - P) by smt().
+rewrite (_: R <= R + (T - P) = true) 1:/# /=.
+have ->: r + (R - P) = (T - P) + (1 - lb) * R by smt().
+rewrite modzMDr modz_small 1:/#.
+have ->: T %% P = T - P.
+rewrite {1}(_: T = T - P + 1 * P); first by ring.
+by rewrite modzMDr modz_small /#.
+smt().
+have Hlb0: lb = 0 by smt().
+rewrite (_: R <= lb * R + r + (R - P) = false) 1:/# /=.
+by rewrite modz_small 1:/#; smt().
+qed.
+
 (* a sum that is symmetric around [k/2] (e.g. a column of a square) is
    twice its lower half, plus the middle term when [k] is even *)
 lemma bigi_sym (f: int -> int) k lo:
@@ -337,6 +494,28 @@ proof.
 elim/natind: k => /=.
  by move=> k *; rewrite (_:k=0) 1:/# !bnk0.
 by move=> k Hk IH H; rewrite !bnkS // !digE !get_setE 1:/# IH /#.
+qed.
+
+(* writing word [lo] at position [i], with [v] the value above it (e.g.
+   the next word, or a word plus carries; stated with the value of
+   W64.modulus, as it appears in the goals) *)
+lemma bnk_put (r: t) i (lo: W64.t) (v: int):
+ 0 <= i < nlimbs =>
+ bnk (i+1) r.[i <- lo] + v * 18446744073709551616 ^ (i+1)
+ = bnk i r + (to_uint lo + 18446744073709551616 * v) * 18446744073709551616 ^ i.
+proof.
+move=> Hi; rewrite bnkS 1:/# /= A.get_setE 1:/# /= bnk_setO 1:/# exprS 1:/#.
+by ring.
+qed.
+
+(* the same, writing at position [i-1] *)
+lemma bnk_putS (r: t) i (lo: W64.t) (v: int):
+ 1 <= i <= nlimbs =>
+ bnk i r.[i-1 <- lo] + v * 18446744073709551616 ^ i
+ = bnk (i-1) r + (to_uint lo + 18446744073709551616 * v) * 18446744073709551616 ^ (i-1).
+proof.
+move=> Hi; have := bnk_put r (i-1) lo v _; first smt().
+by rewrite (_: i - 1 + 1 = i) 1:/#.
 qed.
 
 lemma bnkS_eq0 k x:
@@ -966,6 +1145,15 @@ clone WArray as BN_WAbytes
 
 (* a double-size number packing two halves *)
 import BN2.A.
+
+(* a single-length array that agrees with the low half of a double one *)
+lemma bnk_low (r: BN.t) (a: BN2.t) k:
+ 0 <= k <= nlimbs => (forall j, 0 <= j < k => r.[j] = a.[j]) =>
+ BN.bnk k r = BN2.bnk k a.
+proof.
+move=> Hk H; rewrite /BN.bnk /BN2.bnk; apply eq_big_seq => j.
+by rewrite mem_range => Hj /=; rewrite H.
+qed.
 
 lemma bn2_pack (r: BN2.t) (lo hi: BN.t):
  (forall j, 0 <= j < nlimbs => r.[j] = lo.[j]) =>

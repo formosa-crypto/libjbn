@@ -1,4 +1,5 @@
-require import AllCore Int IntDiv List.
+require import AllCore Int IntDiv List StdOrder StdBigop.
+import Bigint BIA.
 
 from Jasmin require import JModel_x86.
 import SLH64.
@@ -8,15 +9,16 @@ require JBigNumber.
 (* Correctness contracts for bn_mulx_loop@n.jinc: operand-scanning multiplication and squaring, and Montgomery
    reduction, with a run-time loop over MULX/ADCX/ADOX rows.
 
-   NOT PROVED: the contracts below are admitted, so that Bn_mulsel (the
-   selector, which uses them) and the fields over it can be proved for
-   every profile. The module is tested (README, "Current status"). The
-   statements are those of Bn_mul, so that the four modules have one
-   contract. *)
+   The statements are those of Bn_mul, so that the four modules selected
+   by bn_mulsel have one contract. *)
 
 (* Parameters *)
 op nlimbs: int.
 axiom gt0_nlimbs: 0 < nlimbs.
+(* the row index is a word, and k + nlimbs (< 2*nlimbs) must not wrap
+   (the bound of Bn_mul) *)
+axiom nlimbs_bnd: 4 * nlimbs < W64.modulus.
+lemma nlimbs_bndN: 4 * nlimbs < 18446744073709551616 by have := nlimbs_bnd.
 
 clone export JBigNumber.BigN
  with op nlimbs <- nlimbs
@@ -210,31 +212,449 @@ module M = {
 (* END generated *)
 
 
+lemma ult_nlimbs (k: W64.t): (k \ult W64.of_int nlimbs) = (to_uint k < nlimbs).
+proof. by rewrite W64.ultE W64.to_uint_small //; smt(gt0_nlimbs nlimbs_bndN). qed.
+
+(* the row counter: k + 1, for k < nlimbs (W64.of_int 1 is simplified
+   to W64.one in the goals) *)
+lemma to_uint_k1 (k: W64.t):
+ to_uint k < nlimbs => to_uint (k + W64.one) = to_uint k + 1.
+proof.
+move=> H; rewrite W64.to_uintD_small W64.to_uint1 //.
+by move: H nlimbs_bndN; smt().
+qed.
+
+
 (******************************************************************************
- **                     LOSSLESSNESS (admitted)                              **
+ **                     LOSSLESSNESS                                         **
  ******************************************************************************)
+
+lemma __mul1_ll: islossless M.__mul1.
+proof. by proc; wp; while (true) (nlimbs - i); auto => /#. qed.
+
+lemma __mul1acc_ll: islossless M.__mul1acc.
+proof. by proc; wp; while (true) (nlimbs - i); auto => /#. qed.
+
+lemma _os_muln_ll: islossless M._os_muln.
+proof.
+proc; while (true) (nlimbs - to_uint k).
+ move=> z; wp; call __mul1acc_ll; auto => &hr; rewrite ult_nlimbs => -[H <-].
+ by rewrite to_uint_k1 //; smt().
+by wp; call __mul1_ll; auto => /> k; rewrite ult_nlimbs /#.
+qed.
 
 lemma _os_muln__ll: islossless M._os_muln_.
-proof. admit. qed.
+proof. by proc; wp; call _os_muln_ll; auto. qed.
+
+lemma _os_sqrn_ll: islossless M._os_sqrn.
+proof.
+proc; while (true) (nlimbs - to_uint k).
+ move=> z; wp; call __mul1acc_ll; auto => &hr; rewrite ult_nlimbs => -[H <-].
+ by rewrite to_uint_k1 //; smt().
+by wp; call __mul1_ll; auto => /> k; rewrite ult_nlimbs /#.
+qed.
 
 lemma _os_sqrn__ll: islossless M._os_sqrn_.
-proof. admit. qed.
+proof. by proc; wp; call _os_sqrn_ll; auto. qed.
 
 lemma __mont_redM_ll: islossless M.__mont_redM.
-proof. admit. qed.
+proof.
+proc; call BNB._cminusP__ll; wp.
+while (true) (nlimbs - to_uint k).
+ move=> z; wp; while (true) (nlimbs - i).
+  by move=> z'; auto => /#.
+ auto => &hr; rewrite ult_nlimbs => -[H <-] i.
+ by rewrite to_uint_k1 //; smt().
+wp; while (true) (nlimbs - i).
+ by move=> z; auto => /#.
+by auto => /> i; split; [smt() | move=> _ k; rewrite ult_nlimbs /#].
+qed.
 
 
 (******************************************************************************
- **                     CORRECTNESS (admitted)                               **
+ **                     CORRECTNESS                                          **
  ******************************************************************************)
+
+(* first row: r[0..nlimbs] = a * b; the carry chain is CF, and the pending
+   value of the next word is hi + cf *)
+hoare __mul1_h _a _b:
+ M.__mul1 : a=_a /\ b=_b ==> BN2.bnk (nlimbs+1) res = to_uint _a * bn _b.
+proof.
+proc.
+wp; while (a=_a /\ b=_b /\ 1 <= i <= nlimbs /\ to_uint hi <= 18446744073709551616 - 2
+           /\ BN2.bnk i r + (to_uint hi + b2i cf) * 18446744073709551616 ^ i
+              = to_uint _a * bnk i _b).
+ wp; skip => /> &hr Hi1 _ Hh Hinv Hi2.
+ rewrite /ADCX_64 /MULX_64 /=.
+ split; first smt().
+ split; first exact JBigNumber.mulu_hi_bnd.
+ rewrite BN2.bnk_put 1:/# bnkS 1:/# /=.
+ have A := JBigNumber.addc_to_uint hi{hr} (mulu _a _b.[i{hr}]).`2 cf{hr}.
+ have M := JBigNumber.mulu_to_uint _a _b.[i{hr}].
+ have ->: to_uint (addc hi{hr} (mulu _a _b.[i{hr}]).`2 cf{hr}).`2
+          + 18446744073709551616 * (to_uint (mulu _a _b.[i{hr}]).`1
+                                    + b2i (addc_carry hi{hr} (mulu _a _b.[i{hr}]).`2 cf{hr}))
+          = to_uint hi{hr} + b2i cf{hr} + to_uint _a * to_uint _b.[i{hr}]
+  by move: A M; rewrite (_: W64.modulus = 18446744073709551616) //; smt().
+ have ->: BN2.bnk i{hr} r{hr}
+          = to_uint _a * bnk i{hr} _b - (to_uint hi{hr} + b2i cf{hr}) * 18446744073709551616 ^ i{hr}
+  by rewrite -Hinv; ring.
+ by ring.
+wp; skip => &hr />.
+rewrite /ADCX_64 /MULX_64 /set0_64_ /=.
+split.
+ split; first smt(gt0_nlimbs).
+ split; first exact JBigNumber.mulu_hi_bnd.
+ rewrite BN2.bnk1 bnk1 /= BN2.A.get_setE; first smt(gt0_nlimbs).
+ have := JBigNumber.mulu_to_uint a{hr} b{hr}.[0].
+ by rewrite (_: W64.modulus = 18446744073709551616) //=; smt().
+move=> cf0 hi0 i0 r0 H1 H2 H3 Hh Hinv; have Ei: i0 = nlimbs by smt().
+move: Hinv; rewrite Ei => Hinv.
+have [_ E] := JBigNumber.addc_nc hi0 W64.zero cf0 _.
+ by rewrite W64.to_uint0; move: Hh; case: cf0 => /= /#.
+rewrite BN2.bnkS 1:/# /= BN2.A.get_setE 1:/# /= BN2.bnk_setO 1:/# E W64.to_uint0.
+by move: Hinv; smt().
+qed.
+
+(* row k: r[k..k+nlimbs] += a * b (r[k+nlimbs] is not read). The carries
+   of the two chains (CF: high words, OF: low words) and the last high word
+   are pending into the next word; the bound keeps the top word from
+   overflowing *)
+hoare __mul1acc_h _k _r _a _b:
+ M.__mul1acc : k=_k /\ r=_r /\ a=_a /\ b=_b /\ to_uint _k < nlimbs
+   /\ BN2.bnk (to_uint _k + nlimbs) _r
+      + 18446744073709551616 ^ to_uint _k * (to_uint _a * bn _b)
+      < 18446744073709551616 ^ (to_uint _k + nlimbs + 1)
+ ==> BN2.bnk (to_uint _k + nlimbs + 1) res
+     = BN2.bnk (to_uint _k + nlimbs) _r
+       + 18446744073709551616 ^ to_uint _k * (to_uint _a * bn _b).
+proof.
+proc.
+wp; while (k=_k /\ a=_a /\ b=_b /\ 1 <= i <= nlimbs /\ to_uint _k < nlimbs
+           /\ BN2.bnk (to_uint _k + nlimbs) _r
+               + 18446744073709551616 ^ to_uint _k * (to_uint _a * bn _b)
+              < 18446744073709551616 ^ (to_uint _k + nlimbs + 1)
+           /\ (forall j, to_uint _k + i <= j < 2*nlimbs => r.[j] = _r.[j])
+           /\ BN2.bnk (to_uint _k + i) r
+               + (to_uint hi + b2i cf + b2i of_0) * 18446744073709551616 ^ (to_uint _k + i)
+              = BN2.bnk (to_uint _k + i) _r
+                + 18446744073709551616 ^ to_uint _k * (to_uint _a * bnk i _b)).
+ wp; skip => /> &hr Hi1 _ Hk Hbnd Hfr Hinv Hi2.
+ have [Hk0 _] := W64.to_uint_cmp _k.
+ have ->: to_uint (_k + W64.of_int i{hr}) = to_uint _k + i{hr}
+  by rewrite JBigNumber.to_uint_kD //; move: Hk Hi1 Hi2 nlimbs_bndN; smt().
+ rewrite /ADCX_64 /ADOX_64 /MULX_64 /=.
+ split; first smt().
+ split.
+  by move=> j Hj1 Hj2; rewrite BN2.A.get_setE 1:/# (_: j <> to_uint _k + i{hr}) 1:/# /= Hfr /#.
+ rewrite (_: to_uint _k + (i{hr} + 1) = to_uint _k + i{hr} + 1) 1:/#.
+ rewrite BN2.bnk_put 1:/# Hfr 1:/# BN2.bnkS 1:/# bnkS 1:/# /=.
+ pose t1 := addc _r.[to_uint _k + i{hr}] hi{hr} cf{hr}.
+ pose t2 := addc t1.`2 (mulu _a _b.[i{hr}]).`2 of_0{hr}.
+ have A1 := JBigNumber.addc_to_uint _r.[to_uint _k + i{hr}] hi{hr} cf{hr}.
+ have A2 := JBigNumber.addc_to_uint t1.`2 (mulu _a _b.[i{hr}]).`2 of_0{hr}.
+ have M := JBigNumber.mulu_to_uint _a _b.[i{hr}].
+ have ->: to_uint t2.`2 + 18446744073709551616
+            * (to_uint (mulu _a _b.[i{hr}]).`1 + b2i t1.`1 + b2i t2.`1)
+          = to_uint _r.[to_uint _k + i{hr}] + to_uint hi{hr} + b2i cf{hr} + b2i of_0{hr}
+            + to_uint _a * to_uint _b.[i{hr}]
+  by move: A1 A2 M; rewrite -/t1 -/t2 (_: W64.modulus = 18446744073709551616) //; smt().
+ have ->: BN2.bnk (to_uint _k + i{hr}) r{hr}
+          = BN2.bnk (to_uint _k + i{hr}) _r
+            + 18446744073709551616 ^ to_uint _k * (to_uint _a * bnk i{hr} _b)
+            - (to_uint hi{hr} + b2i cf{hr} + b2i of_0{hr})
+              * 18446744073709551616 ^ (to_uint _k + i{hr})
+  by rewrite -Hinv; ring.
+ by rewrite exprD_nneg 1,2:/#; ring.
+wp; skip => &hr />.
+have [Hk0 Hk1] := W64.to_uint_cmp k{hr}.
+move=> Hk Hbnd; rewrite /ADCX_64 /ADOX_64 /MULX_64 /set0_64_ /=.
+split.
+ split; first smt(gt0_nlimbs).
+ split.
+  by move=> j Hj1 Hj2; rewrite BN2.A.get_setE 1:/# (_: j <> to_uint k{hr}) 1:/#.
+ rewrite BN2.bnk_put 1:/# BN2.bnkS 1:/# bnk1 /=.
+ have A := JBigNumber.addc_to_uint r{hr}.[to_uint k{hr}] (mulu a{hr} b{hr}.[0]).`2 false.
+ have M := JBigNumber.mulu_to_uint a{hr} b{hr}.[0].
+ move: A M; rewrite (_: W64.modulus = 18446744073709551616) // /=.
+ move=> A M.
+ have ->: to_uint (addc r{hr}.[to_uint k{hr}] (mulu a{hr} b{hr}.[0]).`2 false).`2
+          + 18446744073709551616
+            * (to_uint (mulu a{hr} b{hr}.[0]).`1 + b2i false
+               + b2i (addc_carry r{hr}.[to_uint k{hr}] (mulu a{hr} b{hr}.[0]).`2 false))
+          = to_uint r{hr}.[to_uint k{hr}] + to_uint a{hr} * to_uint b{hr}.[0]
+  by move: A M; smt().
+ by ring.
+move=> cf0 hi0 i0 of0 r0 H1 H2 H3 Hfr Hinv; have Ei: i0 = nlimbs by smt().
+move: Hinv; rewrite Ei => Hinv.
+have ->: to_uint (k{hr} + W64.of_int nlimbs) = to_uint k{hr} + nlimbs
+ by rewrite JBigNumber.to_uint_kD //; move: Hk gt0_nlimbs nlimbs_bndN; smt().
+(* the top word does not overflow *)
+have HY: 0 < 18446744073709551616 ^ (to_uint k{hr} + nlimbs) by apply StdOrder.IntOrder.expr_gt0.
+have [Hr0 _] := BN2.bnk_cmp (to_uint k{hr} + nlimbs) r0.
+have Htop: to_uint hi0 + b2i cf0 + b2i of0 < 18446744073709551616.
+ have E: 18446744073709551616 ^ (to_uint k{hr} + nlimbs + 1)
+          = 18446744073709551616 ^ (to_uint k{hr} + nlimbs) * 18446744073709551616
+  by rewrite exprSr 1:/#.
+ have H: (to_uint hi0 + b2i cf0 + b2i of0) * 18446744073709551616 ^ (to_uint k{hr} + nlimbs)
+         < 18446744073709551616 * 18446744073709551616 ^ (to_uint k{hr} + nlimbs)
+  by move: Hbnd Hinv Hr0 E; smt().
+ by move: H; rewrite StdOrder.IntOrder.ltr_pmul2r.
+have [_ E1] := JBigNumber.addc_nc hi0 W64.zero cf0 _.
+ by rewrite W64.to_uint0; move: Htop; case: cf0; case: of0 => /= /#.
+have [_ E2] := JBigNumber.addc_nc (addc hi0 W64.zero cf0).`2 W64.zero of0 _.
+ by rewrite E1 W64.to_uint0; move: Htop; case: cf0; case: of0 => /= /#.
+rewrite BN2.bnkS 1:/# /= BN2.A.get_setE 1:/# /= BN2.bnk_setO 1:/# E2 E1 !W64.to_uint0 /=.
+by move: Hinv; smt().
+qed.
+
+(* the rows of operand scanning *)
+hoare _os_muln_h _a _b:
+ M._os_muln : a=_a /\ b=_b ==> BN2.bn res = bn _a * bn _b.
+proof.
+proc.
+while (a=_a /\ b=_b /\ 1 <= to_uint k <= nlimbs
+       /\ BN2.bnk (to_uint k + nlimbs) r = bnk (to_uint k) _a * bn _b).
+ wp; ecall (__mul1acc_h k r ai b); wp; skip => /> &hr Hk1 Hk2 Hinv.
+ rewrite ult_nlimbs => Hk3; split.
+  split => //; rewrite Hinv.
+  have ->: bnk (to_uint k{hr}) _a * bnk nlimbs _b
+           + 18446744073709551616 ^ to_uint k{hr} * (to_uint _a.[to_uint k{hr}] * bnk nlimbs _b)
+           = bnk (to_uint k{hr} + 1) _a * bnk nlimbs _b by rewrite bnkS 1:/# /=; ring.
+  have [Ha0 Ha1] := bnk_cmp (to_uint k{hr} + 1) _a; have [Hb0 Hb1] := bnk_cmp nlimbs _b.
+  rewrite (_: to_uint k{hr} + nlimbs + 1 = (to_uint k{hr} + 1) + nlimbs) 1:/# exprD_nneg 1,2:/#.
+  by apply StdOrder.IntOrder.ltr_pmul; move: Ha0 Ha1 Hb0 Hb1; smt().
+ move=> _ _ r' Hr'.
+ rewrite to_uint_k1 //; split; first smt().
+ rewrite (_: to_uint k{hr} + 1 + nlimbs = to_uint k{hr} + nlimbs + 1) 1:/# Hr' Hinv.
+ by rewrite bnkS 1:/# /=; ring.
+wp; ecall (__mul1_h ai b); wp; skip => /> r' Hr'.
+split.
+ split; first smt(gt0_nlimbs).
+ by rewrite addzC Hr' bnk1 /=.
+move=> k0 r0; rewrite ult_nlimbs => Hk0 Hk1 Hk2 Hinv.
+by move: Hinv; rewrite (_: to_uint k0 = nlimbs) 1:/# (_: nlimbs + nlimbs = 2 * nlimbs) 1:/#.
+qed.
 
 hoare _os_muln__h _a _b:
  M._os_muln_ : a=_a /\ b=_b ==> bn res = bn _a * bn _b.
-proof. admit. qed.
+proof. by proc; wp; ecall (_os_muln_h a b); auto. qed.
+
+(* squaring: the same rows, with b = a *)
+hoare _os_sqrn_h _a:
+ M._os_sqrn : a=_a ==> BN2.bn res = bn _a * bn _a.
+proof.
+proc.
+while (a=_a /\ 1 <= to_uint k <= nlimbs
+       /\ BN2.bnk (to_uint k + nlimbs) r = bnk (to_uint k) _a * bn _a).
+ wp; ecall (__mul1acc_h k r ai a); wp; skip => /> &hr Hk1 Hk2 Hinv.
+ rewrite ult_nlimbs => Hk3; split.
+  split => //; rewrite Hinv.
+  have ->: bnk (to_uint k{hr}) _a * bnk nlimbs _a
+           + 18446744073709551616 ^ to_uint k{hr} * (to_uint _a.[to_uint k{hr}] * bnk nlimbs _a)
+           = bnk (to_uint k{hr} + 1) _a * bnk nlimbs _a by rewrite bnkS 1:/# /=; ring.
+  have [Ha0 Ha1] := bnk_cmp (to_uint k{hr} + 1) _a; have [Hb0 Hb1] := bnk_cmp nlimbs _a.
+  rewrite (_: to_uint k{hr} + nlimbs + 1 = (to_uint k{hr} + 1) + nlimbs) 1:/# exprD_nneg 1,2:/#.
+  by apply StdOrder.IntOrder.ltr_pmul; move: Ha0 Ha1 Hb0 Hb1; smt().
+ move=> _ _ r' Hr'.
+ rewrite to_uint_k1 //; split; first smt().
+ rewrite (_: to_uint k{hr} + 1 + nlimbs = to_uint k{hr} + nlimbs + 1) 1:/# Hr' Hinv.
+ by rewrite bnkS 1:/# /=; ring.
+wp; ecall (__mul1_h ai a); wp; skip => /> r' Hr'.
+split.
+ split; first smt(gt0_nlimbs).
+ by rewrite addzC Hr' bnk1 /=.
+move=> k0 r0; rewrite ult_nlimbs => Hk0 Hk1 Hk2 Hinv.
+by move: Hinv; rewrite (_: to_uint k0 = nlimbs) 1:/# (_: nlimbs + nlimbs = 2 * nlimbs) 1:/#.
+qed.
 
 hoare _os_sqrn__h _a:
  M._os_sqrn_ : a=_a ==> bn res = bn _a * bn _a.
-proof. admit. qed.
+proof. by proc; wp; ecall (_os_sqrn_h a); auto. qed.
+
+(* Montgomery reduction, the constants given as the two halves of [_P_mP].
+   At row k, with M the sum of the multipliers so far (a ghost):
+     (r + c * R) * W^k = a[0..nlimbs+k) + M * P,   0 <= M < W^k *)
+lemma __mont_redM_halves_h rInv __P __mP __U0 _a:
+ (rInv * BN.bn_modulus) %% BN.bn __P = 1 =>
+ bn __P + BN.bn __mP = BN.bn_modulus =>
+ __U0 * __P.[0] = W64.of_int (-1) =>
+ bn _a < bn __P * BN.bn_modulus =>
+ hoare [ M.__mont_redM
+       : BN.A.init (fun i => _P_mP.[i]) = __P
+         /\ BN.A.init (fun i => _P_mP.[nlimbs + i]) = __mP /\ _U0=__U0 /\ a=_a
+         ==> bn res = (bn _a * rInv) %% bn __P
+       ].
+proof.
+move => rInv_r P_mP U0_P0 a_bnd.
+proc.
+ecall (BNB._cminusP__h r mP c); wp.
+while (a = _a /\ BN.A.init (fun i => _P_mP.[i]) = __P
+       /\ BN.A.init (fun i => _P_mP.[nlimbs + i]) = __mP /\ _U0 = __U0
+       /\ 0 <= to_uint k <= nlimbs /\ to_uint c <= 1
+       /\ exists M, 0 <= M < 18446744073709551616 ^ to_uint k
+           /\ (BN.bnk nlimbs r + to_uint c * 18446744073709551616 ^ nlimbs)
+               * 18446744073709551616 ^ to_uint k
+              = BN2.bnk (nlimbs + to_uint k) _a + M * BN.bnk nlimbs __P).
+ exists* r, c, k; elim* => r0 c0 k0 M0.
+ wp.
+ while (a = _a /\ BN.A.init (fun i => _P_mP.[i]) = __P
+        /\ BN.A.init (fun i => _P_mP.[nlimbs + i]) = __mP /\ _U0 = __U0
+        /\ k = k0 /\ c = c0 /\ to_uint k0 < nlimbs /\ to_uint c0 <= 1
+        /\ 0 <= M0 < 18446744073709551616 ^ to_uint k0
+        /\ (BN.bnk nlimbs r0 + to_uint c0 * 18446744073709551616 ^ nlimbs)
+            * 18446744073709551616 ^ to_uint k0
+           = BN2.bnk (nlimbs + to_uint k0) _a + M0 * BN.bnk nlimbs __P
+        /\ m = r0.[0] * __U0
+        /\ 1 <= i <= nlimbs /\ (forall j, i <= j < nlimbs => r.[j] = r0.[j])
+        /\ to_uint hi <= 18446744073709551616 - 2
+        /\ (BN.bnk (i-1) r
+            + (to_uint hi + b2i cf + b2i of_0) * 18446744073709551616 ^ (i-1))
+            * 18446744073709551616
+           = BN.bnk i r0 + to_uint m * BN.bnk i __P).
+  wp; skip => /> &hr.
+  move=> HP HmP Hk0 Hc0 HM0 HM1 Hinv0 Hi1 Hi2 Hfr Hh Hinv Hi3.
+  rewrite /ADCX_64 /ADOX_64 /MULX_64 /=.
+  split; first smt().
+  split.
+   by move=> j Hj1 Hj2; rewrite BN.A.get_setE 1:/# (_: j <> i{hr} - 1) 1:/# /= Hfr /#.
+  split; first exact JBigNumber.mulu_hi_bnd.
+  have EP: _P_mP{hr}.[i{hr}] = __P.[i{hr}] by rewrite -HP BN.A.initiE 1:/#.
+  rewrite HP in Hinv; rewrite HP BN.bnk_putS 1:/# EP Hfr 1:/# !bnkS 1,2:/# /=.
+  pose m := r0.[0] * __U0.
+  pose t1 := addc r0.[i{hr}] hi{hr} cf{hr}.
+  pose t2 := addc t1.`2 (mulu m __P.[i{hr}]).`2 of_0{hr}.
+  have A1 := JBigNumber.addc_to_uint r0.[i{hr}] hi{hr} cf{hr}.
+  have A2 := JBigNumber.addc_to_uint t1.`2 (mulu m __P.[i{hr}]).`2 of_0{hr}.
+  have M := JBigNumber.mulu_to_uint m __P.[i{hr}].
+  have ->: to_uint t2.`2 + 18446744073709551616
+             * (to_uint (mulu m __P.[i{hr}]).`1 + b2i t1.`1 + b2i t2.`1)
+           = to_uint r0.[i{hr}] + to_uint hi{hr} + b2i cf{hr} + b2i of_0{hr}
+             + to_uint m * to_uint __P.[i{hr}]
+   by move: A1 A2 M; rewrite -/t1 -/t2 (_: W64.modulus = 18446744073709551616) //; smt().
+  have EW: 18446744073709551616 ^ i{hr}
+           = 18446744073709551616 ^ (i{hr} - 1) * 18446744073709551616
+   by rewrite -exprSr 1:/#.
+  have ->: bnk i{hr} r0
+           = (bnk (i{hr} - 1) r{hr}
+              + (to_uint hi{hr} + b2i cf{hr} + b2i of_0{hr}) * 18446744073709551616 ^ (i{hr} - 1))
+             * 18446744073709551616 - to_uint m * bnk i{hr} __P
+   by rewrite Hinv /m; ring.
+  by rewrite EW; ring.
+ wp; skip => /> &hr.
+ move=> HP HmP Hk00 Hk01 Hc0 HM0 HM1 Hinv0; rewrite ult_nlimbs => Hk.
+ rewrite HP in Hinv0; rewrite HP /ADCX_64 /ADOX_64 /MULX_64 /set0_64_ /=.
+ have EP0: _P_mP{hr}.[0] = __P.[0] by rewrite -HP BN.A.initiE; smt(gt0_nlimbs).
+ split.
+  (* the row's first word: zero, by the choice of the multiplier *)
+  split; first done.
+  split; first smt(gt0_nlimbs).
+  rewrite EP0; split; first by have := JBigNumber.mulu_hi_bnd (r0.[0] * __U0) __P.[0].
+  rewrite bnk0 !bnk1 /=.
+  have M := JBigNumber.mulu_to_uint (r0.[0] * __U0) __P.[0].
+  have A := JBigNumber.addc_to_uint r0.[0] (mulu (r0.[0] * __U0) __P.[0]).`2 false.
+  have L := JBigNumber.mont_low0 r0.[0] __U0 __P.[0] U0_P0.
+  pose t := addc r0.[0] (mulu (r0.[0] * __U0) __P.[0]).`2 false.
+  have [Ht0 Ht1] := W64.to_uint_cmp t.`2.
+  have E1: to_uint r0.[0] + to_uint (r0.[0] * __U0) * to_uint __P.[0]
+           = to_uint t.`2
+             + W64.modulus * (b2i t.`1 + to_uint (mulu (r0.[0] * __U0) __P.[0]).`1)
+   by move: A M; rewrite -/t; smt().
+  have Ht: to_uint t.`2 = 0
+   by move: L; rewrite E1 (mulzC W64.modulus) modzMDr modz_small //; smt().
+  by rewrite E1 Ht (_: W64.modulus = 18446744073709551616) // b2i0 /=; ring.
+ (* the row's top word: (hi + cf + of) + a[nlimbs+k] + c; hi + cf + of fits
+    in a word, since the row's value is below W^(nlimbs+1) *)
+ move=> cf0 hi0 i0 of0 r1 Hi0 _ Hi01 Hi02 Hfr Hh Hinv.
+ have Ei: i0 = nlimbs by smt().
+ move: Hinv Hfr; rewrite Ei => Hinv _.
+ have [Hr00 Hr01] := bnk_cmp nlimbs r0.
+ have [HP0 HP1] := bnk_cmp nlimbs __P.
+ have [Hm0 Hm1] := W64.to_uint_cmp (r0.[0] * __U0).
+ have [Hr10 _] := bnk_cmp (nlimbs - 1) r1.
+ have E2: 18446744073709551616 ^ nlimbs = 18446744073709551616 ^ (nlimbs - 1) * 18446744073709551616 by rewrite -exprSr; smt(gt0_nlimbs).
+ have Hm2: to_uint (r0.[0] * __U0) <= 18446744073709551616 - 1 by move: Hm1; rewrite (_: W64.modulus = 18446744073709551616) //; smt().
+ have HP2: bnk nlimbs __P <= 18446744073709551616 ^ nlimbs - 1 by move: HP1; smt().
+ have HmPb := StdOrder.IntOrder.ler_pmul (to_uint (r0.[0] * __U0)) (18446744073709551616 - 1) (bnk nlimbs __P) (18446744073709551616 ^ nlimbs - 1) Hm0 HP0 Hm2 HP2.
+ have H: (to_uint hi0 + b2i cf0 + b2i of0) * (18446744073709551616 ^ (nlimbs - 1) * 18446744073709551616) < 18446744073709551616 * (18446744073709551616 ^ (nlimbs - 1) * 18446744073709551616) by move: Hinv Hr00 Hr01 HmPb Hr10 E2; smt().
+ have HX: to_uint hi0 + b2i cf0 + b2i of0 < 18446744073709551616 by move: H; rewrite StdOrder.IntOrder.ltr_pmul2r 1:/#.
+ have [_ E3] := JBigNumber.addc_nc hi0 W64.zero cf0 _.
+ by rewrite W64.to_uint0; move: Hh; case: cf0 => /= /#.
+ have [_ E4] := JBigNumber.addc_nc (addc hi0 W64.zero cf0).`2 W64.zero of0 _.
+ by rewrite E3 W64.to_uint0; move: HX; case: cf0; case: of0 => /= /#.
+ pose w := (addc (addc hi0 W64.zero cf0).`2 W64.zero of0).`2.
+ have Ew: to_uint w = to_uint hi0 + b2i cf0 + b2i of0 by rewrite /w E4 E3 !W64.to_uint0.
+ have EK: to_uint (k0 + W64.of_int nlimbs) = to_uint k0 + nlimbs by rewrite JBigNumber.to_uint_kD //; move: Hk gt0_nlimbs nlimbs_bndN; smt().
+ have EK1 := to_uint_k1 k0 Hk.
+ rewrite EK EK1 /NEG_64 /=.
+ have EC: b2i (c0 <> W64.zero) = to_uint c0.
+ case: (c0 = W64.zero) => [-> | Hc]; first by rewrite W64.to_uint0.
+ have H0: to_uint c0 <> 0 by move: Hc; rewrite W64.to_uint_eq W64.to_uint0.
+ by rewrite /= b2i1; move: Hc0 H0 (W64.to_uint_cmp c0); smt().
+ pose s := addc w _a.[to_uint k0 + nlimbs] (c0 <> W64.zero).
+ have A := JBigNumber.addc_to_uint w _a.[to_uint k0 + nlimbs] (c0 <> W64.zero).
+ have [_ Ec'] := JBigNumber.addc_nc W64.zero W64.zero s.`1 _.
+ by rewrite W64.to_uint0; case: (s.`1).
+ rewrite /MOV_64 Ec' W64.to_uint0 /=.
+ split; first smt().
+ split; first by case: (s.`1).
+ exists (M0 + to_uint (r0.[0] * __U0) * 18446744073709551616 ^ to_uint k0).
+ have HY: 0 < 18446744073709551616 ^ to_uint k0 by apply StdOrder.IntOrder.expr_gt0.
+ have E1: 18446744073709551616 ^ (to_uint k0 + 1) = 18446744073709551616 ^ to_uint k0 * 18446744073709551616 by rewrite exprSr.
+ split.
+ have Hle: to_uint (r0.[0] * __U0) * 18446744073709551616 ^ to_uint k0 <= (18446744073709551616 - 1) * 18446744073709551616 ^ to_uint k0 by apply StdOrder.IntOrder.ler_wpmul2r; [smt() | move: Hm2; smt()].
+ by rewrite E1; move: HM0 HM1 Hm0 HY Hle; smt().
+ have ->: bnk nlimbs r1.[nlimbs - 1 <- s.`2] = bnk (nlimbs - 1) r1 + to_uint s.`2 * 18446744073709551616 ^ (nlimbs - 1).
+ have := BN.bnkS (nlimbs - 1) r1.[nlimbs - 1 <- s.`2] _; first smt(gt0_nlimbs).
+ rewrite (_: nlimbs - 1 + 1 = nlimbs) 1:/# => ->.
+ rewrite /= BN.A.get_setE; first smt(gt0_nlimbs).
+ by rewrite /= BN.bnk_setO; [smt(gt0_nlimbs) | ring].
+ have Es: to_uint s.`2 = to_uint hi0 + b2i cf0 + b2i of0 + to_uint _a.[to_uint k0 + nlimbs] + to_uint c0 - 18446744073709551616 * b2i s.`1 by move: A; rewrite EC Ew.
+ rewrite Es (_: nlimbs + (to_uint k0 + 1) = nlimbs + to_uint k0 + 1) 1:/# BN2.bnkS 1:/# /=.
+ rewrite (addzC nlimbs (to_uint k0)).
+ have E5: 18446744073709551616 ^ (to_uint k0 + nlimbs) = 18446744073709551616 ^ nlimbs * 18446744073709551616 ^ to_uint k0 by rewrite exprD_nneg 1,2:/#; ring.
+ rewrite E1 E5; rewrite (addzC nlimbs (to_uint k0)) in Hinv0.
+ have ->: bnk (to_uint k0 + nlimbs) _a = (bnk nlimbs r0 + to_uint c0 * 18446744073709551616 ^ nlimbs) * 18446744073709551616 ^ to_uint k0 - M0 * bnk nlimbs __P by rewrite Hinv0; ring.
+ have ->: bnk nlimbs r0 = (bnk (nlimbs - 1) r1 + (to_uint hi0 + b2i cf0 + b2i of0) * 18446744073709551616 ^ (nlimbs - 1)) * 18446744073709551616 - to_uint (r0.[0] * __U0) * bnk nlimbs __P by rewrite Hinv; ring.
+ by rewrite E2; ring.
+(* the copy of the low half of a, and the final conditional subtraction *)
+wp; while (a = _a /\ BN.A.init (fun i => _P_mP.[i]) = __P
+           /\ BN.A.init (fun i => _P_mP.[nlimbs + i]) = __mP /\ _U0 = __U0
+           /\ 0 <= i <= nlimbs /\ forall j, 0 <= j < i => r.[j] = _a.[j]).
+ wp; skip => /> &hr _ _ Hi0 _ Hfr Hi1; split; first smt().
+ move=> j Hj0 Hj1; rewrite BN.A.get_setE 1:/#.
+ by case: (j = i{hr}) => [-> // | Hj]; rewrite Hfr /#.
+wp; skip => /> &hr HP HmP; rewrite HP HmP.
+split; first smt(gt0_nlimbs).
+move=> i0 r0 Hi0 _ Hi1 Hfr.
+split.
+ split; first smt(gt0_nlimbs).
+ exists 0; split; first done.
+ by rewrite (bnk_low r0 _a nlimbs); [smt(gt0_nlimbs) | move=> j Hj; apply Hfr; smt() | done].
+move=> c0 k0 r1; rewrite ult_nlimbs => Hk0 _ Hk1 Hc0 M0 HM0 HM1 Hinv.
+have EK: to_uint k0 = nlimbs by smt().
+move: HM1 Hinv; rewrite EK (_: nlimbs + nlimbs = 2 * nlimbs) 1:/# => HM1 Hinv.
+have Hn := gt0_nlimbs.
+have ER: BN.bn_modulus = 18446744073709551616 ^ nlimbs by rewrite BN.bn_modulusE.
+have HPr: 0 <= BN.bnk nlimbs __P <= BN.bn_modulus
+ by move: (BN.bnk_cmp nlimbs __P) (BN.bnk_cmp nlimbs __mP) P_mP; rewrite ER; smt().
+have HA: 0 <= BN2.bnk (2*nlimbs) _a < BN.bnk nlimbs __P * BN.bn_modulus
+ by move: (BN2.bnk_cmp (2*nlimbs) _a) a_bnd; smt().
+have HM: 0 <= M0 < BN.bn_modulus by rewrite ER; smt().
+have Hr: 0 <= BN.bnk nlimbs r1 < BN.bn_modulus by move: (BN.bnk_cmp nlimbs r1); rewrite ER.
+have HT: (BN.bnk nlimbs r1 + to_uint c0 * BN.bn_modulus) * BN.bn_modulus
+         = BN2.bnk (2*nlimbs) _a + M0 * BN.bnk nlimbs __P by rewrite ER.
+have [Hlb1 HMR] := JBigNumber.montred_math (BN2.bnk (2*nlimbs) _a) M0 (BN.bnk nlimbs __P)
+                     BN.bn_modulus (BN.bnk nlimbs r1 + to_uint c0 * BN.bn_modulus) rInv
+                     (to_uint c0) (BN.bnk nlimbs r1) HPr rInv_r HA HM HT _ Hr _.
+- done.
+- smt(W64.to_uint_cmp).
+have ->: BN.bnk nlimbs __mP = BN.bn_modulus - BN.bnk nlimbs __P by smt().
+move: HMR; case: (BN.bn_modulus <= to_uint c0 * BN.bn_modulus + BN.bnk nlimbs r1
+                                   + (BN.bn_modulus - BN.bnk nlimbs __P)) => H /=.
+- by move=> <-; rewrite BN.bn_ofintK.
+done.
+qed.
 
 (* [_P_mP] packs P and mP = R - P, as for Bn_mul.__mont_redM_h *)
 lemma __mont_redM_h rInv __P __mP __U0 _a:
@@ -246,7 +666,12 @@ lemma __mont_redM_h rInv __P __mP __U0 _a:
        : BN2.bn _P_mP = BN.bn __P + BN.bn __mP * BN.bn_modulus /\ _U0=__U0 /\ a=_a
          ==> bn res = (bn _a * rInv) %% bn __P
        ].
-proof. admit. qed.
+proof.
+move => rInv_r P_mP U0_P0 a_bnd.
+conseq (__mont_redM_halves_h rInv __P __mP __U0 _a rInv_r P_mP U0_P0 a_bnd)
+ => // &hr [H [-> ->]].
+by have [-> ->] := bn2_unpack _ _ _ H.
+qed.
 
 
 (******************************************************************************

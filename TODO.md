@@ -4,8 +4,8 @@
 + [Done] parameter order convention: change to "results first".
 + [Done] systematic definition of `_xxx_` procedure variants (preferred user access to the library code)
 - `for` vs `while` in mult/red: four modules (`bn_mul`, `bn_mulx` unrolled; `bn_mul_loop`, `bn_mulx_loop` with a run-time loop over the rows -- see README, "Unrolled or looped", which has the timings on an i7-14700K).
-  + [Done] selection at compile time: `bn_mulsel` (the `MUL` of a size scope, with `fp_mul_sel` in the field) chooses from a profile (`profiles/x86_64.jinc`, `profiles/x86_64_adx.jinc`: `JBN_FEATURES`, `JBN_UNROLL_MAX`, which a size scope may shadow) -- see README, "Profiles and the selection of the multiplication". The theories are proved for every profile (`Bn_mulsel.eca`, `Fp_mont.eca`), with the contracts of the three new modules admitted. Still to do:
-  - prove the admitted contracts of `Bn_mul_loop.eca`, `Bn_mulx.eca`, `Bn_mulx_loop.eca` (`_os_muln_`, `_os_sqrn_`, `__mont_redM`, losslessness included), on which `Bn_mulsel` and `Fp_mont` depend;
+  + [Done] selection at compile time: `bn_mulsel` (the `MUL` of a size scope, with `fp_mul_sel` in the field) chooses from a profile (`profiles/x86_64.jinc`, `profiles/x86_64_adx.jinc`: `JBN_FEATURES`, `JBN_UNROLL_MAX`, which a size scope may shadow) -- see README, "Profiles and the selection of the multiplication". The theories are proved for every profile (`Bn_mulsel.eca`, `Fp_mont.eca`).
+  + [Done] proofs of the three new modules (`Bn_mul_loop.eca`, `Bn_mulx.eca`, `Bn_mulx_loop.eca`: the contracts of `Bn_mul`, no admits). Still to do:
   - the thresholds of the profiles come from one CPU: time 16 to 32 limbs with MULX (the crossover is expected near 24), above 64 limbs without, and a second CPU (AMD, or an older Intel; the crossover depends on the size of the instruction cache);
   - move the examples (sike, rsa_pss, schnorr-zk) to the selector and a profile (they still wire `bn_mul` directly, which remains possible);
   - the register that carries the first word of the window in the reduction of `bn_mulx` pays at 4 limbs at most: not worth porting to the looped modules;
