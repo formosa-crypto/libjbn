@@ -8,7 +8,10 @@
    Build with -DNLIMBS=<n> -DVARIANT=\"<name>\", and -DPM for an fp_pm
    instance: the modulus is then 2^(64 NLIMBS - 1) - 19 (2^255-19 at 4
    limbs; R mod P = 38), instead of a random one, which fp_pm does not
-   take. */
+   take; and -DCHAINED to time fpc_mul and fpc_sqr as chains, each call
+   taking the result of the previous one (latency), instead of calls on
+   the same arguments, which may overlap (throughput). fpc_exp is a chain
+   either way. */
 #include <stdint.h>
 #include <stdio.h>
 #include <time.h>
@@ -41,6 +44,10 @@ int main(void) {
   double best_m = 1e30, best_s = 1e30, best_e = 1e30, t;
   long reps, ereps, i;
   int k;
+#ifdef CHAINED
+  uint64_t x[NLIMBS];
+  int j;
+#endif
 
   /* a full-size odd modulus, operands below it, a full-size exponent */
   for (k = 0; k < NLIMBS; k++) { P[k] = rng(); a[k] = rng(); b[k] = rng(); e[k] = rng(); }
@@ -57,18 +64,40 @@ int main(void) {
   fpc_ctx_init(ctx, P);
 
   reps = 40000000L / (NLIMBS * NLIMBS + 40);
+#ifdef CHAINED
+  /* each call takes the result of the previous one (two buffers in turn,
+     so that no argument aliases the result): the calls cannot overlap, and
+     the time is the latency of the operation, as in an exponentiation */
+  reps &= ~1L;
+  for (k = 0; k < 7; k++) {
+    for (j = 0; j < NLIMBS; j++) x[j] = a[j];
+    t = now(); for (i = 0; i < reps; i += 2) { fpc_mul(r, x, b, ctx); fpc_mul(x, r, b, ctx); }
+    t = (now() - t) / reps; if (t < best_m) best_m = t;
+    for (j = 0; j < NLIMBS; j++) x[j] = a[j];
+    t = now(); for (i = 0; i < reps; i += 2) { fpc_sqr(r, x, ctx); fpc_sqr(x, r, ctx); }
+    t = (now() - t) / reps; if (t < best_s) best_s = t;
+  }
+#else
+  /* the same arguments at each call: consecutive calls are independent and
+     may overlap, so the time is the throughput of the operation */
   for (k = 0; k < 7; k++) {
     t = now(); for (i = 0; i < reps; i++) fpc_mul(r, a, b, ctx);
     t = (now() - t) / reps; if (t < best_m) best_m = t;
     t = now(); for (i = 0; i < reps; i++) fpc_sqr(r, a, ctx);
     t = (now() - t) / reps; if (t < best_s) best_s = t;
   }
+#endif
   ereps = reps / (128 * NLIMBS) + 1;
   for (k = 0; k < 3; k++) {
     t = now(); for (i = 0; i < ereps; i++) fpc_exp(r, a, e, ctx);
     t = (now() - t) / ereps; if (t < best_e) best_e = t;
   }
-  printf("%-8s n=%-3d fpc_mul %9.1f ns  fpc_sqr %9.1f ns  fpc_exp %12.1f us\n",
-         VARIANT, NLIMBS, best_m, best_s, best_e / 1e3);
+#ifdef CHAINED
+#define MODE "  (chained)"
+#else
+#define MODE ""
+#endif
+  printf("%-8s n=%-3d fpc_mul %9.1f ns  fpc_sqr %9.1f ns  fpc_exp %12.1f us%s\n",
+         VARIANT, NLIMBS, best_m, best_s, best_e / 1e3, MODE);
   return 0;
 }

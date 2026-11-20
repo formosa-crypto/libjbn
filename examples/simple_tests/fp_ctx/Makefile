@@ -124,8 +124,13 @@ exec: gen_exec_test.py $(LIBJBN_SRC)
 # variants over bn_mulx, bn_mulx_loop and bn_mulxr need BMI2 and ADX, so
 # they do not run under Rosetta. The instances
 # (tmpbench_<variant>_<size>.*) are generated from fp_ctx7.jazz.
+# fpc_mul and fpc_sqr are timed on the same arguments at each call, so that
+# consecutive calls may overlap (throughput); with BENCH_CHAINED=1, each
+# call takes the result of the previous one (latency, as in fpc_exp), and
+# the lines end with "(chained)".
 BENCH_SIZES    ?= 4 5 6 8 16 32 64
 BENCH_VARIANTS ?= unr loop mulx_unr mulx mulxr pm_unr pm_mulxr
+BENCH_CHAINED  ?=
 
 bench: bench_fp_ctx.c fp_ctx7.jazz $(LIBJBN_SRC)
 	@for n in $(BENCH_SIZES); do for v in $(BENCH_VARIANTS); do \
@@ -147,7 +152,7 @@ bench: bench_fp_ctx.c fp_ctx7.jazz $(LIBJBN_SRC)
 	      fp_ctx7.jazz > $$f.jazz; \
 	  $(JASMINC) $(JFLAGS) -o $$f.s $$f.jazz 2> $$f.log || { cat $$f.log; exit 1; }; \
 	  pm=; [ $$k = fp_pm ] && pm=-DPM; \
-	  $(GCC) -O2 -DNLIMBS=$$n -DVARIANT=\"$$v\" $$pm -o $$f bench_fp_ctx.c $$f.s || exit 1; \
+	  $(GCC) -O2 -DNLIMBS=$$n -DVARIANT=\"$$v\" $$pm $(if $(BENCH_CHAINED),-DCHAINED) -o $$f bench_fp_ctx.c $$f.s || exit 1; \
 	  ./$$f || echo "$$v n=$$n: did not run (the variants over bn_mulx, bn_mulx_loop and bn_mulxr need a CPU with BMI2 and ADX)"; \
 	done; done
 
