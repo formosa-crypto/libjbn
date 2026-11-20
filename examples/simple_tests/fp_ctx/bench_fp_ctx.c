@@ -2,9 +2,13 @@
    few runs, wall-clock time): see the `bench` target of the Makefile, which
    builds this program for each size and each multiplication module
    (bn_mul and bn_mulx, unrolled; bn_mul_loop and bn_mulx_loop, looping over
-   the rows).
+   the rows; bn_mulxr, with the accumulator in registers), and for the
+   pseudo-Mersenne field (fp_pm).
 
-   Build with -DNLIMBS=<n> -DVARIANT=\"<name>\". */
+   Build with -DNLIMBS=<n> -DVARIANT=\"<name>\", and -DPM for an fp_pm
+   instance: the modulus is then 2^(64 NLIMBS - 1) - 19 (2^255-19 at 4
+   limbs; R mod P = 38), instead of a random one, which fp_pm does not
+   take. */
 #include <stdint.h>
 #include <stdio.h>
 #include <time.h>
@@ -40,8 +44,14 @@ int main(void) {
 
   /* a full-size odd modulus, operands below it, a full-size exponent */
   for (k = 0; k < NLIMBS; k++) { P[k] = rng(); a[k] = rng(); b[k] = rng(); e[k] = rng(); }
+#ifdef PM
+  for (k = 0; k < NLIMBS; k++) P[k] = ~(uint64_t) 0;
+  P[NLIMBS - 1] >>= 1;
+  P[0] -= 18;
+#else
   P[0] |= 1;
   P[NLIMBS - 1] |= (uint64_t) 1 << 63;
+#endif
   a[NLIMBS - 1] >>= 2;
   b[NLIMBS - 1] >>= 2;
   fpc_ctx_init(ctx, P);

@@ -589,7 +589,9 @@ invariant.
   serves both kinds of field (`fpc_toM`, `fpc_fromM`).
 * Not done: a theory (`Fp_pm.eca`) and its extraction; the fold fused with
   the multiplication rows in one routine (with the parameters of `fp_base`
-  above); timings.
+  above); timings (`make bench` in `examples/simple_tests/fp_ctx`, variants
+  `pm_unr` and `pm_mulxr`, with the modulus 2^(64n-1)-19, which is
+  2^255-19 at 4 limbs).
 
 ### Field contexts
 
@@ -843,7 +845,7 @@ make clean
 |---|---|
 | `simple_tests/sike` | Montgomery field arithmetic for the SIKE primes (434, 503, 610, 751 bits) |
 | `simple_tests/rsa_pss` | 2048-bit RSA: `dec(enc(t)) == t`, CRT decryption |
-| `simple_tests/fp_ctx` | moduli given at run time (7 and 16 limbs): `fpc_ctx_init` and every `fpc_*` operation, against Python (`make run`); each size is also built with `bn_mul_loop` (`fp_ctx_loop*.jazz`, in `make run`) and with `bn_mulx_loop` and `bn_mulx` (`fp_ctx_mulx_loop*.jazz`, `fp_ctx_mulx*.jazz`; `make run-mulx`, which needs BMI2 and ADX); and with the selector `bn_mulsel`, once per module (`fp_ctx_sel*.jazz`, profile `x86_64`, in `make run`; `fp_ctx_selx*.jazz`, profile `x86_64_adx`, in `make run-mulx`; the 16-limb ones shadow the threshold); with `bn_mulxr` at 4, 5 and 6 limbs (`fp_ctx_mulxr*.jazz`, in `make run-mulx`); pseudo-Mersenne fields (`fp_pm`, 2^255-19 among the moduli) at 4 and 6 limbs, over `bn_mul` (`fp_ctx_pm*.jazz`, in `make run`) and over `bn_mulxr` (`fp_ctx_pmxr*.jazz`, in `make run-mulx`), with `vectors_pm*.txt` (`gen_vectors.py N SEED pm`); `make exec` runs the same checks in the interpreter of `jasminc`, on any host (`gen_exec_test.py`, below); `make bench` times the five modules |
+| `simple_tests/fp_ctx` | moduli given at run time (7 and 16 limbs): `fpc_ctx_init` and every `fpc_*` operation, against Python (`make run`); each size is also built with `bn_mul_loop` (`fp_ctx_loop*.jazz`, in `make run`) and with `bn_mulx_loop` and `bn_mulx` (`fp_ctx_mulx_loop*.jazz`, `fp_ctx_mulx*.jazz`; `make run-mulx`, which needs BMI2 and ADX); and with the selector `bn_mulsel`, once per module (`fp_ctx_sel*.jazz`, profile `x86_64`, in `make run`; `fp_ctx_selx*.jazz`, profile `x86_64_adx`, in `make run-mulx`; the 16-limb ones shadow the threshold); with `bn_mulxr` at 4, 5 and 6 limbs (`fp_ctx_mulxr*.jazz`, in `make run-mulx`); pseudo-Mersenne fields (`fp_pm`, 2^255-19 among the moduli) at 4 and 6 limbs, over `bn_mul` (`fp_ctx_pm*.jazz`, in `make run`) and over `bn_mulxr` (`fp_ctx_pmxr*.jazz`, in `make run-mulx`), with `vectors_pm*.txt` (`gen_vectors.py N SEED pm`); `make exec` runs the same checks in the interpreter of `jasminc`, on any host (`gen_exec_test.py`, below); `make bench` times the five modules, and `fp_pm` over `bn_mul` and over `bn_mulxr` (variants `pm_unr`, `pm_mulxr`; modulus 2^(64n-1)-19) |
 | `simple_tests/mults` | 32-limb multiplication: `ps`, `os`, `osreg` and Karatsuba variants; the `os` multiplication and squaring of `bn_mul_loop`, `bn_mulx_loop` and `bn_mulx` (`testmul_os_loop.c`, against a C reference); `make bench` (with `bn_mulxr`: variant `mulxr`) and `make bench-kar` time the multiplications and squarings alone |
 | `schnorr-zk` | a Schnorr zero-knowledge protocol over the RFC 3526 2048-bit group |
 

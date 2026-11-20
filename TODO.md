@@ -30,7 +30,7 @@
   + [Done] `bn_mulxr`: the rows of `bn_mulx` with the accumulator in registers (a field up to 6 limbs; selected by `bn_mulsel` up to `JBN_REG_MAX`); for it, the field code and the exponentiations keep nothing in registers across the calls of a field multiplication (`fp_base`, `bn_exp`; `Bn_exp.eca`, `Fp_base.eca` adapted);
   + [Done] `fp_pm`: pseudo-Mersenne fields (R mod P < 2^32, R < 3P: 2^255-19), folding with one row of multiplications, canonical, generic in the multiplication;
   + [Done] `make exec` (fp_ctx): the field tests in the interpreter of jasminc, on any host (MULX included);
-  - time `bn_mulxr` against `bn_mulx` at 4, 5, 6 limbs (`make bench` in fp_ctx and mults, variant `mulxr`; needs BMI2/ADX), and set `JBN_REG_MAX`; also the cost of the stack saves of the callers on the other modules;
+  - time `bn_mulxr` against `bn_mulx` at 4, 5, 6 limbs (`make bench` in fp_ctx and mults, variant `mulxr`; needs BMI2/ADX), and set `JBN_REG_MAX`; also the cost of the stack saves of the callers on the other modules; and `fp_pm` against the Montgomery field (variants `pm_mulxr` against `mulxr`, `pm_unr` against `unr`);
   - the fused field multiplication (multiplication and Montgomery rows interleaved, CIOS, `nlimbs + 9` registers: up to 6 limbs; for `fp_pm`, the rows and the fold in one routine): needs `fp_base` to take `fun_mulm`/`fun_sqrm` (field products) instead of `fun_muln`/`fun_sqrn`/`fun_red`;
   - theory of `fp_pm` (`Fp_pm.eca`) and its extraction; the lazy representation of curve25519 (values below 2^256, freeze on output) does not fit `fp_base`'s invariant;
   - secp256k1 (c = 2^32+977: a two-word second fold).
