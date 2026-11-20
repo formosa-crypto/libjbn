@@ -129,9 +129,13 @@ inline fn _mulm_
 ) -> reg ptr u64[nlimbs] {
   stack u64[2*nlimbs] _tmp;
   reg ptr u64[2*nlimbs] tmp;
+  stack ptr u64[nlimbs] _r;
+  stack ptr u64[CTXLEN] _ctx;
 
+  _r = r; _ctx = ctx;
   tmp = _tmp;
   tmp = fun_muln(tmp, a, b);
+  r = _r; ctx = _ctx;
   r = fun_red(r, tmp, ctx);
   return r;
 }
@@ -145,8 +149,12 @@ inline fn _mulmU_ // update inplace
 ) -> reg ptr u64[nlimbs] {
   stack u64[2*nlimbs] _tmp;
   reg ptr u64[2*nlimbs] tmp;
+  stack ptr u64[nlimbs] _a;
+  stack ptr u64[CTXLEN] _ctx;
+  _a = a; _ctx = ctx;
   tmp = _tmp;
   tmp = fun_muln(tmp, a, b);
+  a = _a; ctx = _ctx;
   a = fun_red(a, tmp, ctx);
   return a;
 }
@@ -160,8 +168,12 @@ inline fn _sqrm_
 ) -> reg ptr u64[nlimbs] {
   stack u64[2*nlimbs] _tmp;
   reg ptr u64[2*nlimbs] tmp;
+  stack ptr u64[nlimbs] _r;
+  stack ptr u64[CTXLEN] _ctx;
+  _r = r; _ctx = ctx;
   tmp = _tmp;
   tmp = fun_sqrn(tmp, a);
+  r = _r; ctx = _ctx;
   r = fun_red(r, tmp, ctx);
   return r;
 }
@@ -174,8 +186,12 @@ inline fn _sqrmU_ // update inplace
 ) -> reg ptr u64[nlimbs] {
   stack u64[2*nlimbs] _tmp;
   reg ptr u64[2*nlimbs] tmp;
+  stack ptr u64[nlimbs] _a;
+  stack ptr u64[CTXLEN] _ctx;
+  _a = a; _ctx = ctx;
   tmp = _tmp;
   tmp = fun_sqrn(tmp, a);
+  a = _a; ctx = _ctx;
   a = fun_red(a, tmp, ctx);
   return a;
 }

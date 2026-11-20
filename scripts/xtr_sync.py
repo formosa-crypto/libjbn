@@ -67,6 +67,7 @@ DUMMY_LITERALS = {
     # the dummy profile (preamb@n.jinc)
     '17': 'jbn_unroll_max',
     '19': 'jbn_features',
+    '23': 'jbn_reg_max',
 }
 # derived sizes that must not survive in an abstract module (unmapped)
 SUSPICIOUS_LITERALS = ('44', '88', '96', '104', '176')
@@ -128,17 +129,28 @@ THEORIES = {
         arrays={'Array11': ('BN.t', 'BN.A', 'BigN.BN.A'),
                 'Array22': ('BN2.t', 'BN2.A', 'BigN.BN2.A')},
     ),
+    'bn_mulxr': dict(
+        source='bn_mulxr@n.jinc',
+        xtr='BNMULXR_bn_mulxr.ec',
+        prefix='h__MUL__XREG__',
+        target='proof/Bn_mulxr.eca',
+        calls={'uTIL__': 'BNUTIL_M.', 'h__BN__': 'BNB_M.'},
+        arrays={'Array11': ('BN.t', 'BN.A', 'BigN.BN.A'),
+                'Array22': ('BN2.t', 'BN2.A', 'BigN.BN2.A')},
+    ),
     'bn_mulsel': dict(
         source='bn_mulsel@n.jinc',
         xtr='BNMULSEL_bn_mulsel.ec',
         prefix='h__MUL__',
         target='proof/Bn_mulsel.eca',
-        # the four modules it instantiates in sub-namespaces
+        # the five modules it instantiates in sub-namespaces
         calls={'h__MUL__UNR__': 'BNMUL_M.', 'h__MUL__LOOP__': 'BNMULL_M.',
-               'h__MUL__XUNR__': 'BNMULX_M.', 'h__MUL__XLOOP__': 'BNMULXL_M.'},
+               'h__MUL__XUNR__': 'BNMULX_M.', 'h__MUL__XLOOP__': 'BNMULXL_M.',
+               'h__MUL__XREG__': 'BNMULXR_M.'},
         arrays={'Array11': ('BN.t', 'BN.A', 'BigN.BN.A'),
                 'Array22': ('BN2.t', 'BN2.A', 'BigN.BN2.A')},
-        clone_ops=['op jbn_features <- 19', 'op jbn_unroll_max <- 17'],
+        clone_ops=['op jbn_features <- 19', 'op jbn_reg_max <- 23',
+                   'op jbn_unroll_max <- 17'],
     ),
     'bn_exp': dict(
         source='bn_exp@exp.jinc',
@@ -173,7 +185,8 @@ THEORIES = {
         target='proof/Fp_mont.eca',
         calls={'uTIL__': 'BNUTIL_M.', 'h__BN__': 'BNB_M.', 'h__MUL__': 'BNMUL_M.'},
         params=['fun_muln', 'fun_sqrn'],
-        clone_ops=['op jbn_features <- 19', 'op jbn_unroll_max <- 17'],
+        clone_ops=['op jbn_features <- 19', 'op jbn_reg_max <- 23',
+                   'op jbn_unroll_max <- 17'],
         includes=dict(theory='fp_base', module='FPB.M(P_FPB)', nested='P_FPB',
                       bind=[('fun_muln', 'P.fun_muln'), ('fun_sqrn', 'P.fun_sqrn'),
                             ('fun_red', 'fun_red')]),

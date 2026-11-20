@@ -1,5 +1,5 @@
 /* libjbn -- bn_mulsel: multiplication, squaring and Montgomery reduction,
-   selected at compile time among the four modules that provide them.
+   selected at compile time among the five modules that provide them.
 
    Library module, i.e. template (see README, sections 1 and 2): it is meant
    to be `require`d inside a namespace, which becomes the instance; the tag
@@ -7,24 +7,31 @@
    resolved by Jasmin's outward namespace lookup.
 
    The choice depends on the CPU features of the profile (JBN_FEATURES) and
-   on the size, against the unrolling threshold of the profile
-   (JBN_UNROLL_MAX, which a size scope may shadow):
+   on the size, against the thresholds of the profile (JBN_REG_MAX and
+   JBN_UNROLL_MAX, which a size scope may shadow):
 
-                          nlimbs <= JBN_UNROLL_MAX   nlimbs > JBN_UNROLL_MAX
-     BMI2 and ADX         bn_mulx                    bn_mulx_loop
-     otherwise            bn_mul (product scanning)  bn_mul_loop
+     BMI2 and ADX   nlimbs <= JBN_REG_MAX      bn_mulxr (accumulator in
+                                               registers)
+                    nlimbs <= JBN_UNROLL_MAX   bn_mulx
+                    otherwise                  bn_mulx_loop
+     otherwise      nlimbs <= JBN_UNROLL_MAX   bn_mul (product scanning)
+                    otherwise                  bn_mul_loop
+
+   (JBN_REG_MAX is at most 6: above, the reduction of bn_mulxr does not fit
+   the registers.)
 
    It is made once for the three operations of a size scope, which share
    the instruction cache (README, "Profiles and the selection of the
    multiplication"). The tests are on parameters: the compiler emits the
-   selected module only, and the others cost nothing. The four modules are
+   selected module only, and the others cost nothing. The five modules are
    instantiated below, in sub-namespaces of this one.
 
    Instance:  MUL (in a size scope), in the place of bn_mul@n.jinc;
               with fp_mul_sel@fp.jinc in the field
    Expects:   param int nlimbs;
               BN:: UTIL::                  // bn_base (same size), bn_util
-              JBN_FEATURES JBN_FEATURES_MULX JBN_UNROLL_MAX   // a profile
+              JBN_FEATURES JBN_FEATURES_MULX JBN_REG_MAX JBN_UNROLL_MAX
+                                           // a profile
    Provides:  _muln_ _sqrn_                // inline: one call, to the module
               __mont_redM                  // selected (as in bn_mul)
               (constants: P || R-P packed in an array, and -P^-1 mod 2^64)
@@ -34,6 +41,7 @@ namespace UNR   { from Libjbn require "bn_mul@n.jinc" }
 namespace LOOP  { from Libjbn require "bn_mul_loop@n.jinc" }
 namespace XUNR  { from Libjbn require "bn_mulx@n.jinc" }
 namespace XLOOP { from Libjbn require "bn_mulx_loop@n.jinc" }
+namespace XREG  { from Libjbn require "bn_mulxr@n.jinc" }
 
 /* (defined after the sub-namespaces: a function may not shadow one that
    is visible from an enclosing namespace) */
@@ -45,7 +53,9 @@ inline fn _muln_
 ) -> reg ptr u64[2*nlimbs]
 {
   if ((JBN_FEATURES & JBN_FEATURES_MULX) == JBN_FEATURES_MULX) {
-    if (nlimbs <= JBN_UNROLL_MAX) {
+    if (nlimbs <= JBN_REG_MAX) {
+      r = XREG::_os_muln_(r, a, b);
+    } else if (nlimbs <= JBN_UNROLL_MAX) {
       r = XUNR::_os_muln_(r, a, b);
     } else {
       r = XLOOP::_os_muln_(r, a, b);
@@ -67,7 +77,9 @@ inline fn _sqrn_
 ) -> reg ptr u64[2*nlimbs]
 {
   if ((JBN_FEATURES & JBN_FEATURES_MULX) == JBN_FEATURES_MULX) {
-    if (nlimbs <= JBN_UNROLL_MAX) {
+    if (nlimbs <= JBN_REG_MAX) {
+      r = XREG::_os_sqrn_(r, a);
+    } else if (nlimbs <= JBN_UNROLL_MAX) {
       r = XUNR::_os_sqrn_(r, a);
     } else {
       r = XLOOP::_os_sqrn_(r, a);
@@ -92,7 +104,9 @@ inline fn __mont_redM
 ) -> reg ptr u64[nlimbs]
 {
   if ((JBN_FEATURES & JBN_FEATURES_MULX) == JBN_FEATURES_MULX) {
-    if (nlimbs <= JBN_UNROLL_MAX) {
+    if (nlimbs <= JBN_REG_MAX) {
+      r = XREG::__mont_redM(r, a, _P_mP, _U0);
+    } else if (nlimbs <= JBN_UNROLL_MAX) {
       r = XUNR::__mont_redM(r, a, _P_mP, _U0);
     } else {
       r = XLOOP::__mont_redM(r, a, _P_mP, _U0);

@@ -1,0 +1,26 @@
+/* libjbn instance with run-time pseudo-Mersenne moduli of 4 limbs (fp_pm:
+   R mod P < 2^32 and R < 3 P, e.g. 2^255-19 at 4 limbs), whose reduction
+   folds the high half of a product with one row of multiplications by
+   R mod P; the multiplication is bn_mul's product scanning (MUL/ADC, runs
+   on every x86-64 CPU and under Rosetta). The field code FPM is shared by
+   every such modulus, whose context is computed by fpc_ctx_init; the
+   representation of x is x itself (fpc_toM and fpc_fromM are the
+   identity). */
+
+namespace UTIL { from Libjbn require "bn_util.jinc" }
+
+namespace H {
+  param int nlimbs = 4;
+
+  namespace BN  { from Libjbn require "bn_base@n.jinc" }
+  namespace RND { from Libjbn require "bn_rnd@n.jinc" }
+  namespace MUL { from Libjbn require "bn_mul@n.jinc" }
+
+  namespace FPM {
+    from Libjbn require "fp_mul_ps@fp.jinc"
+    from Libjbn require "fp_pm@fp.jinc"
+  }
+}
+
+/* C entry points */
+from Libjbn require "fp_mont_ctx_export@2n.jinc"

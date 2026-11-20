@@ -360,8 +360,12 @@ module type MParam = {
 module M(P: MParam) = {
   proc _exp1mLR_first_noct (r:BN.t, x:BN.t,
                                     w:W64.t, ctx:W64.t FPC.CTX.t) : BN.t = {
+    var _x:BN.t;
+    var _ctx:W64.t FPC.CTX.t;
     var k:W64.t;
     var cf:bool;
+    var _k:W64.t;
+    var _w:W64.t;
     var  _0:bool;
     var  _1:bool;
     var  _2:bool;
@@ -374,6 +378,10 @@ module M(P: MParam) = {
     var  _9:bool;
     var  _10:bool;
     var  _11:bool;
+    _ctx <- witness;
+    _x <- witness;
+    _x <- x;
+    _ctx <- ctx;
     k <- (W64.of_int 64);
     ( _0, cf,  _1,  _2,  _3, w) <- (SHL_64 w (W8.of_int 1));
     while ((! cf)) {
@@ -383,34 +391,60 @@ module M(P: MParam) = {
     r <@ BNB_M._mov_ (r, x);
     k <- (k - (W64.of_int 1));
     while (((W64.of_int 0) \slt k)) {
+      _k <- k;
+      _w <- w;
+      ctx <- _ctx;
       r <@ P.fun_sqrU (r, ctx);
+      w <- _w;
       ( _8, cf,  _9,  _10,  _11, w) <- (SHL_64 w (W8.of_int 1));
+      _w <- w;
       if (cf) {
+        x <- _x;
+        ctx <- _ctx;
         r <@ P.fun_mulU (r, x, ctx);
       } else {
         
       }
+      w <- _w;
+      k <- _k;
       k <- (k - (W64.of_int 1));
     }
     return r;
   }
   proc _exp1mLR_noct (r:BN.t, x:BN.t, w:W64.t,
                               ctx:W64.t FPC.CTX.t) : BN.t = {
+    var _x:BN.t;
+    var _ctx:W64.t FPC.CTX.t;
     var k:W64.t;
+    var _k:W64.t;
+    var _w:W64.t;
     var cf:bool;
     var  _0:bool;
     var  _1:bool;
     var  _2:bool;
     var  _3:bool;
+    _ctx <- witness;
+    _x <- witness;
+    _x <- x;
+    _ctx <- ctx;
     k <- (W64.of_int 64);
     while (((W64.of_int 0) \slt k)) {
+      _k <- k;
+      _w <- w;
+      ctx <- _ctx;
       r <@ P.fun_sqrU (r, ctx);
+      w <- _w;
       ( _0, cf,  _1,  _2,  _3, w) <- (SHL_64 w (W8.of_int 1));
+      _w <- w;
       if (cf) {
+        x <- _x;
+        ctx <- _ctx;
         r <@ P.fun_mulU (r, x, ctx);
       } else {
         
       }
+      w <- _w;
+      k <- _k;
       k <- (k - (W64.of_int 1));
     }
     return r;
@@ -418,11 +452,20 @@ module M(P: MParam) = {
   proc _expmLR_noct (r:BN.t, x:BN.t,
                              e:BNexp.t, ctx:W64.t FPC.CTX.t) : 
   BN.t = {
+    var _x:BN.t;
+    var _e:BNexp.t;
+    var _ctx:W64.t FPC.CTX.t;
     var i:W64.t;
     var w:W64.t;
     var exp0:BN.t;
     var i_s:W64.t;
+    _ctx <- witness;
+    _e <- witness;
+    _x <- witness;
     exp0 <- witness;
+    _x <- x;
+    _e <- e;
+    _ctx <- ctx;
     i <- (W64.of_int (nlimbsexp - 1));
     w <- e.[(W64.to_uint i)];
     while ((w = (W64.of_int 0))) {
@@ -435,6 +478,8 @@ module M(P: MParam) = {
     }
     if (((W64.of_int 0) \sle i)) {
       i_s <- i;
+      x <- _x;
+      ctx <- _ctx;
       r <@ _exp1mLR_first_noct (r, x, w, ctx);
       i <- i_s;
       i <- (i - (W64.of_int 1));
@@ -443,8 +488,11 @@ module M(P: MParam) = {
       r <@ BNB_M._mov_ (r, exp0);
     }
     while (((W64.of_int 0) \sle i)) {
+      e <- _e;
       w <- e.[(W64.to_uint i)];
       i_s <- i;
+      x <- _x;
+      ctx <- _ctx;
       r <@ _exp1mLR_noct (r, x, w, ctx);
       i <- i_s;
       i <- (i - (W64.of_int 1));
@@ -468,6 +516,7 @@ module M(P: MParam) = {
                            b:BNexp.t, ctx:W64.t FPC.CTX.t) : 
   BN.t = {
     var _b:BNexp.t;
+    var _ctx:W64.t FPC.CTX.t;
     var _x:BN.t;
     var x:BN.t;
     var j:int;
@@ -475,6 +524,8 @@ module M(P: MParam) = {
     var _k:W64.t;
     var zf:bool;
     var cf:bool;
+    var _t:W64.t;
+    var _r:BN.t;
     var  _0:bool;
     var  _1:bool;
     var  _2:bool;
@@ -483,9 +534,12 @@ module M(P: MParam) = {
     var  _5:bool;
     var  _6:bool;
     _b <- witness;
+    _ctx <- witness;
+    _r <- witness;
     _x <- witness;
     x <- witness;
     _b <- b;
+    _ctx <- ctx;
     x <- _x;
     x <@ BNB_M._mov_ (x, a);
     _x <- x;
@@ -495,25 +549,39 @@ module M(P: MParam) = {
       t <- b.[j];
       _k <- (W64.of_int 64);
       ( _0, cf,  _1,  _2,  _3, t) <- (SHR_64 t (W8.of_int 1));
-      x <- _x;
+      _t <- t;
       if (cf) {
+        x <- _x;
+        ctx <- _ctx;
         r <@ P.fun_mulU (r, x, ctx);
       } else {
         
       }
+      _r <- r;
+      x <- _x;
+      ctx <- _ctx;
       x <@ P.fun_sqrU (x, ctx);
       _x <- x;
+      r <- _r;
+      t <- _t;
       ( _4,  _5,  _6, zf, _k) <- (DEC_64 _k);
       while ((! zf)) {
         ( _0, cf,  _1,  _2,  _3, t) <- (SHR_64 t (W8.of_int 1));
-        x <- _x;
+        _t <- t;
         if (cf) {
+          x <- _x;
+          ctx <- _ctx;
           r <@ P.fun_mulU (r, x, ctx);
         } else {
           
         }
+        _r <- r;
+        x <- _x;
+        ctx <- _ctx;
         x <@ P.fun_sqrU (x, ctx);
         _x <- x;
+        r <- _r;
+        t <- _t;
         ( _4,  _5,  _6, zf, _k) <- (DEC_64 _k);
       }
       j <- (j + 1);
@@ -549,6 +617,7 @@ module M(P: MParam) = {
                                                                 BN.t = {
     var inc:int;
     var _b:BNexp.t;
+    var _ctx:W64.t FPC.CTX.t;
     var j:int;
     var t:W64.t;
     var _k:W64.t;
@@ -557,6 +626,8 @@ module M(P: MParam) = {
     var _t:W64.t;
     var mask:W64.t;
     var _mask:W64.t;
+    var _x0:BN.t;
+    var _x1:BN.t;
     var  _0:bool;
     var  _1:bool;
     var  _2:bool;
@@ -565,7 +636,11 @@ module M(P: MParam) = {
     var  _5:bool;
     var  _6:bool;
     _b <- witness;
+    _ctx <- witness;
+    _x0 <- witness;
+    _x1 <- witness;
     _b <- b;
+    _ctx <- ctx;
     inc <- (- 1);
     j <- (nlimbsexp - 1);
     while ((inc < j)) {
@@ -577,8 +652,14 @@ module M(P: MParam) = {
       mask <@ BNUTIL_M.__cf_mask (cf);
       (x0, x1) <@ BNB_M._cswap_mask_ (x0, x1, mask);
       _mask <- mask;
+      _x0 <- x0;
+      ctx <- _ctx;
       x1 <@ P.fun_mulU (x1, x0, ctx);
+      _x1 <- x1;
+      x0 <- _x0;
+      ctx <- _ctx;
       x0 <@ P.fun_sqrU (x0, ctx);
+      x1 <- _x1;
       mask <- _mask;
       (x0, x1) <@ BNB_M._cswap_mask_ (x0, x1, mask);
       t <- _t;
@@ -589,8 +670,14 @@ module M(P: MParam) = {
         mask <@ BNUTIL_M.__cf_mask (cf);
         (x0, x1) <@ BNB_M._cswap_mask_ (x0, x1, mask);
         _mask <- mask;
+        _x0 <- x0;
+        ctx <- _ctx;
         x1 <@ P.fun_mulU (x1, x0, ctx);
+        _x1 <- x1;
+        x0 <- _x0;
+        ctx <- _ctx;
         x0 <@ P.fun_sqrU (x0, ctx);
+        x1 <- _x1;
         mask <- _mask;
         (x0, x1) <@ BNB_M._cswap_mask_ (x0, x1, mask);
         t <- _t;
@@ -672,12 +759,12 @@ hoare _expm_noct_h c0 r0 a0 e0:
 proof.
 have Hn := gt0_nlimbsexp.
 proc.
-while (0 <= j <= nlimbsexp /\ _b = e0 /\ ctx = c0 /\ mok c0 /\ mdom c0 (bn r0) /\ mdom c0 (bn a0) /\ mdom c0 (bn r) /\ mdom c0 (bn _x) /\ bn r = mmul c0 (bn r0) (mexp c0 (bn a0) (BNexp.bnk j e0)) /\ bn _x = mexp c0 (bn a0) (2 ^ (64 * j))).
+while (0 <= j <= nlimbsexp /\ _b = e0 /\ _ctx = c0 /\ mok c0 /\ mdom c0 (bn r0) /\ mdom c0 (bn a0) /\ mdom c0 (bn r) /\ mdom c0 (bn _x) /\ bn r = mmul c0 (bn r0) (mexp c0 (bn a0) (BNexp.bnk j e0)) /\ bn _x = mexp c0 (bn a0) (2 ^ (64 * j))).
 wp.
-while (0 <= j < nlimbsexp /\ _b = e0 /\ ctx = c0 /\ mok c0 /\ mdom c0 (bn r0) /\ mdom c0 (bn a0) /\ mdom c0 (bn r) /\ mdom c0 (bn _x) /\ 0 <= to_uint _k < 64 /\ (zf <=> to_uint _k = 0) /\ to_uint t = to_uint e0.[j] %/ 2 ^ (64 - to_uint _k) /\ bn r = mmul c0 (bn r0) (mexp c0 (bn a0) (BNexp.bnk j e0 + to_uint e0.[j] %% 2 ^ (64 - to_uint _k) * 2 ^ (64 * j))) /\ bn _x = mexp c0 (bn a0) (2 ^ (64 * j + (64 - to_uint _k)))).
-wp; ecall (fun_sqrU_h c0 (bn x)); sp.
+while (0 <= j < nlimbsexp /\ _b = e0 /\ _ctx = c0 /\ mok c0 /\ mdom c0 (bn r0) /\ mdom c0 (bn a0) /\ mdom c0 (bn r) /\ mdom c0 (bn _x) /\ 0 <= to_uint _k < 64 /\ (zf <=> to_uint _k = 0) /\ to_uint t = to_uint e0.[j] %/ 2 ^ (64 - to_uint _k) /\ bn r = mmul c0 (bn r0) (mexp c0 (bn a0) (BNexp.bnk j e0 + to_uint e0.[j] %% 2 ^ (64 - to_uint _k) * 2 ^ (64 * j))) /\ bn _x = mexp c0 (bn a0) (2 ^ (64 * j + (64 - to_uint _k)))).
+wp; ecall (fun_sqrU_h c0 (bn x)); wp; sp.
 if.
-ecall (fun_mulU_h c0 (bn r) (bn x)); skip => /> &hr.
+ecall (fun_mulU_h c0 (bn r) (bn x)); wp; skip => /> &hr.
 move=> t0 Hj0 Hj1 Hc HR0 HA Hr Hx Hk0 Hk1 Ht HR HX Hk Hcf rr Hrr xx Hxx.
 have Hsm: W64.shift_mask W8.one = 1 by rewrite /W64.shift_mask.
 rewrite Hsm W64.to_uint_shr // Ht expr1 div_pow2S 1:/#.
@@ -685,7 +772,7 @@ move: Hcf; rewrite Hsm /= W64.get_to_uint /= Ht => Hcf.
 have [HD1 HD2] := DEC1E _k{hr} Hk.
 have He := W64.to_uint_cmp _b{hr}.[j{hr}].
 have HE := BNexp.bnk_cmp j{hr} _b{hr}.
-have [S1 S2] := sqmul_step ctx{hr} (bn a0) (bn r0) (BNexp.bnk j{hr} _b{hr}) (to_uint _b{hr}.[j{hr}]) j{hr} (64 - to_uint _k{hr}) (bn r{hr}) (bn _x{hr}) true Hc HA HR0 Hj0 _ _ _ HR HX _.
+have [S1 S2] := sqmul_step _ctx{hr} (bn a0) (bn r0) (BNexp.bnk j{hr} _b{hr}) (to_uint _b{hr}.[j{hr}]) j{hr} (64 - to_uint _k{hr}) (bn r{hr}) (bn _x{hr}) true Hc HA HR0 Hj0 _ _ _ HR HX _.
 - smt().
 - smt().
 - smt().
@@ -704,7 +791,7 @@ move: Hcf; rewrite Hsm /= /W64.lsb W64.get_to_uint /= W64.to_uint_shr //= Ht => 
 have [HD1 HD2] := DEC1E _k{hr} Hk.
 have He := W64.to_uint_cmp _b{hr}.[j{hr}].
 have HE := BNexp.bnk_cmp j{hr} _b{hr}.
-have [S1 S2] := sqmul_step ctx{hr} (bn a0) (bn r0) (BNexp.bnk j{hr} _b{hr}) (to_uint _b{hr}.[j{hr}]) j{hr} (64 - to_uint _k{hr}) (bn r{hr}) (bn _x{hr}) false Hc HA HR0 Hj0 _ _ _ HR HX _.
+have [S1 S2] := sqmul_step _ctx{hr} (bn a0) (bn r0) (BNexp.bnk j{hr} _b{hr}) (to_uint _b{hr}.[j{hr}]) j{hr} (64 - to_uint _k{hr}) (bn r{hr}) (bn _x{hr}) false Hc HA HR0 Hj0 _ _ _ HR HX _.
 - smt().
 - smt().
 - smt().
@@ -714,9 +801,9 @@ rewrite Hxx.
 split; first by apply mmul_dom.
 rewrite HD1 /= S2 /=.
 smt().
-wp; ecall (fun_sqrU_h c0 (bn x)); sp.
+wp; ecall (fun_sqrU_h c0 (bn x)); wp; sp.
 if.
-ecall (fun_mulU_h c0 (bn r) (bn x)); skip => /> &hr.
+ecall (fun_mulU_h c0 (bn r) (bn x)); wp; skip => /> &hr.
 move=> Hj0 Hj1 Hc HR0 HA Hr Hx HR HX Hjn Hcf rr Hrr xx Hxx.
 have Hsm: W64.shift_mask W8.one = 1 by rewrite /W64.shift_mask.
 have [HD1 HD2] := DEC1E (W64.of_int 64) _; first by rewrite W64.of_uintK.
@@ -789,9 +876,9 @@ proc.
 while (true) (nlimbsexp - j).
 - move=> z; wp.
   while ((zf <=> to_uint _k = 0)) (to_uint _k).
-  + move=> z'; wp; call fun_sqrU_ll; sp.
+  + move=> z'; wp; call fun_sqrU_ll; wp; sp.
     if; [call fun_mulU_ll|]; auto => /> &hr Hzf Hk; have [H1 H2] := DEC1E _k{hr} _; smt().
-  wp; call fun_sqrU_ll; sp.
+  wp; call fun_sqrU_ll; wp; sp.
   if; [call fun_mulU_ll|]; auto => /> &hr Hj; (have [H1 H2] := DEC1E (W64.of_int 64) _; first by rewrite W64.of_uintK);
    move: H1 H2; rewrite W64.of_uintK /=; smt(W64.to_uint_cmp).
 wp; call BNB._mov__ll; auto => /> /#.
@@ -812,12 +899,12 @@ hoare _expm_h c0 (a0: BN.t) e0:
 proof.
 have Hn := gt0_nlimbsexp.
 proc.
-while (-1 <= j < nlimbsexp /\ inc = -1 /\ _b = e0 /\ ctx = c0 /\ mok c0 /\ mdom c0 (bn a0) /\ bn x0 = mexp c0 (bn a0) (BNexp.bnkup (j + 1) e0) /\ bn x1 = mexp c0 (bn a0) (BNexp.bnkup (j + 1) e0 + 1)).
+while (-1 <= j < nlimbsexp /\ inc = -1 /\ _b = e0 /\ _ctx = c0 /\ mok c0 /\ mdom c0 (bn a0) /\ bn x0 = mexp c0 (bn a0) (BNexp.bnkup (j + 1) e0) /\ bn x1 = mexp c0 (bn a0) (BNexp.bnkup (j + 1) e0 + 1)).
 wp.
-while (0 <= j < nlimbsexp /\ inc = -1 /\ _b = e0 /\ ctx = c0 /\ mok c0 /\ mdom c0 (bn a0) /\ 0 <= to_uint _k < 64 /\ (zf <=> to_uint _k = 0) /\ to_uint t = to_uint e0.[j] %% 2 ^ (to_uint _k) * 2 ^ (64 - to_uint _k) /\ bn x0 = mexp c0 (bn a0) (BNexp.bnkup (j + 1) e0 * 2 ^ (64 - to_uint _k) + to_uint e0.[j] %/ 2 ^ (to_uint _k)) /\ bn x1 = mexp c0 (bn a0) (BNexp.bnkup (j + 1) e0 * 2 ^ (64 - to_uint _k) + to_uint e0.[j] %/ 2 ^ (to_uint _k) + 1)).
+while (0 <= j < nlimbsexp /\ inc = -1 /\ _b = e0 /\ _ctx = c0 /\ mok c0 /\ mdom c0 (bn a0) /\ 0 <= to_uint _k < 64 /\ (zf <=> to_uint _k = 0) /\ to_uint t = to_uint e0.[j] %% 2 ^ (to_uint _k) * 2 ^ (64 - to_uint _k) /\ bn x0 = mexp c0 (bn a0) (BNexp.bnkup (j + 1) e0 * 2 ^ (64 - to_uint _k) + to_uint e0.[j] %/ 2 ^ (to_uint _k)) /\ bn x1 = mexp c0 (bn a0) (BNexp.bnkup (j + 1) e0 * 2 ^ (64 - to_uint _k) + to_uint e0.[j] %/ 2 ^ (to_uint _k) + 1)).
 wp; ecall (BNB._cswap_mask__h x0 x1 cf).
 wp; ecall (fun_sqrU_h c0 (bn x0)).
-ecall (fun_mulU_h c0 (bn x1) (bn x0)).
+wp; ecall (fun_mulU_h c0 (bn x1) (bn x0)).
 wp; ecall (BNB._cswap_mask__h x0 x1 cf).
 ecall (BNUTIL.__cf_mask_h cf).
 wp; skip => /> &hr.
@@ -840,7 +927,7 @@ case: ((SHL_64 t{hr} W8.one).`2) L1 L2 Hr1 Hr2 => /= L1 L2 Hr1 Hr2.
 - rewrite Hr1 Hr2 L1 L2 /b2i /=; smt().
 wp; ecall (BNB._cswap_mask__h x0 x1 cf).
 wp; ecall (fun_sqrU_h c0 (bn x0)).
-ecall (fun_mulU_h c0 (bn x1) (bn x0)).
+wp; ecall (fun_mulU_h c0 (bn x1) (bn x0)).
 wp; ecall (BNB._cswap_mask__h x0 x1 cf).
 ecall (BNUTIL.__cf_mask_h cf).
 wp; skip => /> &hr.
@@ -896,10 +983,10 @@ proc.
 while (true) (j - inc).
 - move=> z; wp.
   while ((zf <=> to_uint _k = 0)) (to_uint _k).
-  + move=> z'; wp; call BNB._cswap_mask__ll; wp; call fun_sqrU_ll; call fun_mulU_ll.
+  + move=> z'; wp; call BNB._cswap_mask__ll; wp; call fun_sqrU_ll; wp; call fun_mulU_ll.
     wp; call BNB._cswap_mask__ll; call BNUTIL.__cf_mask_ll; auto => /> &hr *.
     have [H1 H2] := DEC1E _k{hr} _; smt().
-  wp; call BNB._cswap_mask__ll; wp; call fun_sqrU_ll; call fun_mulU_ll.
+  wp; call BNB._cswap_mask__ll; wp; call fun_sqrU_ll; wp; call fun_mulU_ll.
   wp; call BNB._cswap_mask__ll; call BNUTIL.__cf_mask_ll; auto => /> &hr *.
   (have [H1 H2] := DEC1E (W64.of_int 64) _; first by rewrite W64.of_uintK);
    move: H1 H2; rewrite W64.of_uintK /=; smt(W64.to_uint_cmp).
@@ -922,14 +1009,14 @@ hoare _exp1mLR_noct_h c0 (A: int) E (w0: W64.t):
    ==> bn res = mexp c0 A (E * 2 ^ 64 + to_uint w0).
 proof.
 proc.
-while (ctx = c0 /\ mok c0 /\ mdom c0 A /\ bn x = A /\ 0 <= E /\ 0 <= to_uint k <= 64
+while (_ctx = c0 /\ mok c0 /\ mdom c0 A /\ bn _x = A /\ 0 <= E /\ 0 <= to_uint k <= 64
        /\ to_uint w = to_uint w0 %% 2 ^ (to_uint k) * 2 ^ (64 - to_uint k)
        /\ bn r = mexp c0 A (E * 2 ^ (64 - to_uint k) + to_uint w0 %/ 2 ^ (to_uint k))).
-+ seq 2 : (ctx = c0 /\ mok c0 /\ mdom c0 A /\ bn x = A /\ 0 <= E /\ 0 < to_uint k <= 64
-           /\ cf = (to_uint w0 %/ 2 ^ (to_uint k - 1) %% 2 = 1)
-           /\ to_uint w = to_uint w0 %% 2 ^ (to_uint k - 1) * 2 ^ (64 - (to_uint k - 1))
-           /\ bn r = mexp c0 A (2 * (E * 2 ^ (64 - to_uint k) + to_uint w0 %/ 2 ^ (to_uint k)))).
-  - wp; ecall (fun_sqrU_h c0 (bn r)); skip => &hr [[Hc [HC [HA [Hx [HE [[Hk0 Hk1] [Hw Hr]]]]]]] Hk] /=.
++ seq 7 : (_ctx = c0 /\ mok c0 /\ mdom c0 A /\ bn _x = A /\ 0 <= E /\ 0 < to_uint _k <= 64
+           /\ cf = (to_uint w0 %/ 2 ^ (to_uint _k - 1) %% 2 = 1)
+           /\ to_uint _w = to_uint w0 %% 2 ^ (to_uint _k - 1) * 2 ^ (64 - (to_uint _k - 1))
+           /\ bn r = mexp c0 A (2 * (E * 2 ^ (64 - to_uint _k) + to_uint w0 %/ 2 ^ (to_uint _k)))).
+  - wp; ecall (fun_sqrU_h c0 (bn r)); wp; skip => &hr [[Hc [HC [HA [Hx [HE [[Hk0 Hk1] [Hw Hr]]]]]]] Hk] /=.
     move: Hk; rewrite slt0_small // => Hk.
     have [HCf HT] := SHL1E w{hr}; move: HCf HT => /= HCf HT.
     have He := W64.to_uint_cmp w0.
@@ -943,9 +1030,9 @@ while (ctx = c0 /\ mok c0 /\ mdom c0 A /\ bn x = A /\ 0 <= E /\ 0 <= to_uint k <
     split; first by rewrite HT Hw ladder_t; smt().
     by rewrite Hr1 Hr mexp_sqr.
   wp; if.
-  - ecall (fun_mulU_h c0 (bn r) A); skip => &hr [[Hc [HC [HA [Hx [HE [[Hk0 Hk1] [Hcf [Hw Hr]]]]]]]] Hb] /=.
+  - ecall (fun_mulU_h c0 (bn r) A); wp; skip => &hr [[Hc [HC [HA [Hx [HE [[Hk0 Hk1] [Hcf [Hw Hr]]]]]]]] Hb] /=.
     have He := W64.to_uint_cmp w0.
-    have HM: 0 <= E * 2 ^ (64 - to_uint k{hr}) + to_uint w0 %/ 2 ^ to_uint k{hr}.
+    have HM: 0 <= E * 2 ^ (64 - to_uint _k{hr}) + to_uint w0 %/ 2 ^ to_uint _k{hr}.
     + smt(StdOrder.IntOrder.mulr_ge0 StdOrder.IntOrder.expr_ge0 divz_ge0 StdOrder.IntOrder.expr_gt0).
     split; first by rewrite Hr Hx; smt(mexp_dom).
     move=> _ r1 Hr1.
@@ -977,11 +1064,11 @@ proof.
 proc.
 while (0 <= to_uint k <= 64) (to_uint k).
 + move=> z.
-  seq 2 : (0 < to_uint k <= 64 /\ to_uint k = z).
-  - by wp; call (_: true); skip.
-  - by wp; call fun_sqrU_ll; skip => &hr [[Hk Hs] Hz]; move: Hs; rewrite slt0_small /#.
-  - by wp; if; [call fun_mulU_ll|]; skip => &hr; smt(to_uint_dec).
-  - by hoare; wp; call (_: true); skip => &hr [[Hk Hs] Hz]; move: Hs; rewrite slt0_small /#.
+  seq 7 : (0 < to_uint _k <= 64 /\ to_uint _k = z).
+  - by wp; call (_: true); wp; skip.
+  - by wp; call fun_sqrU_ll; wp; skip => &hr [[Hk Hs] Hz]; move: Hs; rewrite slt0_small /#.
+  - by wp; if; [call fun_mulU_ll; wp|]; skip => &hr; smt(to_uint_dec).
+  - by hoare; wp; call (_: true); wp; skip => &hr [[Hk Hs] Hz]; move: Hs; rewrite slt0_small /#.
   by [].
 by wp; skip => &hr /=; move=> k0 [_ Hk] Hk0; rewrite slt0_small //; smt().
 qed.
@@ -992,7 +1079,7 @@ hoare _exp1mLR_first_noct_h c0 (A: int) (w0: W64.t):
  : ctx = c0 /\ w = w0 /\ w0 <> W64.zero /\ mok c0 /\ mdom c0 A /\ bn x = A
    ==> bn res = mexp c0 A (to_uint w0).
 proof.
-proc.
+proc; swap [1..4] 5.
 seq 3 : (ctx = c0 /\ mok c0 /\ mdom c0 A /\ bn x = A /\ 0 < to_uint k <= 64
          /\ to_uint w0 %/ 2 ^ (to_uint k - 1) = 1
          /\ to_uint w = to_uint w0 %% 2 ^ (to_uint k - 1) * 2 ^ (64 - (to_uint k - 1))).
@@ -1032,14 +1119,14 @@ seq 2 : (ctx = c0 /\ mok c0 /\ mdom c0 A /\ bn x = A /\ 0 <= to_uint k <= 64
 + wp; ecall (BNB._mov__h x); skip => &hr [Hc [HC [HA [Hx [[Hk0 Hk1] [Hq Hw]]]]]] /= r1 ->.
   rewrite to_uint_dec // Hq Hx mexp1 //.
   smt().
-while (ctx = c0 /\ mok c0 /\ mdom c0 A /\ bn x = A /\ 0 <= to_uint k <= 64
+while (_ctx = c0 /\ mok c0 /\ mdom c0 A /\ bn _x = A /\ 0 <= to_uint k <= 64
        /\ to_uint w = to_uint w0 %% 2 ^ (to_uint k) * 2 ^ (64 - to_uint k)
        /\ bn r = mexp c0 A (to_uint w0 %/ 2 ^ (to_uint k))).
-+ seq 2 : (ctx = c0 /\ mok c0 /\ mdom c0 A /\ bn x = A /\ 0 < to_uint k <= 64
-           /\ cf = (to_uint w0 %/ 2 ^ (to_uint k - 1) %% 2 = 1)
-           /\ to_uint w = to_uint w0 %% 2 ^ (to_uint k - 1) * 2 ^ (64 - (to_uint k - 1))
-           /\ bn r = mexp c0 A (2 * (to_uint w0 %/ 2 ^ (to_uint k)))).
-  - wp; ecall (fun_sqrU_h c0 (bn r)); skip => &hr [[Hc [HC [HA [Hx [[Hk0 Hk1] [Hw Hr]]]]]] Hk] /=.
++ seq 7 : (_ctx = c0 /\ mok c0 /\ mdom c0 A /\ bn _x = A /\ 0 < to_uint _k <= 64
+           /\ cf = (to_uint w0 %/ 2 ^ (to_uint _k - 1) %% 2 = 1)
+           /\ to_uint _w = to_uint w0 %% 2 ^ (to_uint _k - 1) * 2 ^ (64 - (to_uint _k - 1))
+           /\ bn r = mexp c0 A (2 * (to_uint w0 %/ 2 ^ (to_uint _k)))).
+  - wp; ecall (fun_sqrU_h c0 (bn r)); wp; skip => &hr [[Hc [HC [HA [Hx [[Hk0 Hk1] [Hw Hr]]]]]] Hk] /=.
     move: Hk; rewrite slt0_small // => Hk.
     have [HCf HT] := SHL1E w{hr}; move: HCf HT => /= HCf HT.
     have He := W64.to_uint_cmp w0.
@@ -1052,16 +1139,16 @@ while (ctx = c0 /\ mok c0 /\ mdom c0 A /\ bn x = A /\ 0 <= to_uint k <= 64
     split; first by rewrite HT Hw ladder_t; smt().
     by rewrite Hr1 Hr mexp_sqr.
   wp; if.
-  - ecall (fun_mulU_h c0 (bn r) A); skip => &hr [[Hc [HC [HA [Hx [[Hk0 Hk1] [Hcf [Hw Hr]]]]]]] Hb] /=.
+  - ecall (fun_mulU_h c0 (bn r) A); wp; skip => &hr [[Hc [HC [HA [Hx [[Hk0 Hk1] [Hcf [Hw Hr]]]]]]] Hb] /=.
     have He := W64.to_uint_cmp w0.
-    have HM: 0 <= to_uint w0 %/ 2 ^ to_uint k{hr} by smt(divz_ge0 StdOrder.IntOrder.expr_gt0).
+    have HM: 0 <= to_uint w0 %/ 2 ^ to_uint _k{hr} by smt(divz_ge0 StdOrder.IntOrder.expr_gt0).
     split; first by rewrite Hr Hx; smt(mexp_dom).
     move=> _ r1 Hr1.
     rewrite to_uint_dec // Hw.
     do 4! (split; first done).
     split; first smt().
     split; first done.
-    have Hl := ladder_exp 0 (to_uint w0) (to_uint k{hr}) _ _; 1,2: smt().
+    have Hl := ladder_exp 0 (to_uint w0) (to_uint _k{hr}) _ _; 1,2: smt().
     move: Hl => /= Hl.
     rewrite Hr1 Hr Hl -Hcf Hb /b2i /=.
     by rewrite mexpS 1:/# mmulC //; smt(mexp_dom).
@@ -1071,10 +1158,10 @@ while (ctx = c0 /\ mok c0 /\ mdom c0 A /\ bn x = A /\ 0 <= to_uint k <= 64
     do 4! (split; first done).
     split; first smt().
     split; first done.
-    have Hl := ladder_exp 0 (to_uint w0) (to_uint k{hr}) _ _; 1,2: smt().
+    have Hl := ladder_exp 0 (to_uint w0) (to_uint _k{hr}) _ _; 1,2: smt().
     move: Hl => /= Hl.
     by rewrite Hr Hl -Hcf Hb /b2i /=.
-skip => &hr [Hc [HC [HA [Hx [[Hk0 Hk1] [Hw Hr]]]]]].
+wp; skip => &hr [Hc [HC [HA [Hx [[Hk0 Hk1] [Hw Hr]]]]]].
 split; first done.
 move=> k0 r0 w1 Hk [_ [_ [_ [_ [[Hk00 Hk01] [Hw1 Hr0]]]]]].
 move: Hk; rewrite slt0_small // => Hk.
@@ -1089,11 +1176,11 @@ proof.
 proc.
 while (0 <= to_uint k <= 64) (to_uint k).
 + move=> z.
-  seq 2 : (0 < to_uint k <= 64 /\ to_uint k = z).
-  - by wp; call (_: true); skip.
-  - by wp; call fun_sqrU_ll; skip => &hr [[Hk Hs] Hz]; move: Hs; rewrite slt0_small /#.
-  - by wp; if; [call fun_mulU_ll|]; skip => &hr; smt(to_uint_dec).
-  - by hoare; wp; call (_: true); skip => &hr [[Hk Hs] Hz]; move: Hs; rewrite slt0_small /#.
+  seq 7 : (0 < to_uint _k <= 64 /\ to_uint _k = z).
+  - by wp; call (_: true); wp; skip.
+  - by wp; call fun_sqrU_ll; wp; skip => &hr [[Hk Hs] Hz]; move: Hs; rewrite slt0_small /#.
+  - by wp; if; [call fun_mulU_ll; wp|]; skip => &hr; smt(to_uint_dec).
+  - by hoare; wp; call (_: true); wp; skip => &hr [[Hk Hs] Hz]; move: Hs; rewrite slt0_small /#.
   by [].
 wp; call BNB._mov__ll; wp.
 while (w0 <> W64.zero /\ 0 < to_uint k <= 64 /\ to_uint w0 < 2 ^ (to_uint k)
@@ -1139,11 +1226,11 @@ proof.
 have Hn := gt0_nlimbsexp.
 have Hb: 64 * nlimbsexp < 18446744073709551616 by have := nlimbsexp_bnd.
 have Hone: W64.one <> W64.zero by rewrite W64.to_uint_eq.
-proc.
-seq 5 : (ctx = c0 /\ e = e0 /\ mok c0 /\ mdom c0 A /\ bn x = A /\ -1 <= W64.to_sint i < nlimbsexp
+proc; swap [5..7] 3.
+seq 11 : (_ctx = c0 /\ _e = e0 /\ mok c0 /\ mdom c0 A /\ bn _x = A /\ -1 <= W64.to_sint i < nlimbsexp
          /\ bn r = mexp c0 A (BNexp.bnkup (W64.to_sint i + 1) e0)).
 + (* skip the zero limbs *)
-  seq 4 : (ctx = c0 /\ e = e0 /\ mok c0 /\ mdom c0 A /\ bn x = A /\ -1 <= W64.to_sint i < nlimbsexp
+  seq 7 : (ctx = c0 /\ e = e0 /\ mok c0 /\ mdom c0 A /\ bn x = A /\ -1 <= W64.to_sint i < nlimbsexp
            /\ BNexp.bnkup (W64.to_sint i + 1) e0 = 0
            /\ (0 <= W64.to_sint i => w = e0.[W64.to_sint i] /\ w <> W64.zero)).
   - while (ctx = c0 /\ e = e0 /\ mok c0 /\ mdom c0 A /\ bn x = A /\ -1 <= W64.to_sint i < nlimbsexp
@@ -1182,8 +1269,8 @@ seq 5 : (ctx = c0 /\ e = e0 /\ mok c0 /\ mdom c0 A /\ bn x = A /\ -1 <= W64.to_s
       split; first done.
       by move=> H; split; [exact (Hw1 H) | done].
   (* the top limb, or the unit *)
-  if.
-  - wp; ecall (_exp1mLR_first_noct_h c0 A w); wp; skip => &hr [[Hc [He [HC [HA [Hx [[Hi0 Hi1] [Hup Hw]]]]]]] Hi] /=.
+  sp; if.
+  - wp; ecall (_exp1mLR_first_noct_h c0 A w); wp; skip => &hr [[-> [-> [-> [Hc [He [HC [HA [Hx [[Hi0 Hi1] [Hup Hw]]]]]]]]]] Hi] /=.
     move: Hi; rewrite sle0E => Hi.
     have [Hw' Hnz] := Hw Hi.
     split; first done.
@@ -1194,7 +1281,7 @@ seq 5 : (ctx = c0 /\ e = e0 /\ mok c0 /\ mdom c0 A /\ bn x = A /\ -1 <= W64.to_s
     have Hup' := BNexp.bnkupP (W64.to_sint i{hr} + 1) e0 _; first smt().
     move: Hup'; rewrite (_: W64.to_sint i{hr} + 1 - 1 = W64.to_sint i{hr}) 1:/# Hup /= => Hup'.
     by rewrite Hup' Hr1 Hw'.
-  - wp; ecall (BNB._mov__h exp0); wp; skip => &hr [[Hc [He [HC [HA [Hx [[Hi0 Hi1] [Hup Hw]]]]]]] Hi] /=.
+  - wp; ecall (BNB._mov__h exp0); wp; skip => &hr [[-> [-> [-> [Hc [He [HC [HA [Hx [[Hi0 Hi1] [Hup Hw]]]]]]]]]] Hi] /=.
     move: Hi; rewrite sle0E => Hi.
     move=> r1 ->.
     have Ei: W64.to_sint i{hr} = -1 by smt().
@@ -1203,7 +1290,7 @@ seq 5 : (ctx = c0 /\ e = e0 /\ mok c0 /\ mdom c0 A /\ bn x = A /\ -1 <= W64.to_s
     split; first smt().
     by rewrite Hup mexp0 /mone /FPC.ctxONE Hc.
 (* the remaining limbs *)
-while (ctx = c0 /\ e = e0 /\ mok c0 /\ mdom c0 A /\ bn x = A /\ -1 <= W64.to_sint i < nlimbsexp
+while (_ctx = c0 /\ _e = e0 /\ mok c0 /\ mdom c0 A /\ bn _x = A /\ -1 <= W64.to_sint i < nlimbsexp
        /\ bn r = mexp c0 A (BNexp.bnkup (W64.to_sint i + 1) e0)).
 + wp; ecall (_exp1mLR_noct_h c0 A (BNexp.bnkup (W64.to_sint i + 1) e0) w).
   wp; skip => &hr [[Hc [He [HC [HA [Hx [[Hi0 Hi1] Hr]]]]]] Hi] /=.
@@ -1232,7 +1319,7 @@ have Hn := gt0_nlimbsexp.
 have Hb: 64 * nlimbsexp < 18446744073709551616 by have := nlimbsexp_bnd.
 have Hone: W64.one <> W64.zero by rewrite W64.to_uint_eq.
 proc.
-seq 4 : (-1 <= W64.to_sint i < nlimbsexp /\ (0 <= W64.to_sint i => w <> W64.zero)).
+seq 10 : (-1 <= W64.to_sint i < nlimbsexp /\ (0 <= W64.to_sint i => w <> W64.zero)).
 + by while true; auto.
 + (* the zero limbs are skipped, the index decreasing to -1 at most *)
   while (-1 <= W64.to_sint i < nlimbsexp /\ (W64.to_sint i < 0 => w = W64.one)) (W64.to_sint i + 1).

@@ -5,6 +5,11 @@
 
    JBN_FEATURES:   BMI2 and ADX, so the multiplication rows use
                    MULX/ADCX/ADOX.
+   JBN_REG_MAX:    up to this size, the multiplication, squaring and
+                   Montgomery reduction (bn_mulsel@n.jinc) are those of
+                   bn_mulxr, whose rows keep their accumulator in registers
+                   (at most 6: above, its reduction does not fit them).
+                   6: not timed yet against bn_mulx (README).
    JBN_UNROLL_MAX: the multiplication, squaring and Montgomery reduction of
                    a size scope (bn_mulsel@n.jinc) are unrolled when
                    nlimbs <= JBN_UNROLL_MAX, and loop over their rows above.
@@ -22,4 +27,5 @@
 from Libjbn require "jbn_features.jinc"
 
 param int JBN_FEATURES = JBN_FEATURES_MULX;
+param int JBN_REG_MAX = 6;
 param int JBN_UNROLL_MAX = 16;

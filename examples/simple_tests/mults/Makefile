@@ -73,11 +73,13 @@ testmul_kar_32_osreg_4: testmul_kar_32_osreg_4.c kar_32_osreg_4.s
 #   os        bn_mul        operand scanning,  MULX/ADCX/ADOX, unrolled
 #   mulx_unr  bn_mulx       operand scanning,  MULX/ADCX/ADOX, unrolled
 #   mulx      bn_mulx_loop  operand scanning,  MULX/ADCX/ADOX, looped rows
-# (the last three need BMI2 and ADX, so they do not run under Rosetta).
+#   mulxr     bn_mulxr      operand scanning,  MULX/ADCX/ADOX, unrolled, with
+#                           the accumulator in registers
+# (the last four need BMI2 and ADX, so they do not run under Rosetta).
 # `os` has no squaring; the squarings of `loop` and `mulx` are their
 # multiplications. Before bn_mulx existed, `os` was labelled `mulx_unr`.
-BENCH_SIZES    ?= 4 8 16 32 64
-BENCH_VARIANTS ?= ps loop os mulx_unr mulx
+BENCH_SIZES    ?= 4 5 6 8 16 32 64
+BENCH_VARIANTS ?= ps loop os mulx_unr mulx mulxr
 
 bench: bench_mul.c muln32.jazz $(LIBJBN_SRC)
 	@for n in $(BENCH_SIZES); do for v in $(BENCH_VARIANTS); do \
@@ -87,6 +89,7 @@ bench: bench_mul.c muln32.jazz $(LIBJBN_SRC)
 	    os)       m=bn_mul;       x=bn_mul_export;      fn=bn_os_muln; sq=;; \
 	    mulx_unr) m=bn_mulx;      x=bn_mul_loop_export; fn=bn_os_muln; sq=bn_os_sqrn;; \
 	    mulx)     m=bn_mulx_loop; x=bn_mul_loop_export; fn=bn_os_muln; sq=bn_os_sqrn;; \
+	    mulxr)    m=bn_mulxr;     x=bn_mul_loop_export; fn=bn_os_muln; sq=bn_os_sqrn;; \
 	    *) echo "unknown variant $$v"; exit 1;; \
 	  esac; \
 	  f=tmpbench_$${v}_$$n; \

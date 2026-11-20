@@ -1,0 +1,25 @@
+/* libjbn instance with run-time moduli of 5 limbs, whose multiplication,
+   squaring and Montgomery reduction are unrolled MULX/ADCX/ADOX rows with
+   their accumulator in registers, which need a CPU with BMI2 and ADX
+   (bn_mulxr, for up to 6 limbs, in the place of bn_mul: compare with
+   fp_ctx_mulx7.jazz, whose rows go through memory): the field code FPM is
+   shared by every modulus, whose context (fp_ctx@n.jinc) is computed by
+   fpc_ctx_init and passed to the other fpc_* entry points. */
+
+namespace UTIL { from Libjbn require "bn_util.jinc" }
+
+namespace H {
+  param int nlimbs = 5;
+
+  namespace BN  { from Libjbn require "bn_base@n.jinc" }
+  namespace RND { from Libjbn require "bn_rnd@n.jinc" }
+  namespace MUL { from Libjbn require "bn_mulxr@n.jinc" }
+
+  namespace FPM {
+    from Libjbn require "fp_mul_os@fp.jinc"
+    from Libjbn require "fp_mont@fp.jinc"
+  }
+}
+
+/* C entry points */
+from Libjbn require "fp_mont_ctx_export@2n.jinc"

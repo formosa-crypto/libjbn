@@ -234,44 +234,76 @@ module M(P: MParam) = {
   }
   proc _mulm_ (r:BN.t, a:BN.t,
                       b:BN.t, ctx:W64.t FPC.CTX.t) : BN.t = {
+    var _r:BN.t;
+    var _ctx:W64.t FPC.CTX.t;
     var _tmp:BN2.t;
     var tmp:BN2.t;
+    _ctx <- witness;
+    _r <- witness;
     _tmp <- witness;
     tmp <- witness;
+    _r <- r;
+    _ctx <- ctx;
     tmp <- _tmp;
     tmp <@ P.fun_muln (tmp, a, b);
+    r <- _r;
+    ctx <- _ctx;
     r <@ P.fun_red (r, tmp, ctx);
     return r;
   }
   proc _mulmU_ (a:BN.t, b:BN.t,
                        ctx:W64.t FPC.CTX.t) : BN.t = {
+    var _a:BN.t;
+    var _ctx:W64.t FPC.CTX.t;
     var _tmp:BN2.t;
     var tmp:BN2.t;
+    _a <- witness;
+    _ctx <- witness;
     _tmp <- witness;
     tmp <- witness;
+    _a <- a;
+    _ctx <- ctx;
     tmp <- _tmp;
     tmp <@ P.fun_muln (tmp, a, b);
+    a <- _a;
+    ctx <- _ctx;
     a <@ P.fun_red (a, tmp, ctx);
     return a;
   }
   proc _sqrm_ (r:BN.t, a:BN.t,
                       ctx:W64.t FPC.CTX.t) : BN.t = {
+    var _r:BN.t;
+    var _ctx:W64.t FPC.CTX.t;
     var _tmp:BN2.t;
     var tmp:BN2.t;
+    _ctx <- witness;
+    _r <- witness;
     _tmp <- witness;
     tmp <- witness;
+    _r <- r;
+    _ctx <- ctx;
     tmp <- _tmp;
     tmp <@ P.fun_sqrn (tmp, a);
+    r <- _r;
+    ctx <- _ctx;
     r <@ P.fun_red (r, tmp, ctx);
     return r;
   }
   proc _sqrmU_ (a:BN.t, ctx:W64.t FPC.CTX.t) : BN.t = {
+    var _a:BN.t;
+    var _ctx:W64.t FPC.CTX.t;
     var _tmp:BN2.t;
     var tmp:BN2.t;
+    _a <- witness;
+    _ctx <- witness;
     _tmp <- witness;
     tmp <- witness;
+    _a <- a;
+    _ctx <- ctx;
     tmp <- _tmp;
     tmp <@ P.fun_sqrn (tmp, a);
+    a <- _a;
+    ctx <- _ctx;
     a <@ P.fun_red (a, tmp, ctx);
     return a;
   }
@@ -362,7 +394,7 @@ hoare _mulm__h _p _a _b:
    ==> bn res = red _p (bn _a * bn _b).
 proof.
 proc.
-ecall (fun_red_h _p tmp).
+ecall (fun_red_h _p tmp); wp.
 ecall (fun_muln_h a b).
 wp; skip => &hr /= [Hc [Hr [-> [-> [Ha Hb]]]]] t Ht.
 have HPR := FPC.ctx_mod_bnd _ _ Hc.
@@ -377,7 +409,7 @@ hoare _mulmU__h _p _a _b:
    ==> bn res = red _p (bn _a * bn _b).
 proof.
 proc.
-ecall (fun_red_h _p tmp).
+ecall (fun_red_h _p tmp); wp.
 ecall (fun_muln_h a b).
 wp; skip => &hr /= [Hc [Hr [-> [-> [Ha Hb]]]]] t Ht.
 have HPR := FPC.ctx_mod_bnd _ _ Hc.
@@ -392,7 +424,7 @@ hoare _sqrm__h _p _a:
    ==> bn res = red _p (bn _a * bn _a).
 proof.
 proc.
-ecall (fun_red_h _p tmp).
+ecall (fun_red_h _p tmp); wp.
 ecall (fun_sqrn_h a).
 wp; skip => &hr /= [Hc [Hr [-> Ha]]] t Ht.
 have HPR := FPC.ctx_mod_bnd _ _ Hc.
@@ -407,7 +439,7 @@ hoare _sqrmU__h _p _a:
    ==> bn res = red _p (bn _a * bn _a).
 proof.
 proc.
-ecall (fun_red_h _p tmp).
+ecall (fun_red_h _p tmp); wp.
 ecall (fun_sqrn_h a).
 wp; skip => &hr /= [Hc [Hr [-> Ha]]] t Ht.
 have HPR := FPC.ctx_mod_bnd _ _ Hc.
@@ -622,16 +654,16 @@ lemma _submU__ll: islossless M(P)._submU_.
 proof. by proc; call BNB._caddU__ll; wp; call BNB._subU__ll; auto. qed.
 
 lemma _mulm__ll: islossless M(P)._mulm_.
-proof. by proc; call fun_red_ll; call fun_muln_ll; auto. qed.
+proof. by proc; call fun_red_ll; wp; call fun_muln_ll; auto. qed.
 
 lemma _mulmU__ll: islossless M(P)._mulmU_.
-proof. by proc; call fun_red_ll; call fun_muln_ll; auto. qed.
+proof. by proc; call fun_red_ll; wp; call fun_muln_ll; auto. qed.
 
 lemma _sqrm__ll: islossless M(P)._sqrm_.
-proof. by proc; call fun_red_ll; call fun_sqrn_ll; auto. qed.
+proof. by proc; call fun_red_ll; wp; call fun_sqrn_ll; auto. qed.
 
 lemma _sqrmU__ll: islossless M(P)._sqrmU_.
-proof. by proc; call fun_red_ll; call fun_sqrn_ll; auto. qed.
+proof. by proc; call fun_red_ll; wp; call fun_sqrn_ll; auto. qed.
 
 lemma fun_mulU_ll: islossless M(P).fun_mulU.
 proof. by proc; call _mulmU__ll. qed.

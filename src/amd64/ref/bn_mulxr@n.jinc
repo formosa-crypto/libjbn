@@ -1,0 +1,365 @@
+/* libjbn -- bn_mulxr: multiplication, squaring and Montgomery reduction with
+   MULX/ADCX/ADOX rows (BMI2 and ADX extensions), unrolled, whose accumulator
+   is kept in registers.
+
+   Library module, i.e. template (see README, sections 1 and 2): it is meant
+   to be `require`d inside a namespace, which becomes the instance; the tag
+   in the file name (@n) gives the kind of namespace. Names below are
+   resolved by Jasmin's outward namespace lookup.
+
+   This is bn_mulx@n.jinc with the accumulator in a register array instead
+   of the memory of the result: the same rows, in the same order, but no row
+   loads or stores the words it accumulates. A word is stored once, when it
+   is final (the low word of a row of the multiplication, or the result of
+   the reduction). Only the window of a row is live, so that the registers
+   needed grow with nlimbs, not 2*nlimbs:
+     multiplication   window nlimbs+1, rdx, lo, hi, zero, pointers r a b
+                      (nlimbs+8 registers: up to 7 limbs);
+     reduction        window nlimbs, top word, carry, rdx, lo, hi, zero,
+                      pointers a P r (nlimbs+9: up to 6 limbs);
+     squaring         the products a[i]*a[j], i < j, up to 2*nlimbs-2 words,
+                      plus 6: from 6 limbs on, the low words of X that would
+                      not fit (those with 2*nlimbs >= w+10) are stored when
+                      they are final and read back by the diagonal pass.
+   It is meant for small sizes (the curve25519 code is the model: a field
+   element of 4 limbs, multiplied with its accumulator in registers).
+
+   Every row starts with both carry flags cleared and ends with both clear:
+   no flag is live across a row boundary.
+
+   Instance:  MUL (in a size scope), in the place of bn_mul@n.jinc: the names
+              and contracts provided are the ones of bn_mulx@n.jinc, so that
+              a field (fp_mont, with fp_mul_os) takes either
+   Expects:   param int nlimbs;
+              BN::                         // bn_base, same size
+   Provides:  _os_muln _os_muln_ _os_sqrn _os_sqrn_
+              __mont_redM
+              (constants: P || R-P packed in an array, and -P^-1 mod 2^64)
+*/
+
+/******************************************************************
+                      OPERAND-SCANNING
+*******************************************************************/
+
+/* first row: t[0..nlimbs] = a * b */
+inline fn __mulr_row0
+( reg u64 a
+, reg const ptr u64[nlimbs] b
+) -> reg u64[2*nlimbs]
+{
+  inline int i;
+  reg bool cf;
+  reg u64 _zero lo;
+  reg u64[2*nlimbs] t;
+
+  _, cf, _, _, _, _zero = #set0();
+
+  t[1], t[0] = #MULX ( a, b[0] );
+  for i = 1 to nlimbs {
+    t[i + 1], lo = #MULX ( a, b[i] );
+    cf, t[i] = #ADCX ( t[i], lo, cf );
+  }
+  cf, t[nlimbs] = #ADCX ( t[nlimbs], _zero, cf );
+  // cf = 0
+
+  return t;
+}
+
+/* row k (0 < k < nlimbs): t[k..k+nlimbs] += a * b,
+   where t[k+nlimbs] is not read (it is still to be defined) */
+inline fn __mulr_rowk
+( inline int k
+, reg u64[2*nlimbs] t
+, reg u64 a
+, reg const ptr u64[nlimbs] b
+) -> reg u64[2*nlimbs]
+{
+  inline int i;
+  reg bool of cf;
+  reg u64 _zero hi lo;
+
+  of, cf, _, _, _, _zero = #set0();
+
+  for i = 0 to nlimbs - 1 {
+    hi, lo = #MULX ( a, b[i] );
+    of, t[k + i] = #ADOX ( t[k + i], lo, of );
+    cf, t[k + i + 1] = #ADCX ( t[k + i + 1], hi, cf );
+  }
+  t[k + nlimbs], lo = #MULX ( a, b[nlimbs - 1] );
+  of, t[k + nlimbs - 1] = #ADOX ( t[k + nlimbs - 1], lo, of );
+  cf, t[k + nlimbs] = #ADCX ( t[k + nlimbs], _zero, cf );
+  of, t[k + nlimbs] = #ADOX ( t[k + nlimbs], _zero, of );
+  // cf = 0, of = 0
+
+  return t;
+}
+
+/* Operand-scanning multiplication: word k of the result is stored after
+   row k, and the top nlimbs words after the last row */
+fn _os_muln
+( reg mut ptr u64[2*nlimbs] r
+, reg const ptr u64[nlimbs] a b
+) -> reg ptr u64[2*nlimbs]
+{
+  inline int k;
+  reg u64 ak;
+  reg u64[2*nlimbs] t;
+
+  ak = a[0];
+  t = __mulr_row0(ak, b);
+  r[0] = t[0];
+
+  for k = 1 to nlimbs {
+    ak = a[k];
+    t = __mulr_rowk(k, t, ak, b);
+    r[k] = t[k];
+  }
+  for k = nlimbs to 2*nlimbs { r[k] = t[k]; }
+
+  return r;
+}
+
+inline fn _os_muln_
+( reg mut ptr u64[2*nlimbs] r
+, reg const ptr u64[nlimbs] a b
+) -> reg ptr u64[2*nlimbs]
+{
+  r = r; a = a; b = b;
+  r = _os_muln(r, a, b);
+  r = r;
+  return r;
+}
+
+
+/******************************************************************
+                          SQUARING
+*******************************************************************/
+
+/* a^2 = 2 * X + D, where
+     X = sum_{i<j} a[i]*a[j] * 2^(64*(i+j))    (words 1 .. 2*nlimbs-2)
+     D = sum_i a[i]^2 * 2^(128*i)
+   X is accumulated by rows in the register array t (__sqrr_row0,
+   __sqrr_rowi), then doubled and added to D in one pass (__sqrr_diag),
+   which stores the result. Words of X are final after the row that reaches
+   2i+2 (row i); the low ones that would not fit in the registers, w with
+   w + 10 <= 2*nlimbs (none up to 5 limbs), are then stored into r, which
+   the diagonal pass reads them back from. */
+
+/* row 0 of X (nlimbs >= 2): t[1..nlimbs] = a[0] * a[1..nlimbs-1] */
+inline fn __sqrr_row0
+( reg const ptr u64[nlimbs] a
+) -> reg u64[2*nlimbs]
+{
+  inline int j;
+  reg bool cf;
+  reg u64 _zero ai lo;
+  reg u64[2*nlimbs] t;
+
+  _, cf, _, _, _, _zero = #set0();
+
+  ai = a[0];
+  t[2], t[1] = #MULX ( ai, a[1] );
+  for j = 2 to nlimbs {
+    t[j + 1], lo = #MULX ( ai, a[j] );
+    cf, t[j] = #ADCX ( t[j], lo, cf );
+  }
+  cf, t[nlimbs] = #ADCX ( t[nlimbs], _zero, cf );
+  // cf = 0
+
+  return t;
+}
+
+/* row i of X (0 < i < nlimbs-1): t[2i+1..i+nlimbs] += a[i] * a[i+1..nlimbs-1],
+   where t[i+nlimbs] is not read (it is still to be defined) */
+inline fn __sqrr_rowi
+( inline int i
+, reg u64[2*nlimbs] t
+, reg const ptr u64[nlimbs] a
+) -> reg u64[2*nlimbs]
+{
+  inline int j;
+  reg bool of cf;
+  reg u64 _zero ai hi lo;
+
+  of, cf, _, _, _, _zero = #set0();
+
+  ai = a[i];
+  for j = i + 1 to nlimbs - 1 {
+    hi, lo = #MULX ( ai, a[j] );
+    of, t[i + j] = #ADOX ( t[i + j], lo, of );
+    cf, t[i + j + 1] = #ADCX ( t[i + j + 1], hi, cf );
+  }
+  t[i + nlimbs], lo = #MULX ( ai, a[nlimbs - 1] );
+  of, t[i + nlimbs - 1] = #ADOX ( t[i + nlimbs - 1], lo, of );
+  cf, t[i + nlimbs] = #ADCX ( t[i + nlimbs], _zero, cf );
+  of, t[i + nlimbs] = #ADOX ( t[i + nlimbs], _zero, of );
+  // cf = 0, of = 0
+
+  return t;
+}
+
+/* r = 2 * X + D (nlimbs >= 2), for X in t[1..2*nlimbs-2] (or, for its low
+   words w with w + 10 <= 2*nlimbs, in r[w]): the doubling runs on the CF
+   chain (x + x + cf) and the addition of D on the OF chain */
+inline fn __sqrr_diag
+( reg mut ptr u64[2*nlimbs] r
+, reg u64[2*nlimbs] t
+, reg const ptr u64[nlimbs] a
+) -> reg ptr u64[2*nlimbs]
+{
+  inline int i w;
+  reg bool of cf;
+  reg u64 _zero ai hi lo x;
+
+  of, cf, _, _, _, _zero = #set0();
+
+  ai = a[0];
+  hi, lo = #MULX ( ai, a[0] );
+  r[0] = lo;
+  w = 1;
+  if (w + 10 <= 2*nlimbs) { x = r[w]; } else { x = t[w]; }
+  cf, x = #ADCX ( x, x, cf );
+  of, x = #ADOX ( x, hi, of );
+  r[1] = x;
+  for i = 1 to nlimbs - 1 {
+    ai = a[i];
+    hi, lo = #MULX ( ai, a[i] );
+    w = 2*i;
+    if (w + 10 <= 2*nlimbs) { x = r[w]; } else { x = t[w]; }
+    cf, x = #ADCX ( x, x, cf );
+    of, x = #ADOX ( x, lo, of );
+    r[2*i] = x;
+    w = 2*i + 1;
+    if (w + 10 <= 2*nlimbs) { x = r[w]; } else { x = t[w]; }
+    cf, x = #ADCX ( x, x, cf );
+    of, x = #ADOX ( x, hi, of );
+    r[2*i + 1] = x;
+  }
+  ai = a[nlimbs - 1];
+  hi, lo = #MULX ( ai, a[nlimbs - 1] );
+  x = t[2*nlimbs - 2];
+  cf, x = #ADCX ( x, x, cf );
+  of, x = #ADOX ( x, lo, of );
+  r[2*nlimbs - 2] = x;
+  cf, hi = #ADCX ( hi, _zero, cf );
+  of, hi = #ADOX ( hi, _zero, of );
+  r[2*nlimbs - 1] = hi;
+  // cf = 0, of = 0
+
+  return r;
+}
+
+/* Squaring */
+fn _os_sqrn
+( reg mut ptr u64[2*nlimbs] r
+, reg const ptr u64[nlimbs] a
+) -> reg ptr u64[2*nlimbs]
+{
+  inline int i w;
+  reg u64 ai hi lo;
+  reg u64[2*nlimbs] t;
+
+  if (nlimbs == 1) {
+    ai = a[0];
+    hi, lo = #MULX ( ai, a[0] );
+    r[0] = lo;
+    r[1] = hi;
+  } else {
+    t = __sqrr_row0(a);
+    for w = 1 to 3 { if (w + 10 <= 2*nlimbs) { r[w] = t[w]; } }
+    for i = 1 to nlimbs - 1 {
+      t = __sqrr_rowi(i, t, a);
+      for w = 2*i + 1 to 2*i + 3 { if (w + 10 <= 2*nlimbs) { r[w] = t[w]; } }
+    }
+    r = __sqrr_diag(r, t, a);
+  }
+
+  return r;
+}
+
+inline fn _os_sqrn_
+( reg mut ptr u64[2*nlimbs] r
+, reg const ptr u64[nlimbs] a
+) -> reg ptr u64[2*nlimbs]
+{
+  r = r; a = a;
+  r = _os_sqrn(r, a);
+  r = r;
+  return r;
+}
+
+
+// ////////////////////////////////////
+/* Montgomery reduction: r = a * R^-1 mod P, for a < P * R (R = 2^(64*nlimbs)).
+   _P_mP packs P and R - P; _U0 = -P^-1 mod 2^64 (kept on the stack, which
+   leaves registers to the callers of a non-inline wrapper).
+
+   The running value is a window of nlimbs words of the register array w:
+   w[k..k+nlimbs-1] at row k, where
+       [w[k+1..k+nlimbs] ; c]  :=  ( w[k..k+nlimbs-1] + m * P ) / 2^64
+                                   +  ( a[nlimbs+k] + c ) * 2^(64*(nlimbs-1))
+   m = w[k] * _U0 (so that the division is exact) and c is the carry (one
+   bit, zero at row 0) out of the window; the window starts as the low half
+   of a. After nlimbs rows, [w[nlimbs..2*nlimbs-1] ; c] = (a + M * P) / R
+   < 2*P, from which P is subtracted when it is not smaller, in registers. */
+inline fn __mont_redM
+( reg mut ptr u64[nlimbs] r
+, reg const ptr u64[2*nlimbs] a
+, reg const ptr u64[2*nlimbs] _P_mP
+, stack u64 _U0
+) -> reg ptr u64[nlimbs] {
+  inline int i k;
+  reg bool of cf;
+  reg u64 _zero hi lo m c x;
+  reg u64[2*nlimbs] w;
+  reg u64[nlimbs] s;
+
+  for i = 0 to nlimbs { w[i] = a[i]; }
+
+  // c is only read from row 1 on; it is set here as well because in the
+  // extracted model the test on k below is a run-time one (see bn_mulx)
+  c = 0;
+  for k = 0 to nlimbs {
+    m = w[k];
+    m *= _U0;
+    of, cf, _, _, _, _zero = #set0();
+
+    // word k of w + m * P is zero: only its carry is kept
+    hi, lo = #MULX ( m, _P_mP[0] );
+    of, w[k] = #ADOX ( w[k], lo, of );
+    for i = 1 to nlimbs {
+      cf, w[k + i] = #ADCX ( w[k + i], hi, cf );
+      hi, lo = #MULX ( m, _P_mP[i] );
+      of, w[k + i] = #ADOX ( w[k + i], lo, of );
+    }
+    cf, hi = #ADCX ( hi, _zero, cf );
+    of, hi = #ADOX ( hi, _zero, of );
+    // cf = 0, of = 0
+
+    // top word: hi + a[nlimbs+k] + c
+    if (k == 0) {
+      cf, hi += a[nlimbs];
+    } else {
+      _, cf, _, _, _, c = #NEG ( c );
+      cf, hi += a[k + nlimbs] + cf;
+    }
+    w[k + nlimbs] = hi;
+    c = #MOV ( 0 );
+    _, c += 0 + cf;
+  }
+
+  // [w[nlimbs..2*nlimbs-1] ; c] - P when not below P: s = w + (R - P)
+  // carries out (into c) exactly when [w ; c] >= P (see BN::_cminusP_)
+  for i = 0 to nlimbs { s[i] = w[nlimbs + i]; }
+  cf, s[0] += _P_mP[nlimbs];
+  for i = 1 to nlimbs { cf, s[i] += _P_mP[nlimbs + i] + cf; }
+  _, c += 0 + cf;
+  _, cf, _, _, _, _ = #NEG ( c );
+  for i = 0 to nlimbs {
+    x = w[nlimbs + i];
+    x = s[i] if cf;
+    r[i] = x;
+  }
+
+  return r;
+}

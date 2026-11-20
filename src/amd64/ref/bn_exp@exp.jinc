@@ -31,6 +31,11 @@ inline fn _exp1mLR_first_noct
 ) -> reg ptr u64[nlimbs] {
   reg u64 k;
   reg bool cf;
+  stack u64 _k _w;
+  stack ptr u64[nlimbs] _x;
+  stack ptr u64[CTXLEN] _ctx;
+  _x = x;
+  _ctx = ctx;
   k = 64;
   _, cf, _, _, _, w = #SHL(w, 1);
   while (!cf) {
@@ -40,13 +45,22 @@ inline fn _exp1mLR_first_noct
   // most significant one-bit
   r = BN::_mov_(r, x);
   k -= 1;
-  // remaining bits
+  // remaining bits (no register is live across the calls)
   while (k >s 0) {
+    _k = k;
+    _w = w;
+    ctx = _ctx;
     r = fun_sqrU(r, ctx);
+    w = _w;
     _, cf, _, _, _, w = #SHL(w, 1);
+    _w = w;
     if (cf) {
+      x = _x;
+      ctx = _ctx;
       r = fun_mulU(r, x, ctx);
     }
+    w = _w;
+    k = _k;
     k -= 1;
   }
   return r;
@@ -60,13 +74,28 @@ inline fn _exp1mLR_noct
 ) -> reg ptr u64[nlimbs] {
   reg u64 k;
   reg bool cf;
+  stack u64 _k _w;
+  stack ptr u64[nlimbs] _x;
+  stack ptr u64[CTXLEN] _ctx;
+  _x = x;
+  _ctx = ctx;
   k = 64;
+  // (no register is live across the calls)
   while (k >s 0) {
+    _k = k;
+    _w = w;
+    ctx = _ctx;
     r = fun_sqrU(r, ctx);
+    w = _w;
     _, cf, _, _, _, w = #SHL(w, 1);
+    _w = w;
     if (cf) {
+      x = _x;
+      ctx = _ctx;
       r = fun_mulU(r, x, ctx);
     }
+    w = _w;
+    k = _k;
     k -= 1;
   }
   return r;
@@ -84,6 +113,12 @@ fn _expmLR_noct
   reg ptr u64[nlimbs] exp0;
   reg u64 i w;
   stack u64 i_s;
+  stack ptr u64[nlimbs] _x;
+  stack ptr u64[nlimbsexp] _e;
+  stack ptr u64[CTXLEN] _ctx;
+  _x = x;
+  _e = e;
+  _ctx = ctx;
   i = nlimbsexp - 1;
   // ignore most significant zero-limbs
   w = e[(int) i];
@@ -97,6 +132,8 @@ fn _expmLR_noct
   }
   if (i >=s 0) {
     i_s = i;
+    x = _x;
+    ctx = _ctx;
     r = _exp1mLR_first_noct(r, x, w, ctx);
     i = i_s;
     i -= 1;
@@ -105,8 +142,11 @@ fn _expmLR_noct
     r = BN::_mov_(r, exp0);
   }
   while (i >=s 0) {
+    e = _e;
     w = e[(int) i];
     i_s = i;
+    x = _x;
+    ctx = _ctx;
     r = _exp1mLR_noct(r, x, w, ctx);
     i = i_s;
     i -= 1;
@@ -142,11 +182,14 @@ fn _expm_noct
   reg u64 t;
   reg bool cf zf;
   reg ptr u64[nlimbs] x;
-  stack u64 _k;
+  stack u64 _k _t;
   stack u64[nlimbs] _x;
   stack ptr u64[nlimbsexp] _b;
+  stack ptr u64[nlimbs] _r;
+  stack ptr u64[CTXLEN] _ctx;
 
   _b = b;
+  _ctx = ctx;
   x = _x;
   x = BN::_mov_(x, a);
   _x = x;
@@ -157,12 +200,19 @@ fn _expm_noct
     _k = 64;
     while {
       _, cf, _, _, _, t = #SHR(t, 1);
-      x = _x;
+      _t = t;
       if (cf) {
+        x = _x;
+        ctx = _ctx;
         r = fun_mulU(r, x, ctx);
       }
+      _r = r;
+      x = _x;
+      ctx = _ctx;
       x = fun_sqrU(x, ctx);
       _x = x;
+      r = _r;
+      t = _t;
       _, _, _, zf, _k = #DEC(_k);
     } (!zf)
   }
@@ -208,8 +258,11 @@ fn _expm
   stack u64 _k _mask _t;
   reg bool cf zf;
   stack ptr u64[nlimbsexp] _b;
+  stack ptr u64[nlimbs] _x0 _x1;
+  stack ptr u64[CTXLEN] _ctx;
 
   _b = b;
+  _ctx = ctx;
 
   for j = nlimbsexp-1 downto -1  {
     b = _b;
@@ -221,8 +274,14 @@ fn _expm
       mask = UTIL::__cf_mask(cf);
       x0, x1 = BN::_cswap_mask_(x0, x1, mask);
       _mask = mask;
+      _x0 = x0;
+      ctx = _ctx;
       x1 = fun_mulU(x1, x0, ctx);
+      _x1 = x1;
+      x0 = _x0;
+      ctx = _ctx;
       x0 = fun_sqrU(x0, ctx);
+      x1 = _x1;
       mask = _mask;
       x0, x1 = BN::_cswap_mask_(x0, x1, mask);
       t = _t;

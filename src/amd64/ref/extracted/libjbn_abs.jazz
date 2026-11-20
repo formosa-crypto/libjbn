@@ -22,9 +22,9 @@ namespace H {
 
   namespace BN     { from Libjbn require "bn_base@n.jinc" }
   namespace RND    { from Libjbn require "bn_rnd@n.jinc" }
-  // the selector, which instantiates bn_mul, bn_mul_loop, bn_mulx and
-  // bn_mulx_loop in MUL::UNR, MUL::LOOP, MUL::XUNR and MUL::XLOOP; the
-  // fields (FPM) use its __mont_redM
+  // the selector, which instantiates bn_mul, bn_mul_loop, bn_mulx,
+  // bn_mulx_loop and bn_mulxr in MUL::UNR, MUL::LOOP, MUL::XUNR, MUL::XLOOP
+  // and MUL::XREG; the fields (FPM) use its __mont_redM
   namespace MUL    { from Libjbn require "bn_mulsel@n.jinc" }
   namespace MULREG { from Libjbn require "bn_mulreg@n.jinc" }
 

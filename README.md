@@ -85,15 +85,17 @@ expects to find in scope and the names it provides.
 | `bn_mul_loop@n` | the `MUL` module with a run-time loop over the rows: operand-scanning multiplication and squaring, row-wise Montgomery reduction `__mont_redM` (same contract and constants); rows with `mul`/`adc` (see [Unrolled or looped](#unrolled-or-looped-multiplication-and-reduction)) | `MUL`, in the place of `bn_mul` | `nlimbs`, `BN::` |
 | `bn_mulx_loop@n` | the same module, with `mulx`/`adcx`/`adox` rows (BMI2 and ADX) | `MUL`, in the place of `bn_mul` | `nlimbs`, `BN::` |
 | `bn_mulx@n` | `bn_mulx_loop` unrolled (a `for` over the rows), for small sizes, with a squaring of its own (BMI2 and ADX) | `MUL`, in the place of `bn_mul` | `nlimbs`, `BN::` |
-| `bn_mulsel@n` | the selector: `_muln_`, `_sqrn_` and `__mont_redM` of one of the four modules above, chosen at compile time from the profile and the size (see [Profiles](#profiles-and-the-selection-of-the-multiplication)); instantiates the four itself | `MUL`, in the place of `bn_mul` | `nlimbs`, `BN::`, `UTIL::`, a profile |
+| `bn_mulxr@n` | `bn_mulx` with its accumulator in a register array: the rows load and store no word of the result (up to 6 limbs in a field; see [Registers](#small-sizes-the-accumulator-in-registers-bn_mulxr)) (BMI2 and ADX) | `MUL`, in the place of `bn_mul` | `nlimbs`, `BN::` |
+| `bn_mulsel@n` | the selector: `_muln_`, `_sqrn_` and `__mont_redM` of one of the five modules above, chosen at compile time from the profile and the size (see [Profiles](#profiles-and-the-selection-of-the-multiplication)); instantiates the five itself | `MUL`, in the place of `bn_mul` | `nlimbs`, `BN::`, `UTIL::`, a profile |
 | `jbn_features` | the feature bits (`JBN_FEATURE_BMI2`, `JBN_FEATURE_ADX`, `JBN_FEATURES_MULX`) | top level, required by a profile | — |
 | `bn_karatsuba@2n` | one Karatsuba level on top of a given multiplication | `KAR` (in the 2n scope) | `nlimbs` (2n), `H::nlimbs` (n), `fun_kmuln`, `BN::`, `H::BN::`, `UTIL::` |
 | `bn_exp@exp` | modular exponentiation (constant-time and not) | `EXP` (inside a field) | `nlimbs`, `nlimbsexp`, `CTXLEN`, `CTX_ONE`, `fun_mulU`, `fun_sqrU` (both take the context), `BN::`, `UTIL::` |
 | `fp_ctx@n` | layout of a field context (`CTX_P`, `CTX_MP`, `CTX_ONE`, `CTX_R2`, `CTX_U0`, `CTXLEN`) | required by `fp_base` | `nlimbs` |
 | `fp_base@fp` | prime-field operations, generic in the reduction; each takes the context of its modulus | a field (e.g. `FPM`), shared by all moduli of the size | `nlimbs`, `fun_muln`, `fun_sqrn`, `fun_red`, `BN::`, `RND::`, `UTIL::` |
 | `fp_mont@fp` | Montgomery-form field (`_redM_`, `_fromM_`, `_toM_`, `_ctx_init_`) plus all of `fp_base` | a field (e.g. `FPM`) | as `fp_base` (except `fun_red`), plus `MUL::` |
+| `fp_pm@fp` | pseudo-Mersenne field, in normal representation: moduli with `R mod P < 2^32` and `R < 3P` (2^255-19 at 4 limbs), reduced by folding the high half with one row of multiplications by `R mod P` (`_redPM_`, `_ctx_init_`; `_toM_`/`_fromM_` are the identity) plus all of `fp_base` (see [Pseudo-Mersenne fields](#pseudo-mersenne-fields-fp_pm)) | a field, in the place of `fp_mont` | as `fp_base` (except `fun_red`) |
 | `fp_mul_ps@fp` | binds `fun_muln`/`fun_sqrn` to product-scanning multiplication | inside a field | `nlimbs`, `MUL::` |
-| `fp_mul_os@fp` | binds `fun_muln`/`fun_sqrn` to the operand-scanning multiplication of `bn_mul_loop`/`bn_mulx_loop`/`bn_mulx` | inside a field | `nlimbs`, `MUL::` |
+| `fp_mul_os@fp` | binds `fun_muln`/`fun_sqrn` to the operand-scanning multiplication of `bn_mul_loop`/`bn_mulx_loop`/`bn_mulx`/`bn_mulxr` | inside a field | `nlimbs`, `MUL::` |
 | `fp_mul_sel@fp` | binds `fun_muln`/`fun_sqrn` to those of `bn_mulsel` | inside a field | `nlimbs`, `MUL::` |
 | `*_export@2n` | `export fn` wrappers forming the C interface: `fp_mont_export` (static modulus `H::FPM::glob_ctx`), `fp_mont_ctx_export` (context argument, `fpc_*`) | top level | see the file headers |
 
@@ -205,28 +207,31 @@ the inner namespace has closed.
 
 ### Profiles and the selection of the multiplication
 
-Four modules provide the multiplication, squaring and Montgomery reduction
-(next section): `bn_mul` and `bn_mul_loop` with `mul`/`adc`, `bn_mulx` and
+Five modules provide the multiplication, squaring and Montgomery reduction
+(next sections): `bn_mul` and `bn_mul_loop` with `mul`/`adc`, `bn_mulx` and
 `bn_mulx_loop` with `mulx`/`adcx`/`adox`, each either unrolled or looping
-over its rows. Which one is fastest depends on the CPU and on the size.
-`bn_mulsel@n.jinc` chooses among them at compile time, from two parameters
-set by a **profile**:
+over its rows, and `bn_mulxr`, `bn_mulx` with its accumulator in registers,
+for small sizes. Which one is fastest depends on the CPU and on the size.
+`bn_mulsel@n.jinc` chooses among them at compile time, from three
+parameters set by a **profile**:
 
 * `JBN_FEATURES`: the CPU features that may be used, as a sum of the bits
   of `jbn_features.jinc` (`JBN_FEATURE_BMI2`, `JBN_FEATURE_ADX`); the
   `mulx` rows need both (`JBN_FEATURES_MULX`);
+* `JBN_REG_MAX`: with BMI2 and ADX, `bn_mulxr` is used up to this size
+  (at most 6, see [Registers](#small-sizes-the-accumulator-in-registers-bn_mulxr));
 * `JBN_UNROLL_MAX`: the code of a size scope is unrolled when `nlimbs <=
   JBN_UNROLL_MAX`, and loops over its rows above.
 
-|  | `nlimbs <= JBN_UNROLL_MAX` | `nlimbs > JBN_UNROLL_MAX` |
-|---|---|---|
-| BMI2 and ADX | `bn_mulx` | `bn_mulx_loop` |
-| otherwise | `bn_mul` (product scanning) | `bn_mul_loop` |
-
-| Profile (`src/amd64/ref/profiles/`) | `JBN_FEATURES` | `JBN_UNROLL_MAX` | for |
+|  | `nlimbs <= JBN_REG_MAX` | `nlimbs <= JBN_UNROLL_MAX` | above |
 |---|---|---|---|
-| `x86_64.jinc` | none | 64 | any x86-64 CPU (and Rosetta) |
-| `x86_64_adx.jinc` | BMI2, ADX | 16 | Intel Broadwell and later, AMD Zen and later |
+| BMI2 and ADX | `bn_mulxr` | `bn_mulx` | `bn_mulx_loop` |
+| otherwise | — | `bn_mul` (product scanning) | `bn_mul_loop` |
+
+| Profile (`src/amd64/ref/profiles/`) | `JBN_FEATURES` | `JBN_REG_MAX` | `JBN_UNROLL_MAX` | for |
+|---|---|---|---|---|
+| `x86_64.jinc` | none | 0 | 64 | any x86-64 CPU (and Rosetta) |
+| `x86_64_adx.jinc` | BMI2, ADX | 6 (not timed yet) | 16 | Intel Broadwell and later, AMD Zen and later |
 
 The thresholds come from the timings of the next section, on one CPU (an
 Intel Core i7-14700K): with `mulx` the unrolled code is faster up to 16
@@ -484,7 +489,7 @@ What is *not* settled:
   squaring.
 * **Proofs.** The four modules are proved, with one contract
   (`Bn_mul.eca`, `Bn_mul_loop.eca`, `Bn_mulx.eca`, `Bn_mulx_loop.eca`;
-  section 4).
+  section 4), and so is `bn_mulxr` (`Bn_mulxr.eca`, next section).
 * **Speculative constant time.** `jasmin-ct --sct --after=unroll` accepts
   the unrolled multiplication, squaring and reduction as they are, given
   an export wrapper that initialises the misspeculation flag and protects
@@ -498,6 +503,93 @@ What is *not* settled:
   whatever the multiplication. Plain constant time (`jasmin-ct --infer`)
   is accepted for all variants. None of these annotations is in the
   library yet.
+
+### Small sizes: the accumulator in registers (`bn_mulxr`)
+
+`bn_mulxr@n.jinc` has the rows of `bn_mulx` (same names, contracts and
+wiring), with its accumulator in a register array instead of the memory of
+the result: no row loads or stores the words it accumulates, and a word is
+stored once, when it is final. At 4 limbs the multiplication is the shape
+of curve25519's `mul4`: 16 `mulx`, the second operand read as a memory
+operand, the 8 words of the product in registers, and 8 stores. Only the
+window of a row is live, so the registers needed grow with `nlimbs`: the
+multiplication needs `nlimbs + 8`, the reduction `nlimbs + 9` (window, top
+word, carry, `rdx`, `lo`, `hi`, zero, three pointers), the squaring
+keeps its products above the diagonal in registers up to 5 limbs and
+stores the low words that would not fit from 6 on.
+
+**The registers of the callers count.** Jasmin allocates the registers of
+the whole program at once: a register live across a call, in any caller,
+is not available to the callee. The field code used to keep several (the
+context, the result pointer, the exponentiation's word of the exponent and
+pointers), so that `bn_mulxr`'s reduction did not fit from 3 limbs on.
+The callers now keep nothing in registers across the calls of a field
+multiplication: `_mulm_`, `_mulmU_`, `_sqrm_`, `_sqrmU_` (`fp_base`) save
+the context and the result pointer across `fun_muln`/`fun_sqrn`, and the
+exponentiations (`bn_exp`: `_expm`, `_expm_noct`, the LR ones) save their
+state, in `stack` variables as the exports already did. That is a few
+stack accesses per field operation, for every module. With it, a field over
+`bn_mulxr` compiles up to 6 limbs (7 does not: the reduction needs 16
+registers); the multiplication and squaring alone, up to 8 (and more).
+
+It is selected under BMI2 and ADX up to `JBN_REG_MAX` (6 in
+`x86_64_adx.jinc`, until timed against `bn_mulx`), and wired directly as
+the `MUL` of a size scope with `fp_mul_os`.
+
+What is not settled:
+
+* **Speed.** Not measured: it needs a CPU with BMI2 and ADX (`make bench`
+  in `examples/simple_tests/fp_ctx` and in `examples/simple_tests/mults`,
+  variant `mulxr`, sizes 4, 5 and 6 added). The code, in the field
+  instances of `fp_ctx` (instructions, and `mov`s to or from memory, of each
+  routine; Jasmin 2026.09):
+
+  | `nlimbs` | routine | `bn_mulx` | `bn_mulxr` |
+  |---:|---|---:|---:|
+  | 4 | `_os_muln` | 87, 36 | 63, 12 |
+  | 4 | `_os_sqrn` | 72, 33 | 54, 15 |
+  | 4 | `_redM` | 122, 33 | 103, 10 |
+  | 6 | `_os_muln` | 191, 78 | 131, 18 |
+  | 6 | `_os_sqrn` | 141, 63 | 105, 27 |
+  | 6 | `_redM` | 236, 71 | 189, 14 |
+
+  The field
+  multiplication is still a multiplication into a 2n-word temporary and a
+  separate reduction, two calls. Fusing them (one routine, multiplication
+  rows interleaved with reduction rows, as for curve25519 where the whole
+  field multiplication stays in registers) needs `nlimbs + 9` registers,
+  so up to 6 limbs, and a change of the parameters of `fp_base` (a field
+  multiplication `fun_mulm` instead of `fun_muln` and `fun_red`): not done.
+* **Proofs.** `proof/Bn_mulxr.eca` proves the contracts of `Bn_mul` for
+  it, with no admits (the rows of `Bn_mulx.eca`, over the register array;
+  the squaring's invariant keeps the copied low words of X equal in `r`
+  and `t`); `Bn_mulsel.eca` covers its branch. `fp_pm` has no theory yet.
+
+### Pseudo-Mersenne fields (`fp_pm`)
+
+`fp_pm@fp.jinc` is a field in the place of `fp_mont`, for the moduli whose
+reduction curve25519 uses: with `R = 2^(64 nlimbs)`, `c = R mod P < 2^32`
+and `R < 3P` (2^255-19 at 4 limbs: `c = 38`, `R = 2P + 38`; `R - c` and
+`R/2 - c`; not secp256k1, whose `c` is 33 bits, nor the Solinas primes
+P-256 and P-384). Since `R = c (mod P)`, a product `L + R H` is folded into
+`L + c H` (one row of `nlimbs` multiplications, where the Montgomery
+reduction takes `nlimbs^2`), its top word again (`c t < 2^64`), and a last
+carry (masked, which cannot carry); then `P` is subtracted twice when not
+below it. The representation is the number itself and is canonical (below
+`P`), as `fp_base` requires; curve25519 code keeps values below 2^256 and
+reduces fully on output only, which is faster but would break that
+invariant.
+
+* It is generic in the multiplication (`fp_mul_ps`, `fp_mul_os`,
+  `fp_mul_sel`), and in the size.
+* Its context has the layout of `fp_ctx@n.jinc`: `P`, `R - P`, `1` (the
+  representation of one), an unused slot (0), and `c` in the slot of `U0`;
+  `_ctx_init_` computes it (`c` as `(R - P) - P` when not below `P`).
+* `_toM_` and `_fromM_` are the identity, so that `fp_mont_ctx_export`
+  serves both kinds of field (`fpc_toM`, `fpc_fromM`).
+* Not done: a theory (`Fp_pm.eca`) and its extraction; the fold fused with
+  the multiplication rows in one routine (with the parameters of `fp_base`
+  above); timings.
 
 ### Field contexts
 
@@ -632,7 +724,8 @@ exponentiation used by `_invm_` calls the field's own `_mulmU_`; in
 | `Bn_base.eca` | `nlimbs` (clones `BigN` and `Bn_util`) | `bn_base` |
 | `Bn_mul.eca` | `nlimbs` (clones `BigN`, `Bn_util` and `Bn_base`) | `bn_mul` |
 | `Bn_mul_loop.eca`, `Bn_mulx.eca`, `Bn_mulx_loop.eca` | `nlimbs` (the looped ones with `4 * nlimbs < W64.modulus`, as `Bn_mul`: the row index is a word) | `bn_mul_loop`, `bn_mulx`, `bn_mulx_loop`: the contracts of `Bn_mul` (`_os_muln_`, `_os_sqrn_`, `__mont_redM`) |
-| `Bn_mulsel.eca` | `nlimbs`, the profile `jbn_features`, `jbn_unroll_max` (any values; clones the four theories above) | `bn_mulsel`: `_muln_`, `_sqrn_`, `__mont_redM`, proved for the four branches |
+| `Bn_mulxr.eca` | `nlimbs` | `bn_mulxr`: the contracts of `Bn_mul` |
+| `Bn_mulsel.eca` | `nlimbs`, the profile `jbn_features`, `jbn_reg_max`, `jbn_unroll_max` (any values; clones the five theories above) | `bn_mulsel`: `_muln_`, `_sqrn_`, `__mont_redM`, proved for the five branches |
 | `Bn_rnd.eca` | `nlimbs` | `bn_rnd` (not yet rewritten, see the status) |
 | `Fp_ctx.eca` | `nlimbs` | `fp_ctx` (layout of a context: `ctxP`, `ctxMP`, `ctxONE`, `ctxR2`, `ctxU0`; `ctx_mod p c`, `ctx_mont p c`) |
 | `Bn_exp.eca` | `nlimbs`, `nlimbsexp` (with `64 * nlimbsexp < W64.modulus`), an abstract monoid over contexts (`mok`, `mdom`, `mmul`; the unit is the context's ONE); module parameter `fun_mulU`, `fun_sqrU` | `bn_exp` |
@@ -750,8 +843,8 @@ make clean
 |---|---|
 | `simple_tests/sike` | Montgomery field arithmetic for the SIKE primes (434, 503, 610, 751 bits) |
 | `simple_tests/rsa_pss` | 2048-bit RSA: `dec(enc(t)) == t`, CRT decryption |
-| `simple_tests/fp_ctx` | moduli given at run time (7 and 16 limbs): `fpc_ctx_init` and every `fpc_*` operation, against Python (`make run`); each size is also built with `bn_mul_loop` (`fp_ctx_loop*.jazz`, in `make run`) and with `bn_mulx_loop` and `bn_mulx` (`fp_ctx_mulx_loop*.jazz`, `fp_ctx_mulx*.jazz`; `make run-mulx`, which needs BMI2 and ADX); and with the selector `bn_mulsel`, once per module (`fp_ctx_sel*.jazz`, profile `x86_64`, in `make run`; `fp_ctx_selx*.jazz`, profile `x86_64_adx`, in `make run-mulx`; the 16-limb ones shadow the threshold); `make bench` times the four modules |
-| `simple_tests/mults` | 32-limb multiplication: `ps`, `os`, `osreg` and Karatsuba variants; the `os` multiplication and squaring of `bn_mul_loop`, `bn_mulx_loop` and `bn_mulx` (`testmul_os_loop.c`, against a C reference); `make bench` and `make bench-kar` time the multiplications and squarings alone |
+| `simple_tests/fp_ctx` | moduli given at run time (7 and 16 limbs): `fpc_ctx_init` and every `fpc_*` operation, against Python (`make run`); each size is also built with `bn_mul_loop` (`fp_ctx_loop*.jazz`, in `make run`) and with `bn_mulx_loop` and `bn_mulx` (`fp_ctx_mulx_loop*.jazz`, `fp_ctx_mulx*.jazz`; `make run-mulx`, which needs BMI2 and ADX); and with the selector `bn_mulsel`, once per module (`fp_ctx_sel*.jazz`, profile `x86_64`, in `make run`; `fp_ctx_selx*.jazz`, profile `x86_64_adx`, in `make run-mulx`; the 16-limb ones shadow the threshold); with `bn_mulxr` at 4, 5 and 6 limbs (`fp_ctx_mulxr*.jazz`, in `make run-mulx`); pseudo-Mersenne fields (`fp_pm`, 2^255-19 among the moduli) at 4 and 6 limbs, over `bn_mul` (`fp_ctx_pm*.jazz`, in `make run`) and over `bn_mulxr` (`fp_ctx_pmxr*.jazz`, in `make run-mulx`), with `vectors_pm*.txt` (`gen_vectors.py N SEED pm`); `make exec` runs the same checks in the interpreter of `jasminc`, on any host (`gen_exec_test.py`, below); `make bench` times the five modules |
+| `simple_tests/mults` | 32-limb multiplication: `ps`, `os`, `osreg` and Karatsuba variants; the `os` multiplication and squaring of `bn_mul_loop`, `bn_mulx_loop` and `bn_mulx` (`testmul_os_loop.c`, against a C reference); `make bench` (with `bn_mulxr`: variant `mulxr`) and `make bench-kar` time the multiplications and squarings alone |
 | `schnorr-zk` | a Schnorr zero-knowledge protocol over the RFC 3526 2048-bit group |
 
 The test programs print `TESTING <name>:` followed by `...OK!`, or by the
@@ -765,6 +858,17 @@ operand-scanning multiplications, so the `os`/`osreg` tests in
 this includes `testmul_os_mulx_loop_32` and `testmul_os_mulx_32` (but not
 `testmul_os_loop_32`), and `make run-mulx` in `simple_tests/fp_ctx`.
 Override the compiler with `make GCC=...` if needed.
+
+Where they cannot run, `make exec` in `simple_tests/fp_ctx` checks the same
+modules in the interpreter of `jasminc` (`exec`), which runs the source
+program at compile time, MULX/ADCX/ADOX included; since the compiler is
+verified, this checks the emitted code. `gen_exec_test.py` writes a
+program that loads inputs, calls a module's multiplication and squaring
+and the field operations over it (Montgomery, or `--pm`; the selector
+with `--profile`), and returns the OR of the differences with the values
+computed in Python (0 when correct) and the number of words checked.
+`EXEC_TESTS` lists the modules and sizes; it takes about 5 minutes, mostly
+the exponentiations.
 
 `test/misc/params.c` generates, for a given modulus, the constants *and*
 the wiring of a Montgomery field instance (used by `test/misc` and
@@ -784,8 +888,9 @@ the wiring of a Montgomery field instance (used by `test/misc` and
 *(as of November 2026)*
 
 * `JBigNumber.ec`, `Bn_util.ec`, `Bn_base.eca`, `Bn_mul.eca`,
-  `Bn_mul_loop.eca`, `Bn_mulx.eca`, `Bn_mulx_loop.eca`, `Bn_mulsel.eca`,
-  `Fp_ctx.eca`, `Bn_exp.eca`, `Fp_base.eca` and `Fp_mont.eca` check, and
+  `Bn_mul_loop.eca`, `Bn_mulx.eca`, `Bn_mulx_loop.eca`, `Bn_mulxr.eca`,
+  `Bn_mulsel.eca`, `Fp_ctx.eca`, `Bn_exp.eca`, `Fp_base.eca` and
+  `Fp_mont.eca` check, and
   their modules `M` are generated from the extraction (`make -C proof`).
   None of them has admits.
   * `Bn_mul_loop.eca`, `Bn_mulx_loop.eca` and `Bn_mulx.eca` prove the

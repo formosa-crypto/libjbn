@@ -3,6 +3,7 @@
    instances (README, "Profiles and the selection of the multiplication").
 
    JBN_FEATURES:   no BMI2/ADX, so the multiplication rows use MUL/ADC.
+   JBN_REG_MAX:    0 (bn_mulxr, the module it selects, needs BMI2/ADX).
    JBN_UNROLL_MAX: the multiplication, squaring and Montgomery reduction of
                    a size scope (bn_mulsel@n.jinc) are unrolled when
                    nlimbs <= JBN_UNROLL_MAX, and loop over their rows above.
@@ -18,4 +19,5 @@
 from Libjbn require "jbn_features.jinc"
 
 param int JBN_FEATURES = 0;
+param int JBN_REG_MAX = 0;
 param int JBN_UNROLL_MAX = 64;

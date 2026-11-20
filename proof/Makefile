@@ -19,10 +19,10 @@ EC     ?= easycrypt
 ECFLAGS = -I . -I $(XTRDIR)
 
 # theory keys of scripts/xtr_sync.py, and their files (in dependency order)
-THEORIES = bn_util bn_base bn_mul bn_mul_loop bn_mulx bn_mulx_loop bn_mulsel \
+THEORIES = bn_util bn_base bn_mul bn_mul_loop bn_mulx bn_mulx_loop bn_mulxr bn_mulsel \
            bn_exp fp_base fp_mont
 FILES    = Bn_util.ec Bn_base.eca Bn_mul.eca Bn_mul_loop.eca Bn_mulx.eca \
-           Bn_mulx_loop.eca Bn_mulsel.eca Fp_ctx.eca Bn_exp.eca \
+           Bn_mulx_loop.eca Bn_mulxr.eca Bn_mulsel.eca Fp_ctx.eca Bn_exp.eca \
            Fp_base.eca Fp_mont.eca
 
 CHECKDIR = checkxtr
