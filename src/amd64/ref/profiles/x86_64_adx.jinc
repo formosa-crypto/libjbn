@@ -1,0 +1,39 @@
+/* libjbn profile: x86-64 with BMI2 and ADX (Intel Broadwell and later, AMD
+   Zen and later; not under Rosetta). Required once, at the top level of a
+   program, before the instances (README, "Profiles and the selection of
+   the multiplication").
+
+   JBN_FEATURES:   BMI2 and ADX, so the multiplication rows use
+                   MULX/ADCX/ADOX.
+   JBN_REG_MAX:    up to this size, the multiplication, squaring and
+                   Montgomery reduction (bn_mulsel@n.jinc) are those of
+                   bn_mulxr, whose rows keep their accumulator in registers
+                   (at most 6: above, its reduction does not fit them).
+                   5: on an Intel Core i7-14700K, bn_mulxr is faster than
+                   bn_mulx at 4 and 5 limbs (fpc_mul, fpc_sqr: 6% to 12%
+                   with independent calls; chained, 2% to 5% at 4 limbs,
+                   equal at 5). At 6 limbs it is faster with independent
+                   calls only (5% to 8%), and 2% to 4% slower on an
+                   exponentiation. A size scope whose field
+                   multiplications are mostly independent may shadow it
+                   with 6.
+   JBN_UNROLL_MAX: the multiplication, squaring and Montgomery reduction of
+                   a size scope (bn_mulsel@n.jinc) are unrolled when
+                   nlimbs <= JBN_UNROLL_MAX, and loop over their rows above.
+                   16: on an Intel Core i7-14700K the unrolled bn_mulx is 8%
+                   to 11% faster than the looped bn_mulx_loop on an
+                   exponentiation up to 16 limbs, and 59% slower at 32 limbs,
+                   where its code no longer fits the 32 KB instruction cache.
+                   Sizes between 16 and 32 limbs were not timed; the
+                   crossover is expected near 24 limbs on that CPU, and
+                   depends on the size of the instruction cache.
+   A size scope may shadow JBN_REG_MAX and JBN_UNROLL_MAX
+   (`param int JBN_UNROLL_MAX = 0;` inside it, for instance, for the
+   smallest code at that size).
+*/
+
+from Libjbn require "jbn_features.jinc"
+
+param int JBN_FEATURES = JBN_FEATURES_MULX;
+param int JBN_REG_MAX = 5;
+param int JBN_UNROLL_MAX = 16;

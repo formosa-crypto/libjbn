@@ -1,0 +1,48 @@
+/* RSA2048 params file */
+
+/* size of the exponent (upto 256 bit) */
+param int nlimbsE = 4;
+/* size of p,q primes (1024 bit) */
+param int nlimbsP = 16;
+/* size of n (2048 bit) */
+param int nlimbsN = 32;
+
+/* Public key: the pair (n, e), where n = p·q.
+    - e must be odd, with 2¹⁶ < e < 2²⁵⁶.
+    - The modulus must be at least 2048 bits for signing. */
+param int nlimbsPK = nlimbsN+nlimbsE;
+type RSA_pubkey = u64[nlimbsPK];
+
+param int RSA_pubkey_N = 0;
+param int RSA_pubkey_E = nlimbsN;
+
+/* Expanded PK (includes Montgomery context): (ctx_n, e), with ctx_n the
+   context of n (4*nlimbsN+1 words, fp_ctx@n.jinc), which starts with n */
+type RSA_PK = u64[(4*nlimbsN+1)+nlimbsE];
+
+param int RSA_PK_CTXN = 0;
+param int RSA_PK_N = 0;
+param int RSA_PK_E = 4*nlimbsN+1;
+
+/* Private key: CRT form: (p, q, dP, dQ, qInv).  */
+param int nlimbsSK = 5*nlimbsP;
+type RSA_privkey = u64[nlimbsSK];
+
+param int RSA_privkey_P = 0;
+param int RSA_privkey_Q = nlimbsP;
+param int RSA_privkey_dP = 2*nlimbsP;
+param int RSA_privkey_dQ = 3*nlimbsP;
+param int RSA_privkey_qInv = 4*nlimbsP;
+
+/* Expanded SK (includes Montgomery contexts): (ctx_p, ctx_q, dP, dQ, qInv),
+   with ctx_p and ctx_q the contexts of p and q (4*nlimbsP+1 words each),
+   which start with p and q */
+type RSA_SK = u64[2*(4*nlimbsP+1)+3*nlimbsP];
+
+param int RSA_SK_CTXP = 0;
+param int RSA_SK_P = 0;
+param int RSA_SK_CTXQ = 4*nlimbsP+1;
+param int RSA_SK_Q = 4*nlimbsP+1;
+param int RSA_SK_dP = 2*(4*nlimbsP+1);
+param int RSA_SK_dQ = 2*(4*nlimbsP+1)+nlimbsP;
+param int RSA_SK_qInv = 2*(4*nlimbsP+1)+2*nlimbsP;

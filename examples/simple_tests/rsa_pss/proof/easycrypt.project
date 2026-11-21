@@ -1,0 +1,7 @@
+[general]
+provers = CVC5@1.3
+provers = Z3@4.13
+
+idirs = ../../../../proof
+idirs = xtr
+idirs = .

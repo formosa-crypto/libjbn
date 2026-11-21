@@ -19,7 +19,7 @@ usage:   $ ./gen.sh TYPE DEST_DIR MIN_LIMBS MAX_LIMBS NUMBER_TESTS
 
  notes:
   * to compile _build/libjbn_d_4_1.jazz run:
-   * jasminc -I Libjbn:${top}/src _build/libjbn_d_4_1.jazz -o _build/libjbn_d_4_1.s
+   * jasminc -I Libjbn=${top}/src/amd64/ref _build/libjbn_d_4_1.jazz -o _build/libjbn_d_4_1.s
 
 END
   exit

@@ -1,95 +1,58 @@
-# -*- Makefile -*-
+# EasyCrypt proofs of libjbn.
+#
+# The module M of each theory below is generated from the extraction of
+# the corresponding Jasmin module (scripts/xtr_sync.py), between the
+# markers "BEGIN generated" / "END generated":
+#
+#   make update      re-extract and regenerate the modules M
+#   make check-sync  fail if a module M is out of date (e.g. in CI)
+#   make checkxtr    sanity checks: each theory, cloned at the dummy sizes
+#                    of the extraction, has the extracted code as its
+#                    module M (equiv ... by sim, for every procedure)
+#   make check       compile the theories
+#   make             check-sync, checkxtr and check
 
-# --------------------------------------------------------------------
-ECROOT   ?=
-ECCHECK  ?=
-ECARGS   ?=
-ECJOBS   ?= 1
-ECCONF   := tests.config 
-XUNITOUT ?= xunit.xml
-CHECKS   ?= all
-CI       ?= 0
-export CI
+ROOT    = ..
+XTRDIR  = $(ROOT)/src/amd64/ref/extracted
+SYNC    = python3 $(ROOT)/scripts/xtr_sync.py
+EC     ?= easycrypt
+ECFLAGS = -I . -I $(XTRDIR)
 
-ifeq ($(ECCHECK),)
-ifeq ($(ECROOT),)
-ECCHECK := ec-runtest
-else
-PATH    := ${ECROOT}:${PATH}
-ECCHECK := $(ECROOT)/scripts/testing/runtest
-endif
-endif
+# theory keys of scripts/xtr_sync.py, and their files (in dependency order)
+THEORIES = bn_util bn_base bn_rnd bn_mul bn_mul_loop bn_mulx bn_mulx_loop bn_mulxr \
+           bn_mulsel bn_exp fp_base fp_mont
+FILES    = Bn_util.ec Bn_base.eca Bn_rnd.eca Bn_mul.eca Bn_mul_loop.eca Bn_mulx.eca \
+           Bn_mulx_loop.eca Bn_mulxr.eca Bn_mulsel.eca Fp_ctx.eca Bn_exp.eca \
+           Fp_base.eca Fp_mont.eca
 
-# --------------------------------------------------------------------
-SRC    := ../src
-PROOF  := .
+CHECKDIR = checkxtr
 
-ECMK   := $(filter-out $(addprefix ../src/,$(EXCLUDE)), $(dir $(shell find $(SRC) -name 'Ec.mk')))
-JAZZ   := $(filter-out $(addprefix ../src/,$(EXCLUDE)), $(sort $(dir $(shell find $(SRC) -name '*.jazz'))))
+all: check-sync checkxtr check
 
-# --------------------------------------------------------------------
-.PHONY: default usage check check-xunit extract $(ECMK) $(JAZZ) clean-ci clean distclean check.tar.gz ecfiles.tar.gz report err
+extract:
+	$(MAKE) -C $(ROOT)/src/amd64/ref extract
 
-default: check
-ifeq ($(CI),1)
-	$(MAKE) check.tar.gz
-	$(MAKE) ecfiles.tar.gz
-	$(MAKE) report
-	$(MAKE) err
-endif
+update: extract
+	$(SYNC) update $(THEORIES)
 
-usage:
-	@echo "Usage: make <target> where <target> in [check|check-xunit]" >&2
+check-sync: extract
+	$(SYNC) check $(THEORIES)
+
+checkxtr: extract
+	mkdir -p $(CHECKDIR)
+	for t in $(THEORIES); do \
+	  $(SYNC) checkxtr $$t -o $(CHECKDIR)/$${t}_checkXtr.ec || exit 1; \
+	done
+	for t in $(THEORIES); do \
+	  $(EC) compile -no-eco $(ECFLAGS) $(CHECKDIR)/$${t}_checkXtr.ec || exit 1; \
+	done
 
 check: extract
-	$(ECCHECK) $(ECCONF) $(CHECKS)
-
-extract: $(JAZZ) $(ECMK)
-
-$(JAZZ):
-	$(MAKE) -C $@ extract_s || true
-	$(MAKE) -C $@ extract_ct || true
-
-$(ECMK):
-	$(MAKE) -C $@ -f Ec.mk extract_s || true
-	$(MAKE) -C $@ -f Ec.mk extract_ct || true
-
-# --------------------------------------------------------------------
-
-clean-ci:
-	for i in $(JAZZ); do $(MAKE) -C $$i clean-ci; done
-	for i in $(ECMK); do $(MAKE) -C $$i -f Ec.mk clean-ci; done
+	for f in $(FILES); do \
+	  $(EC) compile -no-eco $(ECFLAGS) $$f || exit 1; \
+	done
 
 clean:
-	rm -f $(shell find $(PROOF) -name '*.eco')
+	rm -rf $(CHECKDIR) *.eco
 
-distclean: clean clean-ci
-	rm -f $(shell find $(PROOF) -name 'Array*.ec')
-	rm -f $(shell find $(PROOF) -name 'WArray*.ec')
-	rm -f $(shell find $(PROOF) -name '*_s.ec')
-	rm -f $(shell find $(PROOF) -name '*_ct.ec')
-	rm -f check.tar.gz ecfiles.tar.gz
-
-# --------------------------------------------------------------------
-ifeq ($(CI),1)
-
-ECFILES := $(sort $(dir $(shell find $(PROOF) -name '*.ec')))
-ERR     := $(shell find $(SRC) -name '*.ec.error')
-CIL     := $(shell find $(SRC) -name '.ci')
-
-check.tar.gz:
-	@tar -zcvf $@ $(CIL)
-
-ecfiles.tar.gz:
-	@tar -zcvf $@ $(PROOF)/tests.config $(ECFILES)
-
-report:
-	./../scripts/ci/jproof
-
-err:
-ifneq ($(words $(ERR)),0)
-	$(error $(ERR))
-endif
-
-endif
-
+.PHONY: all extract update check-sync checkxtr check clean

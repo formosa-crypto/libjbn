@@ -1,0 +1,26 @@
+/* libjbn instance for the SIKE-P503 prime field (Montgomery form, 8 limbs).
+
+   Layout (see README): the top level is the scope of the exports; the
+   working size (nlimbs = 8) is the size scope H. Each module is
+   instantiated exactly once.
+*/
+
+namespace UTIL { from Libjbn require "bn_util.jinc" }
+
+namespace H {
+  param int nlimbs = 8;
+
+  namespace BN  { from Libjbn require "bn_base@n.jinc" }
+  namespace RND { from Libjbn require "bn_rnd@n.jinc" }
+  namespace MUL { from Libjbn require "bn_mul@n.jinc" }
+
+  namespace FPM {
+    from Libjbn require "fp_mul_ps@fp.jinc"
+    from Libjbn require "fp_mont@fp.jinc"
+    from Libjbn require "params/sike/sike503@n.jinc"  // glob_ctx, the modulus
+                                                       // of the fp_* exports
+  }
+}
+
+/* C entry points */
+from Libjbn require "bn_base_export@2n.jinc" "fp_mont_export@2n.jinc"

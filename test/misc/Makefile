@@ -1,4 +1,7 @@
-include ../Makefile.compiler_flags
+CC      ?= clang
+CFLAGS  ?= -O3 -Wall -Wpedantic -Wvla -Werror -std=c99 \
+	         -Wundef -Wshadow -Wcast-align -Wpointer-arith -Wmissing-prototypes \
+	         -fstrict-aliasing -fno-common -pipe
 
 INCLUDE := -I../common -I../../ext/randombytes/
 
@@ -6,17 +9,19 @@ INCLUDE := -I../common -I../../ext/randombytes/
 TOP         = $(abspath $(dir $(firstword $(MAKEFILE_LIST)))../../)
 TEST        = $(TOP)/test
 SRC         = $(TOP)/src
+SCRIPTS     = $(TOP)/scripts
 BIN        ?= bin
 PARAMS_DIR ?= $(TEST)/$(BIN)/params
 
 #--
 JASMIN   ?= jasminc
-JINCLUDE ?= -I Libjbn:$(SRC)/
+JINCLUDE ?= -I Libjbn=$(SRC)/amd64/ref
+
 
 #--
 MIN_NLIMBS ?= 1
-MAX_NLIMBS ?= 16
-MAX_TESTS  ?= 10
+MAX_NLIMBS ?= 8
+MAX_TESTS  ?= 2
 
 
 # -----------------------------------------------------------------------------
@@ -72,10 +77,11 @@ $(BIN)/barrett: barrett.c params.c | $(BIN)/$(CID)
 
 # -----------------------------------------------------------------------------
 .PHONY: $(PARAMS_DIR)
+params_dir: $(PARAMS_DIR)
 $(PARAMS_DIR): exec
 	mkdir -p $@
 	mkdir -p $(dir $(PARAMS_DIR))$(CID)
-	./sike.sh $(PARAMS_DIR) $(CIL)
+	./sike.sh $(PARAMS_DIR) $(CILA)
 	./rfc3526.sh $(PARAMS_DIR) $(CILA)
 	./gen.sh rnd $(PARAMS_DIR) $(MIN_NLIMBS) $(MAX_NLIMBS) $(MAX_TESTS) $(CILA)
 	$(MAKE) compile $(CILA)

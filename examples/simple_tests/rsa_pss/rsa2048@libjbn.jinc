@@ -1,0 +1,210 @@
+/* rsa2048 code constructed on top of Libjbn
+
+  Assumed context (required in the 32-limb size scope, see rsa2048.jazz):
+  - definitions of "rsa2048_params.jinc"
+  - LIBJBN modules:
+     BN, MUL, FPM (with FPM::EXPE)  - 32 limbs (n)
+     H::BN, H::MUL, H::FPM          - 16 limbs (p, q)
+  The primitives take the expanded keys (RSA_PK, RSA_SK), which hold the
+  contexts of n, p and q; __RSA_expand_pk/__RSA_expand_sk compute them from
+  the keys (_ctx_init_).
+
+  Reg ptrs live across the field calls exhaust the registers: the pointers
+  are kept on the stack (_s, _sk, ...) and the parts of a key are taken just
+  before each call.
+*/
+
+
+/* The context of a modulus of each size, as local functions: inlined on a
+   part of a key at a non-zero offset (ctx_q in RSA_SK), _ctx_init_ is
+   refused by the stack allocation ("the region associated to variable ...
+   is partial", jasminc 2026.09.0); a local function sees its argument at
+   offset 0. */
+fn _ctx_init_N
+( reg mut ptr u64[FPM::CTXLEN] ctx
+, reg const ptr u64[nlimbsN] n
+) -> reg ptr u64[FPM::CTXLEN]
+{
+  ctx = FPM::_ctx_init_(ctx, n);
+  return ctx;
+}
+
+fn _ctx_init_P
+( reg mut ptr u64[H::FPM::CTXLEN] ctx
+, reg const ptr u64[nlimbsP] p
+) -> reg ptr u64[H::FPM::CTXLEN]
+{
+  ctx = H::FPM::_ctx_init_(ctx, p);
+  return ctx;
+}
+
+/* the expanded public key PK = (ctx_n, e) of pk = (n, e) */
+inline fn __RSA_expand_pk
+( reg mut ptr RSA_PK PK
+, reg const ptr RSA_pubkey pk
+) -> reg ptr RSA_PK
+{
+  inline int i;
+  stack ptr RSA_pubkey _pk;
+  reg ptr u64[FPM::CTXLEN] ctx;
+  reg ptr u64[nlimbsN] n;
+  reg u64 t;
+
+  _pk = pk;
+  ctx = PK[RSA_PK_CTXN:FPM::CTXLEN];
+  n = pk[RSA_pubkey_N:nlimbsN];
+  ctx = _ctx_init_N(ctx, n);
+  PK[RSA_PK_CTXN:FPM::CTXLEN] = ctx;
+
+  pk = _pk;
+  for i = 0 to nlimbsE {
+    t = pk[RSA_pubkey_E + i];
+    PK[RSA_PK_E + i] = t;
+  }
+  return PK;
+}
+
+/* the expanded private key SK = (ctx_p, ctx_q, dP, dQ, qInv) of
+   sk = (p, q, dP, dQ, qInv) */
+inline fn __RSA_expand_sk
+( reg mut ptr RSA_SK SK
+, reg const ptr RSA_privkey sk
+) -> reg ptr RSA_SK
+{
+  stack ptr RSA_privkey _sk;
+  reg ptr u64[H::FPM::CTXLEN] ctx;
+  reg ptr u64[nlimbsP] x y;
+
+  _sk = sk;
+  ctx = SK[RSA_SK_CTXP:H::FPM::CTXLEN];
+  x = sk[RSA_privkey_P:nlimbsP];
+  ctx = _ctx_init_P(ctx, x);
+  SK[RSA_SK_CTXP:H::FPM::CTXLEN] = ctx;
+
+  sk = _sk;
+  ctx = SK[RSA_SK_CTXQ:H::FPM::CTXLEN];
+  x = sk[RSA_privkey_Q:nlimbsP];
+  ctx = _ctx_init_P(ctx, x);
+  SK[RSA_SK_CTXQ:H::FPM::CTXLEN] = ctx;
+
+  sk = _sk;
+  x = SK[RSA_SK_dP:nlimbsP];
+  y = sk[RSA_privkey_dP:nlimbsP];
+  x = H::BN::_mov_(x, y);
+  SK[RSA_SK_dP:nlimbsP] = x;
+  x = SK[RSA_SK_dQ:nlimbsP];
+  y = sk[RSA_privkey_dQ:nlimbsP];
+  x = H::BN::_mov_(x, y);
+  SK[RSA_SK_dQ:nlimbsP] = x;
+  x = SK[RSA_SK_qInv:nlimbsP];
+  y = sk[RSA_privkey_qInv:nlimbsP];
+  x = H::BN::_mov_(x, y);
+  SK[RSA_SK_qInv:nlimbsP] = x;
+
+  return SK;
+}
+
+/* RSAVP1: y = s^e mod n, with PK = (ctx_n, e) */
+inline fn __RSAVP1
+( reg mut ptr u64[nlimbsN] y
+, reg const ptr u64[nlimbsN] s
+, reg const ptr RSA_PK pk
+) -> reg ptr u64[nlimbsN]
+{
+  stack u64[nlimbsN] x;
+  stack ptr RSA_PK _pk;
+  reg ptr u64[FPM::CTXLEN] ctx_n;
+  reg ptr u64[nlimbsE] e;
+
+  _pk = pk;
+  x = BN::_mov_(x, s);
+
+  ctx_n = pk[RSA_PK_CTXN:FPM::CTXLEN];
+  x = FPM::_toM_(x, ctx_n);
+  pk = _pk;
+  e = pk[RSA_PK_E:nlimbsE];
+  ctx_n = pk[RSA_PK_CTXN:FPM::CTXLEN];
+  y = FPM::EXPE::_expmLR_noct_(y, x, e, ctx_n);
+  pk = _pk;
+  ctx_n = pk[RSA_PK_CTXN:FPM::CTXLEN];
+  y = FPM::_fromM_(y, ctx_n);
+
+  return y;
+}
+
+/* r = (c mod X)^dX * R mod X (Montgomery form modulo X), for c < X * R,
+   with ctxX the context of X */
+inline fn _crt_exp
+( reg mut ptr u64[nlimbsP] r
+, reg const ptr u64[nlimbsN] c
+, reg const ptr u64[nlimbsP] dX
+, reg const ptr u64[H::FPM::CTXLEN] ctxX
+) -> reg ptr u64[nlimbsP] {
+  stack u64[nlimbsP] cX;
+
+  cX = H::FPM::_redM_(cX, c, ctxX);   // c * R^-1 mod X
+  cX = H::FPM::_toM_(cX, ctxX);        // c mod X
+  cX = H::FPM::_toM_(cX, ctxX);        // toM
+  r = H::FPM::EXP::_expm_(r, cX, dX, ctxX);
+
+  return r; // result in Mont. form
+}
+
+/* RSASP1 (CRT): s = m^d mod n, with SK = (ctx_p, ctx_q, dP, dQ, qInv); m is
+   passed in s */
+inline fn __RSASP1_crt
+( reg mut ptr u64[nlimbsN] s
+, reg const ptr RSA_SK sk
+) -> reg ptr u64[nlimbsN] /* s */
+{
+  stack u64[nlimbsN] tmp;
+  stack u64[nlimbsP] _sP _t;
+  stack ptr u64[nlimbsN] _s;
+  stack ptr RSA_SK _sk;
+  reg ptr u64[H::FPM::CTXLEN] ctx;
+  reg ptr u64[nlimbsP] x y;
+
+  _s = s;
+  _sk = sk;
+
+  // s_1 = m^dP mod p
+  x = _sP; y = sk[RSA_SK_dP:nlimbsP]; ctx = sk[RSA_SK_CTXP:H::FPM::CTXLEN];
+  x = _crt_exp(x, s, y, ctx);
+  _sP = x;
+  // sP in Mont. form (mod p)
+
+  // s_2 = m^dQ mod q, in the lower half of tmp
+  s = _s; sk = _sk;
+  x = tmp[0:nlimbsP]; y = sk[RSA_SK_dQ:nlimbsP]; ctx = sk[RSA_SK_CTXQ:H::FPM::CTXLEN];
+  x = _crt_exp(x, s, y, ctx);
+  sk = _sk; ctx = sk[RSA_SK_CTXQ:H::FPM::CTXLEN];
+  x = H::FPM::_fromM_(x, ctx);
+  tmp[0:nlimbsP] = x;
+  // s_2, not in Mont. form
+
+  // Let h = (s_1 - s_2) * qInv mod p.
+  y = _t; x = tmp[0:nlimbsP];
+  y = H::BN::_mov_(y, x);
+  sk = _sk; ctx = sk[RSA_SK_CTXP:H::FPM::CTXLEN];
+  y = H::FPM::_toM_(y, ctx);           // s_2 mod p, in Mont. form (mod p)
+  x = _sP;
+  sk = _sk; ctx = sk[RSA_SK_CTXP:H::FPM::CTXLEN];
+  x = H::FPM::_submU_(x, y, ctx);
+  sk = _sk; y = sk[RSA_SK_qInv:nlimbsP]; ctx = sk[RSA_SK_CTXP:H::FPM::CTXLEN];
+  x = H::FPM::_mulmU_(x, y, ctx);
+  _sP = x;
+  // h, not in Mont. form
+
+  // Let s = s_2 + q * h.
+  s = _s; sk = _sk;
+  x = _sP; y = sk[RSA_SK_Q:nlimbsP];
+  s = H::MUL::_muln_(s, x, y);
+  _s = s;
+  x = tmp[nlimbsP:nlimbsP];
+  x = H::BN::_set0_(x);
+  tmp[nlimbsP:nlimbsP] = x;
+  s = _s;
+  _, s = BN::_addU_(s, tmp);
+
+  return s;
+}

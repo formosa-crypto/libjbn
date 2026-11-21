@@ -1,6 +1,4 @@
 *.eco
-*_s.ec
-*_ct.ec
-*Array*.ec
-check.tar.gz
-ecfiles.tar.gz
+Array[0-9]*.ec
+WArray[0-9]*.ec
+checkxtr/

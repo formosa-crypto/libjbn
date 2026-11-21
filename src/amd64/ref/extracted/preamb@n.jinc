@@ -1,0 +1,16 @@
+/* Dummy parameters for the abstract extraction (see libjbn_abs.jazz):
+   required inside the size scope H (nlimbs = 11); the function parameters
+   (fun_*) are stubs in libjbn_abs.jazz, and the field constants are passed
+   in contexts (fp_ctx@n.jinc: 4*nlimbs+1 = 45 words). After extraction,
+   the numerals 11, 13, 17, 19, 22, ... are replaced by the abstract parameters
+   (scripts/xtr_sync.py). */
+
+param int nlimbsexp = 13;
+
+/* the profile (src/amd64/ref/profiles): features and thresholds become
+   the abstract parameters jbn_features, jbn_reg_max and jbn_unroll_max of
+   the theories (19 has the bits of BMI2 and ADX, and 11 <= 17 <= 23, but
+   no value matters: the proofs cover every branch of the selection) */
+param int JBN_FEATURES = 19;
+param int JBN_REG_MAX = 23;
+param int JBN_UNROLL_MAX = 17;

@@ -1,0 +1,136 @@
+/* RSA-PSS example key pair (layout in rsa2048_params.jinc) */
+
+require "rsa2048_params.jinc"
+
+/** Example public key (n, e) */
+u64[nlimbsPK] pk_test =
+ { /* n */
+   0xcbb92bc364f23f71
+ , 0xb75a1c69e7f884d0
+ , 0x934fe72b526ec865
+ , 0x7cdefc0564cc64a7
+ , 0xb58972a454eb0541
+ , 0xde55dcabded4c53c
+ , 0x42b0a463f211a864
+ , 0x985856c528dba971
+ , 0x4fa856be45e6ec39
+ , 0xb29d08c410994fdd
+ , 0xbb6b9f2ebad7cec6
+ , 0xf967bdee3bf830dc
+ , 0x89011716d2546247
+ , 0x683fdd926000a441
+ , 0xcbab2cf4810cbf81
+ , 0xc10b735255a7cf5c
+ , 0x5e76b73353164e99
+ , 0x7ef458321311826c
+ , 0xbf9aa5ae50fbb27f
+ , 0xf7ddf24a6b605b4b
+ , 0xa6b9d14e4334b494
+ , 0xce6567beab315673
+ , 0x2e3bbf48a83f1fb5
+ , 0xbc61bcc07187fa60
+ , 0x0daad9e7ead42683
+ , 0x9d417f453ad44553
+ , 0xa4a405cc468ca061
+ , 0x3bca58f16068a452
+ , 0x4b8155d97f84c1dc
+ , 0xd613c7d14ecfa51b
+ , 0x2bd4e48457815add
+ , 0xe8a9ed74477a1f25
+   /* e */
+ , 0x0000000000010001
+ , 0x0000000000000000
+ , 0x0000000000000000
+ , 0x0000000000000000
+ };
+
+/** Example secret key (p, q, dP, dQ, qInv) */
+u64[nlimbsSK] sk_test =
+ {
+   /* p */
+   0xaf4f541046c7c51f
+ , 0xd4160eeba7cfe53e
+ , 0xbc55d6132f7b8409
+ , 0x8f43db11c83a59c2
+ , 0x4179a56bb2d9f559
+ , 0xc075bc97363252d5
+ , 0x23497108983ed7de
+ , 0x83e3977758baa7e9
+ , 0x9488465dc73c363d
+ , 0xba6250ee79dc9a14
+ , 0xdba86f8ea5ec6c79
+ , 0xa795e863fb9b6010
+ , 0x2fe522fabeb3acad
+ , 0x09deb48588c0d523
+ , 0xff941d2ba6e375ac
+ , 0xedad9e0890f28604
+   /* q */
+ , 0xdca782a979b4596f
+ , 0x2bd064b894bd059b
+ , 0xc9752ad381567543
+ , 0xa80ac511c68d071c
+ , 0x5a3a725113107520
+ , 0x9b533edede4f5cb0
+ , 0x52ab542747d3237f
+ , 0x7c9381d072f226a3
+ , 0xee651250b331e74f
+ , 0x5160b8565474a9be
+ , 0x8927bcfa36679356
+ , 0x183dda841f070655
+ , 0x3eee6c83b418e505
+ , 0x398d8c2147be4405
+ , 0xcce6d4592f3c183b
+ , 0xfa995add432cff04
+   /* dP */
+ , 0xbc41af712b1ab6f7
+ , 0x3d95855a81889003
+ , 0x4b6c06ecb2f1fb0b
+ , 0xe6741a21f143abd9
+ , 0x1c301743eacf40fa
+ , 0x51ba190a244b0a7a
+ , 0x5b56256c774d4dd8
+ , 0x86286317cf05db9e
+ , 0x98d1b97859eb6235
+ , 0x6920491e57938bfc
+ , 0x66bc53354357166e
+ , 0x2ab7c85697cb940f
+ , 0xaa0fbb7d9bf33987
+ , 0x6aa1cc087b6ca038
+ , 0xa77913c52e2451e1
+ , 0x39debd0ccee60e15
+    /* dQ */
+ , 0xc10eeb06210b44e7
+ , 0x4653959cc1a5a59d
+ , 0x2d4b52c094c1e730
+ , 0xa4d0374ec3de1784
+ , 0xb060727314ac3f0f
+ , 0x6acd906f3a16b48d
+ , 0x0860618e669f6fda
+ , 0xe174d7237ccf635b
+ , 0xae0dd76e8c3a709f
+ , 0x8ec835cf220d1a29
+ , 0xc7dafbc342a76de9
+ , 0xa9325563258646f1
+ , 0xf622c69f830b0595
+ , 0xc8300fcc97748ede
+ , 0x3c73ae37b7e25cd6
+ , 0xb0575bb6597fff50
+   /* qInv */
+ , 0xfeb8c5e39896b0a0
+ , 0x72647fdafeeacd80
+ , 0x9a05582709b0a8c0
+ , 0x149e304bbe50a22a
+ , 0xdcd7fc38c611f01a
+ , 0x4819cf77a4e0d564
+ , 0x7b2bd513c6b2b9b8
+ , 0xdec07cbbe8b2223e
+ , 0xbd772131f20fb3d0
+ , 0xfb711e3978ee2f34
+ , 0xc06bf09303ee6c69
+ , 0x3858cda19c446e4a
+ , 0xd4fb1dd509a4a583
+ , 0x45751460f54df31c
+ , 0x37066441fc384b38
+ , 0x7e74a07ee67e1768
+ };
+

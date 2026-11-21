@@ -1,0 +1,45 @@
+/* libjbn -- bn_karatsuba_export: C entry points for bn_karatsuba.
+
+   Required at the top level (the 4n scope), so that symbols are unqualified.
+   Expects:   H::nlimbs, H::BN::, H::KAR:: // operand size 2n (KAR's scope)
+              BN::                         // size 4n (store of results)
+*/
+
+export fn bn_kar_muln(reg u64 rp ap bp)
+{
+  stack u64[H::nlimbs] _a _b;
+  stack u64[nlimbs] _r;
+  stack u64 _rp;
+  reg ptr u64[H::nlimbs] a b;
+  reg ptr u64[nlimbs] r;
+
+  _rp = rp;
+  a = _a;
+  a = H::BN::_load_(a,ap);
+  b = _b;
+  b = H::BN::_load_(b,bp);
+  r = _r;
+  r = H::KAR::_kar_muln_(r, a, b);
+  rp = _rp;
+  BN::_store_(rp, r);
+}
+
+/*
+export fn bn_kar_sqrn(reg u64 rp ap)
+{
+  stack u64[H::nlimbs] _a;
+  stack u64[nlimbs] _r;
+  stack u64 _rp;
+  reg ptr u64[H::nlimbs] a;
+  reg ptr u64[nlimbs] r;
+
+  _rp = rp;
+  a = _a;
+  a = H::BN::_load_(a, ap);
+  r = _r;
+  r = H::KAR::_kar_sqrn_(r, a);
+  rp = _rp;
+  BN::_store_(rp, r);
+}
+*/
+

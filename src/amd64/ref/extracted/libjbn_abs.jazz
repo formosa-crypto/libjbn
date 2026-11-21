@@ -1,0 +1,84 @@
+/* Abstract instantiation of every libjbn module, for extraction to
+   EasyCrypt (see Makefile and README, "Extraction for the proofs").
+
+   Same layout as any other program (README): the top level is the 2n scope,
+   H is the size scope n. Integer parameters are dummies (nlimbs = 11,
+   preamb@n.jinc, which also has the dummy profile); function parameters (fun_*) are stubs, so that
+   each module is extracted against abstract arguments. Each stub is declared
+   inside the namespace of the module that uses it: Jasmin does not allow a
+   function to shadow a function visible from an enclosing namespace, and
+   fp_base/fp_mont define their own fun_mulU/fun_sqrU/fun_red.
+*/
+
+param int nlimbs = 2*11;
+
+from Libjbn require "jbn_features.jinc"   // (a profile requires it)
+
+namespace UTIL { from Libjbn require "bn_util.jinc" }
+
+namespace H {
+  param int nlimbs = 11;
+  require "preamb@n.jinc"            // nlimbsexp, JBN_FEATURES, JBN_UNROLL_MAX
+
+  namespace BN     { from Libjbn require "bn_base@n.jinc" }
+  namespace RND    { from Libjbn require "bn_rnd@n.jinc" }
+  // the selector, which instantiates bn_mul, bn_mul_loop, bn_mulx,
+  // bn_mulx_loop and bn_mulxr in MUL::UNR, MUL::LOOP, MUL::XUNR, MUL::XLOOP
+  // and MUL::XREG; the fields (FPM) use its __mont_redM
+  namespace MUL    { from Libjbn require "bn_mulsel@n.jinc" }
+  namespace MULREG { from Libjbn require "bn_mulreg@n.jinc" }
+
+  namespace EXP {
+    from Libjbn require "fp_ctx@n.jinc"   // CTXLEN, CTX_ONE
+    fn fun_mulU
+    ( reg mut ptr u64[nlimbs] a
+    , reg const ptr u64[nlimbs] b
+    , reg const ptr u64[CTXLEN] ctx
+    ) -> reg ptr u64[nlimbs] { b=b; ctx=ctx; return a; }
+    fn fun_sqrU
+    ( reg mut ptr u64[nlimbs] a
+    , reg const ptr u64[CTXLEN] ctx
+    ) -> reg ptr u64[nlimbs] { ctx=ctx; return a; }
+    from Libjbn require "bn_exp@exp.jinc"
+  }
+
+  namespace FP {
+    fn fun_muln
+    ( reg mut ptr u64[2*nlimbs] r
+    , reg const ptr u64[nlimbs] a b
+    ) -> reg ptr u64[2*nlimbs] { a=a; b=b; return r; }
+    fn fun_sqrn
+    ( reg mut ptr u64[2*nlimbs] r
+    , reg const ptr u64[nlimbs] a
+    ) -> reg ptr u64[2*nlimbs] { a=a; return r; }
+    from Libjbn require "fp_ctx@n.jinc"   // CTXLEN (for the stub below)
+    fn fun_red
+    ( reg mut ptr u64[nlimbs] r
+    , reg const ptr u64[2*nlimbs] a
+    , reg const ptr u64[CTXLEN] ctx
+    ) -> reg ptr u64[nlimbs] { a=a; ctx=ctx; return r; }
+    from Libjbn require "fp_base@fp.jinc"
+  }
+
+  namespace FPM {
+    fn fun_muln
+    ( reg mut ptr u64[2*nlimbs] r
+    , reg const ptr u64[nlimbs] a b
+    ) -> reg ptr u64[2*nlimbs] { a=a; b=b; return r; }
+    fn fun_sqrn
+    ( reg mut ptr u64[2*nlimbs] r
+    , reg const ptr u64[nlimbs] a
+    ) -> reg ptr u64[2*nlimbs] { a=a; return r; }
+    from Libjbn require "fp_mont@fp.jinc"
+  }
+}
+
+namespace BN { from Libjbn require "bn_base@n.jinc" }        // size 2n (BN2 in the theories)
+
+namespace KAR {
+  fn fun_kmuln
+  ( reg mut ptr u64[nlimbs] r
+  , reg const ptr u64[H::nlimbs] a b
+  ) -> reg ptr u64[nlimbs] { a=a; b=b; return r; }
+  from Libjbn require "bn_karatsuba@2n.jinc"
+}

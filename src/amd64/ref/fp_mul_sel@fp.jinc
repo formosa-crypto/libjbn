@@ -1,0 +1,30 @@
+/* libjbn -- fp_mul_sel: binds the multiplication parameters of a field to
+   the multiplication and squaring selected by bn_mulsel (README, "Profiles
+   and the selection of the multiplication").
+
+   Library module, i.e. template (see README, sections 1 and 2): it is meant
+   to be `require`d inside a namespace, which becomes the instance; the tag
+   in the file name (@fp) gives the kind of namespace. Names below are
+   resolved by Jasmin's outward namespace lookup.
+
+   Instance:  required inside a field namespace, before fp_mont (or fp_base)
+   Expects:   param int nlimbs;
+              MUL::                        // bn_mulsel, same size
+   Provides:  fun_muln fun_sqrn            // inline, hence free
+*/
+
+inline fn fun_muln
+( reg mut ptr u64[2*nlimbs] r
+, reg const ptr u64[nlimbs] a b
+) -> reg ptr u64[2*nlimbs] {
+  r = MUL::_muln_(r, a, b);
+  return r;
+}
+
+inline fn fun_sqrn
+( reg mut ptr u64[2*nlimbs] r
+, reg const ptr u64[nlimbs] a
+) -> reg ptr u64[2*nlimbs] {
+  r = MUL::_sqrn_(r, a);
+  return r;
+}

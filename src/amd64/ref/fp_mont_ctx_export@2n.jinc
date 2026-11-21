@@ -1,0 +1,211 @@
+/* libjbn -- fp_mont_ctx_export: C entry points for a Montgomery field whose
+   modulus is given at run time.
+
+   Required at the top level (the 2n scope), so that symbols are unqualified.
+   Expects:   H::nlimbs, H::BN::, H::FPM::  // working size n, field FPM
+   Provides:  fpc_ctx_init(ctx, P): the context of P (odd, 1 < P < 2^(64*n)),
+              in constant time; a context has 4*n+1 words (fp_ctx@n.jinc).
+              The other fpc_* entry points take a context as their last
+              argument (fpc_inv and the _noct exponentiation assume a public
+              P, see fp_base).
+
+   The context is an array argument: the field code reads it where the
+   caller keeps it, without a copy (it must not overlap the result). The
+   operands are copied in and the result out, as in the other exports, so
+   they may overlap each other (e.g. fpc_mul(x, x, y, ctx)).
+*/
+
+/* ctx = the context of P */
+export fn fpc_ctx_init
+( reg mut ptr u64[H::FPM::CTXLEN] ctx
+, reg u64 pp
+) -> reg ptr u64[H::FPM::CTXLEN]
+{
+  stack u64[H::nlimbs] _p;
+  reg ptr u64[H::nlimbs] p;
+  stack ptr u64[H::FPM::CTXLEN] _ctx;
+
+  _ctx = ctx;
+  p = _p;
+  p = H::BN::_load_(p, pp);
+  ctx = _ctx;
+  ctx = H::FPM::_ctx_init_(ctx, p);
+  return ctx;
+}
+
+/* r = a + b mod P */
+export fn fpc_add(reg u64 rp ap bp, reg const ptr u64[H::FPM::CTXLEN] ctx)
+{
+  stack u64[H::nlimbs] _a _b;
+  reg ptr u64[H::nlimbs] a b;
+  stack u64 _rp;
+  stack ptr u64[H::FPM::CTXLEN] _ctx;
+
+  _rp = rp;
+  _ctx = ctx;
+  a = _a;
+  a = H::BN::_load_(a, ap);
+  b = _b;
+  b = H::BN::_load_(b, bp);
+  ctx = _ctx;
+  a = H::FPM::_addmU_(a, b, ctx);
+  rp = _rp;
+  H::BN::_store_(rp, a);
+}
+
+/* r = a - b mod P */
+export fn fpc_sub(reg u64 rp ap bp, reg const ptr u64[H::FPM::CTXLEN] ctx)
+{
+  stack u64[H::nlimbs] _a _b;
+  reg ptr u64[H::nlimbs] a b;
+  stack u64 _rp;
+  stack ptr u64[H::FPM::CTXLEN] _ctx;
+
+  _rp = rp;
+  _ctx = ctx;
+  a = _a;
+  a = H::BN::_load_(a, ap);
+  b = _b;
+  b = H::BN::_load_(b, bp);
+  ctx = _ctx;
+  a = H::FPM::_submU_(a, b, ctx);
+  rp = _rp;
+  H::BN::_store_(rp, a);
+}
+
+/* r = a * b * R^-1 mod P (Montgomery) */
+export fn fpc_mul(reg u64 rp ap bp, reg const ptr u64[H::FPM::CTXLEN] ctx)
+{
+  stack u64[H::nlimbs] _a _b _r;
+  reg ptr u64[H::nlimbs] a b r;
+  stack u64 _rp;
+  stack ptr u64[H::FPM::CTXLEN] _ctx;
+
+  _rp = rp;
+  _ctx = ctx;
+  a = _a;
+  a = H::BN::_load_(a, ap);
+  b = _b;
+  b = H::BN::_load_(b, bp);
+  r = _r;
+  ctx = _ctx;
+  r = H::FPM::_mulm_(r, a, b, ctx);
+  rp = _rp;
+  H::BN::_store_(rp, r);
+}
+
+/* r = a^2 * R^-1 mod P (Montgomery) */
+export fn fpc_sqr(reg u64 rp ap, reg const ptr u64[H::FPM::CTXLEN] ctx)
+{
+  stack u64[H::nlimbs] _a _r;
+  reg ptr u64[H::nlimbs] a r;
+  stack u64 _rp;
+  stack ptr u64[H::FPM::CTXLEN] _ctx;
+
+  _rp = rp;
+  _ctx = ctx;
+  a = _a;
+  a = H::BN::_load_(a, ap);
+  r = _r;
+  ctx = _ctx;
+  r = H::FPM::_sqrm_(r, a, ctx);
+  rp = _rp;
+  H::BN::_store_(rp, r);
+}
+
+/* r = a^b (Montgomery form), constant time */
+export fn fpc_exp(reg u64 rp ap bp, reg const ptr u64[H::FPM::CTXLEN] ctx)
+{
+  stack u64[H::nlimbs] _a _b _r;
+  reg ptr u64[H::nlimbs] a b r;
+  stack u64 _rp;
+  stack ptr u64[H::FPM::CTXLEN] _ctx;
+
+  _rp = rp;
+  _ctx = ctx;
+  a = _a;
+  a = H::BN::_load_(a, ap);
+  b = _b;
+  b = H::BN::_load_(b, bp);
+  r = _r;
+  ctx = _ctx;
+  r = H::FPM::EXP::_expm_(r, a, b, ctx);
+  rp = _rp;
+  H::BN::_store_(rp, r);
+}
+
+/* r = a^b (Montgomery form), variable time in b */
+export fn fpc_exp_noct(reg u64 rp ap bp, reg const ptr u64[H::FPM::CTXLEN] ctx)
+{
+  stack u64[H::nlimbs] _a _b _r;
+  reg ptr u64[H::nlimbs] a b r;
+  stack u64 _rp;
+  stack ptr u64[H::FPM::CTXLEN] _ctx;
+
+  _rp = rp;
+  _ctx = ctx;
+  a = _a;
+  a = H::BN::_load_(a, ap);
+  b = _b;
+  b = H::BN::_load_(b, bp);
+  r = _r;
+  ctx = _ctx;
+  r = H::FPM::EXP::_expm_noct_(r, a, b, ctx);
+  rp = _rp;
+  H::BN::_store_(rp, r);
+}
+
+/* r = a^-1 (Montgomery form), P prime and public */
+export fn fpc_inv(reg u64 rp ap, reg const ptr u64[H::FPM::CTXLEN] ctx)
+{
+  stack u64[H::nlimbs] _a _r;
+  reg ptr u64[H::nlimbs] a r;
+  stack u64 _rp;
+  stack ptr u64[H::FPM::CTXLEN] _ctx;
+
+  _rp = rp;
+  _ctx = ctx;
+  a = _a;
+  a = H::BN::_load_(a, ap);
+  r = _r;
+  ctx = _ctx;
+  r = H::FPM::_invm_(r, a, ctx);
+  rp = _rp;
+  H::BN::_store_(rp, r);
+}
+
+/* r = a * R mod P */
+export fn fpc_toM(reg u64 rp ap, reg const ptr u64[H::FPM::CTXLEN] ctx)
+{
+  stack u64[H::nlimbs] _a;
+  reg ptr u64[H::nlimbs] a;
+  stack u64 _rp;
+  stack ptr u64[H::FPM::CTXLEN] _ctx;
+
+  _rp = rp;
+  _ctx = ctx;
+  a = _a;
+  a = H::BN::_load_(a, ap);
+  ctx = _ctx;
+  a = H::FPM::_toM_(a, ctx);
+  rp = _rp;
+  H::BN::_store_(rp, a);
+}
+
+/* r = a * R^-1 mod P */
+export fn fpc_fromM(reg u64 rp ap, reg const ptr u64[H::FPM::CTXLEN] ctx)
+{
+  stack u64[H::nlimbs] _a;
+  reg ptr u64[H::nlimbs] a;
+  stack u64 _rp;
+  stack ptr u64[H::FPM::CTXLEN] _ctx;
+
+  _rp = rp;
+  _ctx = ctx;
+  a = _a;
+  a = H::BN::_load_(a, ap);
+  ctx = _ctx;
+  a = H::FPM::_fromM_(a, ctx);
+  rp = _rp;
+  H::BN::_store_(rp, a);
+}

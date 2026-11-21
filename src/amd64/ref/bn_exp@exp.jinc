@@ -1,0 +1,327 @@
+/* libjbn -- bn_exp: generic (modular) exponentiation.
+
+   Library module, i.e. template (see README, sections 1 and 2): it is meant
+   to be `require`d inside a namespace, which becomes the instance; the tag
+   in the file name (@exp) gives the kind of namespace. Names below are
+   resolved by Jasmin's outward namespace lookup.
+
+   Instance:  EXP (instantiated by fp_base inside each field; extra instances
+              with another exponent size may be added by the wiring)
+   Expects:   param int nlimbs;
+              param int nlimbsexp;         // number of limbs of the exponent
+              param int CTXLEN CTX_ONE;    // the context: its size, and the
+                                           // offset of the representation of 1
+                                           // (fp_ctx@n.jinc)
+              fn fun_mulU (reg mut ptr u64[nlimbs], reg const ptr u64[nlimbs],
+                           reg const ptr u64[CTXLEN]) -> reg ptr u64[nlimbs]
+              fn fun_sqrU (reg mut ptr u64[nlimbs], reg const ptr u64[CTXLEN])
+                          -> reg ptr u64[nlimbs]
+              UTIL::  BN::                 // bn_util, bn_base (same size)
+   Provides:  _expm_noct_ _expmU_noct_ _expm_ _expmU_ (and LR variants); all
+              take the context ctx as their last argument
+*/
+
+// ////////////////////////////////////
+
+inline fn _exp1mLR_first_noct
+( reg mut ptr u64[nlimbs] r
+, reg const ptr u64[nlimbs] x
+, reg u64 w // assumed to be non-zero!!!
+, reg const ptr u64[CTXLEN] ctx
+) -> reg ptr u64[nlimbs] {
+  reg u64 k;
+  reg bool cf;
+  stack u64 _k _w;
+  stack ptr u64[nlimbs] _x;
+  stack ptr u64[CTXLEN] _ctx;
+  _x = x;
+  _ctx = ctx;
+  k = 64;
+  _, cf, _, _, _, w = #SHL(w, 1);
+  while (!cf) {
+    k -= 1;
+    _, cf, _, _, _, w = #SHL(w, 1);
+  }
+  // most significant one-bit
+  r = BN::_mov_(r, x);
+  k -= 1;
+  // remaining bits (no register is live across the calls)
+  while (k >s 0) {
+    _k = k;
+    _w = w;
+    ctx = _ctx;
+    r = fun_sqrU(r, ctx);
+    w = _w;
+    _, cf, _, _, _, w = #SHL(w, 1);
+    _w = w;
+    if (cf) {
+      x = _x;
+      ctx = _ctx;
+      r = fun_mulU(r, x, ctx);
+    }
+    w = _w;
+    k = _k;
+    k -= 1;
+  }
+  return r;
+}
+
+inline fn _exp1mLR_noct
+( reg mut ptr u64[nlimbs] r
+, reg const ptr u64[nlimbs] x
+, reg u64 w
+, reg const ptr u64[CTXLEN] ctx
+) -> reg ptr u64[nlimbs] {
+  reg u64 k;
+  reg bool cf;
+  stack u64 _k _w;
+  stack ptr u64[nlimbs] _x;
+  stack ptr u64[CTXLEN] _ctx;
+  _x = x;
+  _ctx = ctx;
+  k = 64;
+  // (no register is live across the calls)
+  while (k >s 0) {
+    _k = k;
+    _w = w;
+    ctx = _ctx;
+    r = fun_sqrU(r, ctx);
+    w = _w;
+    _, cf, _, _, _, w = #SHL(w, 1);
+    _w = w;
+    if (cf) {
+      x = _x;
+      ctx = _ctx;
+      r = fun_mulU(r, x, ctx);
+    }
+    w = _w;
+    k = _k;
+    k -= 1;
+  }
+  return r;
+}
+
+/* Modular exponentiation
+  obs: naive LR square-multiply algorithm. Not Constant-Time!!!
+  (good enough to use with small public exponents, such as in RSAEP) */
+fn _expmLR_noct
+( reg mut ptr u64[nlimbs] r
+, reg const ptr u64[nlimbs] x
+, reg const ptr u64[nlimbsexp] e
+, reg const ptr u64[CTXLEN] ctx
+) -> reg ptr u64[nlimbs] {
+  reg ptr u64[nlimbs] exp0;
+  reg u64 i w;
+  stack u64 i_s;
+  stack ptr u64[nlimbs] _x;
+  stack ptr u64[nlimbsexp] _e;
+  stack ptr u64[CTXLEN] _ctx;
+  _x = x;
+  _e = e;
+  _ctx = ctx;
+  i = nlimbsexp - 1;
+  // ignore most significant zero-limbs
+  w = e[i];
+  while (w == 0) {
+    i -= 1;
+    if (i >=s 0) {
+      w = e[i];
+    } else {
+      w = 1;
+    }
+  }
+  if (i >=s 0) {
+    i_s = i;
+    x = _x;
+    ctx = _ctx;
+    r = _exp1mLR_first_noct(r, x, w, ctx);
+    i = i_s;
+    i -= 1;
+  } else {
+    exp0 = ctx[CTX_ONE:nlimbs];
+    r = BN::_mov_(r, exp0);
+  }
+  while (i >=s 0) {
+    e = _e;
+    w = e[i];
+    i_s = i;
+    x = _x;
+    ctx = _ctx;
+    r = _exp1mLR_noct(r, x, w, ctx);
+    i = i_s;
+    i -= 1;
+  }
+  return r;
+}
+
+inline fn _expmLR_noct_
+( reg mut ptr u64[nlimbs] r
+, reg const ptr u64[nlimbs] a
+, reg const ptr u64[nlimbsexp] b
+, reg const ptr u64[CTXLEN] ctx
+) -> reg ptr u64[nlimbs] {
+  reg ptr u64[nlimbs] exp0;
+  exp0 = ctx[CTX_ONE:nlimbs];
+  r = BN::_mov_(r, exp0);
+  a = a; b = b;
+  r = _expmLR_noct(r, a, b, ctx);
+  r = r;
+  return r;
+}
+
+/* Modular exponentiation
+  obs: naive square-multiply algorithm. Not Constant-Time!!!
+  (good enough to use with public exponents, such as in inversion) */
+fn _expm_noct
+( reg mut ptr u64[nlimbs] r
+, reg const ptr u64[nlimbs] a
+, reg const ptr u64[nlimbsexp] b
+, reg const ptr u64[CTXLEN] ctx
+) -> reg ptr u64[nlimbs] {
+  inline int j;
+  reg u64 t;
+  reg bool cf zf;
+  reg ptr u64[nlimbs] x;
+  stack u64 _k _t;
+  stack u64[nlimbs] _x;
+  stack ptr u64[nlimbsexp] _b;
+  stack ptr u64[nlimbs] _r;
+  stack ptr u64[CTXLEN] _ctx;
+
+  _b = b;
+  _ctx = ctx;
+  x = _x;
+  x = BN::_mov_(x, a);
+  _x = x;
+
+  for j = 0 to nlimbsexp {
+    b = _b;
+    t = b[j];
+    _k = 64;
+    while {
+      _, cf, _, _, _, t = #SHR(t, 1);
+      _t = t;
+      if (cf) {
+        x = _x;
+        ctx = _ctx;
+        r = fun_mulU(r, x, ctx);
+      }
+      _r = r;
+      x = _x;
+      ctx = _ctx;
+      x = fun_sqrU(x, ctx);
+      _x = x;
+      r = _r;
+      t = _t;
+      _, _, _, zf, _k = #DEC(_k);
+    } (!zf)
+  }
+  return r;
+}
+
+inline fn _expm_noct_
+( reg mut ptr u64[nlimbs] r
+, reg const ptr u64[nlimbs] a
+, reg const ptr u64[nlimbsexp] b
+, reg const ptr u64[CTXLEN] ctx
+) -> reg ptr u64[nlimbs] {
+  reg ptr u64[nlimbs] exp0;
+  exp0 = ctx[CTX_ONE:nlimbs];
+  r = BN::_mov_(r, exp0);
+  a = a; b = b;
+  r = _expm_noct(r, a, b, ctx);
+  r = r;
+  return r;
+}
+
+inline fn _expmU_noct_
+( reg mut ptr u64[nlimbs] a
+, reg const ptr u64[nlimbsexp] b
+, reg const ptr u64[CTXLEN] ctx
+) -> reg ptr u64[nlimbs] {
+  stack u64[nlimbs] _tmp;
+  reg ptr u64[nlimbs] tmp;
+  tmp = _tmp;
+  tmp = BN::_mov_(tmp, a);
+  a = _expm_noct_(a, tmp, b, ctx);
+  return a;
+}
+
+/* Modular exponentiation (constant-time) */
+fn _expm
+( reg mut ptr u64[nlimbs] x0 x1
+, reg const ptr u64[nlimbsexp] b
+, reg const ptr u64[CTXLEN] ctx
+) -> reg ptr u64[nlimbs], reg ptr u64[nlimbs] {
+  inline int j;
+  reg u64 t mask;
+  stack u64 _k _mask _t;
+  reg bool cf zf;
+  stack ptr u64[nlimbsexp] _b;
+  stack ptr u64[nlimbs] _x0 _x1;
+  stack ptr u64[CTXLEN] _ctx;
+
+  _b = b;
+  _ctx = ctx;
+
+  for j = nlimbsexp-1 downto -1  {
+    b = _b;
+    t = b[j];
+    _k = 64;
+    while {
+      _, cf, _, _, _, t = #SHL(t, 1);
+      _t = t;
+      mask = UTIL::__cf_mask(cf);
+      x0, x1 = BN::_cswap_mask_(x0, x1, mask);
+      _mask = mask;
+      _x0 = x0;
+      ctx = _ctx;
+      x1 = fun_mulU(x1, x0, ctx);
+      _x1 = x1;
+      x0 = _x0;
+      ctx = _ctx;
+      x0 = fun_sqrU(x0, ctx);
+      x1 = _x1;
+      mask = _mask;
+      x0, x1 = BN::_cswap_mask_(x0, x1, mask);
+      t = _t;
+      _, _, _, zf, _k = #DEC(_k);
+    } (!zf)
+  }
+  return x0, x1;
+}
+
+inline fn _expm_
+( reg mut ptr u64[nlimbs] x0
+, reg const ptr u64[nlimbs] a
+, reg const ptr u64[nlimbsexp] b
+, reg const ptr u64[CTXLEN] ctx
+) -> reg ptr u64[nlimbs] {
+  stack u64[nlimbs] _x1;
+  reg ptr u64[nlimbs] x1 exp0;
+  x1 = _x1;
+  x1 = BN::_mov_(x1, a);
+  exp0 = ctx[CTX_ONE:nlimbs];
+  x0 = BN::_mov_(x0, exp0);
+  b = b;
+  x0, _ = _expm(x0, x1, b, ctx);
+  x0 = x0;
+  return x0;
+}
+
+inline fn _expmU_
+( reg mut ptr u64[nlimbs] a
+, reg const ptr u64[nlimbsexp] b
+, reg const ptr u64[CTXLEN] ctx
+) -> reg ptr u64[nlimbs] {
+  stack u64[nlimbs] _x1;
+  reg ptr u64[nlimbs] x1 exp0;
+  x1 = _x1;
+  x1 = BN::_mov_(x1, a);
+  exp0 = ctx[CTX_ONE:nlimbs];
+  a = BN::_mov_(a, exp0);
+  b = b;
+  a, _ = _expm(a, x1, b, ctx);
+  a = a;
+  return a;
+}

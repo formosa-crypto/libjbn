@@ -1,0 +1,23 @@
+/* libjbn profile: x86-64, no extension (runs on every x86-64 CPU, and
+   under Rosetta). Required once, at the top level of a program, before the
+   instances (README, "Profiles and the selection of the multiplication").
+
+   JBN_FEATURES:   no BMI2/ADX, so the multiplication rows use MUL/ADC.
+   JBN_REG_MAX:    0 (bn_mulxr, the module it selects, needs BMI2/ADX).
+   JBN_UNROLL_MAX: the multiplication, squaring and Montgomery reduction of
+                   a size scope (bn_mulsel@n.jinc) are unrolled when
+                   nlimbs <= JBN_UNROLL_MAX, and loop over their rows above.
+                   64: on an Intel Core i7-14700K the unrolled bn_mul is
+                   within 3% of the looped bn_mul_loop on an exponentiation
+                   up to 16 limbs, and faster above (8% at 32 limbs, 16% at
+                   64); sizes above 64 limbs were not timed (unrolled, a
+                   96-limb field takes about 5 minutes to compile).
+   A size scope may shadow JBN_UNROLL_MAX (`param int JBN_UNROLL_MAX = 0;`
+   inside it, for instance, for the smallest code at that size).
+*/
+
+from Libjbn require "jbn_features.jinc"
+
+param int JBN_FEATURES = 0;
+param int JBN_REG_MAX = 0;
+param int JBN_UNROLL_MAX = 64;

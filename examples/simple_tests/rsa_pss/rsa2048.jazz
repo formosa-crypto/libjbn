@@ -1,0 +1,129 @@
+/* libjbn instance for the rsa2048 example: RSA with a 2048-bit modulus
+   n = p*q, with nlimbsP = 16 limbs for p and q (rsa2048_params.jinc), and
+   the key pair of rsa_keys.jinc: pk = (n, e), sk = (p, q, dP, dQ, qInv).
+   The primitives take expanded keys, which hold the field contexts of n,
+   p and q: PK = (ctx_n, e), SK = (ctx_p, ctx_q, dP, dQ, qInv), computed
+   once by rsa_init (_ctx_init_).
+
+   Layout (see README, "Instantiation"): one size scope per limb count,
+   each module instantiated exactly once; the half size is nested as H.
+
+     top     : the profile x86_64 (the multiplication of each size scope is
+               selected by bn_mulsel: here bn_mul, product scanning, at
+               both sizes); the key pair; C entry points
+     H       : 32 limbs   BN, RND, MUL
+                          FPM: the field code (modulo n), with EXP (full-size
+                                exponents) and EXPE (exponents of nlimbsE
+                                limbs, e.g. e)
+     H::H    : 16 limbs   BN, RND, MUL
+                          FPM: the field code, shared by p and q
+     H::RSA  : the expansion of the keys, RSAVP1 (from PK) and RSASP1 by
+               the CRT (from SK), in rsa2048@libjbn.jinc
+
+   Exports: rsa_init (the expanded keys of the example key pair), rsa_enc
+   (RSAVP1) and rsa_dec (RSASP1), which take an expanded key.
+*/
+require "rsa2048_params.jinc"
+
+from Libjbn require "profiles/x86_64.jinc"
+
+namespace UTIL { from Libjbn require "bn_util.jinc" }
+
+namespace H {
+  param int nlimbs = nlimbsN;          // = 2*nlimbsP
+
+  namespace H {
+    param int nlimbs = nlimbsP;
+
+    namespace BN  { from Libjbn require "bn_base@n.jinc" }
+    namespace RND { from Libjbn require "bn_rnd@n.jinc" }
+    namespace MUL { from Libjbn require "bn_mulsel@n.jinc" }
+
+    namespace FPM {
+      from Libjbn require "fp_mul_sel@fp.jinc"
+      from Libjbn require "fp_mont@fp.jinc"
+    }
+  }
+
+  namespace BN  { from Libjbn require "bn_base@n.jinc" }
+  namespace RND { from Libjbn require "bn_rnd@n.jinc" }
+  namespace MUL { from Libjbn require "bn_mulsel@n.jinc" }
+
+  namespace FPM {
+    from Libjbn require "fp_mul_sel@fp.jinc"
+    from Libjbn require "fp_mont@fp.jinc"
+
+    /* second exponentiation over this field, for short exponents */
+    namespace EXPE {
+      param int nlimbsexp = nlimbsE;
+      from Libjbn require "bn_exp@exp.jinc"
+    }
+  }
+
+  /* RSA operations. They use both sizes, so they live in this 32-limb
+     scope and reach the 16-limb instances through H. */
+  namespace RSA {
+    require "rsa2048@libjbn.jinc"
+  }
+}
+
+/*
+namespace E {
+  param int nlimbs = nlimbsE;
+  namespace BN { from Libjbn require "bn_base@n.jinc" }
+}
+*/
+
+require "rsa_keys.jinc"
+
+/* C entry points */
+
+/* the expanded keys (pk, sk) of the example key pair (pk_test, sk_test,
+   rsa_keys.jinc), with the contexts of n, p and q */
+export fn rsa_init
+( reg mut ptr RSA_PK pk
+, reg mut ptr RSA_SK sk
+) -> reg ptr RSA_PK
+   , reg ptr RSA_SK
+{
+  stack ptr RSA_PK _pk;
+  stack ptr RSA_SK _sk;
+  reg ptr RSA_pubkey kp;
+  reg ptr RSA_privkey ks;
+
+  _sk = sk;
+  kp = pk_test;
+  pk = H::RSA::__RSA_expand_pk(pk, kp);
+  _pk = pk;
+  sk = _sk;
+  ks = sk_test;
+  sk = H::RSA::__RSA_expand_sk(sk, ks);
+  pk = _pk;
+
+  return pk, sk;
+}
+
+/* m = c^d mod n (RSASP1, by the CRT), with the expanded private key sk */
+export fn rsa_dec
+( reg mut ptr u64[nlimbsN] m
+, reg const ptr u64[nlimbsN] c
+, reg const ptr RSA_SK sk
+) -> reg ptr u64[nlimbsN] /* m */
+{
+  m = H::BN::_mov_(m, c);
+  m = H::RSA::__RSASP1_crt(m, sk);
+
+  return m;
+}
+
+/* c = m^e mod n (RSAVP1), with the expanded public key pk */
+export fn rsa_enc
+( reg mut ptr u64[nlimbsN] c
+, reg const ptr u64[nlimbsN] m
+, reg const ptr RSA_PK pk
+) -> reg ptr u64[nlimbsN] /* c */
+{
+  c = H::RSA::__RSAVP1(c, m, pk);
+
+  return c;
+}

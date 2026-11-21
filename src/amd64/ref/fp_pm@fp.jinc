@@ -1,0 +1,203 @@
+/* libjbn -- fp_pm: prime fields of pseudo-Mersenne moduli, in normal
+   representation (the reduction of curve25519: 2^256 = 38 mod 2^255-19).
+
+   Library module, i.e. template (see README, sections 1 and 2): it is meant
+   to be `require`d inside a namespace, which becomes the instance; the tag
+   in the file name (@fp) gives the kind of namespace. Names below are
+   resolved by Jasmin's outward namespace lookup.
+
+   Moduli. With R = 2^(64*nlimbs), a modulus P qualifies when
+     c = R mod P < 2^32   and   R < 3*P,
+   e.g. 2^255-19 at 4 limbs (c = 38, R = 2*P + 38), and the moduli
+   2^(64*nlimbs) - c and 2^(64*nlimbs-1) - c for c small enough.
+   (secp256k1, c = 2^32+977, does not; nor do the Solinas primes P-256,
+   P-384: their R mod P is not a word.)
+
+   Reduction (_redPM). Since R = c (mod P), a product a = L + R*H < R^2 is
+   folded three times, each fold keeping the value mod P:
+     1. [s ; t] = L + c*H                 (t <= c: a word);
+     2. [s ; t'] = s + c*t                (c*t < c^2 < 2^64; t' a bit);
+     3. s = s + c*t'                      (when t' = 1, s < c^2 before:
+                                           this cannot carry);
+   then s < R < 3*P, from which P is subtracted twice when not below it.
+   One row of nlimbs multiplications in all, where the Montgomery reduction
+   takes nlimbs^2. The result is canonical (< P), as fp_base requires;
+   curve25519 code keeps values below 2^256 and reduces fully only on
+   output, which is faster but would break that invariant.
+
+   Instance:  a field namespace in a size scope (as fp_mont): it serves
+              every qualifying modulus of that size, whose constants are
+              passed in a context with the layout of fp_ctx@n.jinc:
+                ctx[CTX_P  : nlimbs]   P
+                ctx[CTX_MP : nlimbs]   R - P
+                ctx[CTX_ONE: nlimbs]   1 (the representation is the number)
+                ctx[CTX_R2 : nlimbs]   0 (unused)
+                ctx[CTX_U0]            c = R mod P
+   Expects:   param int nlimbs;
+              fn fun_muln, fn fun_sqrn     // as in fp_base (fp_mul_*@fp.jinc)
+              BN::  UTIL::  (and RND:: for fp_base)
+   Provides:  _redPM _redPM_ _toM_ _fromM_ (the identity, so that a pm field
+              has the entry points of a Montgomery one), plus everything
+              from fp_base; all take the context ctx as their last argument;
+              _ctx_init_, which computes the context of a modulus
+   Includes:  fp_base, in the same namespace, with fun_red := _redPM_
+*/
+
+require "fp_ctx@n.jinc"
+
+
+/* a mod P, for a < R^2 (see above) */
+fn _redPM
+( reg mut ptr u64[nlimbs] r
+, reg const ptr u64[2*nlimbs] a
+, reg const ptr u64[CTXLEN] ctx
+) -> reg ptr u64[nlimbs] {
+  inline int i j;
+  reg bool cf;
+  reg u64 c h l t x mask;
+  stack u64[nlimbs] _s;
+
+  c = ctx[CTX_U0];
+
+  // 1. [r ; t] = L + c*H: each word is a[i] + c*a[nlimbs+i] + t < 2^128
+  t = 0;
+  for i = 0 to nlimbs {
+    l = a[nlimbs + i];
+    h, l = l * c;
+    cf, l += a[i];
+    _, h += 0 + cf;
+    cf, l += t;
+    _, h += 0 + cf;
+    r[i] = l;
+    t = h;
+  }
+
+  // 2. [r ; cf] = r + c*t
+  t *= c;
+  x = r[0];
+  cf, x += t;
+  r[0] = x;
+  for i = 1 to nlimbs {
+    x = r[i];
+    cf, x += 0 + cf;
+    r[i] = x;
+  }
+
+  // 3. r = r + c*cf (no carry)
+  mask = UTIL::__cf_mask(cf);
+  mask &= c;
+  x = r[0];
+  x += mask;
+  r[0] = x;
+
+  // r < R < 3*P: subtract P twice, when not below it (r + (R - P) carries
+  // exactly when r >= P)
+  for j = 0 to 2 {
+    x = r[0];
+    cf, x += ctx[CTX_MP];
+    _s[0] = x;
+    for i = 1 to nlimbs {
+      x = r[i];
+      cf, x += ctx[CTX_MP + i] + cf;
+      _s[i] = x;
+    }
+    for i = 0 to nlimbs {
+      x = r[i];
+      x = _s[i] if cf;
+      r[i] = x;
+    }
+  }
+
+  return r;
+}
+
+inline fn _redPM_
+( reg mut ptr u64[nlimbs] r
+, reg const ptr u64[2*nlimbs] a
+, reg const ptr u64[CTXLEN] ctx
+) -> reg ptr u64[nlimbs] {
+  r = r; a = a; ctx = ctx;
+  r = _redPM(r, a, ctx);
+  r = r;
+  return r;
+}
+
+/* The representation is the number itself: _toM_ and _fromM_ are the
+   identity (they keep the names of fp_mont, so that the export templates
+   serve both kinds of field). */
+inline fn _fromM_
+( reg mut ptr u64[nlimbs] a
+, reg const ptr u64[CTXLEN] ctx
+) -> reg ptr u64[nlimbs] {
+  ctx = ctx;
+  return a;
+}
+
+
+/* Field operations: fp_base, included in this same namespace, with the
+   pseudo-Mersenne reduction as its reduction parameter (inline wrapper). */
+inline fn fun_red
+( reg mut ptr u64[nlimbs] r
+, reg const ptr u64[2*nlimbs] a
+, reg const ptr u64[CTXLEN] ctx
+) -> reg ptr u64[nlimbs] {
+  r = _redPM_(r, a, ctx);
+  return r;
+}
+
+require "fp_base@fp.jinc"
+
+// ////////////////////////////////////
+
+inline fn _toM_
+( reg mut ptr u64[nlimbs] a
+, reg const ptr u64[CTXLEN] ctx
+) -> reg ptr u64[nlimbs] {
+  ctx = ctx;
+  return a;
+}
+
+// ////////////////////////////////////
+
+/* The context of P (qualifying, see above), in constant time:
+     R - P            by negation;
+     1, 0             the representation of 1, and the unused slot;
+     c = R mod P      as (R - P) - P when R - P >= P (R - P < 2*P since
+                      R < 3*P), of which the low word is kept (the others
+                      are zero since c < 2^32). */
+inline fn _ctx_init_
+( reg mut ptr u64[CTXLEN] ctx
+, reg const ptr u64[nlimbs] P
+) -> reg ptr u64[CTXLEN] {
+  stack u64[nlimbs] _x;
+  reg ptr u64[nlimbs] t x mP;
+  reg u64 c z;
+
+  t = ctx[CTX_P:nlimbs];
+  t = BN::_mov_(t, P);
+  ctx[CTX_P:nlimbs] = t;
+
+  t = ctx[CTX_MP:nlimbs];
+  _, t = BN::_neg_(t, P);
+  ctx[CTX_MP:nlimbs] = t;
+
+  t = ctx[CTX_ONE:nlimbs];
+  t = BN::_set0_(t);
+  ctx[CTX_ONE:nlimbs] = t;
+  ctx[CTX_ONE] = 1;
+
+  t = ctx[CTX_R2:nlimbs];
+  t = BN::_set0_(t);
+  ctx[CTX_R2:nlimbs] = t;
+
+  x = _x;
+  mP = ctx[CTX_MP:nlimbs];
+  x = BN::_mov_(x, mP);
+  z = 0;
+  mP = ctx[CTX_MP:nlimbs];
+  x = BN::_cminusP_(x, mP, z);
+  c = x[0];
+  ctx[CTX_U0] = c;
+
+  return ctx;
+}
