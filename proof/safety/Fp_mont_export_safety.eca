@@ -1,0 +1,218 @@
+(* Safety of fp_mont_export (src/amd64/ref/fp_mont_export@2n.jinc): the lemmas of the
+   specifications of theories/Fp_mont_export_safety_xtr.eca, for any operations meeting their
+   contracts (declared axioms of the section), which do not use the memory: the regions the pointers
+   designate are valid, the stack copies are initialised by the loads. *)
+require import AllCore IntDiv CoreMap List Distr.
+from Jasmin require import JModel_x86.
+import SLH64.
+from Jasmin require import Jcheck JSafety JByte_array JMemory.
+require import ByteArrayInit JbnSafetyLib.
+require Fp_mont_export_safety_xtr.
+
+clone include Fp_mont_export_safety_xtr.
+
+clone ByteArrayLib as BL_8n with theory A <- BA_8n.
+clone ByteArrayLib as BL_16n with theory A <- BA_16n.
+clone ByteArrayLib as BL_32n_8 with theory A <- BA_32n_8.
+
+section.
+
+declare module P <: MParam {-Glob}.
+
+declare axiom _fromM__h _a _b_a _ctx _b_ctx :
+  hoare [P._fromM_ :
+    arg = (_a, _b_a, _ctx, _b_ctx) /\ _fromM__pre _a _b_a _ctx _b_ctx
+    ==> _fromM__post _a _b_a _ctx _b_ctx res /\ valid res.`3].
+
+declare axiom _addmU__h _a _b_a _b _b_b _ctx _b_ctx :
+  hoare [P._addmU_ :
+    arg = (_a, _b_a, _b, _b_b, _ctx, _b_ctx) /\ _addmU__pre _a _b_a _b _b_b _ctx _b_ctx
+    ==> _addmU__post _a _b_a _b _b_b _ctx _b_ctx res /\ valid res.`3].
+
+declare axiom _submU__h _a _b_a _b _b_b _ctx _b_ctx :
+  hoare [P._submU_ :
+    arg = (_a, _b_a, _b, _b_b, _ctx, _b_ctx) /\ _submU__pre _a _b_a _b _b_b _ctx _b_ctx
+    ==> _submU__post _a _b_a _b _b_b _ctx _b_ctx res /\ valid res.`3].
+
+declare axiom _mulm__h _r _b_r _a _b_a _b _b_b _ctx _b_ctx :
+  hoare [P._mulm_ :
+    arg = (_r, _b_r, _a, _b_a, _b, _b_b, _ctx, _b_ctx) /\ _mulm__pre _r _b_r _a _b_a _b _b_b _ctx _b_ctx
+    ==> _mulm__post _r _b_r _a _b_a _b _b_b _ctx _b_ctx res /\ valid res.`3].
+
+declare axiom _sqrm__h _r _b_r _a _b_a _ctx _b_ctx :
+  hoare [P._sqrm_ :
+    arg = (_r, _b_r, _a, _b_a, _ctx, _b_ctx) /\ _sqrm__pre _r _b_r _a _b_a _ctx _b_ctx
+    ==> _sqrm__post _r _b_r _a _b_a _ctx _b_ctx res /\ valid res.`3].
+
+declare axiom _expmLR_noct__h _r _b_r _a _b_a _b _b_b _ctx _b_ctx :
+  hoare [P._expmLR_noct_ :
+    arg = (_r, _b_r, _a, _b_a, _b, _b_b, _ctx, _b_ctx) /\ _expmLR_noct__pre _r _b_r _a _b_a _b _b_b _ctx _b_ctx
+    ==> _expmLR_noct__post _r _b_r _a _b_a _b _b_b _ctx _b_ctx res /\ valid res.`3].
+
+declare axiom _expm_noct__h _r _b_r _a _b_a _b _b_b _ctx _b_ctx :
+  hoare [P._expm_noct_ :
+    arg = (_r, _b_r, _a, _b_a, _b, _b_b, _ctx, _b_ctx) /\ _expm_noct__pre _r _b_r _a _b_a _b _b_b _ctx _b_ctx
+    ==> _expm_noct__post _r _b_r _a _b_a _b _b_b _ctx _b_ctx res /\ valid res.`3].
+
+declare axiom _expm__h _x0 _b_x0 _a _b_a _b _b_b _ctx _b_ctx :
+  hoare [P._expm_ :
+    arg = (_x0, _b_x0, _a, _b_a, _b, _b_b, _ctx, _b_ctx) /\ _expm__pre _x0 _b_x0 _a _b_a _b _b_b _ctx _b_ctx
+    ==> _expm__post _x0 _b_x0 _a _b_a _b _b_b _ctx _b_ctx res /\ valid res.`3].
+
+declare axiom _invm__h _r _b_r _a _b_a _ctx _b_ctx :
+  hoare [P._invm_ :
+    arg = (_r, _b_r, _a, _b_a, _ctx, _b_ctx) /\ _invm__pre _r _b_r _a _b_a _ctx _b_ctx
+    ==> _invm__post _r _b_r _a _b_a _ctx _b_ctx res /\ valid res.`3].
+
+declare axiom _toM__h _a _b_a _ctx _b_ctx :
+  hoare [P._toM_ :
+    arg = (_a, _b_a, _ctx, _b_ctx) /\ _toM__pre _a _b_a _ctx _b_ctx
+    ==> _toM__post _a _b_a _ctx _b_ctx res /\ valid res.`3].
+
+lemma fp_add_proof _rp _ap _bp :
+  hoare [M(P).fp_add :
+    arg = (_rp, _ap, _bp) /\ fp_add_pre Glob.mem_v _rp _ap _bp
+    ==> fp_add_post _rp _ap _bp res /\ valid res].
+proof.
+hint +safety.
+proc.
+rewrite /fp_add_pre /fp_add_post /_addmU__pre /_addmU__post.
+wp; ecall (BNB._store__proof param_6 param_7 ((BA_8n.init_arr (W8.of_int 255)))).
+wp; ecall (_addmU__h param_3 ((BA_8n.init_arr (W8.of_int 255))) param_4 ((BA_8n.init_arr (W8.of_int 255))) param_5 ((BA_32n_8.init_arr (W8.of_int 255)))).
+wp; ecall (BNB._load__proof param_1 b_param_0 param_2).
+wp; ecall (BNB._load__proof param b_param param_0).
+by auto => /> *; smt(gt0_nlimbs).
+qed.
+
+lemma fp_sub_proof _rp _ap _bp :
+  hoare [M(P).fp_sub :
+    arg = (_rp, _ap, _bp) /\ fp_sub_pre Glob.mem_v _rp _ap _bp
+    ==> fp_sub_post _rp _ap _bp res /\ valid res].
+proof.
+hint +safety.
+proc.
+rewrite /fp_sub_pre /fp_sub_post /_submU__pre /_submU__post.
+wp; ecall (BNB._store__proof param_6 param_7 ((BA_8n.init_arr (W8.of_int 255)))).
+wp; ecall (_submU__h param_3 ((BA_8n.init_arr (W8.of_int 255))) param_4 ((BA_8n.init_arr (W8.of_int 255))) param_5 ((BA_32n_8.init_arr (W8.of_int 255)))).
+wp; ecall (BNB._load__proof param_1 b_param_0 param_2).
+wp; ecall (BNB._load__proof param b_param param_0).
+by auto => /> *; smt(gt0_nlimbs).
+qed.
+
+lemma fp_mul_proof _rp _ap _bp :
+  hoare [M(P).fp_mul :
+    arg = (_rp, _ap, _bp) /\ fp_mul_pre Glob.mem_v _rp _ap _bp
+    ==> fp_mul_post _rp _ap _bp res /\ valid res].
+proof.
+hint +safety.
+proc.
+rewrite /fp_mul_pre /fp_mul_post /_mulm__pre /_mulm__post.
+wp; ecall (BNB._store__proof param_7 param_8 ((BA_8n.init_arr (W8.of_int 255)))).
+wp; ecall (_mulm__h param_3 b_param_1 param_4 ((BA_8n.init_arr (W8.of_int 255))) param_5 ((BA_8n.init_arr (W8.of_int 255))) param_6 ((BA_32n_8.init_arr (W8.of_int 255)))).
+wp; ecall (BNB._load__proof param_1 b_param_0 param_2).
+wp; ecall (BNB._load__proof param b_param param_0).
+by auto => /> *; smt(gt0_nlimbs).
+qed.
+
+lemma fp_sqr_proof _rp _ap :
+  hoare [M(P).fp_sqr :
+    arg = (_rp, _ap) /\ fp_sqr_pre Glob.mem_v _rp _ap
+    ==> fp_sqr_post _rp _ap res /\ valid res].
+proof.
+hint +safety.
+proc.
+rewrite /fp_sqr_pre /fp_sqr_post /_sqrm__pre /_sqrm__post.
+wp; ecall (BNB._store__proof param_4 param_5 ((BA_8n.init_arr (W8.of_int 255)))).
+wp; ecall (_sqrm__h param_1 b_param_0 param_2 ((BA_8n.init_arr (W8.of_int 255))) param_3 ((BA_32n_8.init_arr (W8.of_int 255)))).
+wp; ecall (BNB._load__proof param b_param param_0).
+by auto => /> *; smt(gt0_nlimbs).
+qed.
+
+lemma fp_exp_noct_proof _rp _ap _bp :
+  hoare [M(P).fp_exp_noct :
+    arg = (_rp, _ap, _bp) /\ fp_exp_noct_pre Glob.mem_v _rp _ap _bp
+    ==> fp_exp_noct_post _rp _ap _bp res /\ valid res].
+proof.
+hint +safety.
+proc.
+rewrite /fp_exp_noct_pre /fp_exp_noct_post /_expm_noct__pre /_expm_noct__post.
+wp; ecall (BNB._store__proof param_7 param_8 ((BA_8n.init_arr (W8.of_int 255)))).
+wp; ecall (_expm_noct__h param_3 b_param_1 param_4 ((BA_8n.init_arr (W8.of_int 255))) param_5 ((BA_8n.init_arr (W8.of_int 255))) param_6 ((BA_32n_8.init_arr (W8.of_int 255)))).
+wp; ecall (BNB._load__proof param_1 b_param_0 param_2).
+wp; ecall (BNB._load__proof param b_param param_0).
+by auto => /> *; smt(gt0_nlimbs).
+qed.
+
+lemma fp_expLR_noct_proof _rp _ap _bp :
+  hoare [M(P).fp_expLR_noct :
+    arg = (_rp, _ap, _bp) /\ fp_expLR_noct_pre Glob.mem_v _rp _ap _bp
+    ==> fp_expLR_noct_post _rp _ap _bp res /\ valid res].
+proof.
+hint +safety.
+proc.
+rewrite /fp_expLR_noct_pre /fp_expLR_noct_post /_expmLR_noct__pre /_expmLR_noct__post.
+wp; ecall (BNB._store__proof param_7 param_8 ((BA_8n.init_arr (W8.of_int 255)))).
+wp; ecall (_expmLR_noct__h param_3 b_param_1 param_4 ((BA_8n.init_arr (W8.of_int 255))) param_5 ((BA_8n.init_arr (W8.of_int 255))) param_6 ((BA_32n_8.init_arr (W8.of_int 255)))).
+wp; ecall (BNB._load__proof param_1 b_param_0 param_2).
+wp; ecall (BNB._load__proof param b_param param_0).
+by auto => /> *; smt(gt0_nlimbs).
+qed.
+
+lemma fp_exp_proof _rp _ap _bp :
+  hoare [M(P).fp_exp :
+    arg = (_rp, _ap, _bp) /\ fp_exp_pre Glob.mem_v _rp _ap _bp
+    ==> fp_exp_post _rp _ap _bp res /\ valid res].
+proof.
+hint +safety.
+proc.
+rewrite /fp_exp_pre /fp_exp_post /_expm__pre /_expm__post.
+wp; ecall (BNB._store__proof param_7 param_8 ((BA_8n.init_arr (W8.of_int 255)))).
+wp; ecall (_expm__h param_3 b_param_1 param_4 ((BA_8n.init_arr (W8.of_int 255))) param_5 ((BA_8n.init_arr (W8.of_int 255))) param_6 ((BA_32n_8.init_arr (W8.of_int 255)))).
+wp; ecall (BNB._load__proof param_1 b_param_0 param_2).
+wp; ecall (BNB._load__proof param b_param param_0).
+by auto => /> *; smt(gt0_nlimbs).
+qed.
+
+lemma fp_inv_proof _rp _ap :
+  hoare [M(P).fp_inv :
+    arg = (_rp, _ap) /\ fp_inv_pre Glob.mem_v _rp _ap
+    ==> fp_inv_post _rp _ap res /\ valid res].
+proof.
+hint +safety.
+proc.
+rewrite /fp_inv_pre /fp_inv_post /_invm__pre /_invm__post.
+wp; ecall (BNB._store__proof param_4 param_5 ((BA_8n.init_arr (W8.of_int 255)))).
+wp; ecall (_invm__h param_1 b_param_0 param_2 ((BA_8n.init_arr (W8.of_int 255))) param_3 ((BA_32n_8.init_arr (W8.of_int 255)))).
+wp; ecall (BNB._load__proof param b_param param_0).
+by auto => /> *; smt(gt0_nlimbs).
+qed.
+
+lemma fp_toM_proof _rp _ap :
+  hoare [M(P).fp_toM :
+    arg = (_rp, _ap) /\ fp_toM_pre Glob.mem_v _rp _ap
+    ==> fp_toM_post _rp _ap res /\ valid res].
+proof.
+hint +safety.
+proc.
+rewrite /fp_toM_pre /fp_toM_post /_toM__pre /_toM__post.
+wp; ecall (BNB._store__proof param_3 param_4 ((BA_8n.init_arr (W8.of_int 255)))).
+wp; ecall (_toM__h param_1 ((BA_8n.init_arr (W8.of_int 255))) param_2 ((BA_32n_8.init_arr (W8.of_int 255)))).
+wp; ecall (BNB._load__proof param b_param param_0).
+by auto => /> *; smt(gt0_nlimbs).
+qed.
+
+lemma fp_fromM_proof _rp _ap :
+  hoare [M(P).fp_fromM :
+    arg = (_rp, _ap) /\ fp_fromM_pre Glob.mem_v _rp _ap
+    ==> fp_fromM_post _rp _ap res /\ valid res].
+proof.
+hint +safety.
+proc.
+rewrite /fp_fromM_pre /fp_fromM_post /_fromM__pre /_fromM__post.
+wp; ecall (BNB._store__proof param_3 param_4 ((BA_8n.init_arr (W8.of_int 255)))).
+wp; ecall (_fromM__h param_1 ((BA_8n.init_arr (W8.of_int 255))) param_2 ((BA_32n_8.init_arr (W8.of_int 255)))).
+wp; ecall (BNB._load__proof param b_param param_0).
+by auto => /> *; smt(gt0_nlimbs).
+qed.
+
+end section.

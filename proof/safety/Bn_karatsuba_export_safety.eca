@@ -1,0 +1,114 @@
+(* Safety of bn_karatsuba_export (src/amd64/ref/bn_karatsuba_export@2n.jinc): the lemmas of the
+   specifications of theories/Bn_karatsuba_export_safety_xtr.eca, for any operations meeting their
+   contracts (declared axioms of the section), which do not use the memory: the regions the pointers
+   designate are valid, the stack copies are initialised by the loads. *)
+require import AllCore IntDiv CoreMap List Distr.
+from Jasmin require import JModel_x86.
+import SLH64.
+from Jasmin require import Jcheck JSafety JByte_array JMemory.
+require import ByteArrayInit JbnSafetyLib.
+require Bn_karatsuba_export_safety_xtr.
+
+clone include Bn_karatsuba_export_safety_xtr.
+
+clone ByteArrayLib as BL_16n with theory A <- BA_16n.
+clone ByteArrayLib as BL_32n with theory A <- BA_32n.
+
+section.
+
+declare module P <: MParam {-Glob}.
+
+declare axiom _kar_muln__h _r _b_r _a _b_a _b _b_b :
+  hoare [P._kar_muln_ :
+    arg = (_r, _b_r, _a, _b_a, _b, _b_b) /\ _kar_muln__pre _r _b_r _a _b_a _b _b_b
+    ==> _kar_muln__post _r _b_r _a _b_a _b _b_b res /\ valid res.`3].
+
+lemma h__BN____load_proof _a _b_a _ap :
+  hoare [M(P).h__BN____load :
+    arg = (_a, _b_a, _ap) /\ h__BN____load_pre Glob.mem_v _a _b_a _ap
+    ==> h__BN____load_post _a _b_a _ap res /\ valid res.`3].
+proof.
+hint +safety.
+proc.
+rewrite /h__BN____load_pre /h__BN____load_post.
+while (valid trace_h__BN____load /\ 0 <= i <= 2 * nlimbs /\ BA_16n.is_init b_a 0 (8 * i)
+       /\ ap = _ap /\ is_valid ptr_modulus Glob.mem_v (W64.to_uint _ap) (8 * (2 * nlimbs))).
+- auto => /> &hr hv hi0 _ hb hval h0 hlt hin.
+  rewrite (to_uint_addr _ap i{hr} (2 * nlimbs)) 1,2:/#.
+  have h := BL_16n.is_init_ext64 b_a{hr} i{hr} hi0 hb.
+  split; last smt().
+  split; last smt().
+  by split; [move=> i0 *; apply hval | ]; smt().
+auto => /> &hr *; split; first smt(gt0_nlimbs).
+by move=> *; smt(gt0_nlimbs).
+qed.
+
+lemma h__BN___load_proof _a _b_a _ap :
+  hoare [M(P).h__BN___load :
+    arg = (_a, _b_a, _ap) /\ h__BN___load_pre Glob.mem_v _a _b_a _ap
+    ==> h__BN___load_post _a _b_a _ap res /\ valid res.`3].
+proof.
+hint +safety.
+proc.
+rewrite /h__BN___load_pre /h__BN___load_post /h__BN____load_pre /h__BN____load_post.
+wp; ecall (h__BN____load_proof param b_param param_0).
+by auto => /> *; smt(gt0_nlimbs).
+qed.
+
+lemma h__BN___load__proof _a _b_a _ap :
+  hoare [M(P).h__BN___load_ :
+    arg = (_a, _b_a, _ap) /\ h__BN___load__pre Glob.mem_v _a _b_a _ap
+    ==> h__BN___load__post _a _b_a _ap res /\ valid res.`3].
+proof.
+hint +safety.
+proc.
+rewrite /h__BN___load__pre /h__BN___load__post /h__BN___load_pre /h__BN___load_post.
+wp; ecall (h__BN___load_proof param b_param param_0).
+by auto => /> *; smt(gt0_nlimbs).
+qed.
+
+lemma bN____store_proof _ap _a _b_a :
+  hoare [M(P).bN____store :
+    arg = (_ap, _a, _b_a) /\ bN____store_pre Glob.mem_v _ap _a _b_a
+    ==> bN____store_post _ap _a _b_a res /\ valid res].
+proof.
+hint +safety.
+proc.
+rewrite /bN____store_pre /bN____store_post.
+while (valid trace_bN____store /\ 0 <= i <= 4 * nlimbs
+       /\ ap = _ap /\ is_valid ptr_modulus Glob.mem_v (W64.to_uint _ap) (8 * (4 * nlimbs))).
+- auto => /> &hr hv hi0 _ hval h0 hlt hin.
+  rewrite (to_uint_addr _ap i{hr} (4 * nlimbs)) 1,2:/#.
+  split; last smt().
+  by split; [smt() | split; [move=> i0 *; apply hval | ]]; smt().
+by auto => /> *; smt(gt0_nlimbs).
+qed.
+
+lemma bN___store__proof _ap _a _b_a :
+  hoare [M(P).bN___store_ :
+    arg = (_ap, _a, _b_a) /\ bN___store__pre Glob.mem_v _ap _a _b_a
+    ==> bN___store__post _ap _a _b_a res /\ valid res].
+proof.
+hint +safety.
+proc.
+rewrite /bN___store__pre /bN___store__post /bN____store_pre /bN____store_post.
+wp; ecall (bN____store_proof param param_0 ((BA_32n.init_arr (W8.of_int 255)))).
+by auto => /> *; smt(gt0_nlimbs).
+qed.
+
+lemma bn_kar_muln_proof _rp _ap _bp :
+  hoare [M(P).bn_kar_muln :
+    arg = (_rp, _ap, _bp) /\ bn_kar_muln_pre Glob.mem_v _rp _ap _bp
+    ==> bn_kar_muln_post _rp _ap _bp res /\ valid res].
+proof.
+hint +safety.
+proc.
+rewrite /bn_kar_muln_pre /bn_kar_muln_post /h__BN___load__pre /h__BN___load__post /h__BN___load__pre /h__BN___load__post /_kar_muln__pre /_kar_muln__post /bN___store__pre /bN___store__post.
+wp; ecall (bN___store__proof param_6 param_7 ((BA_32n.init_arr (W8.of_int 255)))).
+wp; ecall (_kar_muln__h param_3 b_param_1 param_4 ((BA_16n.init_arr (W8.of_int 255))) param_5 ((BA_16n.init_arr (W8.of_int 255)))).
+wp; ecall (h__BN___load__proof param_1 b_param_0 param_2).
+wp; ecall (h__BN___load__proof param b_param param_0).
+by auto => /> *; smt(gt0_nlimbs).
+qed.
+
+end section.

@@ -47,6 +47,7 @@ require "fp_ctx@n.jinc"
 
 
 /* a mod P, for a < R^2 (see above) */
+#[safety = { requires = is_arr_init(a, 0, 16*nlimbs) && is_arr_init(ctx, 0, 8*CTXLEN), ensures = is_arr_init(r, 0, 8*nlimbs) }]
 fn _redPM
 ( reg mut ptr u64[nlimbs] r
 , reg const ptr u64[2*nlimbs] a
@@ -111,6 +112,7 @@ fn _redPM
   return r;
 }
 
+#[safety = { requires = is_arr_init(a, 0, 16*nlimbs) && is_arr_init(ctx, 0, 8*CTXLEN), ensures = is_arr_init(r, 0, 8*nlimbs) }]
 inline fn _redPM_
 ( reg mut ptr u64[nlimbs] r
 , reg const ptr u64[2*nlimbs] a
@@ -136,6 +138,7 @@ inline fn _fromM_
 
 /* Field operations: fp_base, included in this same namespace, with the
    pseudo-Mersenne reduction as its reduction parameter (inline wrapper). */
+#[safety = { requires = is_arr_init(a, 0, 16*nlimbs) && is_arr_init(ctx, 0, 8*CTXLEN), ensures = is_arr_init(r, 0, 8*nlimbs) }]
 inline fn fun_red
 ( reg mut ptr u64[nlimbs] r
 , reg const ptr u64[2*nlimbs] a
@@ -165,6 +168,7 @@ inline fn _toM_
      c = R mod P      as (R - P) - P when R - P >= P (R - P < 2*P since
                       R < 3*P), of which the low word is kept (the others
                       are zero since c < 2^32). */
+#[safety = { requires = is_arr_init(P, 0, 8*nlimbs), ensures = is_arr_init(ctx, 0, 8*CTXLEN) }]
 inline fn _ctx_init_
 ( reg mut ptr u64[CTXLEN] ctx
 , reg const ptr u64[nlimbs] P

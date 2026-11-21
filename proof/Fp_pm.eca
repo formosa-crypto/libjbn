@@ -1,0 +1,822 @@
+require import AllCore Int IntDiv List StdOrder.
+from Jasmin require import JModel_x86.
+import SLH64.
+
+require JBigNumber.
+
+(* Correctness contracts for fp_pm@fp.jinc: arithmetic modulo a
+   pseudo-Mersenne P, in normal representation, generic in the
+   multiplication (fun_muln/fun_sqrn, the module parameter of M).
+
+   With R = 2^(64*nlimbs), P qualifies when c = R mod P < 2^32 and R < 3P;
+   the context holds c in place of U0. The field operations are those of
+   Fp_base, with the reduction modulo P (factor 1): a representative is the
+   number itself. *)
+
+(* Parameters *)
+op nlimbs: int.
+axiom gt0_nlimbs: 0 < nlimbs.
+(* as in Fp_base, which bounds its loop counters with it *)
+axiom nlimbs_bnd: 64 * nlimbs < W64.modulus.
+
+clone export JBigNumber.BigN
+ with op nlimbs <- nlimbs
+      proof gt0_nlimbs by exact gt0_nlimbs.
+
+import BN2.
+import BN.
+
+require Bn_util.
+clone Bn_util as BNUTIL.
+module BNUTIL_M = BNUTIL.M.
+
+require Bn_base.
+clone Bn_base as BNB
+ with op nlimbs <- nlimbs,
+      theory BigN <- BigN,
+      theory BNUTIL <- BNUTIL
+      proof gt0_nlimbs by exact gt0_nlimbs.
+module BNB_M = BNB.M.
+
+require Fp_ctx.
+clone Fp_ctx as FPC
+ with op nlimbs <- nlimbs,
+      theory BigN <- BigN
+      proof gt0_nlimbs by exact gt0_nlimbs.
+import FPC.CTX.
+
+(* the reduction modulo p (factor 1); it needs c = R mod p in place of U0,
+   and the qualification of p: c < 2^32, R < 3p *)
+op one_k (p: int) : int = 1.
+op pm_ctx (p: int) (c: W64.t FPC.CTX.t) : bool =
+  to_uint (FPC.ctxU0 c) = BN.bn_modulus %% p
+  /\ BN.bn_modulus %% p < 4294967296 /\ BN.bn_modulus < 3 * p.
+
+require Fp_base.
+clone Fp_base as FPB
+ with op nlimbs <- nlimbs,
+      theory BigN <- BigN,
+      theory BNUTIL <- BNUTIL,
+      theory BNB <- BNB,
+      theory FPC <- FPC,
+      op redK <- one_k,
+      op red_ctx <- pm_ctx
+ proof gt0_nlimbs by exact gt0_nlimbs,
+       nlimbs_bnd by exact nlimbs_bnd.
+
+lemma red_mod p x: FPB.red p x = x %% p.
+proof. by rewrite /FPB.red /one_k. qed.
+
+(* a context of the pseudo-Mersenne field: P, R-P, c, and ONE = 1 *)
+pred ctx_pm (p: int) (c: W64.t FPC.CTX.t) =
+  FPC.ctx_mod p c /\ pm_ctx p c /\ bn (FPC.ctxONE c) = 1.
+
+(* it is a context of the field operations (Fp_base) *)
+lemma ctx_pm_fp p c: ctx_pm p c => FPB.ctx_fp p c.
+proof.
+move=> [Hm [Hu Hone]]; have [H1 _] := Hm.
+split => //; split => //; rewrite Hone red_mod.
+by split; [smt() | rewrite modz_small /#].
+qed.
+
+(* the halves of a double-size number *)
+op lo2 (a: BN2.t) : BN.t = BN.A.init (fun i => a.[i]).
+op hi2 (a: BN2.t) : BN.t = BN.A.init (fun i => a.[nlimbs + i]).
+
+lemma bn2_halves (a: BN2.t): BN2.bn a = bn (lo2 a) + bn (hi2 a) * BN.bn_modulus.
+proof. by apply bn2_pack => j Hj; rewrite BN.A.initiE. qed.
+
+lemma bnk_lo2S (a: BN2.t) i: 0 <= i < nlimbs =>
+  bnk (i+1) (lo2 a) = bnk i (lo2 a) + to_uint a.[i] * 18446744073709551616 ^ i.
+proof.
+move=> Hi; rewrite BN.bnkS 1:/# /= {1}/lo2 BN.A.initiE 1:/# /=.
+by ring.
+qed.
+
+lemma bnk_hi2S (a: BN2.t) i: 0 <= i < nlimbs =>
+  bnk (i+1) (hi2 a) = bnk i (hi2 a) + to_uint a.[nlimbs + i] * 18446744073709551616 ^ i.
+proof.
+move=> Hi; rewrite BN.bnkS 1:/# /= {1}/hi2 BN.A.initiE 1:/# /=.
+by ring.
+qed.
+
+(* the first fold: the high word of x * c + z + t, for t <= c, is at most c *)
+lemma fold_hi (x z t l h c: int):
+  0 <= x < 18446744073709551616 => 0 <= z < 18446744073709551616 =>
+  0 <= c < 18446744073709551616 => 0 <= t <= c => 0 <= l =>
+  l + 18446744073709551616 * h = x * c + z + t => h <= c.
+proof.
+move=> [Hx0 Hx1] [Hz0 Hz1] [Hc0 Hc1] [Ht0 Ht1] Hl E.
+have Hxc: x * c <= 18446744073709551615 * c by apply StdOrder.IntOrder.ler_wpmul2r; smt().
+smt().
+qed.
+
+(* writing the first word of a big number *)
+lemma wbnd (w: W64.t): 0 <= to_uint w < 18446744073709551616.
+proof.
+by have := W64.to_uint_cmp w.
+qed.
+
+lemma bnkSw (x: BN.t) i: 0 <= i =>
+  bnk (i+1) x = bnk i x + to_uint x.[i] * 18446744073709551616 ^ i.
+proof.
+move=> Hi; rewrite BN.bnkS //=.
+by ring.
+qed.
+
+lemma bn_bnd (x: BN.t): 0 <= bn x < 18446744073709551616 ^ nlimbs.
+proof.
+by have := BN.bnk_cmp nlimbs x.
+qed.
+
+lemma modR (p r c x y: int): r %% p = c %% p => (x + y * r) %% p = (x + y * c) %% p.
+proof.
+move=> H.
+by rewrite -modzDmr -modzMmr H modzMmr modzDmr.
+qed.
+
+lemma bnk1w (x: BN.t): bnk 1 x = to_uint x.[0].
+proof.
+by rewrite BN.bnk1 /BN.dig expr0.
+qed.
+
+lemma bnk_put0 (r: BN.t) (lo: W64.t) (v: int):
+  bnk 1 r.[0 <- lo] + v * 18446744073709551616 = to_uint lo + 18446744073709551616 * v.
+proof.
+by rewrite bnk1w BN.A.get_setE; smt(gt0_nlimbs).
+qed.
+
+lemma sq32 (t c: int): 0 <= t <= c => c < 4294967296 => t * c <= 18446744065119617025.
+proof.
+move=> [Ht0 Ht1] Hc.
+have H1: t * c <= c * c by apply StdOrder.IntOrder.ler_wpmul2r; smt().
+have H2: c * c <= 4294967295 * 4294967295 by apply StdOrder.IntOrder.ler_pmul; smt().
+smt().
+qed.
+
+lemma bnk_mPS (c: W64.t FPC.CTX.t) i: 0 <= i < nlimbs =>
+  bnk (i+1) (FPC.ctxMP c) = bnk i (FPC.ctxMP c) + to_uint c.[nlimbs + i] * 18446744073709551616 ^ i.
+proof.
+move=> Hi; rewrite bnkSw 1:/#.
+by rewrite {2}/FPC.ctxMP BN.A.initiE 1:/#.
+qed.
+
+lemma ctx_setONE_parts (c: W64.t FPC.CTX.t) u:
+  FPC.ctxP c.[2 * nlimbs <- u] = FPC.ctxP c
+  /\ FPC.ctxMP c.[2 * nlimbs <- u] = FPC.ctxMP c
+  /\ FPC.ctxONE c.[2 * nlimbs <- u] = (FPC.ctxONE c).[0 <- u].
+proof.
+have Hn := gt0_nlimbs.
+split; first by apply BN.A.ext_eq => i Hi; rewrite /FPC.ctxP !BN.A.initiE //= FPC.CTX.get_setE 1:/#; smt().
+split; first by apply BN.A.ext_eq => i Hi; rewrite /FPC.ctxMP !BN.A.initiE //= FPC.CTX.get_setE 1:/#; smt().
+apply BN.A.ext_eq => i Hi; rewrite /FPC.ctxONE BN.A.initiE //= FPC.CTX.get_setE 1:/#.
+by rewrite BN.A.get_setE //= BN.A.initiE //=; smt().
+qed.
+
+(* (R-p) + (R-p), reduced once by R-p (the last step of _ctx_init_), is R mod p *)
+lemma cminus_val (x: BN.t) p: bn x = BN.bn_modulus - p => 1 < p < BN.bn_modulus => BN.bn_modulus < 3 * p =>
+  bn (if BN.bn_modulus <= bn x + bn x then BN.bn_ofint (bn x + bn x) else x) = BN.bn_modulus %% p.
+proof.
+move=> Hx [H1 HpR] H3.
+case: (BN.bn_modulus <= bn x + bn x) => H /=.
+- rewrite BN.bn_ofintK Hx.
+  have E1: (BN.bn_modulus - 2 * p + 1 * BN.bn_modulus) %% BN.bn_modulus = BN.bn_modulus - 2 * p.
+  + by rewrite modzMDr modz_small; smt().
+  have E2: (BN.bn_modulus - 2 * p + 2 * p) %% p = BN.bn_modulus - 2 * p.
+  + by rewrite modzMDr modz_small; smt().
+  move: E1 E2; rewrite (_: BN.bn_modulus - 2 * p + 1 * BN.bn_modulus = BN.bn_modulus - p + (BN.bn_modulus - p)) 1:/#.
+  by rewrite (_: BN.bn_modulus - 2 * p + 2 * p = BN.bn_modulus) 1:/# => -> ->.
+rewrite Hx.
+have E: (BN.bn_modulus - p + 1 * p) %% p = BN.bn_modulus - p by rewrite modzMDr modz_small; smt().
+by move: E; rewrite (_: BN.bn_modulus - p + 1 * p = BN.bn_modulus) 1:/# => ->.
+qed.
+
+lemma bn_set0w (x: BN.t) (y: W64.t):
+  bn x.[0 <- y] = bn x - to_uint x.[0] + to_uint y.
+proof.
+have Hn := gt0_nlimbs.
+have E := BN.bn_k_kup 1 x.[0 <- y] _; first smt().
+have Ex := BN.bn_k_kup 1 x _; first smt().
+have Hup := BN.bnkup_setO 1 x y _; first smt().
+move: Hup; rewrite (_: 1 - 1 = 0) 1:// => Hup.
+by rewrite E Ex Hup !BN.bnk1 /= BN.A.get_setE 1:/#; ring.
+qed.
+
+(* a big number below 2^64 is its first word *)
+lemma bn_word0 (x: BN.t): bn x < 18446744073709551616 => bn x = to_uint x.[0].
+proof.
+move=> Hx; have Hn := gt0_nlimbs.
+have Ex := BN.bn_k_kup 1 x _; first smt().
+have Hu: 0 <= BN.bnkup 1 x.
++ rewrite -BN.bn_div_kup 1:/#; apply divz_ge0; smt(StdOrder.IntOrder.expr_gt0 BN.bnk_cmp).
+have := W64.to_uint_cmp x.[0].
+move: Ex Hx; rewrite BN.bnk1 /=; smt().
+qed.
+
+(* the mask of the third fold: c when the carry is set, 0 otherwise *)
+lemma mask_and (cf: bool) (c: W64.t):
+  W64.of_int (- b2i cf) `&` c = if cf then c else W64.zero.
+proof.
+case: cf => /=; last by rewrite W64.and0w.
+have ->: W64.of_int (-1) = W64.onew by rewrite /W64.onew -W64.of_int_mod.
+by rewrite W64.and1w.
+qed.
+
+(* BEGIN generated by scripts/xtr_sync.py from src/amd64/ref/extracted/FPPM_fp_pm.ec
+   (fp_pm@fp.jinc); do not edit: run `make -C proof update` *)
+module type MParam = {
+  proc fun_muln (r:BN2.t, a:BN.t, b:BN.t) : BN2.t
+  proc fun_sqrn (r:BN2.t, a:BN.t) : BN2.t
+}.
+
+module M(P: MParam) = {
+  proc _redPM (r:BN.t, a:BN2.t,
+                        ctx:W64.t FPC.CTX.t) : BN.t = {
+    var c:W64.t;
+    var t:W64.t;
+    var i:int;
+    var l:W64.t;
+    var h:W64.t;
+    var cf:bool;
+    var x:W64.t;
+    var mask:W64.t;
+    var _s:BN.t;
+    var j:int;
+    var  _0:bool;
+    var  _1:bool;
+    _s <- witness;
+    c <- ctx.[(4 * nlimbs)];
+    t <- (W64.of_int 0);
+    i <- 0;
+    while ((i < nlimbs)) {
+      l <- a.[(nlimbs + i)];
+      (h, l) <- (mulu_64 l c);
+      (cf, l) <- (adc_64 l a.[i] false);
+      ( _0, h) <- (adc_64 h (W64.of_int 0) cf);
+      (cf, l) <- (adc_64 l t false);
+      ( _1, h) <- (adc_64 h (W64.of_int 0) cf);
+      r.[i] <- l;
+      t <- h;
+      i <- (i + 1);
+    }
+    t <- (t * c);
+    x <- r.[0];
+    (cf, x) <- (adc_64 x t false);
+    r.[0] <- x;
+    i <- 1;
+    while ((i < nlimbs)) {
+      x <- r.[i];
+      (cf, x) <- (adc_64 x (W64.of_int 0) cf);
+      r.[i] <- x;
+      i <- (i + 1);
+    }
+    mask <@ BNUTIL_M.__cf_mask (cf);
+    mask <- (mask `&` c);
+    x <- r.[0];
+    x <- (x + mask);
+    r.[0] <- x;
+    j <- 0;
+    while ((j < 2)) {
+      x <- r.[0];
+      (cf, x) <- (adc_64 x ctx.[nlimbs] false);
+      _s.[0] <- x;
+      i <- 1;
+      while ((i < nlimbs)) {
+        x <- r.[i];
+        (cf, x) <- (adc_64 x ctx.[(nlimbs + i)] cf);
+        _s.[i] <- x;
+        i <- (i + 1);
+      }
+      i <- 0;
+      while ((i < nlimbs)) {
+        x <- r.[i];
+        x <- (cf ? _s.[i] : x);
+        r.[i] <- x;
+        i <- (i + 1);
+      }
+      j <- (j + 1);
+    }
+    return r;
+  }
+  proc _redPM_ (r:BN.t, a:BN2.t,
+                         ctx:W64.t FPC.CTX.t) : BN.t = {
+    
+    r <- r;
+    a <- a;
+    ctx <- ctx;
+    r <@ _redPM (r, a, ctx);
+    r <- r;
+    return r;
+  }
+  proc _fromM_ (a:BN.t, ctx:W64.t FPC.CTX.t) : BN.t = {
+    
+    ctx <- ctx;
+    return a;
+  }
+  proc fun_red (r:BN.t, a:BN2.t,
+                         ctx:W64.t FPC.CTX.t) : BN.t = {
+    
+    r <@ _redPM_ (r, a, ctx);
+    return r;
+  }
+  proc _toM_ (a:BN.t, ctx:W64.t FPC.CTX.t) : BN.t = {
+    
+    ctx <- ctx;
+    return a;
+  }
+  proc _ctx_init_ (ctx:W64.t FPC.CTX.t, p:BN.t) : 
+  W64.t FPC.CTX.t = {
+    var t:BN.t;
+    var _x:BN.t;
+    var x:BN.t;
+    var mP:BN.t;
+    var z:W64.t;
+    var c:W64.t;
+    var  _0:bool;
+    _x <- witness;
+    mP <- witness;
+    t <- witness;
+    x <- witness;
+    t <- (BN.A.init (fun i => ctx.[(0 + i)]));
+    t <@ BNB_M._mov_ (t, p);
+    ctx <-
+    (FPC.CTX.init
+    (fun i => (if (0 <= i < (0 + nlimbs)) then t.[(i - 0)] else ctx.[i])));
+    t <- (BN.A.init (fun i => ctx.[(nlimbs + i)]));
+    ( _0, t) <@ BNB_M._neg_ (t, p);
+    ctx <-
+    (FPC.CTX.init
+    (fun i => (if (nlimbs <= i < (nlimbs + nlimbs)) then t.[(i - nlimbs)] else ctx.[i])));
+    t <- (BN.A.init (fun i => ctx.[((2 * nlimbs) + i)]));
+    t <@ BNB_M._set0_ (t);
+    ctx <-
+    (FPC.CTX.init
+    (fun i => (if ((2 * nlimbs) <= i < ((2 * nlimbs) + nlimbs)) then t.[(i - (2 * nlimbs))] else 
+              ctx.[i]))
+    );
+    ctx.[(2 * nlimbs)] <- (W64.of_int 1);
+    t <- (BN.A.init (fun i => ctx.[((3 * nlimbs) + i)]));
+    t <@ BNB_M._set0_ (t);
+    ctx <-
+    (FPC.CTX.init
+    (fun i => (if ((3 * nlimbs) <= i < ((3 * nlimbs) + nlimbs)) then t.[(i - (3 * nlimbs))] else 
+              ctx.[i]))
+    );
+    x <- _x;
+    mP <- (BN.A.init (fun i => ctx.[(nlimbs + i)]));
+    x <@ BNB_M._mov_ (x, mP);
+    z <- (W64.of_int 0);
+    mP <- (BN.A.init (fun i => ctx.[(nlimbs + i)]));
+    x <@ BNB_M._cminusP_ (x, mP, z);
+    c <- x.[0];
+    ctx.[(4 * nlimbs)] <- c;
+    return ctx;
+  }
+  module P_FPB = {
+    proc fun_muln = P.fun_muln
+    proc fun_sqrn = P.fun_sqrn
+    proc fun_red = fun_red
+  }
+  proc _chk_bnds_ = FPB.M(P_FPB)._chk_bnds_
+  proc _addm_ = FPB.M(P_FPB)._addm_
+  proc _addmU_ = FPB.M(P_FPB)._addmU_
+  proc _subm_ = FPB.M(P_FPB)._subm_
+  proc _submU_ = FPB.M(P_FPB)._submU_
+  proc _mulm_ = FPB.M(P_FPB)._mulm_
+  proc _mulmU_ = FPB.M(P_FPB)._mulmU_
+  proc _sqrm_ = FPB.M(P_FPB)._sqrm_
+  proc _sqrmU_ = FPB.M(P_FPB)._sqrmU_
+  proc fun_mulU = FPB.M(P_FPB).fun_mulU
+  proc fun_sqrU = FPB.M(P_FPB).fun_sqrU
+  proc __Pm2 = FPB.M(P_FPB).__Pm2
+  proc _invmU_ = FPB.M(P_FPB)._invmU_
+  proc _invm_ = FPB.M(P_FPB)._invm_
+}.
+(* END generated *)
+
+
+(******************************************************************************
+ **                                 CONTRACTS                                **
+ ******************************************************************************)
+
+section.
+
+declare module P <: MParam.
+
+declare axiom fun_muln_ll: islossless P.fun_muln.
+declare axiom fun_sqrn_ll: islossless P.fun_sqrn.
+
+declare axiom fun_muln_h _a _b:
+ hoare [ P.fun_muln : arg.`2 = _a /\ arg.`3 = _b ==> BN2.bn res = bn _a * bn _b ].
+
+declare axiom fun_sqrn_h _a:
+ hoare [ P.fun_sqrn : arg.`2 = _a ==> BN2.bn res = bn _a * bn _a ].
+
+(* the pseudo-Mersenne reduction: a mod p, for any a < R^2 *)
+hoare _redPM_h p _a:
+ M(P)._redPM
+ : FPC.ctx_mod p ctx /\ pm_ctx p ctx /\ a = _a
+   ==> bn res = BN2.bn _a %% p.
+proof.
+have Hn := gt0_nlimbs.
+proc.
+exists* ctx; elim* => cx.
+have [H|[Hm Hu]]: !(FPC.ctx_mod p cx /\ pm_ctx p cx) \/ (FPC.ctx_mod p cx /\ pm_ctx p cx) by smt().
++ by conseq (_: false ==> _) => // /#.
+have [H1 [Hodd [HP HmP]]] := Hm.
+have [Hc [Hc32 H3p]] := Hu.
+have HpR := FPC.ctx_mod_bnd p cx Hm.
+(* the first fold: [r ; t] = lo + c * hi *)
+seq 5 : (ctx = cx /\ a = _a /\ c = FPC.ctxU0 cx
+         /\ bn r + to_uint t * 18446744073709551616 ^ nlimbs = bn (lo2 _a) + to_uint c * bn (hi2 _a)
+         /\ to_uint t <= to_uint c).
++ while (ctx = cx /\ a = _a /\ c = FPC.ctxU0 cx /\ 0 <= i <= nlimbs
+         /\ bnk i r + to_uint t * 18446744073709551616 ^ i = bnk i (lo2 _a) + to_uint c * bnk i (hi2 _a)
+         /\ to_uint t <= to_uint c).
+  - wp; skip => /> &hr Hi0 _ Hv Ht Hin.
+    have M2 := JBigNumber.mac2P _a.[nlimbs + i{hr}] (FPC.ctxU0 cx) _a.[i{hr}] t{hr}.
+    rewrite bnk_put 1:/# bnk_lo2S 1:/# bnk_hi2S 1:/#.
+    split; first smt().
+    split.
+    - rewrite M2.
+      have ->: bnk i{hr} r{hr} = bnk i{hr} (lo2 _a) + to_uint (FPC.ctxU0 cx) * bnk i{hr} (hi2 _a)
+                                 - to_uint t{hr} * 18446744073709551616 ^ i{hr} by smt().
+      by ring.
+    apply (fold_hi _ _ _ _ _ _ (wbnd _) (wbnd _) (wbnd _) _ _ M2); move: Ht; smt(wbnd).
+  wp; skip => /> &hr *.
+  split; first by rewrite !BN.bnk0 /=; smt(W64.to_uint_cmp).
+  move=> i0 r0 t0 Hi _ Hi0 Hi1 Hv Ht.
+  have Ei: i0 = nlimbs by smt().
+  by move: Hv Ht; rewrite Ei.
+(* the second fold: [cf ; r] = r + t * c *)
+exists* r, t; elim* => r1 t1.
+seq 6 : (ctx = cx /\ c = FPC.ctxU0 cx
+         /\ bn r + b2i cf * 18446744073709551616 ^ nlimbs = bn r1 + to_uint t1 * to_uint (FPC.ctxU0 cx)
+         /\ bn r1 + to_uint t1 * 18446744073709551616 ^ nlimbs = bn (lo2 _a) + to_uint (FPC.ctxU0 cx) * bn (hi2 _a)
+         /\ to_uint t1 <= to_uint (FPC.ctxU0 cx)).
++ while (ctx = cx /\ c = FPC.ctxU0 cx /\ 1 <= i <= nlimbs
+         /\ bnk i r + b2i cf * 18446744073709551616 ^ i = bnk i r1 + to_uint t1 * to_uint (FPC.ctxU0 cx)
+         /\ (forall k, i <= k < nlimbs => r.[k] = r1.[k])
+         /\ bn r1 + to_uint t1 * 18446744073709551616 ^ nlimbs = bn (lo2 _a) + to_uint (FPC.ctxU0 cx) * bn (hi2 _a)
+         /\ to_uint t1 <= to_uint (FPC.ctxU0 cx)).
+  - wp; skip => /> &hr Hi1 _ Hv Hk HF Ht1 Hin.
+    split; first smt().
+    split; last smt(BN.A.get_setE).
+    rewrite bnk_put 1:/# JBigNumber.addc_to_uint W64.to_uint0 bnkSw 1:/# -(Hk i{hr}) 1:/#.
+    rewrite (_: W64.modulus = 18446744073709551616) //.
+    have ->: bnk i{hr} r{hr} = bnk i{hr} r1 + to_uint t1 * to_uint (FPC.ctxU0 cx)
+                               - b2i cf{hr} * 18446744073709551616 ^ i{hr} by smt().
+    by ring.
+  wp; skip => /> HF Ht1.
+  split.
+  - split; first smt().
+    split; last smt(BN.A.get_setE).
+    rewrite bnk_put0 JBigNumber.addc_to_uint bnk1w /=.
+    rewrite W64.to_uintM_small; last by ring.
+    have := sq32 (to_uint t1) (to_uint (FPC.ctxU0 cx)) _ _; smt(wbnd).
+  move=> cf0 i0 r0 Hi0 Hi1 Hi2 Hv _.
+  have Ei: i0 = nlimbs by smt().
+  by move: Hv; rewrite Ei.
+(* the correction: if cf, r + c (no carry) *)
+seq 5 : (ctx = cx /\ bn r %% p = BN2.bn _a %% p).
++ wp; ecall (BNUTIL.__cf_mask_h cf); skip => /> &hr Hv HF Ht1.
+  rewrite mask_and.
+  have Rv: BN.bn_modulus = 18446744073709551616 ^ nlimbs by rewrite /BN.bn_modulus.
+  have HR: BN.bn_modulus %% p = to_uint (FPC.ctxU0 cx) %% p by rewrite Hc modz_mod.
+  have HA: BN2.bn _a %% p = (bn r{hr} + b2i cf{hr} * to_uint (FPC.ctxU0 cx)) %% p.
+  - rewrite bn2_halves (modR _ _ _ _ _ HR).
+    rewrite (_: bn (lo2 _a) + bn (hi2 _a) * to_uint (FPC.ctxU0 cx)
+                = bn r1 + to_uint t1 * BN.bn_modulus) 1:/#.
+    rewrite (modR _ _ _ _ _ HR).
+    rewrite (_: bn r1 + to_uint t1 * to_uint (FPC.ctxU0 cx)
+                = bn r{hr} + b2i cf{hr} * BN.bn_modulus) 1:/#.
+    by rewrite (modR _ _ _ _ _ HR).
+  rewrite HA; case: (cf{hr}) => Hcf /=.
+  - have Hb := sq32 (to_uint t1) (to_uint (FPC.ctxU0 cx)) _ _; first 2 smt(wbnd).
+    have Hr: bn r{hr} <= 18446744065119617025.
+    + move: Hv; rewrite Hcf /= => Hv.
+      have := bn_bnd r1; smt().
+    rewrite bn_set0w W64.to_uintD_small.
+    + rewrite -bn_word0; smt(wbnd).
+    by rewrite -bn_word0; smt(wbnd).
+  by rewrite bn_set0w /= /#.
+(* two conditional subtractions of p *)
+while (ctx = cx /\ 0 <= j <= 2 /\ bn r %% p = BN2.bn _a %% p /\ bn r < (3 - j) * p).
++ exists* r; elim* => r0.
+  seq 5 : (ctx = cx /\ 0 <= j < 2 /\ r = r0 /\ bn r0 %% p = BN2.bn _a %% p /\ bn r0 < (3 - j) * p
+           /\ bn _s + b2i cf * 18446744073709551616 ^ nlimbs = bn r0 + bn (FPC.ctxMP cx)).
+  + while (ctx = cx /\ 0 <= j < 2 /\ r = r0 /\ bn r0 %% p = BN2.bn _a %% p /\ bn r0 < (3 - j) * p
+           /\ 1 <= i <= nlimbs
+           /\ bnk i _s + b2i cf * 18446744073709551616 ^ i = bnk i r0 + bnk i (FPC.ctxMP cx)).
+    - wp; skip => /> &hr Hj0 Hj1 Hr0 Hb Hi1 _ Hv Hin.
+      split; first smt().
+      rewrite bnk_put 1:/# JBigNumber.addc_to_uint bnkSw 1:/# bnk_mPS 1:/#.
+      rewrite (_: W64.modulus = 18446744073709551616) //.
+      have ->: bnk i{hr} _s{hr} = bnk i{hr} r0 + bnk i{hr} (FPC.ctxMP cx)
+                                  - b2i cf{hr} * 18446744073709551616 ^ i{hr} by smt().
+      by ring.
+    wp; skip => /> &hr Hj0 Hj2 Hb Hlt Hj1.
+    split.
+    - split; first smt().
+      rewrite bnk_put0 JBigNumber.addc_to_uint !bnk1w /=.
+      by rewrite /FPC.ctxMP BN.A.initiE; smt(gt0_nlimbs).
+    move=> s0 cf0 i0 Hi0 Hi1 Hi2 Hv.
+    have Ei: i0 = nlimbs by smt().
+    by move: Hv; rewrite Ei.
+  seq 2 : (ctx = cx /\ 0 <= j < 2 /\ bn r0 %% p = BN2.bn _a %% p /\ bn r0 < (3 - j) * p
+           /\ bn _s + b2i cf * 18446744073709551616 ^ nlimbs = bn r0 + bn (FPC.ctxMP cx)
+           /\ r = if cf then _s else r0).
+  + while (ctx = cx /\ 0 <= j < 2 /\ bn r0 %% p = BN2.bn _a %% p /\ bn r0 < (3 - j) * p
+           /\ bn _s + b2i cf * 18446744073709551616 ^ nlimbs = bn r0 + bn (FPC.ctxMP cx)
+           /\ 0 <= i <= nlimbs
+           /\ forall k, 0 <= k < nlimbs =>
+                r.[k] = if k < i then (if cf then _s.[k] else r0.[k]) else r0.[k]).
+    - wp; skip => /> &hr Hj0 Hj1 Hm0 Hb Hv Hi0 _ Hk Hin.
+      split; first smt().
+      move=> k Hk0 Hk1; rewrite BN.A.get_setE 1:/#.
+      case: (k = i{hr}) => Ek; first by rewrite Ek Hk 1:/# /#.
+      by rewrite Hk 1:/# /#.
+    wp; skip => /> &hr Hj0 Hj1 Hm0 Hb Hv.
+    split; first smt().
+    move=> i0 r2 Hi0 Hi1 Hi2 Hk.
+    apply BN.A.ext_eq => k Hk0; rewrite Hk 1:/#; smt().
+  wp; skip => /> &hr Hj0 Hj1 Hm0 Hb Hv.
+  have Rv: BN.bn_modulus = 18446744073709551616 ^ nlimbs by rewrite /BN.bn_modulus.
+  have HmP' : bn (FPC.ctxMP cx) = 18446744073709551616 ^ nlimbs - p by rewrite HmP Rv.
+  case: (cf{hr}) => Hcf /=.
+  - have Es: bn _s{hr} = bn r0 - p by move: Hv; rewrite Hcf HmP' /= /#.
+    split; first smt().
+    split; last smt().
+    by rewrite Es -Hm0 (_: bn r0 - p = bn r0 + (-1) * p) 1:/# modzMDr.
+  have Hr0: bn r0 < p by move: Hv (bn_bnd _s{hr}); rewrite Hcf HmP' /= /#.
+  smt().
+wp; skip => /> &hr Hm1.
+have Rv: BN.bn_modulus = 18446744073709551616 ^ nlimbs by rewrite /BN.bn_modulus.
+split; first by move: (bn_bnd r{hr}) H3p; rewrite Rv; smt().
+move=> j0 r0 Hj0 Hj1 Hj2 Hm0 Hb.
+have Ej: j0 = 2 by smt().
+have Hb2: bn r0 < p by move: Hb; rewrite Ej.
+by rewrite -Hm0 modz_small; move: (bn_bnd r0); smt().
+qed.
+
+hoare _redPM__h p _a:
+ M(P)._redPM_
+ : FPC.ctx_mod p ctx /\ pm_ctx p ctx /\ a = _a
+   ==> bn res = BN2.bn _a %% p.
+proof. by proc; wp; call (_redPM_h p _a); auto. qed.
+
+hoare fun_red_h p _a:
+ M(P).fun_red
+ : FPC.ctx_mod p ctx /\ pm_ctx p ctx /\ a = _a /\ BN2.bn _a < p * BN.bn_modulus
+   ==> bn res = FPB.red p (BN2.bn _a).
+proof. by proc; call (_redPM__h p _a); auto => /> *; rewrite red_mod. qed.
+
+(* the representation is the number: conversions are the identity *)
+hoare _toM__h _a:
+ M(P)._toM_ : a = _a ==> res = _a.
+proof. by proc; auto. qed.
+
+hoare _fromM__h _a:
+ M(P)._fromM_ : a = _a ==> res = _a.
+proof. by proc; auto. qed.
+
+(* losslessness *)
+lemma _redPM_ll: islossless M(P)._redPM.
+proof.
+proc.
+while true (2 - j).
++ move=> z; wp.
+  while true (nlimbs - i); first by move=> z'; auto => /#.
+  wp; while true (nlimbs - i); first by move=> z'; auto => /#.
+  by auto => /#.
+wp; call BNUTIL.__cf_mask_ll; wp.
+while true (nlimbs - i); first by move=> z; auto => /#.
+wp; while true (nlimbs - i); first by move=> z; auto => /#.
+by auto => /#.
+qed.
+
+lemma _redPM__ll: islossless M(P)._redPM_.
+proof. by proc; wp; call _redPM_ll; auto. qed.
+
+lemma fun_red_ll: islossless M(P).fun_red.
+proof. by proc; call _redPM__ll. qed.
+
+lemma _toM__ll: islossless M(P)._toM_.
+proof. by proc; auto. qed.
+
+lemma _fromM__ll: islossless M(P)._fromM_.
+proof. by proc; auto. qed.
+
+(* the parameters of Fp_base: the multiplication of P, and the
+   pseudo-Mersenne reduction *)
+lemma P_FPB_muln_ll: islossless M(P).P_FPB.fun_muln.
+proof. by proc*; call fun_muln_ll. qed.
+
+lemma P_FPB_sqrn_ll: islossless M(P).P_FPB.fun_sqrn.
+proof. by proc*; call fun_sqrn_ll. qed.
+
+lemma P_FPB_red_ll: islossless M(P).P_FPB.fun_red.
+proof. by proc*; call fun_red_ll. qed.
+
+lemma P_FPB_muln_h _a _b:
+ hoare [ M(P).P_FPB.fun_muln : a = _a /\ b = _b ==> BN2.bn res = bn _a * bn _b ].
+proof. by proc*; call (fun_muln_h _a _b). qed.
+
+lemma P_FPB_sqrn_h _a:
+ hoare [ M(P).P_FPB.fun_sqrn : a = _a ==> BN2.bn res = bn _a * bn _a ].
+proof. by proc*; call (fun_sqrn_h _a). qed.
+
+lemma P_FPB_red_h p _x:
+ hoare [ M(P).P_FPB.fun_red
+       : FPC.ctx_mod p ctx /\ pm_ctx p ctx /\ a = _x /\ BN2.bn _x < p * BN.bn_modulus
+         ==> bn res = FPB.red p (BN2.bn _x) ].
+proof. by proc*; call (fun_red_h p _x). qed.
+
+(* the field operations (Fp_base, with the reduction modulo p) *)
+hoare _mulm__h _p _a _b:
+ M(P)._mulm_
+ : FPC.ctx_mod _p ctx /\ pm_ctx _p ctx /\ a = _a /\ b = _b /\ bn _a < _p /\ bn _b < _p
+   ==> bn res = bn _a * bn _b %% _p.
+proof.
+proc*; call (FPB._mulm__h (<: M(P).P_FPB) P_FPB_muln_ll P_FPB_sqrn_ll P_FPB_red_ll P_FPB_muln_h P_FPB_sqrn_h P_FPB_red_h _p _a _b).
+by auto => /> *; rewrite red_mod.
+qed.
+
+lemma _mulm__ll: islossless M(P)._mulm_.
+proof. by proc*; call (FPB._mulm__ll (<: M(P).P_FPB) P_FPB_muln_ll P_FPB_sqrn_ll P_FPB_red_ll P_FPB_muln_h P_FPB_sqrn_h P_FPB_red_h). qed.
+
+hoare _mulmU__h _p _a _b:
+ M(P)._mulmU_
+ : FPC.ctx_mod _p ctx /\ pm_ctx _p ctx /\ a = _a /\ b = _b /\ bn _a < _p /\ bn _b < _p
+   ==> bn res = bn _a * bn _b %% _p.
+proof.
+proc*; call (FPB._mulmU__h (<: M(P).P_FPB) P_FPB_muln_ll P_FPB_sqrn_ll P_FPB_red_ll P_FPB_muln_h P_FPB_sqrn_h P_FPB_red_h _p _a _b).
+by auto => /> *; rewrite red_mod.
+qed.
+
+lemma _mulmU__ll: islossless M(P)._mulmU_.
+proof. by proc*; call (FPB._mulmU__ll (<: M(P).P_FPB) P_FPB_muln_ll P_FPB_sqrn_ll P_FPB_red_ll P_FPB_muln_h P_FPB_sqrn_h P_FPB_red_h). qed.
+
+hoare _sqrm__h _p _a:
+ M(P)._sqrm_
+ : FPC.ctx_mod _p ctx /\ pm_ctx _p ctx /\ a = _a /\ bn _a < _p
+   ==> bn res = bn _a * bn _a %% _p.
+proof.
+proc*; call (FPB._sqrm__h (<: M(P).P_FPB) P_FPB_muln_ll P_FPB_sqrn_ll P_FPB_red_ll P_FPB_muln_h P_FPB_sqrn_h P_FPB_red_h _p _a).
+by auto => /> *; rewrite red_mod.
+qed.
+
+lemma _sqrm__ll: islossless M(P)._sqrm_.
+proof. by proc*; call (FPB._sqrm__ll (<: M(P).P_FPB) P_FPB_muln_ll P_FPB_sqrn_ll P_FPB_red_ll P_FPB_muln_h P_FPB_sqrn_h P_FPB_red_h). qed.
+
+hoare _sqrmU__h _p _a:
+ M(P)._sqrmU_
+ : FPC.ctx_mod _p ctx /\ pm_ctx _p ctx /\ a = _a /\ bn _a < _p
+   ==> bn res = bn _a * bn _a %% _p.
+proof.
+proc*; call (FPB._sqrmU__h (<: M(P).P_FPB) P_FPB_muln_ll P_FPB_sqrn_ll P_FPB_red_ll P_FPB_muln_h P_FPB_sqrn_h P_FPB_red_h _p _a).
+by auto => /> *; rewrite red_mod.
+qed.
+
+lemma _sqrmU__ll: islossless M(P)._sqrmU_.
+proof. by proc*; call (FPB._sqrmU__ll (<: M(P).P_FPB) P_FPB_muln_ll P_FPB_sqrn_ll P_FPB_red_ll P_FPB_muln_h P_FPB_sqrn_h P_FPB_red_h). qed.
+
+hoare _addm__h _p _a _b:
+ M(P)._addm_
+ : FPC.ctx_mod _p ctx /\ a = _a /\ b = _b /\ bn _a < _p /\ bn _b < _p
+   ==> bn res = (bn _a + bn _b) %% _p.
+proof. by proc*; call (FPB._addm__h (<: M(P).P_FPB) P_FPB_muln_ll P_FPB_sqrn_ll P_FPB_red_ll P_FPB_muln_h P_FPB_sqrn_h P_FPB_red_h _p _a _b). qed.
+
+lemma _addm__ll: islossless M(P)._addm_.
+proof. by proc*; call (FPB._addm__ll (<: M(P).P_FPB) P_FPB_muln_ll P_FPB_sqrn_ll P_FPB_red_ll P_FPB_muln_h P_FPB_sqrn_h P_FPB_red_h). qed.
+
+hoare _addmU__h _p _a _b:
+ M(P)._addmU_
+ : FPC.ctx_mod _p ctx /\ a = _a /\ b = _b /\ bn _a < _p /\ bn _b < _p
+   ==> bn res = (bn _a + bn _b) %% _p.
+proof. by proc*; call (FPB._addmU__h (<: M(P).P_FPB) P_FPB_muln_ll P_FPB_sqrn_ll P_FPB_red_ll P_FPB_muln_h P_FPB_sqrn_h P_FPB_red_h _p _a _b). qed.
+
+lemma _addmU__ll: islossless M(P)._addmU_.
+proof. by proc*; call (FPB._addmU__ll (<: M(P).P_FPB) P_FPB_muln_ll P_FPB_sqrn_ll P_FPB_red_ll P_FPB_muln_h P_FPB_sqrn_h P_FPB_red_h). qed.
+
+hoare _subm__h _p _a _b:
+ M(P)._subm_
+ : FPC.ctx_mod _p ctx /\ a = _a /\ b = _b /\ bn _a < _p /\ bn _b < _p
+   ==> bn res = (bn _a - bn _b) %% _p.
+proof. by proc*; call (FPB._subm__h (<: M(P).P_FPB) P_FPB_muln_ll P_FPB_sqrn_ll P_FPB_red_ll P_FPB_muln_h P_FPB_sqrn_h P_FPB_red_h _p _a _b). qed.
+
+lemma _subm__ll: islossless M(P)._subm_.
+proof. by proc*; call (FPB._subm__ll (<: M(P).P_FPB) P_FPB_muln_ll P_FPB_sqrn_ll P_FPB_red_ll P_FPB_muln_h P_FPB_sqrn_h P_FPB_red_h). qed.
+
+hoare _submU__h _p _a _b:
+ M(P)._submU_
+ : FPC.ctx_mod _p ctx /\ a = _a /\ b = _b /\ bn _a < _p /\ bn _b < _p
+   ==> bn res = (bn _a - bn _b) %% _p.
+proof. by proc*; call (FPB._submU__h (<: M(P).P_FPB) P_FPB_muln_ll P_FPB_sqrn_ll P_FPB_red_ll P_FPB_muln_h P_FPB_sqrn_h P_FPB_red_h _p _a _b). qed.
+
+lemma _submU__ll: islossless M(P)._submU_.
+proof. by proc*; call (FPB._submU__ll (<: M(P).P_FPB) P_FPB_muln_ll P_FPB_sqrn_ll P_FPB_red_ll P_FPB_muln_h P_FPB_sqrn_h P_FPB_red_h). qed.
+
+hoare _chk_bnds__h _p _err _a:
+ M(P)._chk_bnds_
+ : FPC.ctx_mod _p ctx /\ err = _err /\ a = _a
+   ==> res = _err `|` W64.of_int (- b2i (! (bn _a < _p))).
+proof. by proc*; call (FPB._chk_bnds__h (<: M(P).P_FPB) P_FPB_muln_ll P_FPB_sqrn_ll P_FPB_red_ll P_FPB_muln_h P_FPB_sqrn_h P_FPB_red_h _p _err _a). qed.
+
+lemma _chk_bnds__ll: islossless M(P)._chk_bnds_.
+proof. by proc*; call (FPB._chk_bnds__ll (<: M(P).P_FPB) P_FPB_muln_ll P_FPB_sqrn_ll P_FPB_red_ll P_FPB_muln_h P_FPB_sqrn_h P_FPB_red_h). qed.
+
+(* the inverse by Fermat's little theorem: a^(p-2) in the monoid of
+   representatives (Fp_base), which is the integers modulo p here *)
+hoare _invm__h _p _c _a:
+ M(P)._invm_
+ : ctx = _c /\ a = _a /\ ctx_pm _p _c /\ bn _a < _p
+   ==> bn res = FPB.BNE.mexp _c (bn _a) (_p - 2).
+proof.
+proc*; call (FPB._invm__h (<: M(P).P_FPB) P_FPB_muln_ll P_FPB_sqrn_ll P_FPB_red_ll P_FPB_muln_h P_FPB_sqrn_h P_FPB_red_h _p _c _a).
+by auto => /> *; smt(ctx_pm_fp).
+qed.
+
+lemma _invm__ll: islossless M(P)._invm_.
+proof. by proc*; call (FPB._invm__ll (<: M(P).P_FPB) P_FPB_muln_ll P_FPB_sqrn_ll P_FPB_red_ll P_FPB_muln_h P_FPB_sqrn_h P_FPB_red_h). qed.
+
+hoare _invmU__h _p _c _a:
+ M(P)._invmU_
+ : ctx = _c /\ a = _a /\ ctx_pm _p _c /\ bn _a < _p
+   ==> bn res = FPB.BNE.mexp _c (bn _a) (_p - 2).
+proof.
+proc*; call (FPB._invmU__h (<: M(P).P_FPB) P_FPB_muln_ll P_FPB_sqrn_ll P_FPB_red_ll P_FPB_muln_h P_FPB_sqrn_h P_FPB_red_h _p _c _a).
+by auto => /> *; smt(ctx_pm_fp).
+qed.
+
+lemma _invmU__ll: islossless M(P)._invmU_.
+proof. by proc*; call (FPB._invmU__ll (<: M(P).P_FPB) P_FPB_muln_ll P_FPB_sqrn_ll P_FPB_red_ll P_FPB_muln_h P_FPB_sqrn_h P_FPB_red_h). qed.
+
+(* the context of a qualifying p (odd, c = R mod p < 2^32, R < 3p) *)
+hoare _ctx_init__h _p:
+ M(P)._ctx_init_
+ : bn p = _p /\ 1 < _p /\ _p %% 2 = 1
+   /\ BN.bn_modulus %% _p < 4294967296 /\ BN.bn_modulus < 3 * _p
+   ==> ctx_pm _p res.
+proof.
+have Hn := gt0_nlimbs.
+proc.
+(* P and R-P *)
+seq 10 : (bn p = _p /\ 1 < _p /\ _p %% 2 = 1 /\ BN.bn_modulus %% _p < 4294967296 /\ BN.bn_modulus < 3 * _p
+          /\ FPC.ctx_mod _p ctx).
++ wp; ecall (BNB._neg__h p).
+  wp; ecall (BNB._mov__h p).
+  wp; skip => &hr [Hp [H1 [Hodd [Hc32 H3p]]]] /=.
+  move=> r -> [cf t] Ht /=.
+  rewrite !FPC.ctx_wrE.
+  move: Hp => /= Hp.
+  have [HP0 _] := FPC.ctx_wr_parts ctx{hr} 0 p{hr} _; first by left.
+  have [HP1 [HMP1 _]] := FPC.ctx_wr_parts (FPC.ctx_wr ctx{hr} 0 p{hr}) nlimbs t _; first by right; left.
+  rewrite /FPC.ctx_mod HP1 HMP1 HP0 /= (_: nlimbs <> 0) 1:/# /=.
+  have := FPC.neg_val p{hr} cf t _ Ht; smt().
+(* ONE = 1, R2 = 0 *)
+seq 7 : (bn p = _p /\ 1 < _p /\ _p %% 2 = 1 /\ BN.bn_modulus %% _p < 4294967296 /\ BN.bn_modulus < 3 * _p
+         /\ FPC.ctx_mod _p ctx /\ bn (FPC.ctxONE ctx) = 1).
++ wp; ecall (BNB._set0__h); wp; ecall (BNB._set0__h).
+  wp; skip => &hr [Hp [H1 [Hodd [Hc32 [H3p Hctx]]]]] /= t1 Ht1 t2 Ht2.
+  rewrite !FPC.ctx_wrE.
+  have H20: 2 * nlimbs <> 0 by smt().
+  have H21: 2 * nlimbs <> nlimbs by smt().
+  have H30: 3 * nlimbs <> 0 by smt().
+  have H31: 3 * nlimbs <> nlimbs by smt().
+  have H32: 3 * nlimbs <> 2 * nlimbs by smt().
+  have [HP1 [HMP1 [HONE1 _]]] := FPC.ctx_wr_parts ctx{hr} (2 * nlimbs) t1 _; first by right; right; left.
+  have [HP2 [HMP2 HONE2]] := ctx_setONE_parts (FPC.ctx_wr ctx{hr} (2 * nlimbs) t1) (W64.of_int 1).
+  have [HP3 [HMP3 [HONE3 _]]] := FPC.ctx_wr_parts (FPC.ctx_wr ctx{hr} (2 * nlimbs) t1).[2 * nlimbs <- W64.of_int 1] (3 * nlimbs) t2 _; first by right; right; right.
+  move: HP1 HMP1 HONE1 HP3 HMP3 HONE3; rewrite H20 H21 H30 H31 H32 /= => HP1 HMP1 HONE1 HP3 HMP3 HONE3.
+  do 5! (split; first done).
+  split; first by move: Hctx; rewrite /FPC.ctx_mod HP3 HMP3 HP2 HMP2 HP1 HMP1.
+  by rewrite HONE3 HONE2 HONE1 FPC.bn_one_of_zero.
+(* U0 = R mod p, from (R-p) + (R-p) *)
+wp; ecall (BNB._cminusP__h x mP z); wp; ecall (BNB._mov__h mP).
+wp; skip => &hr [Hp [H1 [Hodd [Hc32 [H3p [Hctx HONE]]]]]] /= r -> /=.
+move=> r' ->.
+have EmP: BN.A.init (fun i => ctx{hr}.[nlimbs + i]) = FPC.ctxMP ctx{hr} by rewrite /FPC.ctxMP.
+rewrite EmP.
+have [_ [_ [HP HmP]]] := Hctx.
+have HpR := FPC.ctx_mod_bnd _p ctx{hr} Hctx.
+have Hv := cminus_val (FPC.ctxMP ctx{hr}) _p HmP HpR H3p.
+have [HP' [HMP' [HONE' [_ HU']]]] := FPC.ctx_setU0_parts ctx{hr}
+   (if BN.bn_modulus <= bn (FPC.ctxMP ctx{hr}) + bn (FPC.ctxMP ctx{hr})
+    then BN.bn_ofint (bn (FPC.ctxMP ctx{hr}) + bn (FPC.ctxMP ctx{hr}))
+    else FPC.ctxMP ctx{hr}).[0].
+rewrite /ctx_pm /pm_ctx /FPC.ctx_mod HP' HMP' HONE' HU' HONE /=.
+split; first by move: Hctx; rewrite /FPC.ctx_mod.
+split; last by split.
+by rewrite -bn_word0; rewrite Hv //; move: Hc32; smt().
+qed.
+
+lemma _ctx_init__ll: islossless M(P)._ctx_init_.
+proof.
+proc.
+wp; call BNB._cminusP__ll; wp; call BNB._mov__ll; wp; call BNB._set0__ll.
+wp; call BNB._set0__ll; wp; call BNB._neg__ll; wp; call BNB._mov__ll.
+by auto.
+qed.
+
+end section.

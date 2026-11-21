@@ -1,0 +1,44 @@
+(* Safety of bn_util (src/amd64/ref/bn_util.jinc): the lemmas of the
+   specifications of theories/Bn_util_safety_xtr.eca. *)
+require import AllCore IntDiv CoreMap List Distr.
+from Jasmin require import JModel_x86.
+import SLH64.
+from Jasmin require import Jcheck JSafety JByte_array JMemory.
+require import ByteArrayInit JbnSafetyLib.
+require Bn_util_safety_xtr.
+
+clone include Bn_util_safety_xtr.
+
+(* the hints of the safety database for the accumulators (u64[3]) *)
+clone ByteArrayLib as BL24 with theory A <- BArray24.
+
+lemma __mask_zf_proof _mask : __mask_zf_spec _mask.
+proof. by rewrite /__mask_zf_spec; proc; auto. qed.
+
+lemma __mask_cf_proof _mask : __mask_cf_spec _mask.
+proof. by rewrite /__mask_cf_spec; proc; auto. qed.
+
+lemma __cf_mask_proof _cf : __cf_mask_spec _cf.
+proof. by rewrite /__cf_mask_spec; proc; auto. qed.
+
+lemma __ncf_mask_proof _cf : __ncf_mask_spec _cf.
+proof.
+hint +safety.
+rewrite /__ncf_mask_spec; proc.
+by wp; ecall (__cf_mask_proof param); auto.
+qed.
+
+(* the accumulator x[k % 3], x[(k+1) % 3], x[(k+2) % 3] *)
+lemma __addacc3_proof _a _b_a _b1 _b0 _k : __addacc3_spec _a _b_a _b1 _b0 _k.
+proof.
+hint +safety.
+rewrite /__addacc3_spec; proc.
+by auto => />; smt(mod3_bnd).
+qed.
+
+lemma __addacc3x2_proof _a _b_a _x _y _k : __addacc3x2_spec _a _b_a _x _y _k.
+proof.
+hint +safety.
+rewrite /__addacc3x2_spec; proc.
+by auto => />; smt(mod3_bnd).
+qed.

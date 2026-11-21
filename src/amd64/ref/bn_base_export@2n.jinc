@@ -4,6 +4,7 @@
    Expects:   H::nlimbs, H::BN::           // working size n
 */
 
+#[safety = { requires = is_mem_init(ap, 8*H::nlimbs) && is_mem_init(bp, 8*H::nlimbs) }]
 export fn bn_eq(reg u64 ap bp) -> reg u64
 {
   stack u64[H::nlimbs] _a _b;
@@ -19,6 +20,7 @@ export fn bn_eq(reg u64 ap bp) -> reg u64
   return r;
 }
 
+#[safety = { requires = is_mem_init(ap, 8*H::nlimbs) }]
 export fn bn_test0(reg u64 ap) -> reg u64
 {
   stack u64[H::nlimbs] _a;
@@ -31,6 +33,7 @@ export fn bn_test0(reg u64 ap) -> reg u64
   return r;
 }
 
+#[safety = { requires = is_mem_init(ap, 8*H::nlimbs) && is_mem_init(rp, 8*H::nlimbs) }]
 export fn bn_copy(reg u64 rp ap)
 {
   inline int i;
@@ -42,6 +45,7 @@ export fn bn_copy(reg u64 rp ap)
   }
 }
 
+#[safety = { requires = is_mem_init(rp, 8*H::nlimbs) }]
 export fn bn_set0(reg u64 rp)
 {
   inline int i;
@@ -51,6 +55,7 @@ export fn bn_set0(reg u64 rp)
   }
 }
 
+#[safety = { requires = is_mem_init(ap, 8*H::nlimbs) && is_mem_init(bp, 8*H::nlimbs) && is_mem_init(rp, 8*H::nlimbs) }]
 export fn bn_addU(reg u64 rp ap bp)
 {
   stack u64[H::nlimbs] _a _b;
@@ -64,6 +69,7 @@ export fn bn_addU(reg u64 rp ap bp)
   H::BN::_store_(rp, a);
 }
 
+#[safety = { requires = is_mem_init(ap, 8*H::nlimbs) && is_mem_init(bp, 8*H::nlimbs) && is_mem_init(rp, 8*H::nlimbs) }]
 export fn bn_subU(reg u64 rp ap bp)
 {
  stack u64[H::nlimbs] _a _b;

@@ -1,0 +1,340 @@
+(* Safety of bn_mulxr (src/amd64/ref/bn_mulxr@n.jinc): the lemmas of the
+   specifications of theories/Bn_mulxr_safety_xtr.eca. The accumulators are
+   register arrays (t, w, s), whose initialised prefix grows row by row. The
+   squaring stores the low words w of X with w + 10 <= 2*nlimbs into r as
+   they become final (`stored`: the words 1 .. stored v of r are stored once
+   the words up to v are final), for the diagonal pass to read back. *)
+require import AllCore IntDiv CoreMap List Distr.
+from Jasmin require import JModel_x86.
+import SLH64.
+from Jasmin require import Jcheck JSafety JByte_array JMemory.
+require import ByteArrayInit JbnSafetyLib.
+require Bn_mulxr_safety_xtr.
+
+clone include Bn_mulxr_safety_xtr.
+
+clone ByteArrayLib as BL_8n with theory A <- BA_8n.
+clone ByteArrayLib as BL_16n with theory A <- BA_16n.
+
+abbrev stored (v : int) = if v <= 2 * nlimbs - 10 then v else 2 * nlimbs - 10.
+
+lemma __mulr_row0_proof _a _b _b_b : __mulr_row0_spec _a _b _b_b.
+proof.
+hint +safety.
+rewrite /__mulr_row0_spec; proc.
+wp; while (valid trace___mulr_row0 /\ 1 <= i <= nlimbs /\ BA_16n.is_init b_t 0 (8 * (i + 1))).
+- auto => /> &hr hv hi0 hi1 ht hin.
+  have e := BL_16n.is_init_ext64 b_t{hr} (i{hr} + 1) _ ht; 1: smt().
+  have w := BL_16n.is_init_word _ i{hr} _ _ _ e; 1,2: smt().
+  have m := BL_16n.is_init_mono64 _ (i{hr} * 8) _ _ e.
+  smt().
+auto => /> hb.
+split; first smt(gt0_nlimbs).
+move=> b_t0 i0 tr0 hi _ hi0 hi1 ht0.
+have hie : i0 = nlimbs by smt().
+move: ht0; rewrite hie => ht0.
+have w := BL_16n.is_init_word _ nlimbs _ _ _ ht0; 1,2: smt(gt0_nlimbs).
+have m := BL_16n.is_init_mono64 _ (nlimbs * 8) _ _ ht0.
+smt(gt0_nlimbs).
+qed.
+
+lemma __mulr_rowk_proof _k _t _b_t _a _b _b_b : __mulr_rowk_spec _k _t _b_t _a _b _b_b.
+proof.
+hint +safety.
+rewrite /__mulr_rowk_spec; proc.
+wp; while (valid trace___mulr_rowk /\ inc = nlimbs - 1 /\ 0 <= i <= nlimbs - 1 /\ 1 <= k < nlimbs
+           /\ BA_16n.is_init b_t 0 (8 * (k + nlimbs))).
+- auto => /> &hr hv hi0 hi1 hk0 hk1 ht hin.
+  have w1 := BL_16n.is_init_word _ (k{hr} + i{hr}) _ _ _ ht; 1,2: smt().
+  have m1 := BL_16n.is_init_mono64 _ ((k{hr} + i{hr}) * 8) _ _ ht.
+  have w2 := BL_16n.is_init_word _ (k{hr} + i{hr} + 1) _ _ _ m1; 1,2: smt().
+  have m2 := BL_16n.is_init_mono64 _ ((k{hr} + i{hr} + 1) * 8) _ _ m1.
+  smt().
+auto => /> hk0 hk1 ht hb.
+split; first smt(gt0_nlimbs).
+move=> b_t0 i0 tr0 hi _ hi0 hi1 ht0.
+have e := BL_16n.is_init_ext64 b_t0 (_k + nlimbs) _ ht0; 1: smt().
+have w1 := BL_16n.is_init_word _ (_k + nlimbs - 1) _ _ _ e; 1,2: smt().
+have m1 := BL_16n.is_init_mono64 _ ((_k + nlimbs - 1) * 8) _ _ e.
+have w2 := BL_16n.is_init_word _ (_k + nlimbs) _ _ _ m1; 1,2: smt().
+have m2 := BL_16n.is_init_mono64 _ ((_k + nlimbs) * 8) _ _ m1.
+have w3 := BL_16n.is_init_word _ (_k + nlimbs) _ _ _ m2; 1,2: smt().
+have m3 := BL_16n.is_init_mono64 _ ((_k + nlimbs) * 8) _ _ m2.
+smt(gt0_nlimbs).
+qed.
+
+lemma _os_muln_proof _r _b_r _a _b_a _b _b_b : _os_muln_spec _r _b_r _a _b_a _b _b_b.
+proof.
+hint +safety.
+rewrite /_os_muln_spec; proc.
+wp; while (valid trace__os_muln /\ inc = 2 * nlimbs /\ nlimbs <= k <= 2 * nlimbs
+           /\ BA_16n.is_init b_t 0 (16 * nlimbs) /\ BA_16n.is_init b_r 0 (8 * k)).
+- auto => /> &hr hv hk0 hk1 ht hr hkn.
+  have w := BL_16n.is_init_word _ k{hr} _ _ _ ht; 1,2: smt().
+  have e := BL_16n.is_init_ext64 b_r{hr} k{hr} _ hr; 1: smt(gt0_nlimbs).
+  smt().
+wp; while (valid trace__os_muln /\ 1 <= k <= nlimbs
+           /\ BA_16n.is_init b_t 0 (8 * (k + nlimbs)) /\ BA_16n.is_init b_r 0 (8 * k)
+           /\ BA_8n.is_init b_a 0 (8 * nlimbs) /\ BA_8n.is_init b_b 0 (8 * nlimbs)).
+- wp; ecall (__mulr_rowk_proof param_1 param_2 b_param param_3 param_4 ((BA_8n.init_arr (W8.of_int 255)))).
+  auto => /> &hr hv hk0 hk1 ht hr ha hb hkn.
+  move=> rr hrr _.
+  have w := BL_16n.is_init_word _ k{hr} _ _ _ hrr; 1,2: smt().
+  have e := BL_16n.is_init_ext64 b_r{hr} k{hr} _ hr; 1: smt().
+  smt().
+wp; ecall (__mulr_row0_proof param param_0 ((BA_8n.init_arr (W8.of_int 255)))).
+auto => /> ha hb rr hrr _.
+have w := BL_16n.is_init_word _ 0 _ _ _ hrr; 1,2: smt(gt0_nlimbs).
+split; first smt(gt0_nlimbs).
+move=> b_r0 b_t0 k0 tr0 hk _ hk0 hk1 ht0 hr0.
+have hke : k0 = nlimbs by smt().
+move: ht0 hr0; rewrite hke => ht0 hr0.
+split; first smt(gt0_nlimbs).
+move=> b_r1 k1 tr1 hk' _ hk2 hk3 _ hr1.
+smt().
+qed.
+
+lemma _os_muln__proof _r _b_r _a _b_a _b _b_b : _os_muln__spec _r _b_r _a _b_a _b _b_b.
+proof.
+hint +safety.
+rewrite /_os_muln__spec; proc.
+wp; ecall (_os_muln_proof param b_param param_0 ((BA_8n.init_arr (W8.of_int 255))) param_1 ((BA_8n.init_arr (W8.of_int 255)))).
+by auto => />.
+qed.
+
+lemma __sqrr_row0_proof _a _b_a : __sqrr_row0_spec _a _b_a.
+proof.
+hint +safety.
+rewrite /__sqrr_row0_spec; proc.
+wp; while (valid trace___sqrr_row0 /\ 2 <= j <= nlimbs /\ BA_16n.is_init b_t 8 (8 * j)).
+- auto => /> &hr hv hj0 hj1 ht hjn.
+  have e := BL_16n.is_init_ext64_at b_t{hr} 8 (8 * j{hr}) ht.
+  have w := BL_16n.is_init_sub _ _ _ (j{hr} * 8) 8 e _ _; 1,2: smt().
+  have m := BL_16n.is_init_mono64 _ (j{hr} * 8) _ _ e.
+  smt().
+auto => /> hn ha.
+move=> b_t0 j0 tr0 hj _ hj0 hj1 ht0.
+have hje : j0 = nlimbs by smt().
+move: ht0; rewrite hje => ht0.
+have w := BL_16n.is_init_sub _ _ _ (nlimbs * 8) 8 ht0 _ _; 1,2: smt().
+have m := BL_16n.is_init_mono64 _ (nlimbs * 8) _ _ ht0.
+smt().
+qed.
+
+lemma __sqrr_rowi_proof _i _t _b_t _a _b_a : __sqrr_rowi_spec _i _t _b_t _a _b_a.
+proof.
+hint +safety.
+rewrite /__sqrr_rowi_spec; proc.
+wp; while (valid trace___sqrr_rowi /\ inc = nlimbs - 1 /\ i + 1 <= j <= nlimbs - 1 /\ 1 <= i < nlimbs - 1
+           /\ BA_16n.is_init b_t 8 (8 * (i + nlimbs - 1))).
+- auto => /> &hr hv hj0 hj1 hi0 hi1 ht hjn.
+  have w1 := BL_16n.is_init_sub _ _ _ ((i{hr} + j{hr}) * 8) 8 ht _ _; 1,2: smt().
+  have m1 := BL_16n.is_init_mono64 _ ((i{hr} + j{hr}) * 8) _ _ ht.
+  have w2 := BL_16n.is_init_sub _ _ _ ((i{hr} + j{hr} + 1) * 8) 8 m1 _ _; 1,2: smt().
+  have m2 := BL_16n.is_init_mono64 _ ((i{hr} + j{hr} + 1) * 8) _ _ m1.
+  smt().
+auto => /> hi0 hi1 ht ha.
+split; first smt().
+move=> b_t0 j0 tr0 hj _ hj0 hj1 ht0.
+have e0 := BL_16n.is_init_ext64_at b_t0 8 (8 * (_i + nlimbs - 1)) ht0.
+have e : BA_16n.is_init (BA_16n.set64d b_t0 ((_i + nlimbs) * 8) BL_16n.m1_64) 8 (8 * (_i + nlimbs)).
+- by move: e0; smt().
+have w1 := BL_16n.is_init_sub _ _ _ ((_i + nlimbs - 1) * 8) 8 e _ _; 1,2: smt().
+have m1 := BL_16n.is_init_mono64 _ ((_i + nlimbs - 1) * 8) _ _ e.
+have w2 := BL_16n.is_init_sub _ _ _ ((_i + nlimbs) * 8) 8 m1 _ _; 1,2: smt().
+have m2 := BL_16n.is_init_mono64 _ ((_i + nlimbs) * 8) _ _ m1.
+have w3 := BL_16n.is_init_sub _ _ _ ((_i + nlimbs) * 8) 8 m2 _ _; 1,2: smt().
+have m3 := BL_16n.is_init_mono64 _ ((_i + nlimbs) * 8) _ _ m2.
+smt().
+qed.
+
+lemma __sqrr_diag_proof _r _b_r _t _b_t _a _b_a : __sqrr_diag_spec _r _b_r _t _b_t _a _b_a.
+proof.
+hint +safety.
+rewrite /__sqrr_diag_spec; proc.
+wp; while (valid trace___sqrr_diag /\ inc = nlimbs - 1 /\ 1 <= i <= nlimbs - 1 /\ 2 <= nlimbs
+           /\ BA_16n.is_init b_r 0 (8 * (2 * i))
+           /\ BA_16n.is_init b_r 8 (16 * (nlimbs - 5))
+           /\ BA_16n.is_init b_t 8 (16 * (nlimbs - 1))).
+- auto => /> &hr hv hi0 hi1 hn hr0 hr8 ht8 hin.
+  have t1 := BL_16n.is_init_sub _ _ _ (2 * i{hr} * 8) 8 ht8 _ _; 1,2: smt().
+  have t2 := BL_16n.is_init_sub _ _ _ ((2 * i{hr} + 1) * 8) 8 ht8 _ _; 1,2: smt().
+  have m1 := BL_16n.is_init_mono64 _ (2 * i{hr} * 8) _ _ hr8.
+  have r1 : 2 * i{hr} + 10 <= 2 * nlimbs => BA_16n.is_init b_r{hr} (2 * i{hr} * 8) 8.
+  - by move=> h; apply (BL_16n.is_init_sub _ _ _ _ _ hr8); smt().
+  have r2 : 2 * i{hr} + 1 + 10 <= 2 * nlimbs =>
+            BA_16n.is_init (BA_16n.set64d b_r{hr} (2 * i{hr} * 8) BL_16n.m1_64) ((2 * i{hr} + 1) * 8) 8.
+  - by move=> h; apply (BL_16n.is_init_sub _ _ _ _ _ m1); smt().
+  have e1 := BL_16n.is_init_ext64 b_r{hr} (2 * i{hr}) _ hr0; 1: smt().
+  have e2 := BL_16n.is_init_ext64 _ (2 * i{hr} + 1) _ e1; 1: smt().
+  have m2 := BL_16n.is_init_mono64 _ ((2 * i{hr} + 1) * 8) _ _ m1.
+  smt().
+auto => /> hn hr8 ht8 ha.
+have hr8' : BA_16n.is_init _b_r 8 (16 * (nlimbs - 5)) by move: hr8; smt().
+have ht8' : BA_16n.is_init _b_t 8 (16 * (nlimbs - 1)) by move: ht8; smt().
+have m0 := BL_16n.is_init_mono64 _ 0 _ _ hr8'.
+have m1 := BL_16n.is_init_mono64 _ 8 _ _ m0.
+have t1 := BL_16n.is_init_sub _ _ _ 8 8 ht8' _ _; 1,2: smt().
+have r1 : 11 <= 2 * nlimbs => BA_16n.is_init _b_r 8 8.
+- by move=> h; apply (BL_16n.is_init_sub _ _ _ _ _ hr8'); smt().
+have tl := BL_16n.is_init_sub _ _ _ ((2 * nlimbs - 2) * 8) 8 ht8' _ _; 1,2: smt().
+have fin : forall (b_r0 : BA_16n.t) (i0 : int),
+   ! i0 < nlimbs - 1 => 1 <= i0 => i0 <= nlimbs - 1 =>
+   BA_16n.is_init b_r0 0 (8 * (2 * i0)) =>
+   BA_16n.is_init (BA_16n.set64d (BA_16n.set64d b_r0 ((2 * nlimbs - 2) * 8) BL_16n.m1_64)
+                     ((2 * nlimbs - 1) * 8) BL_16n.m1_64) 0 (16 * nlimbs).
+- move=> b_r0 i0 hi hi0 hi1 hr0.
+  have hie : i0 = nlimbs - 1 by smt().
+  move: hr0; rewrite hie => hr0.
+  have e1 := BL_16n.is_init_ext64 b_r0 (2 * nlimbs - 2) _ _; 1,2: smt().
+  have e2 := BL_16n.is_init_ext64 (BA_16n.set64d b_r0 ((2 * nlimbs - 2) * 8) BL_16n.m1_64) (2 * nlimbs - 1) _ _; 1,2: smt().
+  smt().
+smt().
+qed.
+
+lemma _os_sqrn_proof _r _b_r _a _b_a : _os_sqrn_spec _r _b_r _a _b_a.
+proof.
+hint +safety.
+rewrite /_os_sqrn_spec; proc.
+seq ^if : (valid trace__os_sqrn /\ BA_8n.is_init b_a 0 (8 * nlimbs)).
+- by auto.
+if.
+- auto => /> &hr hv ha hn1.
+  by rewrite hn1 /=.
+wp; ecall (__sqrr_diag_proof param_3 b_param_0 param_4 b_param_1 param_5 ((BA_8n.init_arr (W8.of_int 255)))).
+wp; while (valid trace__os_sqrn /\ inc = nlimbs - 1 /\ 1 <= i <= nlimbs - 1 /\ 2 <= nlimbs
+           /\ BA_16n.is_init b_t 8 (8 * (i + nlimbs - 1))
+           /\ BA_16n.is_init b_r 8 (8 * stored (2 * i))
+           /\ BA_8n.is_init b_a 0 (8 * nlimbs)).
+- wp; while (valid trace__os_sqrn /\ inc = nlimbs - 1 /\ inc_0 = 2 * i + 3 /\ 2 * i + 1 <= w <= 2 * i + 3
+             /\ 1 <= i < nlimbs - 1 /\ 2 <= nlimbs
+             /\ BA_16n.is_init b_t 8 (8 * (i + nlimbs))
+             /\ BA_16n.is_init b_r 8 (8 * stored (w - 1))
+             /\ BA_8n.is_init b_a 0 (8 * nlimbs)).
+  + auto => /> &hr hv hw0 hw1 hi0 hi1 hn ht hr ha hwin.
+    split => [hc | hc].
+    - have hs : stored (w{hr} - 1) = w{hr} - 1 by smt().
+      have tw := BL_16n.is_init_sub _ _ _ (w{hr} * 8) 8 ht _ _; 1,2: smt().
+      have e0 := BL_16n.is_init_ext64_at b_r{hr} 8 (8 * (w{hr} - 1)) _; 1: by move: hr; rewrite hs.
+      have e : BA_16n.is_init (BA_16n.set64d b_r{hr} (w{hr} * 8) BL_16n.m1_64) 8 (8 * stored (w{hr} + 1 - 1)).
+      - by move: e0; smt().
+      smt().
+    have hs : stored (w{hr} + 1 - 1) = stored (w{hr} - 1) by smt().
+    smt().
+  wp; ecall (__sqrr_rowi_proof param_0 param_1 b_param param_2 ((BA_8n.init_arr (W8.of_int 255)))).
+  auto => /> &hr hv hi0 hi1 hn ht hr ha hin.
+  move=> rr hrr _.
+  split; first smt().
+  move=> b_r0 tr0 w0 hw _ hw0 hw1 hr0.
+  have hwe : w0 = 2 * i{hr} + 3 by smt().
+  move: hr0; rewrite hwe => hr0.
+  smt().
+wp; while (valid trace__os_sqrn /\ 1 <= w <= 3 /\ 2 <= nlimbs
+           /\ BA_16n.is_init b_t 8 (8 * nlimbs)
+           /\ BA_16n.is_init b_r 8 (8 * stored (w - 1))
+           /\ BA_8n.is_init b_a 0 (8 * nlimbs)).
+- auto => /> &hr hv hw0 hw1 hn ht hr ha hwin.
+  split => [hc | hc].
+  - have hs : stored (w{hr} - 1) = w{hr} - 1 by smt().
+    have tw := BL_16n.is_init_sub _ _ _ (w{hr} * 8) 8 ht _ _; 1,2: smt().
+    have e0 := BL_16n.is_init_ext64_at b_r{hr} 8 (8 * (w{hr} - 1)) _; 1: by move: hr; rewrite hs.
+    have e : BA_16n.is_init (BA_16n.set64d b_r{hr} (w{hr} * 8) BL_16n.m1_64) 8 (8 * stored (w{hr} + 1 - 1)).
+    - by move: e0; smt().
+    smt().
+  have hs : stored (w{hr} + 1 - 1) = stored (w{hr} - 1) by smt().
+  smt().
+wp; ecall (__sqrr_row0_proof param ((BA_8n.init_arr (W8.of_int 255)))).
+auto => /> &hr hv ha hn1.
+split; first smt(gt0_nlimbs).
+move=> _ rr hrr _.
+have h0 : BA_16n.is_init b_r{hr} 8 (8 * stored 0) by rewrite BL_16n.is_init_le0; smt().
+split; first exact h0.
+move=> b_r0 tr0 w0 hw _ hw0 hw1 hr0.
+have hwe : w0 = 3 by smt().
+move: hr0; rewrite hwe /= => hr0.
+split; first smt(gt0_nlimbs).
+move=> b_r1 b_t0 i0 tr1 hi _ hi0 hi1 ht1 hr1.
+have hie : i0 = nlimbs - 1 by smt().
+move: ht1 hr1; rewrite hie => ht1 hr1.
+smt().
+qed.
+
+lemma _os_sqrn__proof _r _b_r _a _b_a : _os_sqrn__spec _r _b_r _a _b_a.
+proof.
+hint +safety.
+rewrite /_os_sqrn__spec; proc.
+wp; ecall (_os_sqrn_proof param b_param param_0 ((BA_8n.init_arr (W8.of_int 255)))).
+by auto => />.
+qed.
+
+lemma __mont_redM_proof _r _b_r _a _b_a __P_mP _b__P_mP __U0 : __mont_redM_spec _r _b_r _a _b_a __P_mP _b__P_mP __U0.
+proof.
+hint +safety.
+rewrite /__mont_redM_spec; proc.
+wp.
+while (valid trace___mont_redM /\ 0 <= i <= nlimbs /\ BA_16n.is_init b_w 0 (16 * nlimbs)
+       /\ BA_8n.is_init b_s 0 (8 * nlimbs) /\ BA_8n.is_init b_r 0 (8 * i)).
+- auto => /> &hr hv hi0 hi1 hw hs hr hin.
+  have w1 := BL_16n.is_init_word _ (nlimbs + i{hr}) _ _ _ hw; 1,2: smt().
+  have s1 := BL_8n.is_init_word _ i{hr} _ _ _ hs; 1,2: smt().
+  have e := BL_8n.is_init_ext64 b_r{hr} i{hr} _ hr; 1: smt().
+  smt().
+wp.
+while (valid trace___mont_redM /\ 1 <= i <= nlimbs /\ BA_16n.is_init b_w 0 (16 * nlimbs)
+       /\ BA_8n.is_init b_s 0 (8 * nlimbs)).
+- auto => /> &hr hv hi0 hi1 hw hs hin.
+  have s1 := BL_8n.is_init_word _ i{hr} _ _ _ hs; 1,2: smt().
+  have m := BL_8n.is_init_mono64 _ (i{hr} * 8) _ _ hs.
+  smt().
+wp.
+while (valid trace___mont_redM /\ 0 <= i <= nlimbs /\ BA_16n.is_init b_w 0 (16 * nlimbs)
+       /\ BA_8n.is_init b_s 0 (8 * i)).
+- auto => /> &hr hv hi0 hi1 hw hs hin.
+  have w1 := BL_16n.is_init_word _ (nlimbs + i{hr}) _ _ _ hw; 1,2: smt().
+  have e := BL_8n.is_init_ext64 b_s{hr} i{hr} _ hs; 1: smt().
+  smt().
+wp.
+while (valid trace___mont_redM /\ 0 <= k <= nlimbs /\ BA_16n.is_init b_w 0 (8 * (k + nlimbs))).
+- wp.
+  while (valid trace___mont_redM /\ 1 <= i <= nlimbs /\ 0 <= k < nlimbs
+         /\ BA_16n.is_init b_w 0 (8 * (k + nlimbs))).
+  + auto => /> &hr hv hi0 hi1 hk0 hk1 hw hin.
+    have w1 := BL_16n.is_init_word _ (k{hr} + i{hr}) _ _ _ hw; 1,2: smt().
+    have m1 := BL_16n.is_init_mono64 _ ((k{hr} + i{hr}) * 8) _ _ hw.
+    have w2 := BL_16n.is_init_word _ (k{hr} + i{hr}) _ _ _ m1; 1,2: smt().
+    have m2 := BL_16n.is_init_mono64 _ ((k{hr} + i{hr}) * 8) _ _ m1.
+    smt().
+  auto => /> &hr hv hk0 hk1 hw hkn.
+  have w0 := BL_16n.is_init_word _ k{hr} _ _ _ hw; 1,2: smt().
+  have m0 := BL_16n.is_init_mono64 _ (k{hr} * 8) _ _ hw.
+  split; first smt(gt0_nlimbs).
+  move=> b_w0 i0 tr0 hi _ hi0 hi1 hw0.
+  have e := BL_16n.is_init_ext64 b_w0 (k{hr} + nlimbs) _ hw0; 1: smt().
+  split => hk; smt().
+wp.
+while (valid trace___mont_redM /\ 0 <= i <= nlimbs /\ BA_16n.is_init b_w 0 (8 * i)).
+- auto => /> &hr hv hi0 hi1 hw hin.
+  have e := BL_16n.is_init_ext64 b_w{hr} i{hr} _ hw; 1: smt().
+  smt().
+auto => /> ha hpm.
+split; first smt(gt0_nlimbs).
+move=> b_w0 i0 tr0 hi _ hi0 hi1 hw0.
+have hie : i0 = nlimbs by smt().
+move: hw0; rewrite hie => hw0.
+split; first smt(gt0_nlimbs).
+move=> b_w1 k0 tr1 hk _ hk0 hk1 hw1.
+have hke : k0 = nlimbs by smt().
+move: hw1; rewrite hke => hw1.
+split; first smt(gt0_nlimbs).
+move=> b_s0 i1 tr2 hi' _ hi2 hi3 _ hs0.
+have hie' : i1 = nlimbs by smt().
+move: hs0; rewrite hie' => hs0.
+have s0 := BL_8n.is_init_word _ 0 _ _ _ hs0; 1,2: smt(gt0_nlimbs).
+have m := BL_8n.is_init_mono64 _ 0 _ _ hs0.
+split; first smt(gt0_nlimbs).
+move=> b_s1 i2 tr3 _ _ _ _ hs1.
+split; first smt(gt0_nlimbs).
+move=> b_r0 i3 tr4 hi'' _ hi4 hi5 hr0.
+have hie'' : i3 = nlimbs by smt().
+by move: hr0; rewrite hie''.
+qed.

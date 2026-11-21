@@ -30,6 +30,7 @@
 *******************************************************************/
 
 /* first row: r[0..nlimbs] = a * b */
+#[safety = { requires = is_arr_init(b, 0, 8*nlimbs), ensures = is_arr_init(r, 0, 8*(nlimbs+1)) }]
 inline fn __mul1
 ( reg mut ptr u64[2*nlimbs] r
 , reg u64 a
@@ -59,6 +60,7 @@ inline fn __mul1
 
 /* row k (run-time, 0 < k < nlimbs): r[k..k+nlimbs] += a * b,
    where r[k+nlimbs] is not read (it is still to be defined) */
+#[safety = { requires = 1 <= (uint) k && (uint) k < nlimbs && is_arr_init(r, 0, 8*((uint) k+nlimbs)) && is_arr_init(b, 0, 8*nlimbs), ensures = is_arr_init(r, 0, 8*((uint) k+nlimbs+1)) }]
 inline fn __mul1acc
 ( reg u64 k
 , reg mut ptr u64[2*nlimbs] r
@@ -92,6 +94,7 @@ inline fn __mul1acc
 }
 
 /* Operand-scanning multiplication */
+#[safety = { requires = is_arr_init(a, 0, 8*nlimbs) && is_arr_init(b, 0, 8*nlimbs), ensures = is_arr_init(r, 0, 16*nlimbs) }]
 fn _os_muln
 ( reg mut ptr u64[2*nlimbs] r
 , reg const ptr u64[nlimbs] a b
@@ -112,6 +115,7 @@ fn _os_muln
   return r;
 }
 
+#[safety = { requires = is_arr_init(a, 0, 8*nlimbs) && is_arr_init(b, 0, 8*nlimbs), ensures = is_arr_init(r, 0, 16*nlimbs) }]
 inline fn _os_muln_
 ( reg mut ptr u64[2*nlimbs] r
 , reg const ptr u64[nlimbs] a b
@@ -124,6 +128,7 @@ inline fn _os_muln_
 }
 
 /* Squaring (by the multiplication: the symmetry is not exploited) */
+#[safety = { requires = is_arr_init(a, 0, 8*nlimbs), ensures = is_arr_init(r, 0, 16*nlimbs) }]
 fn _os_sqrn
 ( reg mut ptr u64[2*nlimbs] r
 , reg const ptr u64[nlimbs] a
@@ -144,6 +149,7 @@ fn _os_sqrn
   return r;
 }
 
+#[safety = { requires = is_arr_init(a, 0, 8*nlimbs), ensures = is_arr_init(r, 0, 16*nlimbs) }]
 inline fn _os_sqrn_
 ( reg mut ptr u64[2*nlimbs] r
 , reg const ptr u64[nlimbs] a
@@ -166,6 +172,7 @@ inline fn _os_sqrn_
        [r ; c]  :=  ( r + m * P ) / 2^64  +  ( a[nlimbs+k] + c ) * 2^(64*(nlimbs-1))
    with m = r[0] * _U0 (so that the division is exact) and c the carry (one
    bit) out of the window. After nlimbs rows, [r ; c] = (a + M * P) / R < 2*P. */
+#[safety = { requires = is_arr_init(a, 0, 16*nlimbs) && is_arr_init(_P_mP, 0, 16*nlimbs), ensures = is_arr_init(r, 0, 8*nlimbs) }]
 inline fn __mont_redM
 ( reg mut ptr u64[nlimbs] r
 , reg const ptr u64[2*nlimbs] a

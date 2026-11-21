@@ -17,6 +17,7 @@
 /******************************************************************
                       OPERAND-SCANNING
 *******************************************************************/
+#[safety = { requires = is_arr_init(b, 0, 8*nlimbs), ensures = is_arr_init(r, 0, 8*(nlimbs+1)) }]
 inline fn __mul1
 ( reg mut ptr u64[2*nlimbs] r
 , reg u64 a
@@ -48,6 +49,7 @@ inline fn __mul1
 
 /* multiplies a (shifted) scalar by a reg array (remaining iterations of mul) */
 /* REGS (params + workspace):  */
+#[safety = { requires = 1 <= k && k < nlimbs && is_arr_init(r, 0, 8*(k+nlimbs)) && is_arr_init(b, 0, 8*nlimbs), ensures = is_arr_init(r, 0, 8*(k+nlimbs+1)) }]
 inline fn __mul1acc
 ( inline int k
 , reg mut ptr u64[2*nlimbs] r
@@ -84,6 +86,7 @@ inline fn __mul1acc
 
 
 /* Operand-scanning multiplication (first arg. as a reg_ptr) */
+#[safety = { requires = is_arr_init(a, 0, 8*nlimbs) && is_arr_init(b, 0, 8*nlimbs), ensures = is_arr_init(r, 0, 16*nlimbs) }]
 fn _os_muln
 ( reg mut ptr u64[2*nlimbs] r
 , reg const ptr u64[nlimbs] a b //reg u64 fptr,
@@ -105,6 +108,7 @@ fn _os_muln
   return r;
 }
 
+#[safety = { requires = is_arr_init(a, 0, 8*nlimbs) && is_arr_init(b, 0, 8*nlimbs), ensures = is_arr_init(r, 0, 16*nlimbs) }]
 inline fn _os_muln_
 ( reg mut ptr u64[2*nlimbs] r
 , reg const ptr u64[nlimbs] a b
@@ -141,6 +145,10 @@ export fn bn_muln_os(reg u64 rp ap bp)
 
 
 // regs: params(5) + 3 = 8
+#[safety = { requires = 0 <= istart && iend <= nlimbs && 0 <= k - (iend - 1) && k - istart < nlimbs
+               && is_arr_init(x, 0, 24) && is_arr_init(a, 8*istart, 8*(iend - istart))
+               && is_arr_init(b, 0, 8*nlimbs),
+             ensures = is_arr_init(x, 0, 24) }]
 inline fn __muln_innerloop
 ( reg u64[3] x
 , inline int k istart iend
@@ -158,6 +166,7 @@ inline fn __muln_innerloop
 }
 
 // regs: params(3) + call(3) + 3(+2) = 9
+#[safety = { requires = is_arr_init(a, 0, 8*nlimbs) && is_arr_init(b, 0, 8*nlimbs), ensures = is_arr_init(r, 0, 16*nlimbs) }]
 inline fn __ps_muln
 ( reg mut ptr u64[2*nlimbs] r
 , reg const ptr u64[nlimbs] a b
@@ -193,6 +202,7 @@ inline fn __ps_muln
 }
 
 // regs: params(3) + call(6) = 9
+#[safety = { requires = is_arr_init(a, 0, 8*nlimbs) && is_arr_init(b, 0, 8*nlimbs), ensures = is_arr_init(r, 0, 16*nlimbs) }]
 fn _ps_muln
 ( reg mut ptr u64[2*nlimbs] r
 , reg const ptr u64[nlimbs] a b
@@ -201,6 +211,7 @@ fn _ps_muln
   return r;
 }
 
+#[safety = { requires = is_arr_init(a, 0, 8*nlimbs) && is_arr_init(b, 0, 8*nlimbs), ensures = is_arr_init(r, 0, 16*nlimbs) }]
 inline fn _ps_muln_
 ( reg mut ptr u64[2*nlimbs] r
 , reg const ptr u64[nlimbs] a b
@@ -231,6 +242,7 @@ export fn bn_ps_muln(reg u64 rp ap bp)
 
 
 // regs: params(4) + 2 = 6 
+#[safety = { requires = 0 <= istart && iend <= nlimbs && 0 <= k - (iend - 1) && k - istart < nlimbs && is_arr_init(x, 0, 24) && is_arr_init(a, 0, 8*nlimbs), ensures = is_arr_init(x, 0, 24) }]
 inline fn __sqrn_innerloop
 ( reg u64[3] x
 , inline int k istart iend
@@ -247,6 +259,7 @@ inline fn __sqrn_innerloop
   return x;
 }
 
+#[safety = { requires = is_arr_init(a, 0, 8*nlimbs), ensures = is_arr_init(r, 0, 16*nlimbs) }]
 inline fn __ps_sqrn
 ( reg mut ptr u64[2*nlimbs] r
 , reg const ptr u64[nlimbs] a
@@ -292,6 +305,7 @@ inline fn __ps_sqrn
   return r;
 }
 
+#[safety = { requires = is_arr_init(a, 0, 8*nlimbs), ensures = is_arr_init(r, 0, 16*nlimbs) }]
 fn _ps_sqrn
 ( reg mut ptr u64[2*nlimbs] r
 , reg const ptr u64[nlimbs] a
@@ -300,6 +314,7 @@ fn _ps_sqrn
   return r;
 }
 
+#[safety = { requires = is_arr_init(a, 0, 8*nlimbs), ensures = is_arr_init(r, 0, 16*nlimbs) }]
 inline fn _ps_sqrn_
 ( reg mut ptr u64[2*nlimbs] r
 , reg const ptr u64[nlimbs] a
@@ -310,6 +325,7 @@ inline fn _ps_sqrn_
   return r;
 }
 
+#[safety = { requires = is_arr_init(a, 0, 8*nlimbs), ensures = is_arr_init(r, 0, 16*nlimbs) }]
 inline fn _ps_ksqrn_
 ( reg mut ptr u64[2*nlimbs] r
 , reg mut ptr u64[nlimbs] tmp
@@ -327,6 +343,7 @@ inline fn _ps_ksqrn_
 /* Montgomery reduction: r = a * R^-1 mod P, for a < P * R (R = 2^(64*nlimbs)).
    _P_mP packs P and R - P; _U0 = -P^-1 mod 2^64 (kept on the stack, which
    leaves registers to the callers of a non-inline wrapper). */
+#[safety = { requires = is_arr_init(a, 0, 16*nlimbs) && is_arr_init(_P_mP, 0, 16*nlimbs), ensures = is_arr_init(r, 0, 8*nlimbs) }]
 inline fn __mont_redM
 ( reg mut ptr u64[nlimbs] r
 , reg const ptr u64[2*nlimbs] a

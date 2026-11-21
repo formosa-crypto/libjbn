@@ -1,0 +1,38 @@
+/* Abstract instantiation of bn_karatsuba_export@2n.jinc for the safety extraction
+   (proof/safety/Makefile, exports): the template in the environment it
+   expects, at the dummy point selected by `-I Dummy=dummyA` or `dummyB`
+   (see ../libjbn_abs.jazz). The library modules are the real ones, so that
+   the calls of the exports carry their contracts; the theory of the exports
+   takes the procedures they call as parameters. */
+
+from Dummy require "dummy.jinc"
+
+param int nlimbs = 4*DUMMY_NLIMBS;
+
+from Libjbn require "jbn_features.jinc"
+
+namespace UTIL { from Libjbn require "bn_util.jinc" }
+
+namespace H {                         // 2n: the operands, KAR
+  param int nlimbs = 2*DUMMY_NLIMBS;
+  namespace H {                       // n: the half-size multiplication
+    param int nlimbs = DUMMY_NLIMBS;
+    require "../preamb@n.jinc"
+    namespace BN  { from Libjbn require "bn_base@n.jinc" }
+    namespace MUL { from Libjbn require "bn_mul@n.jinc" }
+  }
+  namespace BN { from Libjbn require "bn_base@n.jinc" }
+  #[safety = { requires = is_arr_init(a, 0, 8*H::nlimbs) && is_arr_init(b, 0, 8*H::nlimbs), ensures = is_arr_init(r, 0, 8*nlimbs) }]
+  inline fn fun_kmuln
+  ( reg mut ptr u64[nlimbs] r
+  , reg const ptr u64[H::nlimbs] a b
+  ) -> reg ptr u64[nlimbs] {
+    r = H::MUL::_ps_muln_(r, a, b);
+    return r;
+  }
+  namespace KAR { from Libjbn require "bn_karatsuba@2n.jinc" }
+}
+
+namespace BN { from Libjbn require "bn_base@n.jinc" }     // size 4n (result store)
+
+from Libjbn require "bn_karatsuba_export@2n.jinc"

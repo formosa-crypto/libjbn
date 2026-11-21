@@ -1,0 +1,58 @@
+(* Safety of bn_rnd (src/amd64/ref/bn_rnd@n.jinc): the lemmas of the
+   specifications of theories/Bn_rnd_safety_xtr.eca, over the model of the
+   system call (Syscall: randombytes samples an array). The rejection loop
+   is partial correctness: termination is not claimed. *)
+require import AllCore IntDiv CoreMap List Distr.
+from Jasmin require import JModel_x86.
+import SLH64.
+from Jasmin require import Jcheck JSafety JByte_array JMemory.
+require import ByteArrayInit JbnSafetyLib.
+require Bn_rnd_safety_xtr.
+
+clone include Bn_rnd_safety_xtr.
+
+clone ByteArrayLib as BL_8n with theory A <- BA_8n.
+clone ByteArrayLib as BL_16n with theory A <- BA_16n.
+
+lemma _rnd__proof _a _b_a : _rnd__spec _a _b_a.
+proof.
+hint +safety.
+rewrite /_rnd__spec; proc.
+by inline *; auto => />.
+qed.
+
+lemma __bnd_mask_proof _mask _b_mask _bnd _b_bnd : __bnd_mask_spec _mask _b_mask _bnd _b_bnd.
+proof.
+hint +safety.
+rewrite /__bnd_mask_spec; proc.
+wp; while (valid trace___bnd_mask /\ -1 <= i <= nlimbs - 1
+           /\ BA_8n.is_init b_mask (8 * (i + 1)) (8 * (nlimbs - 1 - i))).
+- auto => /> &hr hv hi0 hi1 hm hin.
+  have e := BL_8n.is_init_ext64_below b_mask{hr} (8 * (i{hr} + 1)) (8 * (nlimbs - 1 - i{hr})) hm.
+  smt().
+auto => /> hb.
+split; first smt(gt0_nlimbs).
+move=> b_m0 i0 tr0 hi _ hi0 hi1 hm0.
+have hie : i0 = -1 by smt().
+by move: hm0; rewrite hie; smt().
+qed.
+
+lemma _rsample__proof _a _b_a _bnd _b_bnd : _rsample__spec _a _b_a _bnd _b_bnd.
+proof.
+hint +safety.
+rewrite /_rsample__spec; proc.
+wp.
+while (valid trace__rsample_).
+- wp; ecall (BNB._lt_cf__proof param_2 ((BA_8n.init_arr (W8.of_int 255))) param_3 ((BA_8n.init_arr (W8.of_int 255)))).
+  wp; while (valid trace__rsample_ /\ 0 <= i <= nlimbs).
+  + by auto => /> &hr *; smt().
+  wp; ecall (_rnd__proof param_1 b_param_0).
+  by auto => />; smt(gt0_nlimbs).
+wp; ecall (BNB._lt_cf__proof param_2 ((BA_8n.init_arr (W8.of_int 255))) param_3 ((BA_8n.init_arr (W8.of_int 255)))).
+wp; while (valid trace__rsample_ /\ 0 <= i <= nlimbs).
+- by auto => /> &hr *; smt().
+wp; ecall (_rnd__proof param_1 b_param_0).
+wp; ecall (__bnd_mask_proof param b_param param_0 ((BA_8n.init_arr (W8.of_int 255)))).
+by auto => />; smt(gt0_nlimbs).
+qed.
+

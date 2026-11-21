@@ -23,6 +23,7 @@
 
 // ////////////////////////////////////
 
+#[safety = { requires = is_arr_init(x, 0, 8*nlimbs) && is_arr_init(ctx, 0, 8*CTXLEN), ensures = is_arr_init(r, 0, 8*nlimbs) }]
 inline fn _exp1mLR_first_noct
 ( reg mut ptr u64[nlimbs] r
 , reg const ptr u64[nlimbs] x
@@ -104,6 +105,7 @@ inline fn _exp1mLR_noct
 /* Modular exponentiation
   obs: naive LR square-multiply algorithm. Not Constant-Time!!!
   (good enough to use with small public exponents, such as in RSAEP) */
+#[safety = { requires = is_arr_init(x, 0, 8*nlimbs) && is_arr_init(e, 0, 8*nlimbsexp) && is_arr_init(ctx, 0, 8*CTXLEN), ensures = is_arr_init(r, 0, 8*nlimbs) }]
 fn _expmLR_noct
 ( reg mut ptr u64[nlimbs] r
 , reg const ptr u64[nlimbs] x
@@ -154,6 +156,7 @@ fn _expmLR_noct
   return r;
 }
 
+#[safety = { requires = is_arr_init(a, 0, 8*nlimbs) && is_arr_init(b, 0, 8*nlimbsexp) && is_arr_init(ctx, 0, 8*CTXLEN), ensures = is_arr_init(r, 0, 8*nlimbs) }]
 inline fn _expmLR_noct_
 ( reg mut ptr u64[nlimbs] r
 , reg const ptr u64[nlimbs] a
@@ -219,6 +222,7 @@ fn _expm_noct
   return r;
 }
 
+#[safety = { requires = is_arr_init(a, 0, 8*nlimbs) && is_arr_init(b, 0, 8*nlimbsexp) && is_arr_init(ctx, 0, 8*CTXLEN), ensures = is_arr_init(r, 0, 8*nlimbs) }]
 inline fn _expm_noct_
 ( reg mut ptr u64[nlimbs] r
 , reg const ptr u64[nlimbs] a
@@ -291,6 +295,7 @@ fn _expm
   return x0, x1;
 }
 
+#[safety = { requires = is_arr_init(a, 0, 8*nlimbs) && is_arr_init(b, 0, 8*nlimbsexp) && is_arr_init(ctx, 0, 8*CTXLEN), ensures = is_arr_init(x0, 0, 8*nlimbs) }]
 inline fn _expm_
 ( reg mut ptr u64[nlimbs] x0
 , reg const ptr u64[nlimbs] a

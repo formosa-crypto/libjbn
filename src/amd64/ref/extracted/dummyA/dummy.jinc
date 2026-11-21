@@ -1,0 +1,16 @@
+/* Dummy point A of the abstract instantiation (libjbn_abs.jazz), selected by
+   `-I Dummy=dummyA`: the one of the correctness extraction (xtr_sync.py reads
+   its numerals back as the abstract parameters) and of the safety extraction.
+   The safety theories are abstracted from the alignment of the extractions at
+   A and B (dummyB/dummy.jinc), so every parameter, and every size computed
+   from them, must take different values at the two points. */
+
+param int DUMMY_NLIMBS = 11;      // nlimbs of the size scope H (the top level is 2n)
+param int DUMMY_NLIMBSEXP = 13;   // limbs of the exponents (bn_exp)
+
+/* the profile (src/amd64/ref/profiles): 19 has the bits of BMI2 and ADX, and
+   11 <= 17 <= 23, but no value matters: the proofs cover every branch of the
+   selection */
+param int DUMMY_FEATURES = 19;
+param int DUMMY_REG_MAX = 23;
+param int DUMMY_UNROLL_MAX = 17;

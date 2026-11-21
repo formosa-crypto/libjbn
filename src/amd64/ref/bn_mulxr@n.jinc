@@ -42,6 +42,7 @@
 *******************************************************************/
 
 /* first row: t[0..nlimbs] = a * b */
+#[safety = { requires = is_arr_init(b, 0, 8*nlimbs), ensures = is_arr_init(t, 0, 8*(nlimbs+1)) }]
 inline fn __mulr_row0
 ( reg u64 a
 , reg const ptr u64[nlimbs] b
@@ -67,6 +68,7 @@ inline fn __mulr_row0
 
 /* row k (0 < k < nlimbs): t[k..k+nlimbs] += a * b,
    where t[k+nlimbs] is not read (it is still to be defined) */
+#[safety = { requires = 1 <= k && k < nlimbs && is_arr_init(t, 0, 8*(k+nlimbs)) && is_arr_init(b, 0, 8*nlimbs), ensures = is_arr_init(t, 0, 8*(k+nlimbs+1)) }]
 inline fn __mulr_rowk
 ( inline int k
 , reg u64[2*nlimbs] t
@@ -96,6 +98,7 @@ inline fn __mulr_rowk
 
 /* Operand-scanning multiplication: word k of the result is stored after
    row k, and the top nlimbs words after the last row */
+#[safety = { requires = is_arr_init(a, 0, 8*nlimbs) && is_arr_init(b, 0, 8*nlimbs), ensures = is_arr_init(r, 0, 16*nlimbs) }]
 fn _os_muln
 ( reg mut ptr u64[2*nlimbs] r
 , reg const ptr u64[nlimbs] a b
@@ -119,6 +122,7 @@ fn _os_muln
   return r;
 }
 
+#[safety = { requires = is_arr_init(a, 0, 8*nlimbs) && is_arr_init(b, 0, 8*nlimbs), ensures = is_arr_init(r, 0, 16*nlimbs) }]
 inline fn _os_muln_
 ( reg mut ptr u64[2*nlimbs] r
 , reg const ptr u64[nlimbs] a b
@@ -146,6 +150,7 @@ inline fn _os_muln_
    the diagonal pass reads them back from. */
 
 /* row 0 of X (nlimbs >= 2): t[1..nlimbs] = a[0] * a[1..nlimbs-1] */
+#[safety = { requires = 2 <= nlimbs && is_arr_init(a, 0, 8*nlimbs), ensures = is_arr_init(t, 8, 8*nlimbs) }]
 inline fn __sqrr_row0
 ( reg const ptr u64[nlimbs] a
 ) -> reg u64[2*nlimbs]
@@ -171,6 +176,7 @@ inline fn __sqrr_row0
 
 /* row i of X (0 < i < nlimbs-1): t[2i+1..i+nlimbs] += a[i] * a[i+1..nlimbs-1],
    where t[i+nlimbs] is not read (it is still to be defined) */
+#[safety = { requires = 1 <= i && i < nlimbs - 1 && is_arr_init(t, 8, 8*(i+nlimbs-1)) && is_arr_init(a, 0, 8*nlimbs), ensures = is_arr_init(t, 8, 8*(i+nlimbs)) }]
 inline fn __sqrr_rowi
 ( inline int i
 , reg u64[2*nlimbs] t
@@ -201,6 +207,7 @@ inline fn __sqrr_rowi
 /* r = 2 * X + D (nlimbs >= 2), for X in t[1..2*nlimbs-2] (or, for its low
    words w with w + 10 <= 2*nlimbs, in r[w]): the doubling runs on the CF
    chain (x + x + cf) and the addition of D on the OF chain */
+#[safety = { requires = 2 <= nlimbs && is_arr_init(r, 8, 8*(2*nlimbs-10)) && is_arr_init(t, 8, 8*(2*nlimbs-2)) && is_arr_init(a, 0, 8*nlimbs), ensures = is_arr_init(r, 0, 16*nlimbs) }]
 inline fn __sqrr_diag
 ( reg mut ptr u64[2*nlimbs] r
 , reg u64[2*nlimbs] t
@@ -250,6 +257,7 @@ inline fn __sqrr_diag
 }
 
 /* Squaring */
+#[safety = { requires = is_arr_init(a, 0, 8*nlimbs), ensures = is_arr_init(r, 0, 16*nlimbs) }]
 fn _os_sqrn
 ( reg mut ptr u64[2*nlimbs] r
 , reg const ptr u64[nlimbs] a
@@ -277,6 +285,7 @@ fn _os_sqrn
   return r;
 }
 
+#[safety = { requires = is_arr_init(a, 0, 8*nlimbs), ensures = is_arr_init(r, 0, 16*nlimbs) }]
 inline fn _os_sqrn_
 ( reg mut ptr u64[2*nlimbs] r
 , reg const ptr u64[nlimbs] a
@@ -302,6 +311,7 @@ inline fn _os_sqrn_
    bit, zero at row 0) out of the window; the window starts as the low half
    of a. After nlimbs rows, [w[nlimbs..2*nlimbs-1] ; c] = (a + M * P) / R
    < 2*P, from which P is subtracted when it is not smaller, in registers. */
+#[safety = { requires = is_arr_init(a, 0, 16*nlimbs) && is_arr_init(_P_mP, 0, 16*nlimbs), ensures = is_arr_init(r, 0, 8*nlimbs) }]
 inline fn __mont_redM
 ( reg mut ptr u64[nlimbs] r
 , reg const ptr u64[2*nlimbs] a

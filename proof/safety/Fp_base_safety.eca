@@ -1,0 +1,248 @@
+(* Safety of fp_base (src/amd64/ref/fp_base@fp.jinc): the lemmas of the
+   specifications of theories/Fp_base_safety_xtr.eca, for any function
+   parameters meeting their contracts (declared axioms of the section). *)
+require import AllCore IntDiv CoreMap List Distr.
+from Jasmin require import JModel_x86.
+import SLH64.
+from Jasmin require import Jcheck JSafety JByte_array JMemory.
+require import ByteArrayInit JbnSafetyLib.
+require Fp_base_safety_xtr.
+
+clone include Fp_base_safety_xtr.
+
+clone ByteArrayLib as BL_8n with theory A <- BA_8n.
+clone ByteArrayLib as BL_16n with theory A <- BA_16n.
+clone ByteArrayLib as BL_32n_8 with theory A <- BA_32n_8.
+clone SubByteArrayInit as SBI_32n_8__8n with theory SB <- SB_32n_8__8n.
+
+(* slices of the context: P (CTX_P = 0), R-P (CTX_MP = nlimbs), ... *)
+lemma ctx_slice (b : BA_32n_8.t) k :
+  0 <= k => k + nlimbs <= 4 * nlimbs + 1 =>
+  BA_32n_8.is_init b (8 * k) (8 * nlimbs) =>
+  BA_8n.is_init (SB_32n_8__8n.get_sub b (8 * k)) 0 (8 * nlimbs).
+proof.
+move=> h0 h1 h; rewrite SBI_32n_8__8n.is_init_get_sub; 1..4: smt(gt0_nlimbs).
+by rewrite (_: 8 * k + 0 = 8 * k) 1:/#.
+qed.
+
+lemma ctx_full (b : BA_32n_8.t) k :
+  0 <= k => k + nlimbs <= 4 * nlimbs + 1 =>
+  BA_32n_8.is_init b 0 (8 * ((4 * nlimbs) + 1)) =>
+  BA_8n.is_init (SB_32n_8__8n.get_sub b (8 * k)) 0 (8 * nlimbs).
+proof.
+move=> h0 h1 h; apply ctx_slice => //.
+by apply (BL_32n_8.is_init_sub _ _ _ _ _ h); smt(gt0_nlimbs).
+qed.
+
+(* the P part (CTX_P = 0), as the goals print its offset *)
+lemma ctx_p (b : BA_32n_8.t) :
+  BA_32n_8.is_init b 0 (8 * ((4 * nlimbs) + 1)) =>
+  BA_8n.is_init (SB_32n_8__8n.get_sub b 0) 0 (8 * nlimbs).
+proof. by move=> h; have := ctx_full b 0 _ _ h; smt(gt0_nlimbs). qed.
+
+section.
+
+declare module P <: MParam.
+
+declare axiom fun_muln_h _r _b_r _a _b_a _b _b_b :
+  hoare [P.fun_muln :
+    arg = (_r, _b_r, _a, _b_a, _b, _b_b) /\ fun_muln_pre _r _b_r _a _b_a _b _b_b
+    ==> fun_muln_post _r _b_r _a _b_a _b _b_b res /\ valid res.`3].
+
+declare axiom fun_sqrn_h _r _b_r _a _b_a :
+  hoare [P.fun_sqrn :
+    arg = (_r, _b_r, _a, _b_a) /\ fun_sqrn_pre _r _b_r _a _b_a
+    ==> fun_sqrn_post _r _b_r _a _b_a res /\ valid res.`3].
+
+declare axiom fun_red_h _r _b_r _a _b_a _ctx _b_ctx :
+  hoare [P.fun_red :
+    arg = (_r, _b_r, _a, _b_a, _ctx, _b_ctx) /\ fun_red_pre _r _b_r _a _b_a _ctx _b_ctx
+    ==> fun_red_post _r _b_r _a _b_a _ctx _b_ctx res /\ valid res.`3].
+
+lemma _chk_bnds__proof _err _a _b_a _ctx _b_ctx :
+  hoare [M(P)._chk_bnds_ :
+    arg = (_err, _a, _b_a, _ctx, _b_ctx) /\ _chk_bnds__pre _err _a _b_a _ctx _b_ctx
+    ==> _chk_bnds__post _err _a _b_a _ctx _b_ctx res /\ valid res.`2].
+proof.
+hint +safety.
+proc.
+wp; ecall (BNUTIL.__ncf_mask_proof param_1).
+wp; ecall (BNB._lt_cf__proof param ((BA_8n.init_arr (W8.of_int 255))) param_0 b_param).
+by auto => /> *; smt(ctx_slice ctx_full ctx_p gt0_nlimbs).
+qed.
+
+lemma _addm__proof _r _b_r _a _b_a _b _b_b _ctx _b_ctx :
+  hoare [M(P)._addm_ :
+    arg = (_r, _b_r, _a, _b_a, _b, _b_b, _ctx, _b_ctx) /\ _addm__pre _r _b_r _a _b_a _b _b_b _ctx _b_ctx
+    ==> _addm__post _r _b_r _a _b_a _b _b_b _ctx _b_ctx res /\ valid res.`3].
+proof.
+hint +safety.
+proc.
+wp; ecall (BNB._cminusP__proof param_2 ((BA_8n.init_arr (W8.of_int 255))) param_3 b_param_0 param_4).
+wp; ecall (BNB._add__proof param b_param param_0 ((BA_8n.init_arr (W8.of_int 255))) param_1 ((BA_8n.init_arr (W8.of_int 255)))).
+by auto => /> *; smt(ctx_slice ctx_full ctx_p gt0_nlimbs).
+qed.
+
+lemma _addmU__proof _a _b_a _b _b_b _ctx _b_ctx :
+  hoare [M(P)._addmU_ :
+    arg = (_a, _b_a, _b, _b_b, _ctx, _b_ctx) /\ _addmU__pre _a _b_a _b _b_b _ctx _b_ctx
+    ==> _addmU__post _a _b_a _b _b_b _ctx _b_ctx res /\ valid res.`3].
+proof.
+hint +safety.
+proc.
+wp; ecall (BNB._cminusP__proof param_1 ((BA_8n.init_arr (W8.of_int 255))) param_2 b_param param_3).
+wp; ecall (BNB._addU__proof param ((BA_8n.init_arr (W8.of_int 255))) param_0 ((BA_8n.init_arr (W8.of_int 255)))).
+by auto => /> *; smt(ctx_slice ctx_full ctx_p gt0_nlimbs).
+qed.
+
+lemma _subm__proof _r _b_r _a _b_a _b _b_b _ctx _b_ctx :
+  hoare [M(P)._subm_ :
+    arg = (_r, _b_r, _a, _b_a, _b, _b_b, _ctx, _b_ctx) /\ _subm__pre _r _b_r _a _b_a _b _b_b _ctx _b_ctx
+    ==> _subm__post _r _b_r _a _b_a _b _b_b _ctx _b_ctx res /\ valid res.`3].
+proof.
+hint +safety.
+proc.
+wp; ecall (BNB._caddU__proof param_2 ((BA_8n.init_arr (W8.of_int 255))) param_3 param_4 b_param_0).
+wp; ecall (BNB._sub__proof param b_param param_0 ((BA_8n.init_arr (W8.of_int 255))) param_1 ((BA_8n.init_arr (W8.of_int 255)))).
+by auto => /> *; smt(ctx_slice ctx_full ctx_p gt0_nlimbs).
+qed.
+
+lemma _submU__proof _a _b_a _b _b_b _ctx _b_ctx :
+  hoare [M(P)._submU_ :
+    arg = (_a, _b_a, _b, _b_b, _ctx, _b_ctx) /\ _submU__pre _a _b_a _b _b_b _ctx _b_ctx
+    ==> _submU__post _a _b_a _b _b_b _ctx _b_ctx res /\ valid res.`3].
+proof.
+hint +safety.
+proc.
+wp; ecall (BNB._caddU__proof param_1 ((BA_8n.init_arr (W8.of_int 255))) param_2 param_3 b_param).
+wp; ecall (BNB._subU__proof param ((BA_8n.init_arr (W8.of_int 255))) param_0 ((BA_8n.init_arr (W8.of_int 255)))).
+by auto => /> *; smt(ctx_slice ctx_full ctx_p gt0_nlimbs).
+qed.
+
+lemma _mulm__proof _r _b_r _a _b_a _b _b_b _ctx _b_ctx :
+  hoare [M(P)._mulm_ :
+    arg = (_r, _b_r, _a, _b_a, _b, _b_b, _ctx, _b_ctx) /\ _mulm__pre _r _b_r _a _b_a _b _b_b _ctx _b_ctx
+    ==> _mulm__post _r _b_r _a _b_a _b _b_b _ctx _b_ctx res /\ valid res.`3].
+proof.
+hint +safety.
+proc.
+wp; ecall (fun_red_h param_2 b_param_0 param_3 ((BA_16n.init_arr (W8.of_int 255))) param_4 ((BA_32n_8.init_arr (W8.of_int 255)))).
+wp; ecall (fun_muln_h param b_param param_0 ((BA_8n.init_arr (W8.of_int 255))) param_1 ((BA_8n.init_arr (W8.of_int 255)))).
+by auto => /> *; smt(ctx_slice ctx_full ctx_p gt0_nlimbs).
+qed.
+
+lemma _mulmU__proof _a _b_a _b _b_b _ctx _b_ctx :
+  hoare [M(P)._mulmU_ :
+    arg = (_a, _b_a, _b, _b_b, _ctx, _b_ctx) /\ _mulmU__pre _a _b_a _b _b_b _ctx _b_ctx
+    ==> _mulmU__post _a _b_a _b _b_b _ctx _b_ctx res /\ valid res.`3].
+proof.
+hint +safety.
+proc.
+wp; ecall (fun_red_h param_2 ((BA_8n.init_arr (W8.of_int 255))) param_3 ((BA_16n.init_arr (W8.of_int 255))) param_4 ((BA_32n_8.init_arr (W8.of_int 255)))).
+wp; ecall (fun_muln_h param b_param param_0 ((BA_8n.init_arr (W8.of_int 255))) param_1 ((BA_8n.init_arr (W8.of_int 255)))).
+by auto => /> *; smt(ctx_slice ctx_full ctx_p gt0_nlimbs).
+qed.
+
+lemma _sqrm__proof _r _b_r _a _b_a _ctx _b_ctx :
+  hoare [M(P)._sqrm_ :
+    arg = (_r, _b_r, _a, _b_a, _ctx, _b_ctx) /\ _sqrm__pre _r _b_r _a _b_a _ctx _b_ctx
+    ==> _sqrm__post _r _b_r _a _b_a _ctx _b_ctx res /\ valid res.`3].
+proof.
+hint +safety.
+proc.
+wp; ecall (fun_red_h param_1 b_param_0 param_2 ((BA_16n.init_arr (W8.of_int 255))) param_3 ((BA_32n_8.init_arr (W8.of_int 255)))).
+wp; ecall (fun_sqrn_h param b_param param_0 ((BA_8n.init_arr (W8.of_int 255)))).
+by auto => /> *; smt(ctx_slice ctx_full ctx_p gt0_nlimbs).
+qed.
+
+lemma _sqrmU__proof _a _b_a _ctx _b_ctx :
+  hoare [M(P)._sqrmU_ :
+    arg = (_a, _b_a, _ctx, _b_ctx) /\ _sqrmU__pre _a _b_a _ctx _b_ctx
+    ==> _sqrmU__post _a _b_a _ctx _b_ctx res /\ valid res.`3].
+proof.
+hint +safety.
+proc.
+wp; ecall (fun_red_h param_1 ((BA_8n.init_arr (W8.of_int 255))) param_2 ((BA_16n.init_arr (W8.of_int 255))) param_3 ((BA_32n_8.init_arr (W8.of_int 255)))).
+wp; ecall (fun_sqrn_h param b_param param_0 ((BA_8n.init_arr (W8.of_int 255)))).
+by auto => /> *; smt(ctx_slice ctx_full ctx_p gt0_nlimbs).
+qed.
+
+lemma fun_mulU_proof _a _b_a _b _b_b _ctx _b_ctx :
+  hoare [M(P).fun_mulU :
+    arg = (_a, _b_a, _b, _b_b, _ctx, _b_ctx) /\ fun_mulU_pre _a _b_a _b _b_b _ctx _b_ctx
+    ==> fun_mulU_post _a _b_a _b _b_b _ctx _b_ctx res /\ valid res.`3].
+proof.
+hint +safety.
+proc.
+wp; ecall (_mulmU__proof param ((BA_8n.init_arr (W8.of_int 255))) param_0 ((BA_8n.init_arr (W8.of_int 255))) param_1 ((BA_32n_8.init_arr (W8.of_int 255)))).
+by auto => /> *; smt(ctx_slice ctx_full ctx_p gt0_nlimbs).
+qed.
+
+lemma fun_sqrU_proof _a _b_a _ctx _b_ctx :
+  hoare [M(P).fun_sqrU :
+    arg = (_a, _b_a, _ctx, _b_ctx) /\ fun_sqrU_pre _a _b_a _ctx _b_ctx
+    ==> fun_sqrU_post _a _b_a _ctx _b_ctx res /\ valid res.`3].
+proof.
+hint +safety.
+proc.
+wp; ecall (_sqrmU__proof param ((BA_8n.init_arr (W8.of_int 255))) param_0 ((BA_32n_8.init_arr (W8.of_int 255)))).
+by auto => /> *; smt(ctx_slice ctx_full ctx_p gt0_nlimbs).
+qed.
+
+(* the parameters of the exponentiation (sub-instance EXP): this field's
+   fun_mulU and fun_sqrU *)
+lemma P_EXP_mulU_h _a _b_a _b _b_b _ctx _b_ctx :
+  hoare [M(P).P_EXP.fun_mulU :
+    arg = (_a, _b_a, _b, _b_b, _ctx, _b_ctx) /\ BNE.fun_mulU_pre _a _b_a _b _b_b _ctx _b_ctx
+    ==> BNE.fun_mulU_post _a _b_a _b _b_b _ctx _b_ctx res /\ valid res.`3].
+proof.
+by conseq (fun_mulU_proof _a _b_a _b _b_b _ctx _b_ctx).
+qed.
+
+lemma P_EXP_sqrU_h _a _b_a _ctx _b_ctx :
+  hoare [M(P).P_EXP.fun_sqrU :
+    arg = (_a, _b_a, _ctx, _b_ctx) /\ BNE.fun_sqrU_pre _a _b_a _ctx _b_ctx
+    ==> BNE.fun_sqrU_post _a _b_a _ctx _b_ctx res /\ valid res.`3].
+proof.
+by conseq (fun_sqrU_proof _a _b_a _ctx _b_ctx).
+qed.
+
+lemma __Pm2_proof _r _b_r _ctx _b_ctx :
+  hoare [M(P).__Pm2 :
+    arg = (_r, _b_r, _ctx, _b_ctx) /\ __Pm2_pre _r _b_r _ctx _b_ctx
+    ==> __Pm2_post _r _b_r _ctx _b_ctx res /\ valid res.`3].
+proof.
+hint +safety.
+proc.
+wp; while (valid trace___Pm2 /\ 1 <= i <= nlimbs /\ BA_8n.is_init b_r 0 (8 * i)).
+- auto => /> &hr hv hi0 hi1 hb hin.
+  have h := BL_8n.is_init_ext64 b_r{hr} i{hr} _ hb; 1: smt().
+  smt().
+by auto => /> *; smt(gt0_nlimbs).
+qed.
+
+lemma _invmU__proof _a _b_a _ctx _b_ctx :
+  hoare [M(P)._invmU_ :
+    arg = (_a, _b_a, _ctx, _b_ctx) /\ _invmU__pre _a _b_a _ctx _b_ctx
+    ==> _invmU__post _a _b_a _ctx _b_ctx res /\ valid res.`3].
+proof.
+hint +safety.
+proc.
+wp; ecall (BNE._expmU_noct__proof (<: M(P).P_EXP) P_EXP_mulU_h P_EXP_sqrU_h param_1 ((BA_8n.init_arr (W8.of_int 255))) param_2 ((BA_8n.init_arr (W8.of_int 255))) param_3 ((BA_32n_8.init_arr (W8.of_int 255)))).
+wp; ecall (__Pm2_proof param b_param param_0 ((BA_32n_8.init_arr (W8.of_int 255)))).
+by auto => />.
+qed.
+
+lemma _invm__proof _r _b_r _a _b_a _ctx _b_ctx :
+  hoare [M(P)._invm_ :
+    arg = (_r, _b_r, _a, _b_a, _ctx, _b_ctx) /\ _invm__pre _r _b_r _a _b_a _ctx _b_ctx
+    ==> _invm__post _r _b_r _a _b_a _ctx _b_ctx res /\ valid res.`3].
+proof.
+hint +safety.
+proc.
+wp; ecall (BNE._expm_noct__proof (<: M(P).P_EXP) P_EXP_mulU_h P_EXP_sqrU_h param_1 b_param_0 param_2 ((BA_8n.init_arr (W8.of_int 255))) param_3 ((BA_8n.init_arr (W8.of_int 255))) param_4 ((BA_32n_8.init_arr (W8.of_int 255)))).
+wp; ecall (__Pm2_proof param b_param param_0 ((BA_32n_8.init_arr (W8.of_int 255)))).
+by auto => />.
+qed.
+
+end section.

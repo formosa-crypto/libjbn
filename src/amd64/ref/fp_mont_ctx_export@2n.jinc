@@ -16,6 +16,7 @@
 */
 
 /* ctx = the context of P */
+#[safety = { requires = is_mem_init(pp, 8*H::nlimbs), ensures = is_arr_init(ctx, 0, 8*H::FPM::CTXLEN) }]
 export fn fpc_ctx_init
 ( reg mut ptr u64[H::FPM::CTXLEN] ctx
 , reg u64 pp
@@ -34,6 +35,7 @@ export fn fpc_ctx_init
 }
 
 /* r = a + b mod P */
+#[safety = { requires = is_mem_init(ap, 8*H::nlimbs) && is_mem_init(bp, 8*H::nlimbs) && is_mem_init(rp, 8*H::nlimbs) && is_arr_init(ctx, 0, 8*H::FPM::CTXLEN) }]
 export fn fpc_add(reg u64 rp ap bp, reg const ptr u64[H::FPM::CTXLEN] ctx)
 {
   stack u64[H::nlimbs] _a _b;
@@ -54,6 +56,7 @@ export fn fpc_add(reg u64 rp ap bp, reg const ptr u64[H::FPM::CTXLEN] ctx)
 }
 
 /* r = a - b mod P */
+#[safety = { requires = is_mem_init(ap, 8*H::nlimbs) && is_mem_init(bp, 8*H::nlimbs) && is_mem_init(rp, 8*H::nlimbs) && is_arr_init(ctx, 0, 8*H::FPM::CTXLEN) }]
 export fn fpc_sub(reg u64 rp ap bp, reg const ptr u64[H::FPM::CTXLEN] ctx)
 {
   stack u64[H::nlimbs] _a _b;
@@ -74,6 +77,7 @@ export fn fpc_sub(reg u64 rp ap bp, reg const ptr u64[H::FPM::CTXLEN] ctx)
 }
 
 /* r = a * b * R^-1 mod P (Montgomery) */
+#[safety = { requires = is_mem_init(ap, 8*H::nlimbs) && is_mem_init(bp, 8*H::nlimbs) && is_mem_init(rp, 8*H::nlimbs) && is_arr_init(ctx, 0, 8*H::FPM::CTXLEN) }]
 export fn fpc_mul(reg u64 rp ap bp, reg const ptr u64[H::FPM::CTXLEN] ctx)
 {
   stack u64[H::nlimbs] _a _b _r;
@@ -95,6 +99,7 @@ export fn fpc_mul(reg u64 rp ap bp, reg const ptr u64[H::FPM::CTXLEN] ctx)
 }
 
 /* r = a^2 * R^-1 mod P (Montgomery) */
+#[safety = { requires = is_mem_init(ap, 8*H::nlimbs) && is_mem_init(rp, 8*H::nlimbs) && is_arr_init(ctx, 0, 8*H::FPM::CTXLEN) }]
 export fn fpc_sqr(reg u64 rp ap, reg const ptr u64[H::FPM::CTXLEN] ctx)
 {
   stack u64[H::nlimbs] _a _r;
@@ -114,6 +119,7 @@ export fn fpc_sqr(reg u64 rp ap, reg const ptr u64[H::FPM::CTXLEN] ctx)
 }
 
 /* r = a^b (Montgomery form), constant time */
+#[safety = { requires = is_mem_init(ap, 8*H::nlimbs) && is_mem_init(bp, 8*H::nlimbs) && is_mem_init(rp, 8*H::nlimbs) && is_arr_init(ctx, 0, 8*H::FPM::CTXLEN) }]
 export fn fpc_exp(reg u64 rp ap bp, reg const ptr u64[H::FPM::CTXLEN] ctx)
 {
   stack u64[H::nlimbs] _a _b _r;
@@ -135,6 +141,7 @@ export fn fpc_exp(reg u64 rp ap bp, reg const ptr u64[H::FPM::CTXLEN] ctx)
 }
 
 /* r = a^b (Montgomery form), variable time in b */
+#[safety = { requires = is_mem_init(ap, 8*H::nlimbs) && is_mem_init(bp, 8*H::nlimbs) && is_mem_init(rp, 8*H::nlimbs) && is_arr_init(ctx, 0, 8*H::FPM::CTXLEN) }]
 export fn fpc_exp_noct(reg u64 rp ap bp, reg const ptr u64[H::FPM::CTXLEN] ctx)
 {
   stack u64[H::nlimbs] _a _b _r;
@@ -156,6 +163,7 @@ export fn fpc_exp_noct(reg u64 rp ap bp, reg const ptr u64[H::FPM::CTXLEN] ctx)
 }
 
 /* r = a^-1 (Montgomery form), P prime and public */
+#[safety = { requires = is_mem_init(ap, 8*H::nlimbs) && is_mem_init(rp, 8*H::nlimbs) && is_arr_init(ctx, 0, 8*H::FPM::CTXLEN) }]
 export fn fpc_inv(reg u64 rp ap, reg const ptr u64[H::FPM::CTXLEN] ctx)
 {
   stack u64[H::nlimbs] _a _r;
@@ -175,6 +183,7 @@ export fn fpc_inv(reg u64 rp ap, reg const ptr u64[H::FPM::CTXLEN] ctx)
 }
 
 /* r = a * R mod P */
+#[safety = { requires = is_mem_init(ap, 8*H::nlimbs) && is_mem_init(rp, 8*H::nlimbs) && is_arr_init(ctx, 0, 8*H::FPM::CTXLEN) }]
 export fn fpc_toM(reg u64 rp ap, reg const ptr u64[H::FPM::CTXLEN] ctx)
 {
   stack u64[H::nlimbs] _a;
@@ -193,6 +202,7 @@ export fn fpc_toM(reg u64 rp ap, reg const ptr u64[H::FPM::CTXLEN] ctx)
 }
 
 /* r = a * R^-1 mod P */
+#[safety = { requires = is_mem_init(ap, 8*H::nlimbs) && is_mem_init(rp, 8*H::nlimbs) && is_arr_init(ctx, 0, 8*H::FPM::CTXLEN) }]
 export fn fpc_fromM(reg u64 rp ap, reg const ptr u64[H::FPM::CTXLEN] ctx)
 {
   stack u64[H::nlimbs] _a;

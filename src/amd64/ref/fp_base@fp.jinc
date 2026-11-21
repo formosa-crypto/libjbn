@@ -55,6 +55,7 @@ inline fn _rnd_
  return a;
 }
 
+#[safety = { requires = is_arr_init(a, 0, 8*nlimbs) && is_arr_init(b, 0, 8*nlimbs) && is_arr_init(ctx, 8*CTX_MP, 8*nlimbs), ensures = is_arr_init(r, 0, 8*nlimbs) }]
 inline fn _addm_
  ( reg mut ptr u64[nlimbs] r
  , reg const ptr u64[nlimbs] a b
@@ -95,6 +96,7 @@ inline fn _addmU_
 
 // ////////////////////////////////////
 
+#[safety = { requires = is_arr_init(a, 0, 8*nlimbs) && is_arr_init(b, 0, 8*nlimbs) && is_arr_init(ctx, 0, 8*CTXLEN), ensures = is_arr_init(r, 0, 8*nlimbs) }]
 inline fn _subm_
 ( reg mut ptr u64[nlimbs] r
 , reg const ptr u64[nlimbs] a b
@@ -122,6 +124,7 @@ inline fn _submU_
 }
 
 /* Modular multiplication */
+#[safety = { requires = is_arr_init(a, 0, 8*nlimbs) && is_arr_init(b, 0, 8*nlimbs) && is_arr_init(ctx, 0, 8*CTXLEN), ensures = is_arr_init(r, 0, 8*nlimbs) }]
 inline fn _mulm_
 ( reg mut ptr u64[nlimbs] r
 , reg ptr u64[nlimbs] a b
@@ -161,6 +164,7 @@ inline fn _mulmU_ // update inplace
 
 // ////////////////////////////////////
 
+#[safety = { requires = is_arr_init(a, 0, 8*nlimbs) && is_arr_init(ctx, 0, 8*CTXLEN), ensures = is_arr_init(r, 0, 8*nlimbs) }]
 inline fn _sqrm_
 ( reg mut ptr u64[nlimbs] r
 , reg const ptr u64[nlimbs] a
@@ -225,6 +229,7 @@ namespace EXP {
 
 
 /* P-2, the exponent of Fermat inversion */
+#[safety = { requires = is_arr_init(ctx, 0, 8*CTXLEN), ensures = is_arr_init(r, 0, 8*nlimbs) }]
 inline fn __Pm2
 ( reg mut ptr u64[nlimbs] r
 , reg const ptr u64[CTXLEN] ctx
@@ -257,6 +262,7 @@ inline fn _invmU_
   return a;
 }
 
+#[safety = { requires = is_arr_init(a, 0, 8*nlimbs) && is_arr_init(ctx, 0, 8*CTXLEN), ensures = is_arr_init(r, 0, 8*nlimbs) }]
 inline fn _invm_
 ( reg mut ptr u64[nlimbs] r
 , reg const ptr u64[nlimbs] a

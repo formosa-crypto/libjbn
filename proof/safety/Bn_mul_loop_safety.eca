@@ -1,0 +1,184 @@
+(* Safety of bn_mul_loop (src/amd64/ref/bn_mul_loop@n.jinc): the lemmas of
+   the specifications of theories/Bn_mul_loop_safety_xtr.eca. The rows are
+   indexed by a run-time word k (the lemmas on unsigned counters of
+   JbnSafetyLib). *)
+require import AllCore IntDiv CoreMap List Distr.
+from Jasmin require import JModel_x86.
+import SLH64.
+from Jasmin require import Jcheck JSafety JByte_array JMemory.
+require import ByteArrayInit JbnSafetyLib.
+require Bn_mul_loop_safety_xtr.
+
+clone include Bn_mul_loop_safety_xtr.
+
+clone ByteArrayLib as BL_8n with theory A <- BA_8n.
+clone ByteArrayLib as BL_16n with theory A <- BA_16n.
+clone SubByteArrayInit as SBI_16n__8n with theory SB <- SB_16n__8n.
+
+lemma nlimbs_mod : 2 * nlimbs < W64.modulus.
+proof.
+have h := nlimbs_bnd; smt(gt0_nlimbs pow2_64).
+qed.
+
+(* the loop guard and the increment of the row index *)
+lemma ult_nlimbs (k : W64.t) : (k \ult W64.of_int nlimbs) = (W64.to_uint k < nlimbs).
+proof.
+have h := nlimbs_mod; have h0 := gt0_nlimbs.
+by rewrite ult_of_intE; [move: h h0; smt() | done].
+qed.
+
+lemma inc_k (k : W64.t) : W64.to_uint k < nlimbs => W64.to_uint (k + W64.one) = W64.to_uint k + 1.
+proof.
+move=> h; have hm := nlimbs_mod; have h0 := gt0_nlimbs.
+by rewrite (to_uint_inc _ nlimbs) //; move: hm h0; smt().
+qed.
+
+(* the word k + i of the row (k < nlimbs, i <= nlimbs) *)
+lemma add_k (k : W64.t) i : 0 <= i <= nlimbs => W64.to_uint k < nlimbs =>
+  W64.to_uint (k + W64.of_int i) = W64.to_uint k + i.
+proof.
+move=> [hi0 hi1] hk; have hm := nlimbs_mod.
+by rewrite to_uint_add_of_int //; move: hi0 hi1 hk hm; smt(W64.to_uint_cmp).
+qed.
+
+lemma __mul1_proof _r _b_r _a _b _b_b : __mul1_spec _r _b_r _a _b _b_b.
+proof.
+hint +safety.
+rewrite /__mul1_spec; proc.
+wp; while (valid trace___mul1 /\ 1 <= i <= nlimbs /\ BA_16n.is_init b_r 0 (8 * i)).
+- auto => /> &hr hv hi0 hi1 hr hin.
+  have e := BL_16n.is_init_ext64 b_r{hr} i{hr} _ hr; 1: smt().
+  smt().
+auto => /> hb.
+split; first smt(gt0_nlimbs).
+move=> b_r0 i0 tr0 hi _ hi0 hi1 hr0.
+have hie : i0 = nlimbs by smt().
+move: hr0; rewrite hie => hr0.
+have e := BL_16n.is_init_ext64 b_r0 nlimbs _ hr0; 1: smt(gt0_nlimbs).
+smt(gt0_nlimbs).
+qed.
+
+lemma __mul1acc_proof _k _r _b_r _a _b _b_b : __mul1acc_spec _k _r _b_r _a _b _b_b.
+proof.
+hint +safety.
+rewrite /__mul1acc_spec; proc.
+wp; while (valid trace___mul1acc /\ 1 <= i <= nlimbs /\ 1 <= W64.to_uint k < nlimbs
+           /\ BA_16n.is_init b_r 0 (8 * (W64.to_uint k + nlimbs))).
+- auto => /> &hr hv hi0 hi1 hk0 hk1 hr hin.
+  have hu := add_k k{hr} i{hr} _ _; 1,2: smt().
+  rewrite hu.
+  have w := BL_16n.is_init_word _ (W64.to_uint k{hr} + i{hr}) _ _ _ hr; 1,2: smt().
+  have m := BL_16n.is_init_mono64 _ ((W64.to_uint k{hr} + i{hr}) * 8) _ _ hr.
+  smt().
+auto => /> hk0 hk1 hr hb.
+have w := BL_16n.is_init_word _ (W64.to_uint _k) _ _ _ hr; 1,2: smt(gt0_nlimbs).
+have m := BL_16n.is_init_mono64 _ (W64.to_uint _k * 8) _ _ hr.
+split; first smt(gt0_nlimbs).
+move=> b_r0 i0 tr0 _ _ _ _ hr0.
+have hu := add_k _k nlimbs _ _; 1,2: smt(gt0_nlimbs).
+rewrite hu.
+have e := BL_16n.is_init_ext64 b_r0 (W64.to_uint _k + nlimbs) _ hr0; 1: smt(gt0_nlimbs).
+smt(gt0_nlimbs).
+qed.
+
+lemma _os_muln_proof _r _b_r _a _b_a _b _b_b : _os_muln_spec _r _b_r _a _b_a _b _b_b.
+proof.
+hint +safety.
+rewrite /_os_muln_spec; proc.
+wp; while (valid trace__os_muln /\ 1 <= W64.to_uint k <= nlimbs
+           /\ BA_16n.is_init b_r 0 (8 * (W64.to_uint k + nlimbs))
+           /\ BA_8n.is_init b_a 0 (8 * nlimbs) /\ BA_8n.is_init b_b 0 (8 * nlimbs)).
+- wp; ecall (__mul1acc_proof param_2 param_3 b_param_0 param_4 param_5 ((BA_8n.init_arr (W8.of_int 255)))).
+  auto => /> &hr hv hk0 hk1 hr ha hb hlt.
+  have hk : W64.to_uint k{hr} < nlimbs by rewrite -ult_nlimbs.
+  split; first done.
+  move=> _ rr hrr _.
+  rewrite (inc_k _ hk).
+  smt().
+wp; ecall (__mul1_proof param b_param param_0 param_1 ((BA_8n.init_arr (W8.of_int 255)))).
+auto => /> ha hb rr hrr _.
+split; first smt(gt0_nlimbs).
+move=> b_r0 k0 tr0 hk _ hk0 hk1 hr0.
+have hk' : W64.to_uint k0 = nlimbs by move: hk; rewrite ult_nlimbs; smt().
+smt().
+qed.
+
+lemma _os_muln__proof _r _b_r _a _b_a _b _b_b : _os_muln__spec _r _b_r _a _b_a _b _b_b.
+proof.
+hint +safety.
+rewrite /_os_muln__spec; proc.
+wp; ecall (_os_muln_proof param b_param param_0 ((BA_8n.init_arr (W8.of_int 255))) param_1 ((BA_8n.init_arr (W8.of_int 255)))).
+by auto => />.
+qed.
+
+lemma _os_sqrn_proof _r _b_r _a _b_a : _os_sqrn_spec _r _b_r _a _b_a.
+proof.
+hint +safety.
+rewrite /_os_sqrn_spec; proc.
+wp; while (valid trace__os_sqrn /\ 1 <= W64.to_uint k <= nlimbs
+           /\ BA_16n.is_init b_r 0 (8 * (W64.to_uint k + nlimbs))
+           /\ BA_8n.is_init b_a 0 (8 * nlimbs)).
+- wp; ecall (__mul1acc_proof param_2 param_3 b_param_0 param_4 param_5 ((BA_8n.init_arr (W8.of_int 255)))).
+  auto => /> &hr hv hk0 hk1 hr ha hlt.
+  have hk : W64.to_uint k{hr} < nlimbs by rewrite -ult_nlimbs.
+  split; first done.
+  move=> _ rr hrr _.
+  rewrite (inc_k _ hk).
+  smt().
+wp; ecall (__mul1_proof param b_param param_0 param_1 ((BA_8n.init_arr (W8.of_int 255)))).
+auto => /> ha rr hrr _.
+split; first smt(gt0_nlimbs).
+move=> b_r0 k0 tr0 hk _ hk0 hk1 hr0.
+have hk' : W64.to_uint k0 = nlimbs by move: hk; rewrite ult_nlimbs; smt().
+smt().
+qed.
+
+lemma _os_sqrn__proof _r _b_r _a _b_a : _os_sqrn__spec _r _b_r _a _b_a.
+proof.
+hint +safety.
+rewrite /_os_sqrn__spec; proc.
+wp; ecall (_os_sqrn_proof param b_param param_0 ((BA_8n.init_arr (W8.of_int 255)))).
+by auto => />.
+qed.
+
+lemma __mont_redM_proof _r _b_r _a _b_a __P_mP _b__P_mP __U0 : __mont_redM_spec _r _b_r _a _b_a __P_mP _b__P_mP __U0.
+proof.
+hint +safety.
+rewrite /__mont_redM_spec; proc.
+wp; ecall (BNB._cminusP__proof param b_param param_0 b_param_0 param_1).
+wp.
+while (valid trace___mont_redM /\ 0 <= W64.to_uint k <= nlimbs /\ BA_8n.is_init b_r 0 (8 * nlimbs)).
+- wp.
+  while (valid trace___mont_redM /\ 1 <= i <= nlimbs /\ W64.to_uint k < nlimbs /\ BA_8n.is_init b_r 0 (8 * nlimbs)).
+  + auto => /> &hr hv hi0 hi1 hk hr hin.
+    have w := BL_8n.is_init_word _ i{hr} _ _ _ hr; 1,2: smt().
+    have m := BL_8n.is_init_mono64 _ ((i{hr} - 1) * 8) _ _ hr.
+    smt().
+  auto => /> &hr hv hk0 hk1 hr hlt.
+  have hk : W64.to_uint k{hr} < nlimbs by rewrite -ult_nlimbs.
+  have w0 := BL_8n.is_init_word _ 0 _ _ _ hr; 1,2: smt(gt0_nlimbs).
+  split; first smt(gt0_nlimbs).
+  move=> b_r0 i0 tr0 _ _ _ _ _ hr0.
+  have hu := add_k k{hr} nlimbs _ _; 1,2: smt(gt0_nlimbs).
+  rewrite hu (inc_k _ hk).
+  have m := BL_8n.is_init_mono64 _ ((nlimbs - 1) * 8) _ _ hr0.
+  smt(gt0_nlimbs W64.to_uint_cmp).
+wp.
+while (valid trace___mont_redM /\ 0 <= i <= nlimbs /\ BA_8n.is_init b_r 0 (8 * i)).
+- auto => /> &hr hv hi0 hi1 hr hin.
+  have e := BL_8n.is_init_ext64 b_r{hr} i{hr} _ hr; 1: smt().
+  smt().
+auto => /> ha hpm.
+have hmP: BA_8n.is_init (SB_16n__8n.get_sub _b__P_mP (8 * nlimbs)) 0 (8 * nlimbs).
+- rewrite SBI_16n__8n.is_init_get_sub; 1..4: smt(gt0_nlimbs).
+  by apply (BL_16n.is_init_sub _ _ _ _ _ hpm); smt(gt0_nlimbs).
+split; first smt(gt0_nlimbs).
+move=> b_r0 i0 tr0 hi _ hi0 hi1 hr0.
+have hie : i0 = nlimbs by smt().
+move: hr0; rewrite hie => hr0.
+split; first by split; [smt(gt0_nlimbs) | done].
+move=> b_r1 k1 tr1 _ _ _ _ _.
+split; first done.
+move=> _ rr _ _.
+smt(gt0_nlimbs).
+qed.

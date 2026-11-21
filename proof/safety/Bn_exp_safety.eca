@@ -1,0 +1,233 @@
+(* Safety of bn_exp (src/amd64/ref/bn_exp@exp.jinc): the lemmas of the
+   specifications of theories/Bn_exp_safety_xtr.eca, for any function
+   parameters meeting their contracts (declared axioms of the section). *)
+require import AllCore IntDiv CoreMap List Distr.
+from Jasmin require import JModel_x86.
+import SLH64.
+from Jasmin require import Jcheck JSafety JByte_array JMemory.
+require import ByteArrayInit JbnSafetyLib.
+require Bn_exp_safety_xtr.
+
+clone include Bn_exp_safety_xtr.
+
+clone ByteArrayLib as BL_8n with theory A <- BA_8n.
+clone ByteArrayLib as BL_16n with theory A <- BA_16n.
+clone ByteArrayLib as BL_32n_8 with theory A <- BA_32n_8.
+clone ByteArrayLib as BL_8e with theory A <- BA_8e.
+clone SubByteArrayInit as SBI_32n_8__8n with theory SB <- SB_32n_8__8n.
+
+(* the 1 of the context (ctx[CTX_ONE : nlimbs], CTX_ONE = 2 * nlimbs) *)
+lemma ctx_one (b : BA_32n_8.t) :
+  BA_32n_8.is_init b 0 (8 * ((4 * nlimbs) + 1)) =>
+  BA_8n.is_init (SB_32n_8__8n.get_sub b (8 * (2 * nlimbs))) 0 (8 * nlimbs).
+proof.
+move=> h; rewrite SBI_32n_8__8n.is_init_get_sub; 1..4: smt(gt0_nlimbs).
+by apply (BL_32n_8.is_init_sub _ _ _ _ _ h); smt(gt0_nlimbs).
+qed.
+
+section.
+
+declare module P <: MParam.
+
+declare axiom fun_mulU_h _a _b_a _b _b_b _ctx _b_ctx :
+  hoare [P.fun_mulU :
+    arg = (_a, _b_a, _b, _b_b, _ctx, _b_ctx) /\ fun_mulU_pre _a _b_a _b _b_b _ctx _b_ctx
+    ==> fun_mulU_post _a _b_a _b _b_b _ctx _b_ctx res /\ valid res.`3].
+
+declare axiom fun_sqrU_h _a _b_a _ctx _b_ctx :
+  hoare [P.fun_sqrU :
+    arg = (_a, _b_a, _ctx, _b_ctx) /\ fun_sqrU_pre _a _b_a _ctx _b_ctx
+    ==> fun_sqrU_post _a _b_a _ctx _b_ctx res /\ valid res.`3].
+
+lemma _exp1mLR_first_noct_proof _r _b_r _x _b_x _w _ctx _b_ctx :
+  hoare [M(P)._exp1mLR_first_noct :
+    arg = (_r, _b_r, _x, _b_x, _w, _ctx, _b_ctx) /\ _exp1mLR_first_noct_pre _r _b_r _x _b_x _w _ctx _b_ctx
+    ==> _exp1mLR_first_noct_post _r _b_r _x _b_x _w _ctx _b_ctx res /\ valid res.`3].
+proof.
+hint +safety.
+proc.
+wp.
+while (valid trace__exp1mLR_first_noct).
+- seq ^if : (valid trace__exp1mLR_first_noct).
+  + wp; ecall (fun_sqrU_h param_1 ((BA_8n.init_arr (W8.of_int 255))) param_2 ((BA_32n_8.init_arr (W8.of_int 255)))).
+    by auto => />.
+  if.
+  + wp; ecall (fun_mulU_h param_3 ((BA_8n.init_arr (W8.of_int 255))) param_4 ((BA_8n.init_arr (W8.of_int 255))) param_5 ((BA_32n_8.init_arr (W8.of_int 255)))).
+    by auto => />.
+  by auto => />.
+wp; ecall (BNB._mov__proof param b_param param_0 ((BA_8n.init_arr (W8.of_int 255)))).
+wp; while (valid trace__exp1mLR_first_noct).
+- by auto.
+by auto => />.
+qed.
+
+lemma _exp1mLR_noct_proof _r _b_r _x _b_x _w _ctx _b_ctx :
+  hoare [M(P)._exp1mLR_noct :
+    arg = (_r, _b_r, _x, _b_x, _w, _ctx, _b_ctx) /\ _exp1mLR_noct_pre _r _b_r _x _b_x _w _ctx _b_ctx
+    ==> _exp1mLR_noct_post _r _b_r _x _b_x _w _ctx _b_ctx res /\ valid res.`3].
+proof.
+hint +safety.
+proc.
+wp.
+while (valid trace__exp1mLR_noct).
+- seq ^if : (valid trace__exp1mLR_noct).
+  + wp; ecall (fun_sqrU_h param ((BA_8n.init_arr (W8.of_int 255))) param_0 ((BA_32n_8.init_arr (W8.of_int 255)))).
+    by auto => />.
+  if.
+  + wp; ecall (fun_mulU_h param_1 ((BA_8n.init_arr (W8.of_int 255))) param_2 ((BA_8n.init_arr (W8.of_int 255))) param_3 ((BA_32n_8.init_arr (W8.of_int 255)))).
+    by auto => />.
+  by auto => />.
+by auto => />.
+qed.
+
+lemma _expmLR_noct_proof _r _b_r _x _b_x _e _b_e _ctx _b_ctx :
+  hoare [M(P)._expmLR_noct :
+    arg = (_r, _b_r, _x, _b_x, _e, _b_e, _ctx, _b_ctx) /\ _expmLR_noct_pre _r _b_r _x _b_x _e _b_e _ctx _b_ctx
+    ==> _expmLR_noct_post _r _b_r _x _b_x _e _b_e _ctx _b_ctx res /\ valid res.`3].
+proof.
+hint +safety.
+proc.
+wp; while (valid trace__expmLR_noct /\ -1 <= W64.to_sint i < nlimbsexp).
+- wp; ecall (_exp1mLR_noct_proof param_5 ((BA_8n.init_arr (W8.of_int 255))) param_6 ((BA_8n.init_arr (W8.of_int 255))) param_7 param_8 ((BA_32n_8.init_arr (W8.of_int 255)))).
+  auto => /> &hr hv hi0 hi1 hle0; move: hle0; rewrite sle0E => hle.
+  have hu := to_uint_sint i{hr} hle.
+  rewrite to_sint_dec //; smt().
+seq ^if : (valid trace__expmLR_noct /\ -1 <= W64.to_sint i < nlimbsexp
+           /\ (W64.to_sint i < 0 => w <> W64.zero)
+           /\ BA_32n_8.is_init b_ctx 0 (8 * ((4 * nlimbs) + 1))).
+- wp; while (valid trace__expmLR_noct /\ -1 <= W64.to_sint i < nlimbsexp
+             /\ (W64.to_sint i < 0 => w <> W64.zero)
+             /\ BA_32n_8.is_init b_ctx 0 (8 * ((4 * nlimbs) + 1))).
+  + auto => /> &hr *.
+    have hi : 0 <= W64.to_sint i{hr} by smt().
+    have hd := to_sint_dec i{hr} hi.
+    rewrite !sle0E hd; split; last by smt(one_neq_zero64).
+    move=> hle; have hu := to_uint_sint (i{hr} - W64.one) _; 1: smt().
+    rewrite hu hd; smt().
+  auto => /> hx he hc.
+  have hn := gt0_nlimbsexp; have hb := nlimbsexp_bnd.
+  have hs : W64.to_sint (W64.of_int (nlimbsexp - 1)) = nlimbsexp - 1.
+  - by apply to_sint_of_int; smt(pow2_64).
+  have hu : W64.to_uint (W64.of_int (nlimbsexp - 1)) = nlimbsexp - 1.
+  - by rewrite W64.of_uintK modz_small //; smt(pow2_64).
+  rewrite hu hs; smt().
+if.
+- wp; ecall (_exp1mLR_first_noct_proof param b_param param_0 ((BA_8n.init_arr (W8.of_int 255))) param_1 param_2 ((BA_32n_8.init_arr (W8.of_int 255)))).
+  auto => /> &hr hv hi0 hi1 hw hc hle0; move: hle0; rewrite sle0E => hle.
+  rewrite to_sint_dec //; smt().
+wp; ecall (BNB._mov__proof param_3 b_param_0 param_4 b_param_1).
+by auto => /> &hr *; smt(ctx_one gt0_nlimbs).
+qed.
+
+lemma _expmLR_noct__proof _r _b_r _a _b_a _b _b_b _ctx _b_ctx :
+  hoare [M(P)._expmLR_noct_ :
+    arg = (_r, _b_r, _a, _b_a, _b, _b_b, _ctx, _b_ctx) /\ _expmLR_noct__pre _r _b_r _a _b_a _b _b_b _ctx _b_ctx
+    ==> _expmLR_noct__post _r _b_r _a _b_a _b _b_b _ctx _b_ctx res /\ valid res.`3].
+proof.
+hint +safety.
+proc.
+wp; ecall (_expmLR_noct_proof param_1 ((BA_8n.init_arr (W8.of_int 255))) param_2 ((BA_8n.init_arr (W8.of_int 255))) param_3 ((BA_8e.init_arr (W8.of_int 255))) param_4 ((BA_32n_8.init_arr (W8.of_int 255)))).
+wp; ecall (BNB._mov__proof param b_param param_0 b_param_0).
+by auto => /> *; smt(ctx_one gt0_nlimbs).
+qed.
+
+lemma _expm_noct_proof _r _b_r _a _b_a _b _b_b _ctx _b_ctx :
+  hoare [M(P)._expm_noct :
+    arg = (_r, _b_r, _a, _b_a, _b, _b_b, _ctx, _b_ctx) /\ _expm_noct_pre _r _b_r _a _b_a _b _b_b _ctx _b_ctx
+    ==> _expm_noct_post _r _b_r _a _b_a _b _b_b _ctx _b_ctx res /\ valid res.`3].
+proof.
+hint +safety.
+proc.
+wp.
+while (valid trace__expm_noct /\ 0 <= j <= nlimbsexp).
+- wp.
+  while (valid trace__expm_noct /\ 0 <= j < nlimbsexp).
+  + seq ^if : (valid trace__expm_noct /\ 0 <= j < nlimbsexp).
+    * by auto.
+    if.
+    * wp; ecall (fun_sqrU_h param_4 ((BA_8n.init_arr (W8.of_int 255))) param_5 ((BA_32n_8.init_arr (W8.of_int 255)))).
+      wp; ecall (fun_mulU_h param_1 ((BA_8n.init_arr (W8.of_int 255))) param_2 ((BA_8n.init_arr (W8.of_int 255))) param_3 ((BA_32n_8.init_arr (W8.of_int 255)))).
+      by auto => />.
+    wp; ecall (fun_sqrU_h param_4 ((BA_8n.init_arr (W8.of_int 255))) param_5 ((BA_32n_8.init_arr (W8.of_int 255)))).
+    by auto => />.
+  wp; ecall (fun_sqrU_h param_4 ((BA_8n.init_arr (W8.of_int 255))) param_5 ((BA_32n_8.init_arr (W8.of_int 255)))).
+  wp.
+  seq ^if : (valid trace__expm_noct /\ 0 <= j < nlimbsexp).
+  + by auto => /> &hr *; smt().
+  if.
+  + wp; ecall (fun_mulU_h param_1 ((BA_8n.init_arr (W8.of_int 255))) param_2 ((BA_8n.init_arr (W8.of_int 255))) param_3 ((BA_32n_8.init_arr (W8.of_int 255)))).
+    by auto => /> &hr *; smt().
+  by auto => /> &hr *; smt().
+wp; ecall (BNB._mov__proof param b_param param_0 ((BA_8n.init_arr (W8.of_int 255)))).
+by auto => />; smt(gt0_nlimbsexp).
+qed.
+
+lemma _expm_noct__proof _r _b_r _a _b_a _b _b_b _ctx _b_ctx :
+  hoare [M(P)._expm_noct_ :
+    arg = (_r, _b_r, _a, _b_a, _b, _b_b, _ctx, _b_ctx) /\ _expm_noct__pre _r _b_r _a _b_a _b _b_b _ctx _b_ctx
+    ==> _expm_noct__post _r _b_r _a _b_a _b _b_b _ctx _b_ctx res /\ valid res.`3].
+proof.
+hint +safety.
+proc.
+wp; ecall (_expm_noct_proof param_1 ((BA_8n.init_arr (W8.of_int 255))) param_2 ((BA_8n.init_arr (W8.of_int 255))) param_3 ((BA_8e.init_arr (W8.of_int 255))) param_4 ((BA_32n_8.init_arr (W8.of_int 255)))).
+wp; ecall (BNB._mov__proof param b_param param_0 b_param_0).
+by auto => /> *; smt(ctx_one gt0_nlimbs).
+qed.
+
+lemma _expmU_noct__proof _a _b_a _b _b_b _ctx _b_ctx :
+  hoare [M(P)._expmU_noct_ :
+    arg = (_a, _b_a, _b, _b_b, _ctx, _b_ctx) /\ _expmU_noct__pre _a _b_a _b _b_b _ctx _b_ctx
+    ==> _expmU_noct__post _a _b_a _b _b_b _ctx _b_ctx res /\ valid res.`3].
+proof.
+hint +safety.
+proc.
+wp; ecall (_expm_noct__proof param_1 ((BA_8n.init_arr (W8.of_int 255))) param_2 ((BA_8n.init_arr (W8.of_int 255))) param_3 ((BA_8e.init_arr (W8.of_int 255))) param_4 ((BA_32n_8.init_arr (W8.of_int 255)))).
+wp; ecall (BNB._mov__proof param b_param param_0 ((BA_8n.init_arr (W8.of_int 255)))).
+by auto => />.
+qed.
+
+lemma _expm_proof _x0 _b_x0 _x1 _b_x1 _b _b_b _ctx _b_ctx :
+  hoare [M(P)._expm :
+    arg = (_x0, _b_x0, _x1, _b_x1, _b, _b_b, _ctx, _b_ctx) /\ _expm_pre _x0 _b_x0 _x1 _b_x1 _b _b_b _ctx _b_ctx
+    ==> _expm_post _x0 _b_x0 _x1 _b_x1 _b _b_b _ctx _b_ctx res /\ valid res.`5].
+proof.
+hint +safety.
+proc.
+wp.
+while (valid trace__expm /\ -1 <= j < nlimbsexp).
+- wp.
+  while (valid trace__expm /\ 0 <= j < nlimbsexp).
+  + wp; ecall (BNB._cswap_mask__proof param_8 ((BA_8n.init_arr (W8.of_int 255))) param_9 ((BA_8n.init_arr (W8.of_int 255))) param_10). wp; ecall (fun_sqrU_h param_6 ((BA_8n.init_arr (W8.of_int 255))) param_7 ((BA_32n_8.init_arr (W8.of_int 255)))). wp; ecall (fun_mulU_h param_3 ((BA_8n.init_arr (W8.of_int 255))) param_4 ((BA_8n.init_arr (W8.of_int 255))) param_5 ((BA_32n_8.init_arr (W8.of_int 255)))). wp; ecall (BNB._cswap_mask__proof param_0 ((BA_8n.init_arr (W8.of_int 255))) param_1 ((BA_8n.init_arr (W8.of_int 255))) param_2). wp; ecall (BNUTIL.__cf_mask_proof param).
+    by auto => />.
+  wp; ecall (BNB._cswap_mask__proof param_8 ((BA_8n.init_arr (W8.of_int 255))) param_9 ((BA_8n.init_arr (W8.of_int 255))) param_10). wp; ecall (fun_sqrU_h param_6 ((BA_8n.init_arr (W8.of_int 255))) param_7 ((BA_32n_8.init_arr (W8.of_int 255)))). wp; ecall (fun_mulU_h param_3 ((BA_8n.init_arr (W8.of_int 255))) param_4 ((BA_8n.init_arr (W8.of_int 255))) param_5 ((BA_32n_8.init_arr (W8.of_int 255)))). wp; ecall (BNB._cswap_mask__proof param_0 ((BA_8n.init_arr (W8.of_int 255))) param_1 ((BA_8n.init_arr (W8.of_int 255))) param_2). wp; ecall (BNUTIL.__cf_mask_proof param).
+  by auto => /> &hr *; smt().
+by auto => />; smt(gt0_nlimbsexp).
+qed.
+
+lemma _expm__proof _x0 _b_x0 _a _b_a _b _b_b _ctx _b_ctx :
+  hoare [M(P)._expm_ :
+    arg = (_x0, _b_x0, _a, _b_a, _b, _b_b, _ctx, _b_ctx) /\ _expm__pre _x0 _b_x0 _a _b_a _b _b_b _ctx _b_ctx
+    ==> _expm__post _x0 _b_x0 _a _b_a _b _b_b _ctx _b_ctx res /\ valid res.`3].
+proof.
+hint +safety.
+proc.
+wp; ecall (_expm_proof param_3 ((BA_8n.init_arr (W8.of_int 255))) param_4 ((BA_8n.init_arr (W8.of_int 255))) param_5 ((BA_8e.init_arr (W8.of_int 255))) param_6 ((BA_32n_8.init_arr (W8.of_int 255)))).
+wp; ecall (BNB._mov__proof param_1 b_param_0 param_2 b_param_1).
+wp; ecall (BNB._mov__proof param b_param param_0 ((BA_8n.init_arr (W8.of_int 255)))).
+by auto => /> *; smt(ctx_one gt0_nlimbs).
+qed.
+
+lemma _expmU__proof _a _b_a _b _b_b _ctx _b_ctx :
+  hoare [M(P)._expmU_ :
+    arg = (_a, _b_a, _b, _b_b, _ctx, _b_ctx) /\ _expmU__pre _a _b_a _b _b_b _ctx _b_ctx
+    ==> _expmU__post _a _b_a _b _b_b _ctx _b_ctx res /\ valid res.`3].
+proof.
+hint +safety.
+proc.
+wp; ecall (_expm_proof param_3 ((BA_8n.init_arr (W8.of_int 255))) param_4 ((BA_8n.init_arr (W8.of_int 255))) param_5 ((BA_8e.init_arr (W8.of_int 255))) param_6 ((BA_32n_8.init_arr (W8.of_int 255)))).
+wp; ecall (BNB._mov__proof param_1 ((BA_8n.init_arr (W8.of_int 255))) param_2 b_param_0).
+wp; ecall (BNB._mov__proof param b_param param_0 ((BA_8n.init_arr (W8.of_int 255)))).
+by auto => /> *; smt(ctx_one gt0_nlimbs).
+qed.
+
+end section.

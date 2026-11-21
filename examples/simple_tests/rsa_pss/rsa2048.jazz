@@ -80,6 +80,7 @@ require "rsa_keys.jinc"
 
 /* the expanded keys (pk, sk) of the example key pair (pk_test, sk_test,
    rsa_keys.jinc), with the contexts of n, p and q */
+#[safety = { ensures = is_arr_init(pk, 0, 8*((4*nlimbsN+1)+nlimbsE)) && is_arr_init(sk, 0, 8*(2*(4*nlimbsP+1)+3*nlimbsP)) }]
 export fn rsa_init
 ( reg mut ptr RSA_PK pk
 , reg mut ptr RSA_SK sk
@@ -104,6 +105,7 @@ export fn rsa_init
 }
 
 /* m = c^d mod n (RSASP1, by the CRT), with the expanded private key sk */
+#[safety = { requires = is_arr_init(c, 0, 8*nlimbsN) && is_arr_init(sk, 0, 8*(2*(4*nlimbsP+1)+3*nlimbsP)), ensures = is_arr_init(m, 0, 8*nlimbsN) }]
 export fn rsa_dec
 ( reg mut ptr u64[nlimbsN] m
 , reg const ptr u64[nlimbsN] c
@@ -117,6 +119,7 @@ export fn rsa_dec
 }
 
 /* c = m^e mod n (RSAVP1), with the expanded public key pk */
+#[safety = { requires = is_arr_init(m, 0, 8*nlimbsN) && is_arr_init(pk, 0, 8*((4*nlimbsN+1)+nlimbsE)), ensures = is_arr_init(c, 0, 8*nlimbsN) }]
 export fn rsa_enc
 ( reg mut ptr u64[nlimbsN] c
 , reg const ptr u64[nlimbsN] m

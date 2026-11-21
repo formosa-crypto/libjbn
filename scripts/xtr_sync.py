@@ -210,6 +210,19 @@ THEORIES = {
         arrays={'Array11': ('BN.t', 'BN.A', 'BigN.BN.A'),
                 'Array22': ('BN2.t', 'BN2.A', 'BigN.BN2.A'),
                 'Array45': ('W64.t FPC.CTX.t', 'FPC.CTX', 'FPC.CTX')},
+    ),    'fp_pm': dict(
+        source='fp_pm@fp.jinc',
+        xtr='FPPM_fp_pm.ec',
+        prefix='h__FPPM__',
+        target='proof/Fp_pm.eca',
+        calls={'uTIL__': 'BNUTIL_M.', 'h__BN__': 'BNB_M.'},
+        params=['fun_muln', 'fun_sqrn'],
+        includes=dict(theory='fp_base', module='FPB.M(P_FPB)', nested='P_FPB',
+                      bind=[('fun_muln', 'P.fun_muln'), ('fun_sqrn', 'P.fun_sqrn'),
+                            ('fun_red', 'fun_red')]),
+        arrays={'Array11': ('BN.t', 'BN.A', 'BigN.BN.A'),
+                'Array22': ('BN2.t', 'BN2.A', 'BigN.BN2.A'),
+                'Array45': ('W64.t FPC.CTX.t', 'FPC.CTX', 'FPC.CTX')},
     ),
 }
 

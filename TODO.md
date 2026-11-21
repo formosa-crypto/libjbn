@@ -16,11 +16,18 @@
 
 ## Proof
 
-+ [In progress] add statements for ll and correctness lemmas "for all procedures" (after changes on the conventions...)
-- (medium term) port existing proofs to the new framework
-- add ct verification ([Done] generalize the extraction "heuristics/scripts" to deal with leakage)
-+ [In progress] move sampling code/lemmas from `Bn_base` into `Bn_rnd`
 + [Done] correctness of the RSA example (`examples/simple_tests/rsa_pss/proof`): the library theories at its sizes, the extracted code proved equal to theirs, the key facts computed, and the contracts of `rsa_init` (well-formed expanded keys, from `_ctx_init__h`), RSAVP1/`rsa_enc` and RSASP1/`rsa_dec` (for any well-formed expanded key); no admits. `rsa_dec` gives `c^d mod n` for distinct primes p, q (`rsa_dec_h`, `IntDiv.Fermat_little`; for the example key, primality is a hypothesis). Still to do: `dec(enc m) = m` (from `e * d = 1 (mod lcm(p-1, q-1))`, `ed_inv` in `RsaPss_keys.ec`); the same for sike and schnorr-zk (after moving them to the selector)
+
+## Safety
+
++ [Done] safety proofs of every library module and export template (`proof/safety`, README section 5): parametric (extraction at two dummy points, `scripts/xtr_safety.py`), checked at both points (`checkxtr`), no admits; the RSA example safe end to end (`examples/simple_tests/rsa_pss/proof/safety`). Still to do:
+- upstream the fix of the safety extractor for the carry flag of shifts (Jasmin branch `safety-shift-flags`, over `safety-symbolic-params`), and move to a released extractor;
+- run the MULX/ADX code (`bn_mulx`, `bn_mulx_loop`, `bn_mulxr`, the `os` Karatsuba of `mults`, `make run-mulx` in `fp_ctx`) on an x86-64 CPU with ADX: the `#[safety]` annotations changed the register allocation of `jasminc`, and these programs cannot run under Rosetta;
+- measure whether the annotations cost time (`make bench` in `mults` and `fp_ctx`, before and after: the register allocation changed);
+- the safety of the other examples (sike, schnorr-zk, fp_ctx, mults), as for RSA; `fp_ctx` through the theory of `fp_mont_ctx_export`, which no program glue uses yet;
+- `fp_base`'s `_rnd_` (not extracted), and the commented-out entry points (`bn_kar_sqrn`, `bn_os_sqrn`);
+- at an instance, a listing that every specification of the program's extraction is established (the RSA glue transfers the lemmas of the library procedures the RSA code calls; their callees are covered inside these lemmas);
+- generate the instance glue: `RsaPssSafety_inst.ec` was drafted by a script that is not in the repository.
 
 ## Code (nice to have)
 
@@ -32,10 +39,11 @@
   + [Done] `fp_pm`: pseudo-Mersenne fields (R mod P < 2^32, R < 3P: 2^255-19), folding with one row of multiplications, canonical, generic in the multiplication;
   + [Done] `make exec` (fp_ctx): the field tests in the interpreter of jasminc, on any host (MULX included);
   + [Done] timings on the i7-14700K (README; `make bench` in fp_ctx, with a chained mode, `BENCH_CHAINED=1`, for the latency): `bn_mulxr` is faster than `bn_mulx` at 4 and 5 limbs; at 6 only with independent calls (5-8%), and 2-4% slower on `fpc_exp`, hence `JBN_REG_MAX = 5`. The stack saves cost 1-3% on `fpc_exp` at 4 limbs, nothing measurable from 8. `fp_pm` (2^255-19 at 4 limbs) is 16-27% faster than the Montgomery field over `bn_mulxr` on `fpc_exp` at 4-6 limbs, chained calls included, and takes half the time of `unr` from 16 limbs over `bn_mul`;
+  + [Done] correctness theory of `fp_pm` (`proof/Fp_pm.eca`, no admits): `_redPM_` returns `a mod p` for any `a` of 2n words, `_ctx_init_` builds the context of any odd p with R mod p < 2^32 and R < 3P, and the field operations are those of `Fp_base` with the reduction modulo p;
   - time the multiplications alone (`make bench` in mults, variant `mulxr`): not run;
   - the fused field multiplication (multiplication and Montgomery rows interleaved, CIOS, `nlimbs + 9` registers: up to 6 limbs; for `fp_pm`, the rows and the fold in one routine): needs `fp_base` to take `fun_mulm`/`fun_sqrm` (field products) instead of `fun_muln`/`fun_sqrn`/`fun_red`. Expected gain mostly in throughput, little in latency (it keeps the dependency between the rows of the Montgomery reduction; README);
   - `fp_pm` over `bn_mulx` (unrolled), from 7 limbs: not in the bench (only `pm_unr` there);
-  - theory of `fp_pm` (`Fp_pm.eca`) and its extraction; the lazy representation of curve25519 (values below 2^256, freeze on output) does not fit `fp_base`'s invariant;
+  - the lazy representation of curve25519 (values below 2^256, freeze on output) does not fit `fp_base`'s invariant;
   - secp256k1 (c = 2^32+977: a two-word second fold).
 - `_ctx_init_` (128*nlimbs modular doublings) is slow: computing the contexts took 91% of RSAVP1 in the RSA example (7% of RSASP1), now [Done] kept in expanded keys (`rsa_init`, 260 us under Rosetta against 18 us for `rsa_enc`); R^2 mod P could come from 2R mod P by log2(64*nlimbs) Montgomery squarings (and R mod P = R - P when P has its top bit set);
 - `_ctx_init_` inlined on a part of a reg ptr argument at a non-zero offset is refused by the stack allocation of jasminc 2026.09.0 ("the region associated to variable ... is partial"; `_mov_` there, or `_ctx_init_` on a stack array, is accepted): the RSA example wraps it in local functions (`_ctx_init_N`, `_ctx_init_P`). Find which statement causes it; report it if it is a bug;

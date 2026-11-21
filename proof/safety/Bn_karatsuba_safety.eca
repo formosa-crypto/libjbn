@@ -1,0 +1,199 @@
+(* Safety of bn_karatsuba (src/amd64/ref/bn_karatsuba@2n.jinc): one level of
+   Karatsuba in the 2n scope (nlimbs is the half size n), for any half-size
+   multiplication fun_kmuln and any 2n-size _addU_, _cnegU_ meeting their
+   contracts (declared axioms of the section). *)
+require import AllCore IntDiv CoreMap List Distr.
+from Jasmin require import JModel_x86.
+import SLH64.
+from Jasmin require import Jcheck JSafety JByte_array JMemory.
+require import ByteArrayInit JbnSafetyLib.
+require Bn_karatsuba_safety_xtr.
+
+clone include Bn_karatsuba_safety_xtr.
+
+clone ByteArrayLib as BL_8n with theory A <- BA_8n.
+clone ByteArrayLib as BL_16n with theory A <- BA_16n.
+clone ByteArrayLib as BL_32n with theory A <- BA_32n.
+clone SubByteArrayInit as SBI_16n__8n with theory SB <- SB_16n__8n.
+clone SubByteArrayInit as SBI_32n__16n with theory SB <- SB_32n__16n.
+clone SubByteArrayInit as SBI_32n__8n with theory SB <- SB_32n__8n.
+
+(* the initialisation of the halves and quarters of the operands and of the
+   result (32n bytes: low half rlo, high half rhi, middle rmid, quarters) *)
+lemma half16 (t : BA_16n.t) o :
+  0 <= o => o + 8 * nlimbs <= 16 * nlimbs => BA_16n.is_init t 0 (16 * nlimbs) =>
+  BA_8n.is_init (SB_16n__8n.get_sub t o) 0 (8 * nlimbs).
+proof.
+move=> h0 h1 h; rewrite SBI_16n__8n.is_init_get_sub; 1..4: smt(gt0_nlimbs).
+by apply (BL_16n.is_init_sub _ _ _ _ _ h); smt().
+qed.
+
+lemma half32 (t : BA_32n.t) o :
+  0 <= o => o + 16 * nlimbs <= 32 * nlimbs => BA_32n.is_init t 0 (32 * nlimbs) =>
+  BA_16n.is_init (SB_32n__16n.get_sub t o) 0 (16 * nlimbs).
+proof.
+move=> h0 h1 h; rewrite SBI_32n__16n.is_init_get_sub; 1..4: smt(gt0_nlimbs).
+by apply (BL_32n.is_init_sub _ _ _ _ _ h); smt().
+qed.
+
+lemma quarter32 (t : BA_32n.t) o :
+  0 <= o => o + 8 * nlimbs <= 32 * nlimbs => BA_32n.is_init t 0 (32 * nlimbs) =>
+  BA_8n.is_init (SB_32n__8n.get_sub t o) 0 (8 * nlimbs).
+proof.
+move=> h0 h1 h; rewrite SBI_32n__8n.is_init_get_sub; 1..4: smt(gt0_nlimbs).
+by apply (BL_32n.is_init_sub _ _ _ _ _ h); smt().
+qed.
+
+(* writing an initialised part keeps an initialised range *)
+lemma set32 (t : BA_32n.t) o (y : BA_16n.t) k l :
+  BA_16n.is_init y 0 (16 * nlimbs) => BA_32n.is_init t k l =>
+  BA_32n.is_init (SB_32n__16n.set_sub t o y) k l.
+proof.
+move=> hy ht j hj0 hj1; rewrite SB_32n__16n.is_init_cell_set.
+case: (o <= j < 16 * nlimbs + o /\ 0 <= j < 32 * nlimbs) => c /=.
+- by apply hy; smt().
+by apply ht.
+qed.
+
+lemma set32q (t : BA_32n.t) o (y : BA_8n.t) k l :
+  BA_8n.is_init y 0 (8 * nlimbs) => BA_32n.is_init t k l =>
+  BA_32n.is_init (SB_32n__8n.set_sub t o y) k l.
+proof.
+move=> hy ht j hj0 hj1; rewrite SB_32n__8n.is_init_cell_set.
+case: (o <= j < 8 * nlimbs + o /\ 0 <= j < 32 * nlimbs) => c /=.
+- by apply hy; smt().
+by apply ht.
+qed.
+
+(* two initialised halves make an initialised array *)
+lemma cover16 (t : BA_16n.t) (s1 s2 : BA_8n.t) :
+  BA_8n.is_init s1 0 (8 * nlimbs) => BA_8n.is_init s2 0 (8 * nlimbs) =>
+  BA_16n.is_init (SB_16n__8n.set_sub (SB_16n__8n.set_sub t 0 s1) (8 * nlimbs) s2) 0 (16 * nlimbs).
+proof.
+move=> h1 h2 j hj0 hj1; rewrite !SB_16n__8n.is_init_cell_set.
+case: (8 * nlimbs <= j < 8 * nlimbs + 8 * nlimbs /\ 0 <= j < 16 * nlimbs) => c /=.
+- by apply h2; smt().
+have -> /= : 0 <= j < 8 * nlimbs + 0 /\ 0 <= j < 16 * nlimbs by smt().
+by apply h1; smt().
+qed.
+
+lemma cover32 (t : BA_32n.t) (y1 y2 : BA_16n.t) :
+  BA_16n.is_init y1 0 (16 * nlimbs) => BA_16n.is_init y2 0 (16 * nlimbs) =>
+  BA_32n.is_init (SB_32n__16n.set_sub (SB_32n__16n.set_sub t 0 y1) (16 * nlimbs) y2) 0 (32 * nlimbs).
+proof.
+move=> h1 h2 j hj0 hj1; rewrite !SB_32n__16n.is_init_cell_set.
+case: (16 * nlimbs <= j < 16 * nlimbs + 16 * nlimbs /\ 0 <= j < 32 * nlimbs) => c /=.
+- by apply h2; smt().
+have -> /= : 0 <= j < 16 * nlimbs + 0 /\ 0 <= j < 32 * nlimbs by smt().
+by apply h1; smt().
+qed.
+
+(* the low half just written *)
+lemma getset32 (t : BA_32n.t) (y : BA_16n.t) :
+  BA_16n.is_init y 0 (16 * nlimbs) =>
+  BA_16n.is_init (SB_32n__16n.get_sub (SB_32n__16n.set_sub t 0 y) 0) 0 (16 * nlimbs).
+proof.
+move=> hy; rewrite SBI_32n__16n.is_init_get_sub; 1..4: smt(gt0_nlimbs).
+move=> j hj0 hj1; rewrite SB_32n__16n.is_init_cell_set.
+have -> /= : 0 <= j < 16 * nlimbs + 0 /\ 0 <= j < 32 * nlimbs by smt(gt0_nlimbs).
+by apply hy; smt().
+qed.
+
+section.
+
+declare module P <: MParam.
+
+declare axiom _addU__h _a _b_a _b _b_b :
+  hoare [P._addU_ :
+    arg = (_a, _b_a, _b, _b_b) /\ _addU__pre _a _b_a _b _b_b
+    ==> _addU__post _a _b_a _b _b_b res /\ valid res.`4].
+
+declare axiom _cnegU__h _a _b_a _cond :
+  hoare [P._cnegU_ :
+    arg = (_a, _b_a, _cond) /\ _cnegU__pre _a _b_a _cond
+    ==> _cnegU__post _a _b_a _cond res /\ valid res.`3].
+
+declare axiom fun_kmuln_h _r _b_r _a _b_a _b _b_b :
+  hoare [P.fun_kmuln :
+    arg = (_r, _b_r, _a, _b_a, _b, _b_b) /\ fun_kmuln_pre _r _b_r _a _b_a _b _b_b
+    ==> fun_kmuln_post _r _b_r _a _b_a _b _b_b res /\ valid res.`3].
+
+lemma __sub_signabs_proof _r _b_r _a _b_a _b _b_b :
+  hoare [M(P).__sub_signabs :
+    arg = (_r, _b_r, _a, _b_a, _b, _b_b) /\ __sub_signabs_pre _r _b_r _a _b_a _b _b_b
+    ==> __sub_signabs_post _r _b_r _a _b_a _b _b_b res /\ valid res.`4].
+proof.
+hint +safety.
+proc.
+wp; ecall (BNB._cnegU__proof param_3 ((BA_8n.init_arr (W8.of_int 255))) param_4).
+wp; ecall (BNUTIL.__cf_mask_proof param_2).
+wp; ecall (BNB._sub__proof param b_param param_0 ((BA_8n.init_arr (W8.of_int 255))) param_1 ((BA_8n.init_arr (W8.of_int 255)))).
+by auto => />.
+qed.
+
+lemma _kar_muln_proof _r _b_r _a _b_a _b _b_b :
+  hoare [M(P)._kar_muln :
+    arg = (_r, _b_r, _a, _b_a, _b, _b_b) /\ _kar_muln_pre _r _b_r _a _b_a _b _b_b
+    ==> _kar_muln_post _r _b_r _a _b_a _b _b_b res /\ valid res.`3].
+proof.
+hint +safety.
+proc.
+seq 160 : (valid trace__kar_muln /\ BA_8n.is_init b_rlolo 0 (8 * nlimbs) /\ BA_8n.is_init b_rlohi 0 (8 * nlimbs)).
+- wp; ecall (__sub_signabs_proof param_2 b_param_2 param_3 b_param_3 param_4 b_param_4).
+  wp; ecall (__sub_signabs_proof param b_param param_0 b_param_0 param_1 b_param_1).
+  auto => /> ha hb.
+  rewrite /__sub_signabs_pre /__sub_signabs_post.
+  have ha0 := half16 _b_a 0 _ _ _; 1..3: smt(gt0_nlimbs).
+  have ha1 := half16 _b_a (8 * nlimbs) _ _ _; 1..3: smt(gt0_nlimbs).
+  have hb0 := half16 _b_b 0 _ _ _; 1..3: smt(gt0_nlimbs).
+  have hb1 := half16 _b_b (8 * nlimbs) _ _ _; 1..3: smt(gt0_nlimbs).
+  have hy := cover16 (SB_32n__16n.get_sub _b_r 0) (BA_8n.init_arr (W8.of_int 255))
+               (BA_8n.init_arr (W8.of_int 255)) _ _; 1,2: by rewrite BL_8n.is_init_init_arr.
+  have hg := getset32 _b_r _ hy.
+  have hq0 := half16 _ 0 _ _ hg; 1,2: smt(gt0_nlimbs).
+  have hq1 := half16 _ (8 * nlimbs) _ _ hg; 1,2: smt(gt0_nlimbs).
+  smt(gt0_nlimbs).
+seq 78 : (valid trace__kar_muln /\ BA_32n.is_init b_r 0 (32 * nlimbs)).
+- wp; ecall (fun_kmuln_h param_13 b_param_11 param_14 b_param_12 param_15 b_param_13).
+  wp; ecall (fun_kmuln_h param_10 b_param_8 param_11 b_param_9 param_12 b_param_10).
+  wp; ecall (_cnegU__h param_8 ((BA_16n.init_arr (W8.of_int 255))) param_9).
+  wp; ecall (fun_kmuln_h param_5 b_param_5 param_6 b_param_6 param_7 b_param_7).
+  auto => /> &hr hv hlo hhi.
+  rewrite /fun_kmuln_pre /fun_kmuln_post /_cnegU__pre /_cnegU__post.
+  have g0 := half16 (BA_16n.init_arr (W8.of_int 255)) 0 _ _ _; 1..3: smt(gt0_nlimbs BL_16n.is_init_init_arr).
+  have g1 := half16 (BA_16n.init_arr (W8.of_int 255)) (8 * nlimbs) _ _ _; 1..3: smt(gt0_nlimbs BL_16n.is_init_init_arr).
+  have hc := cover32 b__r{hr} (BA_16n.init_arr (W8.of_int 255)) (BA_16n.init_arr (W8.of_int 255)) _ _;
+    1,2: by rewrite BL_16n.is_init_init_arr.
+  smt(gt0_nlimbs).
+wp; ecall (BNB.__carrypropU_proof param_22 b_param_17 param_23 param_24).
+wp; ecall (_addU__h param_20 b_param_16 param_21 ((BA_16n.init_arr (W8.of_int 255)))).
+wp; ecall (_addU__h param_18 ((BA_16n.init_arr (W8.of_int 255))) param_19 b_param_15).
+wp; ecall (_addU__h param_16 ((BA_16n.init_arr (W8.of_int 255))) param_17 b_param_14).
+auto => /> &hr hv hr.
+rewrite /_addU__pre /_addU__post /_kar_muln_post.
+have h0 := half32 b_r{hr} 0 _ _ hr; 1,2: smt(gt0_nlimbs).
+have h2 := half32 b_r{hr} (16 * nlimbs) _ _ hr; 1,2: smt(gt0_nlimbs).
+have h1 := half32 b_r{hr} (8 * nlimbs) _ _ hr; 1,2: smt(gt0_nlimbs).
+have s1 := set32 b_r{hr} (8 * nlimbs) (BA_16n.init_arr (W8.of_int 255)) 0 (32 * nlimbs) _ hr.
+- by rewrite BL_16n.is_init_init_arr.
+have w := BL_32n.is_init_word _ (3 * nlimbs) _ _ _ s1; 1,2: smt(gt0_nlimbs).
+have m1 := BL_32n.is_init_mono64 _ (3 * nlimbs * 8) _ _ s1.
+have q := quarter32 _ (8 * (3 * nlimbs)) _ _ m1; 1,2: smt(gt0_nlimbs).
+have s2 := set32q _ (8 * (3 * nlimbs)) (BA_8n.init_arr (W8.of_int 255)) 0 (32 * nlimbs) _ m1.
+- by rewrite BL_8n.is_init_init_arr.
+smt(gt0_nlimbs).
+qed.
+
+lemma _kar_muln__proof _r _b_r _a _b_a _b _b_b :
+  hoare [M(P)._kar_muln_ :
+    arg = (_r, _b_r, _a, _b_a, _b, _b_b) /\ _kar_muln__pre _r _b_r _a _b_a _b _b_b
+    ==> _kar_muln__post _r _b_r _a _b_a _b _b_b res /\ valid res.`3].
+proof.
+hint +safety.
+proc.
+wp; ecall (_kar_muln_proof param b_param param_0 ((BA_16n.init_arr (W8.of_int 255))) param_1 ((BA_16n.init_arr (W8.of_int 255)))).
+rewrite /_kar_muln_pre /_kar_muln_post /_kar_muln__pre /_kar_muln__post.
+by auto => /> *; smt().
+qed.
+
+end section.

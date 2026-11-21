@@ -8,6 +8,7 @@
                                             // required inside FPM)
 */
 
+#[safety = { requires = is_mem_init(ap, 8*H::nlimbs) && is_mem_init(bp, 8*H::nlimbs) && is_mem_init(rp, 8*H::nlimbs) }]
 export fn fp_add(reg u64 rp ap bp)
 {
   reg ptr u64[H::FPM::CTXLEN] ctx;
@@ -25,6 +26,7 @@ export fn fp_add(reg u64 rp ap bp)
 }
 
 
+#[safety = { requires = is_mem_init(ap, 8*H::nlimbs) && is_mem_init(bp, 8*H::nlimbs) && is_mem_init(rp, 8*H::nlimbs) }]
 export fn fp_sub( reg u64 rp ap bp)
 {
   reg ptr u64[H::FPM::CTXLEN] ctx;
@@ -41,6 +43,7 @@ export fn fp_sub( reg u64 rp ap bp)
   H::BN::_store_(rp, a);
 }
 
+#[safety = { requires = is_mem_init(ap, 8*H::nlimbs) && is_mem_init(bp, 8*H::nlimbs) && is_mem_init(rp, 8*H::nlimbs) }]
 export fn fp_mul(reg u64 rp ap bp)
 {
   reg ptr u64[H::FPM::CTXLEN] ctx;
@@ -58,6 +61,7 @@ export fn fp_mul(reg u64 rp ap bp)
   H::BN::_store_(rp, r);
 }
 
+#[safety = { requires = is_mem_init(ap, 8*H::nlimbs) && is_mem_init(rp, 8*H::nlimbs) }]
 export fn fp_sqr(reg u64 rp ap)
 {
   reg ptr u64[H::FPM::CTXLEN] ctx;
@@ -73,6 +77,7 @@ export fn fp_sqr(reg u64 rp ap)
   H::BN::_store_(rp, r);
 }
 
+#[safety = { requires = is_mem_init(ap, 8*H::nlimbs) && is_mem_init(bp, 8*H::nlimbs) && is_mem_init(rp, 8*H::nlimbs) }]
 export fn fp_exp_noct(reg u64 rp ap bp)
 {
   reg ptr u64[H::FPM::CTXLEN] ctx;
@@ -93,6 +98,7 @@ export fn fp_exp_noct(reg u64 rp ap bp)
   H::BN::_store_(rp, r);
 }
 
+#[safety = { requires = is_mem_init(ap, 8*H::nlimbs) && is_mem_init(bp, 8*H::nlimbs) && is_mem_init(rp, 8*H::nlimbs) }]
 export fn fp_expLR_noct(reg u64 rp ap bp)
 {
   reg ptr u64[H::FPM::CTXLEN] ctx;
@@ -113,6 +119,7 @@ export fn fp_expLR_noct(reg u64 rp ap bp)
   H::BN::_store_(rp, r);
 }
 
+#[safety = { requires = is_mem_init(ap, 8*H::nlimbs) && is_mem_init(bp, 8*H::nlimbs) && is_mem_init(rp, 8*H::nlimbs) }]
 export fn fp_exp(reg u64 rp ap bp)
 {
   reg ptr u64[H::FPM::CTXLEN] ctx;
@@ -133,6 +140,7 @@ export fn fp_exp(reg u64 rp ap bp)
   H::BN::_store_(rp, r);
 }
 
+#[safety = { requires = is_mem_init(ap, 8*H::nlimbs) && is_mem_init(rp, 8*H::nlimbs) }]
 export fn fp_inv(reg u64 rp ap)
 {
   reg ptr u64[H::FPM::CTXLEN] ctx;
@@ -151,6 +159,7 @@ export fn fp_inv(reg u64 rp ap)
   H::BN::_store_(rp, r);
 }
 
+#[safety = { requires = is_mem_init(ap, 8*H::nlimbs) && is_mem_init(rp, 8*H::nlimbs) }]
 export fn fp_toM(reg u64 rp ap)
 {
   reg ptr u64[H::FPM::CTXLEN] ctx;
@@ -168,6 +177,7 @@ export fn fp_toM(reg u64 rp ap)
   H::BN::_store_(rp, a);
 }
 
+#[safety = { requires = is_mem_init(ap, 8*H::nlimbs) && is_mem_init(rp, 8*H::nlimbs) }]
 export fn fp_fromM(reg u64 rp ap)
 {
   reg ptr u64[H::FPM::CTXLEN] ctx;

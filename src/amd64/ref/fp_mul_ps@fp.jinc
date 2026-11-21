@@ -12,6 +12,7 @@
    Provides:  fun_muln fun_sqrn            // inline, hence free
 */
 
+#[safety = { requires = is_arr_init(a, 0, 8*nlimbs) && is_arr_init(b, 0, 8*nlimbs), ensures = is_arr_init(r, 0, 16*nlimbs) }]
 inline fn fun_muln
 ( reg mut ptr u64[2*nlimbs] r
 , reg const ptr u64[nlimbs] a b
@@ -20,6 +21,7 @@ inline fn fun_muln
   return r;
 }
 
+#[safety = { requires = is_arr_init(a, 0, 8*nlimbs), ensures = is_arr_init(r, 0, 16*nlimbs) }]
 inline fn fun_sqrn
 ( reg mut ptr u64[2*nlimbs] r
 , reg const ptr u64[nlimbs] a

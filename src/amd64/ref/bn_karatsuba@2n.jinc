@@ -17,6 +17,7 @@
 */
 
 /* ensures: res = (sign(a-b), |a-b|)*/
+#[safety = { requires = is_arr_init(a, 0, 8*H::nlimbs) && is_arr_init(b, 0, 8*H::nlimbs), ensures = is_arr_init(r, 0, 8*H::nlimbs) }]
 inline fn __sub_signabs
 ( reg mut ptr u64[H::nlimbs] r
 , reg const ptr u64[H::nlimbs] a b
@@ -30,6 +31,7 @@ inline fn __sub_signabs
   return sign, r;
 }
 
+#[safety = { requires = is_arr_init(a, 0, 8*nlimbs) && is_arr_init(b, 0, 8*nlimbs), ensures = is_arr_init(r, 0, 16*nlimbs) }]
 fn _kar_muln
 ( reg mut ptr u64[2*nlimbs] r
 , reg const ptr u64[nlimbs] a b
@@ -122,6 +124,7 @@ fn _kar_muln
   return r;
 }
 
+#[safety = { requires = is_arr_init(a, 0, 8*nlimbs) && is_arr_init(b, 0, 8*nlimbs), ensures = is_arr_init(r, 0, 16*nlimbs) }]
 inline fn _kar_muln_
 ( reg mut ptr u64[2*nlimbs] r
 , reg const ptr u64[nlimbs] a b

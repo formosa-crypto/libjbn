@@ -47,6 +47,7 @@ namespace XREG  { from Libjbn require "bn_mulxr@n.jinc" }
    is visible from an enclosing namespace) */
 
 /* r = a * b */
+#[safety = { requires = is_arr_init(a, 0, 8*nlimbs) && is_arr_init(b, 0, 8*nlimbs), ensures = is_arr_init(r, 0, 16*nlimbs) }]
 inline fn _muln_
 ( reg mut ptr u64[2*nlimbs] r
 , reg const ptr u64[nlimbs] a b
@@ -71,6 +72,7 @@ inline fn _muln_
 }
 
 /* r = a * a */
+#[safety = { requires = is_arr_init(a, 0, 8*nlimbs), ensures = is_arr_init(r, 0, 16*nlimbs) }]
 inline fn _sqrn_
 ( reg mut ptr u64[2*nlimbs] r
 , reg const ptr u64[nlimbs] a
@@ -96,6 +98,7 @@ inline fn _sqrn_
 
 /* r = a * R^-1 mod P, for a < P * R (R = 2^(64*nlimbs)); _P_mP packs P and
    R - P, _U0 = -P^-1 mod 2^64 (see bn_mul@n.jinc) */
+#[safety = { requires = is_arr_init(a, 0, 16*nlimbs) && is_arr_init(_P_mP, 0, 16*nlimbs), ensures = is_arr_init(r, 0, 8*nlimbs) }]
 inline fn __mont_redM
 ( reg mut ptr u64[nlimbs] r
 , reg const ptr u64[2*nlimbs] a

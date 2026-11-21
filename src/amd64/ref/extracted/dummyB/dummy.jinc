@@ -1,0 +1,15 @@
+/* Dummy point B of the abstract instantiation (libjbn_abs.jazz), selected by
+   `-I Dummy=dummyB`, for the safety extraction only (see dummyA/dummy.jinc):
+   every parameter, and every size computed from them, takes a value different
+   from point A's, and the profile keeps the same relations
+   (nlimbs <= unroll max <= reg max, BMI2 and ADX bits set). */
+
+param int DUMMY_NLIMBS = 7;
+param int DUMMY_NLIMBSEXP = 6;
+
+/* chosen so that no value pair (A, B) of a parameter is also the pair of
+   k*nlimbs + c or k*nlimbsexp + c for a small c (scripts/xtr_safety.py
+   reads the numerals of the extractions back as such expressions) */
+param int DUMMY_FEATURES = 51;
+param int DUMMY_REG_MAX = 18;
+param int DUMMY_UNROLL_MAX = 12;

@@ -5,6 +5,7 @@
               BN::                         // size 2n (store of results)
 */
 
+#[safety = { requires = is_mem_init(ap, 8*H::nlimbs) && is_mem_init(bp, 8*H::nlimbs) && is_mem_init(rp, 8*nlimbs) }]
 export fn bn_ps_muln(reg u64 rp ap bp)
 {
   stack u64[H::nlimbs] _a _b;
@@ -24,6 +25,7 @@ export fn bn_ps_muln(reg u64 rp ap bp)
   BN::_store_(rp, r);
 }
 
+#[safety = { requires = is_mem_init(ap, 8*H::nlimbs) && is_mem_init(rp, 8*nlimbs) }]
 export fn bn_ps_sqrn(reg u64 rp ap)
 {
   stack u64[H::nlimbs] _a;
@@ -42,6 +44,7 @@ export fn bn_ps_sqrn(reg u64 rp ap)
 }
 
 
+#[safety = { requires = is_mem_init(ap, 8*H::nlimbs) && is_mem_init(bp, 8*H::nlimbs) && is_mem_init(rp, 8*nlimbs) }]
 export fn bn_os_muln(reg u64 rp ap bp)
 {
   stack u64[H::nlimbs] _a _b;

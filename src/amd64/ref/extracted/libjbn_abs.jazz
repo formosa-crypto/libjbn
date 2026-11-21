@@ -2,23 +2,27 @@
    EasyCrypt (see Makefile and README, "Extraction for the proofs").
 
    Same layout as any other program (README): the top level is the 2n scope,
-   H is the size scope n. Integer parameters are dummies (nlimbs = 11,
-   preamb@n.jinc, which also has the dummy profile); function parameters (fun_*) are stubs, so that
-   each module is extracted against abstract arguments. Each stub is declared
+   H is the size scope n. Integer parameters are dummies, from the point
+   selected by `-I Dummy=dummyA` (nlimbs = 11, the correctness and safety
+   extractions) or `-I Dummy=dummyB` (nlimbs = 7, the safety extraction);
+   preamb@n.jinc passes them on to the modules. Function parameters (fun_*)
+   are stubs, so that each module is extracted against abstract arguments. Each stub is declared
    inside the namespace of the module that uses it: Jasmin does not allow a
    function to shadow a function visible from an enclosing namespace, and
    fp_base/fp_mont define their own fun_mulU/fun_sqrU/fun_red.
 */
 
-param int nlimbs = 2*11;
+from Dummy require "dummy.jinc"     // DUMMY_* (dummyA/ or dummyB/)
+
+param int nlimbs = 2*DUMMY_NLIMBS;
 
 from Libjbn require "jbn_features.jinc"   // (a profile requires it)
 
 namespace UTIL { from Libjbn require "bn_util.jinc" }
 
 namespace H {
-  param int nlimbs = 11;
-  require "preamb@n.jinc"            // nlimbsexp, JBN_FEATURES, JBN_UNROLL_MAX
+  param int nlimbs = DUMMY_NLIMBS;
+  require "preamb@n.jinc"            // nlimbsexp, JBN_FEATURES, JBN_REG_MAX, JBN_UNROLL_MAX
 
   namespace BN     { from Libjbn require "bn_base@n.jinc" }
   namespace RND    { from Libjbn require "bn_rnd@n.jinc" }
@@ -43,15 +47,18 @@ namespace H {
   }
 
   namespace FP {
+    #[safety = { requires = is_arr_init(a, 0, 8*nlimbs) && is_arr_init(b, 0, 8*nlimbs), ensures = is_arr_init(r, 0, 16*nlimbs) }]
     fn fun_muln
     ( reg mut ptr u64[2*nlimbs] r
     , reg const ptr u64[nlimbs] a b
     ) -> reg ptr u64[2*nlimbs] { a=a; b=b; return r; }
+    #[safety = { requires = is_arr_init(a, 0, 8*nlimbs), ensures = is_arr_init(r, 0, 16*nlimbs) }]
     fn fun_sqrn
     ( reg mut ptr u64[2*nlimbs] r
     , reg const ptr u64[nlimbs] a
     ) -> reg ptr u64[2*nlimbs] { a=a; return r; }
     from Libjbn require "fp_ctx@n.jinc"   // CTXLEN (for the stub below)
+    #[safety = { requires = is_arr_init(a, 0, 16*nlimbs) && is_arr_init(ctx, 0, 8*CTXLEN), ensures = is_arr_init(r, 0, 8*nlimbs) }]
     fn fun_red
     ( reg mut ptr u64[nlimbs] r
     , reg const ptr u64[2*nlimbs] a
@@ -61,21 +68,39 @@ namespace H {
   }
 
   namespace FPM {
+    #[safety = { requires = is_arr_init(a, 0, 8*nlimbs) && is_arr_init(b, 0, 8*nlimbs), ensures = is_arr_init(r, 0, 16*nlimbs) }]
     fn fun_muln
     ( reg mut ptr u64[2*nlimbs] r
     , reg const ptr u64[nlimbs] a b
     ) -> reg ptr u64[2*nlimbs] { a=a; b=b; return r; }
+    #[safety = { requires = is_arr_init(a, 0, 8*nlimbs), ensures = is_arr_init(r, 0, 16*nlimbs) }]
     fn fun_sqrn
     ( reg mut ptr u64[2*nlimbs] r
     , reg const ptr u64[nlimbs] a
     ) -> reg ptr u64[2*nlimbs] { a=a; return r; }
     from Libjbn require "fp_mont@fp.jinc"
   }
+
+  // a pseudo-Mersenne field (fp_pm, which includes fp_base as fp_mont does)
+  namespace FPPM {
+    #[safety = { requires = is_arr_init(a, 0, 8*nlimbs) && is_arr_init(b, 0, 8*nlimbs), ensures = is_arr_init(r, 0, 16*nlimbs) }]
+    fn fun_muln
+    ( reg mut ptr u64[2*nlimbs] r
+    , reg const ptr u64[nlimbs] a b
+    ) -> reg ptr u64[2*nlimbs] { a=a; b=b; return r; }
+    #[safety = { requires = is_arr_init(a, 0, 8*nlimbs), ensures = is_arr_init(r, 0, 16*nlimbs) }]
+    fn fun_sqrn
+    ( reg mut ptr u64[2*nlimbs] r
+    , reg const ptr u64[nlimbs] a
+    ) -> reg ptr u64[2*nlimbs] { a=a; return r; }
+    from Libjbn require "fp_pm@fp.jinc"
+  }
 }
 
 namespace BN { from Libjbn require "bn_base@n.jinc" }        // size 2n (BN2 in the theories)
 
 namespace KAR {
+  #[safety = { requires = is_arr_init(a, 0, 8*H::nlimbs) && is_arr_init(b, 0, 8*H::nlimbs), ensures = is_arr_init(r, 0, 8*nlimbs) }]
   fn fun_kmuln
   ( reg mut ptr u64[nlimbs] r
   , reg const ptr u64[H::nlimbs] a b

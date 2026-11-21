@@ -14,6 +14,7 @@
              OPERAND-SCANNING (second arg. in registers)
 *******************************************************************/
 /* REGS (params + workspace): (1+nlimbs) + (nlimbs+2) */
+#[safety = { requires = is_arr_init(b, 0, 8*nlimbs), ensures = is_arr_init(r, 0, 8*(nlimbs+1)) }]
 inline fn __mul1_reg
 ( reg u64 a,
   reg u64[nlimbs] b
@@ -43,6 +44,7 @@ _zero = 0;
 
 /* multiplies a (shifted) scalar by a reg array (remaining iterations of mul) */
 /* REGS (params + workspace):  */
+#[safety = { requires = 1 <= k && k < nlimbs && is_arr_init(b, 0, 8*nlimbs) && is_arr_init(r, 0, 8*(k+nlimbs)), ensures = is_arr_init(r, 0, 8*(k+nlimbs+1)) }]
 inline fn __mul1acc_reg
 ( inline int k,
   reg u64 a,
@@ -74,6 +76,7 @@ _zero = 0;
 
 
 /* Operand-scanning multiplication (first arg. as a reg_ptr) */
+#[safety = { requires = is_arr_init(a, 0, 8*nlimbs) && is_arr_init(b, 0, 8*nlimbs), ensures = is_arr_init(r, 0, 16*nlimbs) }]
 fn _osreg_muln
 ( reg mut ptr u64[2*nlimbs] r
 , reg const ptr u64[nlimbs] a b //reg u64 fptr,
@@ -102,6 +105,7 @@ fn _osreg_muln
   return r;
 }
 
+#[safety = { requires = is_arr_init(a, 0, 8*nlimbs) && is_arr_init(b, 0, 8*nlimbs), ensures = is_arr_init(r, 0, 16*nlimbs) }]
 inline fn _osreg_muln_
 ( reg mut ptr u64[2*nlimbs] r
 , reg const ptr u64[nlimbs] a b

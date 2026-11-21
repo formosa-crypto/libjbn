@@ -16,6 +16,7 @@
 #                     (rsa_dec), for any well-formed expanded key
 #
 #   make              extract, then check the three files
+#   make safety       check the safety proofs (safety/, see its Makefile)
 
 ROOT     = $(abspath ../../../..)
 SRCDIR   = $(ROOT)/src/amd64/ref
@@ -42,7 +43,10 @@ check: xtr/RsaPssXtr.ec
 	  $(EC) compile -no-eco $(ECFLAGS) $$f || exit 1; \
 	done
 
+safety:
+	$(MAKE) -C safety check
+
 clean:
 	rm -rf xtr
 
-.PHONY: all extract check clean
+.PHONY: all extract check safety clean

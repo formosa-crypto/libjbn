@@ -19,6 +19,7 @@
 
 /* Loads BN from memory
  */
+#[safety = { requires = is_mem_init(ap, 8*nlimbs), ensures = is_arr_init(a, 0, 8*nlimbs) }]
 inline fn __load
 ( reg mut ptr u64[nlimbs] a
 , reg u64 ap
@@ -36,6 +37,7 @@ inline fn __load
 }
 
 //#[returnaddress=reg]
+#[safety = { requires = is_mem_init(ap, 8*nlimbs), ensures = is_arr_init(a, 0, 8*nlimbs) }]
 fn _load
 ( reg mut ptr u64[nlimbs] a
 , reg u64 ap
@@ -45,6 +47,7 @@ fn _load
   return a;
 }
 
+#[safety = { requires = is_mem_init(ap, 8*nlimbs), ensures = is_arr_init(a, 0, 8*nlimbs) }]
 inline fn _load_
 ( reg mut ptr u64[nlimbs] a
 , reg u64 ap
@@ -57,6 +60,7 @@ inline fn _load_
 }
 
 /* Stores a BN into memory */
+#[safety = { requires = is_mem_init(ap, 8*nlimbs) && is_arr_init(a, 0, 8*nlimbs) }]
 inline fn __store
 ( reg u64 ap,
   reg const ptr u64[nlimbs] a
@@ -71,6 +75,7 @@ inline fn __store
   }
 }
 
+#[safety = { requires = is_mem_init(ap, 8*nlimbs) && is_arr_init(a, 0, 8*nlimbs) }]
 fn _store
 ( reg u64 ap,
   reg const ptr u64[nlimbs] a
@@ -78,6 +83,7 @@ fn _store
   __store(ap, a);
 }
 
+#[safety = { requires = is_mem_init(ap, 8*nlimbs) && is_arr_init(a, 0, 8*nlimbs) }]
 inline fn _store_
 ( reg u64 ap,
   reg const ptr u64[nlimbs] a
@@ -209,6 +215,7 @@ inline fn __copy
 }
 
 //@ ensures \result == a;
+#[safety = { requires = is_arr_init(a, 0, 8*nlimbs), ensures = is_arr_init(r, 0, 8*nlimbs) }]
 inline fn __mov
 ( reg mut ptr u64[nlimbs] r
 , reg const ptr u64[nlimbs] a
@@ -224,6 +231,7 @@ inline fn __mov
   return r;
 }
 
+#[safety = { requires = is_arr_init(a, 0, 8*nlimbs), ensures = is_arr_init(r, 0, 8*nlimbs) }]
 fn _mov
 ( reg mut ptr u64[nlimbs] r
 , reg const ptr u64[nlimbs] a
@@ -232,6 +240,7 @@ fn _mov
   return r;
 }
 
+#[safety = { requires = is_arr_init(a, 0, 8*nlimbs), ensures = is_arr_init(r, 0, 8*nlimbs) }]
 inline fn _mov_
 ( reg mut ptr u64[nlimbs] r
 , reg const ptr u64[nlimbs] a
@@ -335,6 +344,7 @@ inline fn _cswap_cf_
 }
 
 //@ ensures \forall v in \result; v == 0;
+#[safety = { ensures = is_arr_init(a, 0, 8*nlimbs) }]
 inline fn __fill
 ( reg mut ptr u64[nlimbs] a
 , reg u64 x
@@ -346,6 +356,7 @@ inline fn __fill
   return a;
 }
 
+#[safety = { ensures = is_arr_init(a, 0, 8*nlimbs) }]
 fn _fill
 ( reg mut ptr u64[nlimbs] a
 , reg u64 x
@@ -354,6 +365,7 @@ fn _fill
   return a;
 }
 
+#[safety = { ensures = is_arr_init(a, 0, 8*nlimbs) }]
 inline fn _fill_
 ( reg mut ptr u64[nlimbs] a
 , reg u64 x
@@ -365,6 +377,7 @@ inline fn _fill_
 }
 
 //@ ensures \forall v in \result; v == 0;
+#[safety = { ensures = is_arr_init(a, 0, 8*nlimbs) }]
 inline fn _set0_
 ( reg mut ptr u64[nlimbs] a
 ) -> reg ptr u64[nlimbs] {
@@ -459,6 +472,7 @@ inline fn _and_mask_
 
 
 //@ ensures bn(\result) = a + cf*2^(64*k)
+#[safety = { requires = 0 <= k && is_arr_init(a, 0, 8*nlimbs), ensures = is_arr_init(a, 0, 8*nlimbs) }]
 inline fn __carrypropU
 ( reg mut ptr u64[nlimbs] a,
   reg bool cf,
@@ -539,6 +553,7 @@ inline fn _addU_
   return cf, a;
 }
 
+#[safety = { requires = is_arr_init(r, 0, 8) && is_arr_init(a, 0, 8*nlimbs) && is_arr_init(b, 0, 8*nlimbs), ensures = is_arr_init(r, 0, 8*nlimbs) }]
 inline fn __addc1
 ( reg mut ptr u64[nlimbs] r
 , reg const ptr u64[nlimbs] a b
@@ -556,6 +571,7 @@ inline fn __addc1
   return cf, r;
 }
 
+#[safety = { requires = is_arr_init(r, 0, 8) && is_arr_init(a, 0, 8*nlimbs) && is_arr_init(b, 0, 8*nlimbs), ensures = is_arr_init(r, 0, 8*nlimbs) }]
 fn _addc1
 ( reg mut ptr u64[nlimbs] r
 , reg const ptr u64[nlimbs] a b
@@ -565,6 +581,7 @@ fn _addc1
   return cf, r;
 }
 
+#[safety = { requires = is_arr_init(r, 0, 8) && is_arr_init(a, 0, 8*nlimbs) && is_arr_init(b, 0, 8*nlimbs), ensures = is_arr_init(r, 0, 8*nlimbs) }]
 inline fn _addc1_
 ( reg mut ptr u64[nlimbs] r
 , reg const ptr u64[nlimbs] a b
@@ -576,6 +593,7 @@ inline fn _addc1_
   return cf, r;
 }
 
+#[safety = { requires = is_arr_init(a, 0, 8*nlimbs) && is_arr_init(b, 0, 8*nlimbs), ensures = is_arr_init(r, 0, 8*nlimbs) }]
 inline fn _add_
 ( reg mut ptr u64[nlimbs] r
 , reg const ptr u64[nlimbs] a b
@@ -590,6 +608,7 @@ inline fn _add_
   return cf, r;
 }
 
+#[safety = { requires = is_arr_init(a, 0, 8*nlimbs) && is_arr_init(b, 0, 8*nlimbs), ensures = is_arr_init(r, 0, 8*nlimbs) }]
 inline fn _addc_
 ( reg mut ptr u64[nlimbs] r
 , reg const ptr u64[nlimbs] a b
@@ -669,6 +688,7 @@ inline fn _subcU_
   return cf, a;
 }
 
+#[safety = { requires = is_arr_init(r, 0, 8) && is_arr_init(a, 0, 8*nlimbs) && is_arr_init(b, 0, 8*nlimbs), ensures = is_arr_init(r, 0, 8*nlimbs) }]
 inline fn __subc1
 ( reg mut ptr u64[nlimbs] r
 , reg const ptr u64[nlimbs] a b
@@ -686,6 +706,7 @@ inline fn __subc1
   return cf, r;
 }
 
+#[safety = { requires = is_arr_init(r, 0, 8) && is_arr_init(a, 0, 8*nlimbs) && is_arr_init(b, 0, 8*nlimbs), ensures = is_arr_init(r, 0, 8*nlimbs) }]
 fn _subc1
 ( reg mut ptr u64[nlimbs] r
 , reg const ptr u64[nlimbs] a b
@@ -695,6 +716,7 @@ fn _subc1
   return cf, r;
 }
 
+#[safety = { requires = is_arr_init(r, 0, 8) && is_arr_init(a, 0, 8*nlimbs) && is_arr_init(b, 0, 8*nlimbs), ensures = is_arr_init(r, 0, 8*nlimbs) }]
 inline fn _subc1_
 ( reg mut ptr u64[nlimbs] r
 , reg const ptr u64[nlimbs] a b
@@ -706,6 +728,7 @@ inline fn _subc1_
   return cf, r;
 }
 
+#[safety = { requires = is_arr_init(a, 0, 8*nlimbs) && is_arr_init(b, 0, 8*nlimbs), ensures = is_arr_init(r, 0, 8*nlimbs) }]
 inline fn _sub_
 ( reg mut ptr u64[nlimbs] r
 , reg const ptr u64[nlimbs] a b
@@ -719,6 +742,7 @@ inline fn _sub_
   return cf, r;
 }
  
+#[safety = { requires = is_arr_init(a, 0, 8*nlimbs) && is_arr_init(b, 0, 8*nlimbs), ensures = is_arr_init(r, 0, 8*nlimbs) }]
 inline fn _subc_
 ( reg mut ptr u64[nlimbs] r
 , reg const ptr u64[nlimbs] a b
@@ -852,6 +876,7 @@ inline fn _negcU_
 }
 
 
+#[safety = { requires = is_arr_init(r, 0, 8) && is_arr_init(a, 0, 8*nlimbs), ensures = is_arr_init(r, 0, 8*nlimbs) }]
 inline fn __negc1
 ( reg mut ptr u64[nlimbs] r
 , reg const ptr u64[nlimbs] a
@@ -869,6 +894,7 @@ inline fn __negc1
   return cf, r;
 }
 
+#[safety = { requires = is_arr_init(r, 0, 8) && is_arr_init(a, 0, 8*nlimbs), ensures = is_arr_init(r, 0, 8*nlimbs) }]
 fn _negc1
 ( reg mut ptr u64[nlimbs] r
 , reg const ptr u64[nlimbs] a
@@ -878,6 +904,7 @@ fn _negc1
   return cf, r;
 }
 
+#[safety = { requires = is_arr_init(r, 0, 8) && is_arr_init(a, 0, 8*nlimbs), ensures = is_arr_init(r, 0, 8*nlimbs) }]
 inline fn _negc1_
 ( reg mut ptr u64[nlimbs] r
 , reg const ptr u64[nlimbs] a
@@ -889,6 +916,7 @@ inline fn _negc1_
   return cf, r;
 }
 
+#[safety = { requires = is_arr_init(a, 0, 8*nlimbs), ensures = is_arr_init(r, 0, 8*nlimbs) }]
 inline fn _neg_
 ( reg mut ptr u64[nlimbs] r
 , reg const ptr u64[nlimbs] a
@@ -903,6 +931,7 @@ inline fn _neg_
   return cf, r;
 }
 
+#[safety = { requires = is_arr_init(a, 0, 8*nlimbs), ensures = is_arr_init(r, 0, 8*nlimbs) }]
 inline fn _negc_
 ( reg mut ptr u64[nlimbs] r
 , reg const ptr u64[nlimbs] a
@@ -982,6 +1011,7 @@ inline fn _cminusP_
 
 
 /* pack two bignums into a double bignum */
+#[safety = { requires = is_arr_init(lo, 0, 8*nlimbs) && is_arr_init(hi, 0, 8*nlimbs), ensures = is_arr_init(r, 0, 16*nlimbs) }]
 inline fn __pack2
 ( reg mut ptr u64[2*nlimbs] r
 , reg const ptr u64[nlimbs] lo hi
@@ -1002,6 +1032,7 @@ inline fn __pack2
   return r;
 }
 
+#[safety = { requires = is_arr_init(lo, 0, 8*nlimbs) && is_arr_init(hi, 0, 8*nlimbs), ensures = is_arr_init(r, 0, 16*nlimbs) }]
 fn _pack2
 ( reg mut ptr u64[2*nlimbs] r
 , reg const ptr u64[nlimbs] lo hi
@@ -1010,6 +1041,7 @@ fn _pack2
   return r;
 }
 
+#[safety = { requires = is_arr_init(lo, 0, 8*nlimbs) && is_arr_init(hi, 0, 8*nlimbs), ensures = is_arr_init(r, 0, 16*nlimbs) }]
 inline fn _pack2_
 ( reg mut ptr u64[2*nlimbs] r
 , reg const ptr u64[nlimbs] lo hi

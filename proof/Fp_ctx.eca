@@ -64,3 +64,91 @@ qed.
 lemma ctxPmP_ctx_mod p c:
   ctx_mod p c => BN2.bn (ctxPmP c) = p + (BN.bn_modulus - p) * BN.bn_modulus.
 proof. by move=> [_ [_ [HP HmP]]]; rewrite ctxPmP_val HP HmP. qed.
+
+(* writing a part of a context (the _ctx_init_ of the fields): the part at
+   offset o *)
+op ctx_wr (c: W64.t CTX.t) (o: int) (t: BN.t) : W64.t CTX.t =
+  CTX.init (fun i => if o <= i < o + nlimbs then t.[i - o] else c.[i]).
+
+lemma ctx_wr_get c o t i: 0 <= i < 4 * nlimbs + 1 =>
+  (ctx_wr c o t).[i] = if o <= i < o + nlimbs then t.[i - o] else c.[i].
+proof. by move=> Hi; rewrite /ctx_wr CTX.initiE. qed.
+
+lemma ctx_wr_part c o q t: 0 <= q <= 3 * nlimbs => 0 <= o <= 3 * nlimbs =>
+  (q = o \/ q + nlimbs <= o \/ o + nlimbs <= q) =>
+  BN.A.init (fun i => (ctx_wr c o t).[q + i])
+  = if q = o then t else BN.A.init (fun i => c.[q + i]).
+proof.
+move=> Hq Ho Hd; have Hn := gt0_nlimbs.
+apply BN.A.ext_eq => i Hi; rewrite BN.A.initiE //= ctx_wr_get 1:/#.
+case: (q = o) => [->|Hqo] /=; first by rewrite (_: o <= o + i < o + nlimbs) 1:/# /= (_: o + i - o = i) 1:/#.
+by rewrite (_: !(o <= q + i < o + nlimbs)) 1:/# /= BN.A.initiE.
+qed.
+
+lemma ctx_wr_U0 c o t: 0 <= o <= 3 * nlimbs =>
+  ctxU0 (ctx_wr c o t) = ctxU0 c.
+proof. by move=> Ho; rewrite /ctxU0 ctx_wr_get; smt(gt0_nlimbs). qed.
+
+lemma ctx_wrE c o t:
+  CTX.init (fun i => if o <= i < o + nlimbs then t.[i - o] else c.[i])
+  = ctx_wr c o t.
+proof. by rewrite /ctx_wr. qed.
+
+(* the parts of a context after writing the part at offset o *)
+lemma ctx_wr_parts c o t:
+  o = 0 \/ o = nlimbs \/ o = 2 * nlimbs \/ o = 3 * nlimbs =>
+  ctxP (ctx_wr c o t) = (if o = 0 then t else ctxP c)
+  /\ ctxMP (ctx_wr c o t) = (if o = nlimbs then t else ctxMP c)
+  /\ ctxONE (ctx_wr c o t) = (if o = 2 * nlimbs then t else ctxONE c)
+  /\ ctxR2 (ctx_wr c o t) = (if o = 3 * nlimbs then t else ctxR2 c)
+  /\ ctxU0 (ctx_wr c o t) = ctxU0 c.
+proof.
+move=> Ho; have Hn := gt0_nlimbs.
+split; first by apply BN.A.ext_eq => i Hi; rewrite /ctxP BN.A.initiE //= ctx_wr_get 1:/#; smt(BN.A.initiE).
+split; first by apply BN.A.ext_eq => i Hi; rewrite /ctxMP BN.A.initiE //= ctx_wr_get 1:/#; smt(BN.A.initiE).
+split; first by apply BN.A.ext_eq => i Hi; rewrite /ctxONE BN.A.initiE //= ctx_wr_get 1:/#; smt(BN.A.initiE).
+split; first by apply BN.A.ext_eq => i Hi; rewrite /ctxR2 BN.A.initiE //= ctx_wr_get 1:/#; smt(BN.A.initiE).
+by apply ctx_wr_U0; smt().
+qed.
+
+(* the parts of a context after writing U0 *)
+lemma ctx_setU0_parts (c: W64.t CTX.t) u:
+  ctxP c.[4 * nlimbs <- u] = ctxP c
+  /\ ctxMP c.[4 * nlimbs <- u] = ctxMP c
+  /\ ctxONE c.[4 * nlimbs <- u] = ctxONE c
+  /\ ctxR2 c.[4 * nlimbs <- u] = ctxR2 c
+  /\ ctxU0 c.[4 * nlimbs <- u] = u.
+proof.
+have Hn := gt0_nlimbs.
+split; first by apply BN.A.ext_eq => i Hi; rewrite /ctxP !BN.A.initiE //= CTX.get_setE 1:/#; smt().
+split; first by apply BN.A.ext_eq => i Hi; rewrite /ctxMP !BN.A.initiE //= CTX.get_setE 1:/#; smt().
+split; first by apply BN.A.ext_eq => i Hi; rewrite /ctxONE !BN.A.initiE //= CTX.get_setE 1:/#; smt().
+split; first by apply BN.A.ext_eq => i Hi; rewrite /ctxR2 !BN.A.initiE //= CTX.get_setE 1:/#; smt().
+by rewrite /ctxU0 CTX.get_setE 1:/#.
+qed.
+
+(* the value of the borrow-free negation of p: R - p *)
+lemma neg_val (p: BN.t) (cf: bool) (t: BN.t): 0 < bn p =>
+  BN.bn_withborrow (cf, t) = - bn p => bn t = BN.bn_modulus - bn p.
+proof.
+move=> Hp; rewrite /BN.bnk_withborrow /= -BN.bn_modulusE.
+have := BN.bnk_cmp nlimbs t; have := BN.bnk_cmp nlimbs p; rewrite -BN.bn_modulusE.
+case: cf => /= _ _; smt().
+qed.
+
+
+(* a zero array with limb 0 set to 1 *)
+lemma bn_one_of_zero (x: BN.t): bn x = 0 => bn x.[0 <- W64.of_int 1] = 1.
+proof.
+move=> H0; have Hn := gt0_nlimbs.
+have E := BN.bn_k_kup 1 x.[0 <- W64.of_int 1] _; first smt().
+have Ex := BN.bn_k_kup 1 x _; first smt().
+have Hup := BN.bnkup_setO 1 x (W64.of_int 1) _; first smt().
+move: Hup; rewrite (_: 1 - 1 = 0) 1:// => Hup.
+have Hk := BN.bnk_cmp 1 x.
+have Hu: 0 <= BN.bnkup 1 x.
++ rewrite -BN.bn_div_kup 1:/#; apply divz_ge0; smt(StdOrder.IntOrder.expr_gt0 BN.bnk_cmp).
+have HM: 0 < W64.modulus ^ 1 by rewrite StdOrder.IntOrder.expr_gt0.
+have Hu0: BN.bnkup 1 x = 0 by smt().
+by rewrite E Hup Hu0 BN.bnk1 /= BN.A.get_setE 1:/#.
+qed.

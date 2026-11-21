@@ -1,0 +1,35 @@
+/* A field context of the size of point B (4*nlimbs+1 = 29 words), for
+   the extraction of fp_mont_export (exports/fp_mont_export.jazz): only
+   its size matters. */
+
+u64[4*nlimbs+1] glob_ctx = {
+  0,
+  0,
+  0,
+  0,
+  0,
+  0,
+  0,
+  0,
+  0,
+  0,
+  0,
+  0,
+  0,
+  0,
+  0,
+  0,
+  0,
+  0,
+  0,
+  0,
+  0,
+  0,
+  0,
+  0,
+  0,
+  0,
+  0,
+  0,
+  0
+};

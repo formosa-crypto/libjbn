@@ -1,0 +1,84 @@
+(* Safety of bn_mulsel (src/amd64/ref/bn_mulsel@n.jinc): the selector of
+   the multiplication code, safe at any profile (any value of the feature
+   flags and of the size thresholds): each of its branches is one of the five
+   multiplication theories. *)
+require import AllCore IntDiv CoreMap List Distr.
+from Jasmin require import JModel_x86.
+import SLH64.
+from Jasmin require import Jcheck JSafety JByte_array JMemory.
+require import ByteArrayInit JbnSafetyLib.
+require Bn_mulsel_safety_xtr.
+
+clone include Bn_mulsel_safety_xtr.
+
+clone ByteArrayLib as BL_8n with theory A <- BA_8n.
+clone ByteArrayLib as BL_8n_8 with theory A <- BA_8n_8.
+clone ByteArrayLib as BL_16n with theory A <- BA_16n.
+clone SubByteArrayInit as SBI_16n__8n with theory SB <- SB_16n__8n.
+
+lemma _muln__proof _r _b_r _a _b_a _b _b_b : _muln__spec _r _b_r _a _b_a _b _b_b.
+proof.
+hint +safety.
+rewrite /_muln__spec; proc.
+seq ^if : (valid trace__muln_ /\ BA_8n.is_init b_a 0 (8 * nlimbs) /\ BA_8n.is_init b_b 0 (8 * nlimbs)).
+- by auto.
+if.
+- if.
+  + wp; ecall (BNMULXR._os_muln__proof param b_param param_0 ((BA_8n.init_arr (W8.of_int 255))) param_1 ((BA_8n.init_arr (W8.of_int 255)))).
+    by auto => />.
+  if.
+  + wp; ecall (BNMULX._os_muln__proof param_2 b_param_0 param_3 ((BA_8n.init_arr (W8.of_int 255))) param_4 ((BA_8n.init_arr (W8.of_int 255)))).
+    by auto => />.
+  wp; ecall (BNMULXL._os_muln__proof param_5 b_param_1 param_6 ((BA_8n.init_arr (W8.of_int 255))) param_7 ((BA_8n.init_arr (W8.of_int 255)))).
+  by auto => />.
+if.
+- wp; ecall (BNMUL._ps_muln__proof param_8 b_param_2 param_9 ((BA_8n.init_arr (W8.of_int 255))) param_10 ((BA_8n.init_arr (W8.of_int 255)))).
+  by auto => />.
+wp; ecall (BNMULL._os_muln__proof param_11 b_param_3 param_12 ((BA_8n.init_arr (W8.of_int 255))) param_13 ((BA_8n.init_arr (W8.of_int 255)))).
+by auto => />.
+qed.
+
+lemma _sqrn__proof _r _b_r _a _b_a : _sqrn__spec _r _b_r _a _b_a.
+proof.
+hint +safety.
+rewrite /_sqrn__spec; proc.
+seq ^if : (valid trace__sqrn_ /\ BA_8n.is_init b_a 0 (8 * nlimbs)).
+- by auto.
+if.
+- if.
+  + wp; ecall (BNMULXR._os_sqrn__proof param b_param param_0 ((BA_8n.init_arr (W8.of_int 255)))).
+    by auto => />.
+  if.
+  + wp; ecall (BNMULX._os_sqrn__proof param_1 b_param_0 param_2 ((BA_8n.init_arr (W8.of_int 255)))).
+    by auto => />.
+  wp; ecall (BNMULXL._os_sqrn__proof param_3 b_param_1 param_4 ((BA_8n.init_arr (W8.of_int 255)))).
+  by auto => />.
+if.
+- wp; ecall (BNMUL._ps_sqrn__proof param_5 b_param_2 param_6 ((BA_8n.init_arr (W8.of_int 255)))).
+  by auto => />.
+wp; ecall (BNMULL._os_sqrn__proof param_7 b_param_3 param_8 ((BA_8n.init_arr (W8.of_int 255)))).
+by auto => />.
+qed.
+
+lemma __mont_redM_proof _r _b_r _a _b_a __P_mP _b__P_mP __U0 : __mont_redM_spec _r _b_r _a _b_a __P_mP _b__P_mP __U0.
+proof.
+hint +safety.
+rewrite /__mont_redM_spec; proc.
+seq ^if : (valid trace___mont_redM /\ BA_16n.is_init b_a 0 (16 * nlimbs) /\ BA_16n.is_init b__P_mP 0 (16 * nlimbs)).
+- by auto.
+if.
+- if.
+  + wp; ecall (BNMULXR.__mont_redM_proof param b_param param_0 ((BA_16n.init_arr (W8.of_int 255))) param_1 ((BA_16n.init_arr (W8.of_int 255))) param_2).
+    by auto => />.
+  if.
+  + wp; ecall (BNMULX.__mont_redM_proof param_3 b_param_0 param_4 ((BA_16n.init_arr (W8.of_int 255))) param_5 ((BA_16n.init_arr (W8.of_int 255))) param_6).
+    by auto => />.
+  wp; ecall (BNMULXL.__mont_redM_proof param_7 b_param_1 param_8 ((BA_16n.init_arr (W8.of_int 255))) param_9 ((BA_16n.init_arr (W8.of_int 255))) param_10).
+  by auto => />.
+if.
+- wp; ecall (BNMUL.__mont_redM_proof param_11 b_param_2 param_12 ((BA_16n.init_arr (W8.of_int 255))) param_13 ((BA_16n.init_arr (W8.of_int 255))) param_14).
+  by auto => />.
+wp; ecall (BNMULL.__mont_redM_proof param_15 b_param_3 param_16 ((BA_16n.init_arr (W8.of_int 255))) param_17 ((BA_16n.init_arr (W8.of_int 255))) param_18).
+by auto => />.
+qed.
+

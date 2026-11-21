@@ -1,0 +1,92 @@
+(* Safety of bn_base_export (src/amd64/ref/bn_base_export@2n.jinc): the lemmas of the
+   specifications of theories/Bn_base_export_safety_xtr.eca: the regions the pointers
+   designate are valid, the stack copies are initialised by the loads. *)
+require import AllCore IntDiv CoreMap List Distr.
+from Jasmin require import JModel_x86.
+import SLH64.
+from Jasmin require import Jcheck JSafety JByte_array JMemory.
+require import ByteArrayInit JbnSafetyLib.
+require Bn_base_export_safety_xtr.
+
+clone include Bn_base_export_safety_xtr.
+
+clone ByteArrayLib as BL_8n with theory A <- BA_8n.
+clone ByteArrayLib as BL_16n with theory A <- BA_16n.
+
+lemma h__BN___store_proof _ap _a _b_a : h__BN___store_spec _ap _a _b_a.
+proof.
+hint +safety.
+rewrite /h__BN___store_spec; proc.
+wp; ecall (BNB.__store_proof param param_0 ((BA_8n.init_arr (W8.of_int 255)))).
+by auto => /> *; smt(gt0_nlimbs).
+qed.
+
+lemma bn_eq_proof _ap _bp : bn_eq_spec _ap _bp.
+proof.
+hint +safety.
+rewrite /bn_eq_spec; proc.
+wp; ecall (BNB._eq__proof param_3 ((BA_8n.init_arr (W8.of_int 255))) param_4 ((BA_8n.init_arr (W8.of_int 255)))).
+wp; ecall (BNB._load__proof param_1 b_param_0 param_2).
+wp; ecall (BNB._load__proof param b_param param_0).
+by auto => /> *; smt(gt0_nlimbs).
+qed.
+
+lemma bn_test0_proof _ap : bn_test0_spec _ap.
+proof.
+hint +safety.
+rewrite /bn_test0_spec; proc.
+wp; ecall (BNB._test0__proof param_1 ((BA_8n.init_arr (W8.of_int 255)))).
+wp; ecall (BNB._load__proof param b_param param_0).
+by auto => /> *; smt(gt0_nlimbs).
+qed.
+
+lemma bn_copy_proof _rp _ap : bn_copy_spec _rp _ap.
+proof.
+hint +safety.
+rewrite /bn_copy_spec; proc.
+while (valid trace_bn_copy /\ 0 <= i <= nlimbs /\ ap = _ap /\ rp = _rp
+       /\ is_valid ptr_modulus Glob.mem_v (W64.to_uint _ap) (8 * nlimbs)
+       /\ is_valid ptr_modulus Glob.mem_v (W64.to_uint _rp) (8 * nlimbs)).
+- auto => /> &hr hv hi0 _ hva ha0 ha1 hvr hr0 hr1 hin.
+  rewrite (to_uint_addr _ap i{hr} nlimbs) 1,2:/# (to_uint_addr _rp i{hr} nlimbs) 1,2:/#.
+  split; last smt().
+  split; first by split; [move=> i0 *; apply hva | ]; smt().
+  by split; [move=> i0 *; apply hvr | ]; smt().
+by auto => /> *; smt(gt0_nlimbs).
+qed.
+
+lemma bn_set0_proof _rp : bn_set0_spec _rp.
+proof.
+hint +safety.
+rewrite /bn_set0_spec; proc.
+while (valid trace_bn_set0 /\ 0 <= i <= nlimbs /\ rp = _rp
+       /\ is_valid ptr_modulus Glob.mem_v (W64.to_uint _rp) (8 * nlimbs)).
+- auto => /> &hr hv hi0 _ hvr h0 hlt hin.
+  rewrite (to_uint_addr _rp i{hr} nlimbs) 1,2:/#.
+  split; last smt().
+  by split; [move=> i0 *; apply hvr | ]; smt().
+by auto => /> *; smt(gt0_nlimbs).
+qed.
+
+lemma bn_addU_proof _rp _ap _bp : bn_addU_spec _rp _ap _bp.
+proof.
+hint +safety.
+rewrite /bn_addU_spec; proc.
+wp; ecall (BNB._store__proof param_5 param_6 ((BA_8n.init_arr (W8.of_int 255)))).
+wp; ecall (BNB._addU__proof param_3 ((BA_8n.init_arr (W8.of_int 255))) param_4 ((BA_8n.init_arr (W8.of_int 255)))).
+wp; ecall (BNB._load__proof param_1 b_param_0 param_2).
+wp; ecall (BNB._load__proof param b_param param_0).
+by auto => /> *; smt(gt0_nlimbs).
+qed.
+
+lemma bn_subU_proof _rp _ap _bp : bn_subU_spec _rp _ap _bp.
+proof.
+hint +safety.
+rewrite /bn_subU_spec; proc.
+wp; ecall (h__BN___store_proof param_5 param_6 ((BA_8n.init_arr (W8.of_int 255)))).
+wp; ecall (BNB._subU__proof param_3 ((BA_8n.init_arr (W8.of_int 255))) param_4 ((BA_8n.init_arr (W8.of_int 255)))).
+wp; ecall (BNB._load__proof param_1 b_param_0 param_2).
+wp; ecall (BNB._load__proof param b_param param_0).
+by auto => /> *; smt(gt0_nlimbs).
+qed.
+

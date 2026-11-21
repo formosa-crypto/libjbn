@@ -1,0 +1,11 @@
+[general]
+timeout = 5
+provers = CVC5@1.3
+provers = Z3@4.13
+# the released eclib, plus the local JSafety.ec of the library's safety proofs
+idirs = Jasmin:../../../../../proof/safety/eclib
+idirs = ../../../../../proof/safety/common
+idirs = ../../../../../proof/safety/theories
+idirs = ../../../../../proof/safety
+idirs = extracted
+idirs = .

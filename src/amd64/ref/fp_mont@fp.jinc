@@ -22,6 +22,7 @@ require "fp_ctx@n.jinc"
 
 /* a * R^-1 mod P, for a < P * R; the first 2*nlimbs words of the context
    (P || R-P) are the packed constants of __mont_redM */
+#[safety = { requires = is_arr_init(a, 0, 16*nlimbs) && is_arr_init(ctx, 0, 8*CTXLEN), ensures = is_arr_init(r, 0, 8*nlimbs) }]
 fn _redM
 ( reg mut ptr u64[nlimbs] r
 , reg const ptr u64[2*nlimbs] a
@@ -37,6 +38,7 @@ fn _redM
   return r;
 }
 
+#[safety = { requires = is_arr_init(a, 0, 16*nlimbs) && is_arr_init(ctx, 0, 8*CTXLEN), ensures = is_arr_init(r, 0, 8*nlimbs) }]
 inline fn _redM_
 ( reg mut ptr u64[nlimbs] r
 , reg const ptr u64[2*nlimbs] a
@@ -72,6 +74,7 @@ inline fn _fromM_
 
 /* Field operations: fp_base, included in this same namespace, with the
    Montgomery reduction as its reduction parameter (inline wrapper). */
+#[safety = { requires = is_arr_init(a, 0, 16*nlimbs) && is_arr_init(ctx, 0, 8*CTXLEN), ensures = is_arr_init(r, 0, 8*nlimbs) }]
 inline fn fun_red
 ( reg mut ptr u64[nlimbs] r
 , reg const ptr u64[2*nlimbs] a
@@ -108,6 +111,7 @@ inline fn _toM_
      R mod P, R^2 mod P by 64*nlimbs, then 64*nlimbs more, modular doublings
                       of 1 (with _addm_, which only needs the R - P part of
                       the context). */
+#[safety = { requires = is_arr_init(P, 0, 8*nlimbs), ensures = is_arr_init(ctx, 0, 8*CTXLEN) }]
 inline fn _ctx_init_
 ( reg mut ptr u64[CTXLEN] ctx
 , reg const ptr u64[nlimbs] P

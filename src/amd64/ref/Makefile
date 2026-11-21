@@ -11,7 +11,8 @@ all: check
 # typecheck every module, through the abstract instantiation used for
 # the extraction (it has no export functions, so no code is produced)
 check:
-	$(JASMINC) $(JASMINC_OPT) -o /dev/null extracted/libjbn_abs.jazz
+	$(JASMINC) $(JASMINC_OPT) -I Dummy=extracted/dummyA -o /dev/null extracted/libjbn_abs.jazz
+	$(JASMINC) $(JASMINC_OPT) -I Dummy=extracted/dummyB -o /dev/null extracted/libjbn_abs.jazz
 
 # extraction to EasyCrypt (proofs); the generated Array*.ec/WArray*.ec are
 # kept, since the sanity checks of proof/ load them (see proof/Makefile)

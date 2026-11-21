@@ -1,0 +1,673 @@
+(* Safety of bn_base (src/amd64/ref/bn_base@n.jinc): the lemmas of the
+   specifications of theories/Bn_base_safety_xtr.eca. *)
+require import AllCore IntDiv CoreMap List Distr.
+from Jasmin require import JModel_x86.
+import SLH64.
+from Jasmin require import Jcheck JSafety JByte_array JMemory.
+require import ByteArrayInit JbnSafetyLib.
+require Bn_base_safety_xtr.
+
+clone include Bn_base_safety_xtr.
+
+clone ByteArrayLib as BL_8n with theory A <- BA_8n.
+clone ByteArrayLib as BL_16n with theory A <- BA_16n.
+
+lemma __load_proof _a _b_a _ap : __load_spec _a _b_a _ap.
+proof.
+hint +safety.
+rewrite /__load_spec; proc.
+while (valid trace___load /\ 0 <= i <= nlimbs /\ BA_8n.is_init b_a 0 (8 * i)
+       /\ ap = _ap /\ is_valid ptr_modulus Glob.mem_v (W64.to_uint _ap) (8 * nlimbs)).
+- auto => /> &hr hv hi0 _ hb hval h0 hlt hin.
+  rewrite (to_uint_addr _ap i{hr} nlimbs) 1,2:/#.
+  have h := BL_8n.is_init_ext64 b_a{hr} i{hr} hi0 hb.
+  split; last smt().
+  split; last smt().
+  by split; [move=> i0 *; apply hval | ]; smt().
+auto => /> &hr *; split; first smt(gt0_nlimbs).
+by move=> *; smt().
+qed.
+
+lemma _load_proof _a _b_a _ap : _load_spec _a _b_a _ap.
+proof.
+hint +safety.
+rewrite /_load_spec; proc.
+wp; ecall (__load_proof param b_param param_0).
+by auto => />.
+qed.
+
+lemma _load__proof _a _b_a _ap : _load__spec _a _b_a _ap.
+proof.
+hint +safety.
+rewrite /_load__spec; proc.
+wp; ecall (_load_proof param b_param param_0).
+by auto => />.
+qed.
+
+lemma __store_proof _ap _a _b_a : __store_spec _ap _a _b_a.
+proof.
+hint +safety.
+rewrite /__store_spec; proc.
+while (valid trace___store /\ 0 <= i <= nlimbs
+       /\ ap = _ap /\ is_valid ptr_modulus Glob.mem_v (W64.to_uint _ap) (8 * nlimbs)).
+- auto => /> &hr hv hi0 _ hval h0 hlt hin.
+  rewrite (to_uint_addr _ap i{hr} nlimbs) 1,2:/#.
+  split; last smt().
+  by split; [smt() | split; [move=> i0 *; apply hval | ]]; smt().
+by auto => /> *; smt(gt0_nlimbs).
+qed.
+
+lemma _store__proof _ap _a _b_a : _store__spec _ap _a _b_a.
+proof.
+hint +safety.
+rewrite /_store__spec; proc.
+wp; ecall (__store_proof param param_0 ((BA_8n.init_arr (W8.of_int 255)))).
+by auto => />.
+qed.
+
+lemma __eq_zf_proof _a _b_a _b _b_b : __eq_zf_spec _a _b_a _b _b_b.
+proof.
+hint +safety.
+rewrite /__eq_zf_spec; proc.
+wp; while (valid trace___eq_zf /\ 0 <= i <= nlimbs).
+- by auto => /> &hr *; smt().
+by auto => /> &hr *; smt(gt0_nlimbs).
+qed.
+
+lemma _eq_zf_proof _a _b_a _b _b_b : _eq_zf_spec _a _b_a _b _b_b.
+proof.
+hint +safety.
+rewrite /_eq_zf_spec; proc.
+wp; ecall (__eq_zf_proof param ((BA_8n.init_arr (W8.of_int 255))) param_0 ((BA_8n.init_arr (W8.of_int 255)))).
+by auto => />.
+qed.
+
+lemma _eq_zf__proof _a _b_a _b _b_b : _eq_zf__spec _a _b_a _b _b_b.
+proof.
+hint +safety.
+rewrite /_eq_zf__spec; proc.
+wp; ecall (_eq_zf_proof param ((BA_8n.init_arr (W8.of_int 255))) param_0 ((BA_8n.init_arr (W8.of_int 255)))).
+by auto => />.
+qed.
+
+lemma _eq__proof _a _b_a _b _b_b : _eq__spec _a _b_a _b _b_b.
+proof.
+hint +safety.
+rewrite /_eq__spec; proc.
+wp; ecall (_eq_zf__proof param ((BA_8n.init_arr (W8.of_int 255))) param_0 ((BA_8n.init_arr (W8.of_int 255)))).
+by auto => />.
+qed.
+
+lemma __test0_zf_proof _a _b_a : __test0_zf_spec _a _b_a.
+proof.
+hint +safety.
+rewrite /__test0_zf_spec; proc.
+wp; while (valid trace___test0_zf /\ 0 <= i <= nlimbs).
+- by auto => /> &hr *; smt().
+by auto => /> &hr *; smt(gt0_nlimbs).
+qed.
+
+lemma _test0_zf__proof _a _b_a : _test0_zf__spec _a _b_a.
+proof.
+hint +safety.
+rewrite /_test0_zf__spec; proc.
+wp; ecall (__test0_zf_proof param ((BA_8n.init_arr (W8.of_int 255)))).
+by auto => />.
+qed.
+
+lemma _test0__proof _a _b_a : _test0__spec _a _b_a.
+proof.
+hint +safety.
+rewrite /_test0__spec; proc.
+wp; ecall (_test0_zf__proof param ((BA_8n.init_arr (W8.of_int 255)))).
+by auto => />.
+qed.
+
+lemma __copy_proof _a _b_a : __copy_spec _a _b_a.
+proof.
+hint +safety.
+rewrite /__copy_spec; proc.
+wp; while (valid trace___copy /\ 0 <= i <= nlimbs /\ BA_8n.is_init b_r 0 (8 * i)).
+- auto => /> &hr hv hi0 hi1 hb hin.
+  have h := BL_8n.is_init_ext64 b_r{hr} i{hr} _ hb; 1: smt().
+  smt().
+by auto => /> *; smt(gt0_nlimbs).
+qed.
+
+lemma __mov_proof _r _b_r _a _b_a : __mov_spec _r _b_r _a _b_a.
+proof.
+hint +safety.
+rewrite /__mov_spec; proc.
+wp; while (valid trace___mov /\ 0 <= i <= nlimbs /\ BA_8n.is_init b_r 0 (8 * i)).
+- auto => /> &hr hv hi0 hi1 hb hin.
+  have h := BL_8n.is_init_ext64 b_r{hr} i{hr} _ hb; 1: smt().
+  smt().
+by auto => /> *; smt(gt0_nlimbs).
+qed.
+
+lemma _mov_proof _r _b_r _a _b_a : _mov_spec _r _b_r _a _b_a.
+proof.
+hint +safety.
+rewrite /_mov_spec; proc.
+wp; ecall (__mov_proof param b_param param_0 ((BA_8n.init_arr (W8.of_int 255)))).
+by auto => />.
+qed.
+
+lemma _mov__proof _r _b_r _a _b_a : _mov__spec _r _b_r _a _b_a.
+proof.
+hint +safety.
+rewrite /_mov__spec; proc.
+wp; ecall (_mov_proof param b_param param_0 ((BA_8n.init_arr (W8.of_int 255)))).
+by auto => />.
+qed.
+
+lemma __cmov_proof _a _b_a _cond _b _b_b : __cmov_spec _a _b_a _cond _b _b_b.
+proof.
+hint +safety.
+rewrite /__cmov_spec; proc.
+wp; while (valid trace___cmov /\ 0 <= i <= nlimbs).
+- by auto => /> &hr *; smt().
+by auto => /> &hr *; smt(gt0_nlimbs).
+qed.
+
+lemma _cmov_proof _a _b_a _cond _b _b_b : _cmov_spec _a _b_a _cond _b _b_b.
+proof.
+hint +safety.
+rewrite /_cmov_spec; proc.
+wp; ecall (__cmov_proof param ((BA_8n.init_arr (W8.of_int 255))) param_0 param_1 ((BA_8n.init_arr (W8.of_int 255)))).
+by auto => />.
+qed.
+
+lemma _cmov__proof _a _b_a _cond _b _b_b : _cmov__spec _a _b_a _cond _b _b_b.
+proof.
+hint +safety.
+rewrite /_cmov__spec; proc.
+wp; ecall (_cmov_proof param ((BA_8n.init_arr (W8.of_int 255))) param_0 param_1 ((BA_8n.init_arr (W8.of_int 255)))).
+by auto => />.
+qed.
+
+lemma __cswap_mask_proof _x _b_x _y _b_y _mask : __cswap_mask_spec _x _b_x _y _b_y _mask.
+proof.
+hint +safety.
+rewrite /__cswap_mask_spec; proc.
+wp; while (valid trace___cswap_mask /\ 0 <= i <= nlimbs).
+- by auto => /> &hr *; smt().
+by auto => /> &hr *; smt(gt0_nlimbs).
+qed.
+
+lemma _cswap_mask_proof _x _b_x _y _b_y _mask : _cswap_mask_spec _x _b_x _y _b_y _mask.
+proof.
+hint +safety.
+rewrite /_cswap_mask_spec; proc.
+wp; ecall (__cswap_mask_proof param ((BA_8n.init_arr (W8.of_int 255))) param_0 ((BA_8n.init_arr (W8.of_int 255))) param_1).
+by auto => />.
+qed.
+
+lemma _cswap_mask__proof _x _b_x _y _b_y _mask : _cswap_mask__spec _x _b_x _y _b_y _mask.
+proof.
+hint +safety.
+rewrite /_cswap_mask__spec; proc.
+wp; ecall (_cswap_mask_proof param ((BA_8n.init_arr (W8.of_int 255))) param_0 ((BA_8n.init_arr (W8.of_int 255))) param_1).
+by auto => />.
+qed.
+
+lemma _cswap_cf__proof _x _b_x _y _b_y _cf : _cswap_cf__spec _x _b_x _y _b_y _cf.
+proof.
+hint +safety.
+rewrite /_cswap_cf__spec; proc.
+wp; ecall (_cswap_mask__proof param_0 ((BA_8n.init_arr (W8.of_int 255))) param_1 ((BA_8n.init_arr (W8.of_int 255))) param_2).
+wp; ecall (BNUTIL.__cf_mask_proof param).
+by auto => />.
+qed.
+
+lemma __fill_proof _a _b_a _x : __fill_spec _a _b_a _x.
+proof.
+hint +safety.
+rewrite /__fill_spec; proc.
+wp; while (valid trace___fill /\ 0 <= i <= nlimbs /\ BA_8n.is_init b_a 0 (8 * i)).
+- auto => /> &hr hv hi0 hi1 hb hin.
+  have h := BL_8n.is_init_ext64 b_a{hr} i{hr} _ hb; 1: smt().
+  smt().
+by auto => /> *; smt(gt0_nlimbs).
+qed.
+
+lemma _fill__proof _a _b_a _x : _fill__spec _a _b_a _x.
+proof.
+hint +safety.
+rewrite /_fill__spec; proc.
+wp; ecall (__fill_proof param b_param param_0).
+by auto => />.
+qed.
+
+lemma _set0__proof _a _b_a : _set0__spec _a _b_a.
+proof.
+hint +safety.
+rewrite /_set0__spec; proc.
+wp; ecall (_fill__proof param b_param param_0).
+by auto => />.
+qed.
+
+lemma __cfill_proof _a _b_a _b _x : __cfill_spec _a _b_a _b _x.
+proof.
+hint +safety.
+rewrite /__cfill_spec; proc.
+wp; while (valid trace___cfill /\ 0 <= i <= nlimbs).
+- by auto => /> &hr *; smt().
+by auto => /> &hr *; smt(gt0_nlimbs).
+qed.
+
+lemma __or_mask_proof _a _b_a _mask : __or_mask_spec _a _b_a _mask.
+proof.
+hint +safety.
+rewrite /__or_mask_spec; proc.
+wp; while (valid trace___or_mask /\ 0 <= i <= nlimbs).
+- by auto => /> &hr *; smt().
+by auto => /> &hr *; smt(gt0_nlimbs).
+qed.
+
+lemma _or_mask_proof _a _b_a _mask : _or_mask_spec _a _b_a _mask.
+proof.
+hint +safety.
+rewrite /_or_mask_spec; proc.
+wp; ecall (__or_mask_proof param ((BA_8n.init_arr (W8.of_int 255))) param_0).
+by auto => />.
+qed.
+
+lemma _or_mask__proof _a _b_a _mask : _or_mask__spec _a _b_a _mask.
+proof.
+hint +safety.
+rewrite /_or_mask__spec; proc.
+wp; ecall (_or_mask_proof param ((BA_8n.init_arr (W8.of_int 255))) param_0).
+by auto => />.
+qed.
+
+lemma _set_err__proof _a _b_a __err : _set_err__spec _a _b_a __err.
+proof.
+hint +safety.
+rewrite /_set_err__spec; proc.
+wp; ecall (_or_mask__proof param ((BA_8n.init_arr (W8.of_int 255))) param_0).
+by auto => />.
+qed.
+
+lemma __and_mask_proof _a _b_a _mask : __and_mask_spec _a _b_a _mask.
+proof.
+hint +safety.
+rewrite /__and_mask_spec; proc.
+wp; while (valid trace___and_mask /\ 0 <= i <= nlimbs).
+- by auto => /> &hr *; smt().
+by auto => /> &hr *; smt(gt0_nlimbs).
+qed.
+
+lemma _and_mask_proof _a _b_a _mask : _and_mask_spec _a _b_a _mask.
+proof.
+hint +safety.
+rewrite /_and_mask_spec; proc.
+wp; ecall (__and_mask_proof param ((BA_8n.init_arr (W8.of_int 255))) param_0).
+by auto => />.
+qed.
+
+lemma _and_mask__proof _a _b_a _mask : _and_mask__spec _a _b_a _mask.
+proof.
+hint +safety.
+rewrite /_and_mask__spec; proc.
+wp; ecall (_and_mask_proof param ((BA_8n.init_arr (W8.of_int 255))) param_0).
+by auto => />.
+qed.
+
+lemma __carrypropU_proof _a _b_a _cf _k : __carrypropU_spec _a _b_a _cf _k.
+proof.
+hint +safety.
+rewrite /__carrypropU_spec; proc.
+wp; while (valid trace___carrypropU /\ 0 <= k <= i /\ (i <= nlimbs \/ i = k)).
+- by auto => /> &hr *; smt().
+by auto => /> &hr *; smt().
+qed.
+
+lemma __addc1U_proof _a _b_a _b _b_b _cf : __addc1U_spec _a _b_a _b _b_b _cf.
+proof.
+hint +safety.
+rewrite /__addc1U_spec; proc.
+wp; while (valid trace___addc1U /\ 1 <= i <= nlimbs).
+- by auto => /> &hr *; smt().
+by auto => /> &hr *; smt(gt0_nlimbs).
+qed.
+
+lemma _addc1U_proof _a _b_a _b _b_b _cf : _addc1U_spec _a _b_a _b _b_b _cf.
+proof.
+hint +safety.
+rewrite /_addc1U_spec; proc.
+wp; ecall (__addc1U_proof param ((BA_8n.init_arr (W8.of_int 255))) param_0 ((BA_8n.init_arr (W8.of_int 255))) param_1).
+by auto => />.
+qed.
+
+lemma _addc1U__proof _a _b_a _b _b_b _cf : _addc1U__spec _a _b_a _b _b_b _cf.
+proof.
+hint +safety.
+rewrite /_addc1U__spec; proc.
+wp; ecall (_addc1U_proof param ((BA_8n.init_arr (W8.of_int 255))) param_0 ((BA_8n.init_arr (W8.of_int 255))) param_1).
+by auto => />.
+qed.
+
+lemma _addcU__proof _a _b_a _b _b_b _cf : _addcU__spec _a _b_a _b _b_b _cf.
+proof.
+hint +safety.
+rewrite /_addcU__spec; proc.
+wp; ecall (_addc1U__proof param ((BA_8n.init_arr (W8.of_int 255))) param_0 ((BA_8n.init_arr (W8.of_int 255))) param_1).
+by auto => />.
+qed.
+
+lemma _addU__proof _a _b_a _b _b_b : _addU__spec _a _b_a _b _b_b.
+proof.
+hint +safety.
+rewrite /_addU__spec; proc.
+wp; ecall (_addc1U__proof param ((BA_8n.init_arr (W8.of_int 255))) param_0 ((BA_8n.init_arr (W8.of_int 255))) param_1).
+by auto => />.
+qed.
+
+lemma __addc1_proof _r _b_r _a _b_a _b _b_b _cf : __addc1_spec _r _b_r _a _b_a _b _b_b _cf.
+proof.
+hint +safety.
+rewrite /__addc1_spec; proc.
+wp; while (valid trace___addc1 /\ 1 <= i <= nlimbs /\ BA_8n.is_init b_r 0 (8 * i)).
+- auto => /> &hr hv hi0 hi1 hb hin.
+  have h := BL_8n.is_init_ext64 b_r{hr} i{hr} _ hb; 1: smt().
+  smt().
+by auto => /> *; smt(gt0_nlimbs).
+qed.
+
+lemma _addc1_proof _r _b_r _a _b_a _b _b_b _cf : _addc1_spec _r _b_r _a _b_a _b _b_b _cf.
+proof.
+hint +safety.
+rewrite /_addc1_spec; proc.
+wp; ecall (__addc1_proof param b_param param_0 ((BA_8n.init_arr (W8.of_int 255))) param_1 ((BA_8n.init_arr (W8.of_int 255))) param_2).
+by auto => />.
+qed.
+
+lemma _addc1__proof _r _b_r _a _b_a _b _b_b _cf : _addc1__spec _r _b_r _a _b_a _b _b_b _cf.
+proof.
+hint +safety.
+rewrite /_addc1__spec; proc.
+wp; ecall (_addc1_proof param b_param param_0 ((BA_8n.init_arr (W8.of_int 255))) param_1 ((BA_8n.init_arr (W8.of_int 255))) param_2).
+by auto => />.
+qed.
+
+lemma _add__proof _r _b_r _a _b_a _b _b_b : _add__spec _r _b_r _a _b_a _b _b_b.
+proof.
+hint +safety.
+rewrite /_add__spec; proc.
+wp; ecall (_addc1__proof param b_param param_0 ((BA_8n.init_arr (W8.of_int 255))) param_1 ((BA_8n.init_arr (W8.of_int 255))) param_2).
+by auto => />.
+qed.
+
+lemma _addc__proof _r _b_r _a _b_a _b _b_b _cf : _addc__spec _r _b_r _a _b_a _b _b_b _cf.
+proof.
+hint +safety.
+rewrite /_addc__spec; proc.
+wp; ecall (_addc1__proof param b_param param_0 ((BA_8n.init_arr (W8.of_int 255))) param_1 ((BA_8n.init_arr (W8.of_int 255))) param_2).
+by auto => />.
+qed.
+
+lemma __subc1U_proof _a _b_a _b _b_b _cf : __subc1U_spec _a _b_a _b _b_b _cf.
+proof.
+hint +safety.
+rewrite /__subc1U_spec; proc.
+wp; while (valid trace___subc1U /\ 1 <= i <= nlimbs).
+- by auto => /> &hr *; smt().
+by auto => /> &hr *; smt(gt0_nlimbs).
+qed.
+
+lemma _subc1U_proof _a _b_a _b _b_b _cf : _subc1U_spec _a _b_a _b _b_b _cf.
+proof.
+hint +safety.
+rewrite /_subc1U_spec; proc.
+wp; ecall (__subc1U_proof param ((BA_8n.init_arr (W8.of_int 255))) param_0 ((BA_8n.init_arr (W8.of_int 255))) param_1).
+by auto => />.
+qed.
+
+lemma _subc1U__proof _a _b_a _b _b_b _cf : _subc1U__spec _a _b_a _b _b_b _cf.
+proof.
+hint +safety.
+rewrite /_subc1U__spec; proc.
+wp; ecall (_subc1U_proof param ((BA_8n.init_arr (W8.of_int 255))) param_0 ((BA_8n.init_arr (W8.of_int 255))) param_1).
+by auto => />.
+qed.
+
+lemma _subU__proof _a _b_a _b _b_b : _subU__spec _a _b_a _b _b_b.
+proof.
+hint +safety.
+rewrite /_subU__spec; proc.
+wp; ecall (_subc1U__proof param ((BA_8n.init_arr (W8.of_int 255))) param_0 ((BA_8n.init_arr (W8.of_int 255))) param_1).
+by auto => />.
+qed.
+
+lemma _subcU__proof _a _b_a _b _b_b _cf : _subcU__spec _a _b_a _b _b_b _cf.
+proof.
+hint +safety.
+rewrite /_subcU__spec; proc.
+wp; ecall (_subc1U__proof param ((BA_8n.init_arr (W8.of_int 255))) param_0 ((BA_8n.init_arr (W8.of_int 255))) param_1).
+by auto => />.
+qed.
+
+lemma __subc1_proof _r _b_r _a _b_a _b _b_b _cf : __subc1_spec _r _b_r _a _b_a _b _b_b _cf.
+proof.
+hint +safety.
+rewrite /__subc1_spec; proc.
+wp; while (valid trace___subc1 /\ 1 <= i <= nlimbs /\ BA_8n.is_init b_r 0 (8 * i)).
+- auto => /> &hr hv hi0 hi1 hb hin.
+  have h := BL_8n.is_init_ext64 b_r{hr} i{hr} _ hb; 1: smt().
+  smt().
+by auto => /> *; smt(gt0_nlimbs).
+qed.
+
+lemma _subc1_proof _r _b_r _a _b_a _b _b_b _cf : _subc1_spec _r _b_r _a _b_a _b _b_b _cf.
+proof.
+hint +safety.
+rewrite /_subc1_spec; proc.
+wp; ecall (__subc1_proof param b_param param_0 ((BA_8n.init_arr (W8.of_int 255))) param_1 ((BA_8n.init_arr (W8.of_int 255))) param_2).
+by auto => />.
+qed.
+
+lemma _subc1__proof _r _b_r _a _b_a _b _b_b _cf : _subc1__spec _r _b_r _a _b_a _b _b_b _cf.
+proof.
+hint +safety.
+rewrite /_subc1__spec; proc.
+wp; ecall (_subc1_proof param b_param param_0 ((BA_8n.init_arr (W8.of_int 255))) param_1 ((BA_8n.init_arr (W8.of_int 255))) param_2).
+by auto => />.
+qed.
+
+lemma _sub__proof _r _b_r _a _b_a _b _b_b : _sub__spec _r _b_r _a _b_a _b _b_b.
+proof.
+hint +safety.
+rewrite /_sub__spec; proc.
+wp; ecall (_subc1__proof param b_param param_0 ((BA_8n.init_arr (W8.of_int 255))) param_1 ((BA_8n.init_arr (W8.of_int 255))) param_2).
+by auto => />.
+qed.
+
+lemma _subc__proof _r _b_r _a _b_a _b _b_b _cf : _subc__spec _r _b_r _a _b_a _b _b_b _cf.
+proof.
+hint +safety.
+rewrite /_subc__spec; proc.
+wp; ecall (_subc1__proof param b_param param_0 ((BA_8n.init_arr (W8.of_int 255))) param_1 ((BA_8n.init_arr (W8.of_int 255))) param_2).
+by auto => />.
+qed.
+
+lemma __ltc1_cf_proof _a _b_a _b _b_b _cf : __ltc1_cf_spec _a _b_a _b _b_b _cf.
+proof.
+hint +safety.
+rewrite /__ltc1_cf_spec; proc.
+wp; while (valid trace___ltc1_cf /\ 1 <= i <= nlimbs).
+- by auto => /> &hr *; smt().
+by auto => /> &hr *; smt(gt0_nlimbs).
+qed.
+
+lemma _ltc1_cf_proof _a _b_a _b _b_b _cf : _ltc1_cf_spec _a _b_a _b _b_b _cf.
+proof.
+hint +safety.
+rewrite /_ltc1_cf_spec; proc.
+wp; ecall (__ltc1_cf_proof param ((BA_8n.init_arr (W8.of_int 255))) param_0 ((BA_8n.init_arr (W8.of_int 255))) param_1).
+by auto => />.
+qed.
+
+lemma _ltc1_cf__proof _a _b_a _b _b_b _cf : _ltc1_cf__spec _a _b_a _b _b_b _cf.
+proof.
+hint +safety.
+rewrite /_ltc1_cf__spec; proc.
+wp; ecall (_ltc1_cf_proof param ((BA_8n.init_arr (W8.of_int 255))) param_0 ((BA_8n.init_arr (W8.of_int 255))) param_1).
+by auto => />.
+qed.
+
+lemma _lt_cf__proof _a _b_a _b _b_b : _lt_cf__spec _a _b_a _b _b_b.
+proof.
+hint +safety.
+rewrite /_lt_cf__spec; proc.
+wp; ecall (_ltc1_cf__proof param ((BA_8n.init_arr (W8.of_int 255))) param_0 ((BA_8n.init_arr (W8.of_int 255))) param_1).
+by auto => />.
+qed.
+
+lemma _ltc_cf__proof _a _b_a _b _b_b _cf : _ltc_cf__spec _a _b_a _b _b_b _cf.
+proof.
+hint +safety.
+rewrite /_ltc_cf__spec; proc.
+wp; ecall (_ltc1_cf__proof param ((BA_8n.init_arr (W8.of_int 255))) param_0 ((BA_8n.init_arr (W8.of_int 255))) param_1).
+by auto => />.
+qed.
+
+lemma __negc1U_proof _a _b_a _cf : __negc1U_spec _a _b_a _cf.
+proof.
+hint +safety.
+rewrite /__negc1U_spec; proc.
+wp; while (valid trace___negc1U /\ 1 <= i <= nlimbs).
+- by auto => /> &hr *; smt().
+by auto => /> &hr *; smt(gt0_nlimbs).
+qed.
+
+lemma _negc1U_proof _a _b_a _cf : _negc1U_spec _a _b_a _cf.
+proof.
+hint +safety.
+rewrite /_negc1U_spec; proc.
+wp; ecall (__negc1U_proof param ((BA_8n.init_arr (W8.of_int 255))) param_0).
+by auto => />.
+qed.
+
+lemma _negc1U__proof _a _b_a _cf : _negc1U__spec _a _b_a _cf.
+proof.
+hint +safety.
+rewrite /_negc1U__spec; proc.
+wp; ecall (_negc1U_proof param ((BA_8n.init_arr (W8.of_int 255))) param_0).
+by auto => />.
+qed.
+
+lemma _negU__proof _a _b_a : _negU__spec _a _b_a.
+proof.
+hint +safety.
+rewrite /_negU__spec; proc.
+wp; ecall (_negc1U__proof param ((BA_8n.init_arr (W8.of_int 255))) param_0).
+by auto => />.
+qed.
+
+lemma _negcU__proof _a _b_a _cf : _negcU__spec _a _b_a _cf.
+proof.
+hint +safety.
+rewrite /_negcU__spec; proc.
+wp; ecall (_negc1U__proof param ((BA_8n.init_arr (W8.of_int 255))) param_0).
+by auto => />.
+qed.
+
+lemma __negc1_proof _r _b_r _a _b_a _cf : __negc1_spec _r _b_r _a _b_a _cf.
+proof.
+hint +safety.
+rewrite /__negc1_spec; proc.
+wp; while (valid trace___negc1 /\ 1 <= i <= nlimbs /\ BA_8n.is_init b_r 0 (8 * i)).
+- auto => /> &hr hv hi0 hi1 hb hin.
+  have h := BL_8n.is_init_ext64 b_r{hr} i{hr} _ hb; 1: smt().
+  smt().
+by auto => /> *; smt(gt0_nlimbs).
+qed.
+
+lemma _negc1_proof _r _b_r _a _b_a _cf : _negc1_spec _r _b_r _a _b_a _cf.
+proof.
+hint +safety.
+rewrite /_negc1_spec; proc.
+wp; ecall (__negc1_proof param b_param param_0 ((BA_8n.init_arr (W8.of_int 255))) param_1).
+by auto => />.
+qed.
+
+lemma _negc1__proof _r _b_r _a _b_a _cf : _negc1__spec _r _b_r _a _b_a _cf.
+proof.
+hint +safety.
+rewrite /_negc1__spec; proc.
+wp; ecall (_negc1_proof param b_param param_0 ((BA_8n.init_arr (W8.of_int 255))) param_1).
+by auto => />.
+qed.
+
+lemma _neg__proof _r _b_r _a _b_a : _neg__spec _r _b_r _a _b_a.
+proof.
+hint +safety.
+rewrite /_neg__spec; proc.
+wp; ecall (_negc1__proof param b_param param_0 ((BA_8n.init_arr (W8.of_int 255))) param_1).
+by auto => />.
+qed.
+
+lemma _negc__proof _r _b_r _a _b_a _cf : _negc__spec _r _b_r _a _b_a _cf.
+proof.
+hint +safety.
+rewrite /_negc__spec; proc.
+wp; ecall (_negc1__proof param b_param param_0 ((BA_8n.init_arr (W8.of_int 255))) param_1).
+by auto => />.
+qed.
+
+lemma _cnegU__proof _a _b_a _cond : _cnegU__spec _a _b_a _cond.
+proof.
+hint +safety.
+rewrite /_cnegU__spec; proc.
+wp; ecall (_cmov__proof param_2 ((BA_8n.init_arr (W8.of_int 255))) param_3 param_4 ((BA_8n.init_arr (W8.of_int 255)))).
+wp; ecall (BNUTIL.__mask_cf_proof param_1).
+wp; ecall (_neg__proof param b_param param_0 ((BA_8n.init_arr (W8.of_int 255)))).
+by auto => />.
+qed.
+
+lemma _caddU__proof _x _b_x _cf _y _b_y : _caddU__spec _x _b_x _cf _y _b_y.
+proof.
+hint +safety.
+rewrite /_caddU__spec; proc.
+wp; ecall (_addU__proof param_4 ((BA_8n.init_arr (W8.of_int 255))) param_5 ((BA_8n.init_arr (W8.of_int 255)))).
+wp; ecall (_and_mask__proof param_2 ((BA_8n.init_arr (W8.of_int 255))) param_3).
+wp; ecall (BNUTIL.__cf_mask_proof param_1).
+wp; ecall (_mov__proof param b_param param_0 ((BA_8n.init_arr (W8.of_int 255)))).
+by auto => />.
+qed.
+
+lemma _cminusP__proof _x _b_x _mP _b_mP _lastbit : _cminusP__spec _x _b_x _mP _b_mP _lastbit.
+proof.
+hint +safety.
+rewrite /_cminusP__spec; proc.
+wp; ecall (_cmov__proof param_3 ((BA_8n.init_arr (W8.of_int 255))) param_4 param_5 ((BA_8n.init_arr (W8.of_int 255)))).
+wp; ecall (_addU__proof param_1 ((BA_8n.init_arr (W8.of_int 255))) param_2 ((BA_8n.init_arr (W8.of_int 255)))).
+wp; ecall (_mov__proof param b_param param_0 ((BA_8n.init_arr (W8.of_int 255)))).
+by auto => />.
+qed.
+
+lemma __pack2_proof _r _b_r _lo _b_lo _hi _b_hi : __pack2_spec _r _b_r _lo _b_lo _hi _b_hi.
+proof.
+hint +safety.
+rewrite /__pack2_spec; proc.
+wp; while (valid trace___pack2 /\ 0 <= i <= nlimbs /\ BA_16n.is_init b_r 0 (8 * (nlimbs + i))).
+- auto => /> &hr hv hi0 hi1 hb hin.
+  have h := BL_16n.is_init_ext64 b_r{hr} (nlimbs + i{hr}) _ hb; 1: smt().
+  smt().
+wp; while (valid trace___pack2 /\ 0 <= i <= nlimbs /\ BA_16n.is_init b_r 0 (8 * i)).
+- auto => /> &hr hv hi0 hi1 hb hin.
+  have h := BL_16n.is_init_ext64 b_r{hr} i{hr} _ hb; 1: smt().
+  smt().
+auto => /> &hr *; split; first smt(gt0_nlimbs).
+move=> *; split; first smt().
+by move=> *; smt().
+qed.
+
+lemma _pack2__proof _r _b_r _lo _b_lo _hi _b_hi : _pack2__spec _r _b_r _lo _b_lo _hi _b_hi.
+proof.
+hint +safety.
+rewrite /_pack2__spec; proc.
+wp; ecall (__pack2_proof param b_param param_0 ((BA_8n.init_arr (W8.of_int 255))) param_1 ((BA_8n.init_arr (W8.of_int 255)))).
+by auto => />.
+qed.

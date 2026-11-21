@@ -5,6 +5,7 @@
               BN::                         // size 4n (store of results)
 */
 
+#[safety = { requires = is_mem_init(ap, 8*H::nlimbs) && is_mem_init(bp, 8*H::nlimbs) && is_mem_init(rp, 8*nlimbs) }]
 export fn bn_kar_muln(reg u64 rp ap bp)
 {
   stack u64[H::nlimbs] _a _b;

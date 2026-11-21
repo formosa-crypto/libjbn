@@ -1,0 +1,207 @@
+(* Safety of fp_pm (src/amd64/ref/fp_pm@fp.jinc): the lemmas of the
+   specifications of theories/Fp_pm_safety_xtr.eca, for any multiplications
+   meeting their contracts (declared axioms of the section). The field
+   operations are fp_base's, with this field's fun_red (lemmas P_FPB). *)
+require import AllCore IntDiv CoreMap List Distr.
+from Jasmin require import JModel_x86.
+import SLH64.
+from Jasmin require import Jcheck JSafety JByte_array JMemory.
+require import ByteArrayInit JbnSafetyLib.
+require Fp_pm_safety_xtr.
+
+clone include Fp_pm_safety_xtr.
+
+clone ByteArrayLib as BL_8n with theory A <- BA_8n.
+clone ByteArrayLib as BL_16n with theory A <- BA_16n.
+clone ByteArrayLib as BL_32n_8 with theory A <- BA_32n_8.
+clone SubByteArrayInit as SBI_32n_8__8n with theory SB <- SB_32n_8__8n.
+clone SubByteArrayLib as SBL_32n_8__8n with theory SB <- SB_32n_8__8n.
+
+section.
+
+declare module P <: MParam.
+
+declare axiom fun_muln_h _r _b_r _a _b_a _b _b_b :
+  hoare [P.fun_muln :
+    arg = (_r, _b_r, _a, _b_a, _b, _b_b) /\ fun_muln_pre _r _b_r _a _b_a _b _b_b
+    ==> fun_muln_post _r _b_r _a _b_a _b _b_b res /\ valid res.`3].
+
+declare axiom fun_sqrn_h _r _b_r _a _b_a :
+  hoare [P.fun_sqrn :
+    arg = (_r, _b_r, _a, _b_a) /\ fun_sqrn_pre _r _b_r _a _b_a
+    ==> fun_sqrn_post _r _b_r _a _b_a res /\ valid res.`3].
+
+lemma _redPM_proof _r _b_r _a _b_a _ctx _b_ctx :
+  hoare [M(P)._redPM :
+    arg = (_r, _b_r, _a, _b_a, _ctx, _b_ctx) /\ _redPM_pre _r _b_r _a _b_a _ctx _b_ctx
+    ==> _redPM_post _r _b_r _a _b_a _ctx _b_ctx res /\ valid res.`3].
+proof.
+hint +safety.
+proc.
+wp.
+while (valid trace__redPM /\ 0 <= j <= 2 /\ BA_8n.is_init b_r 0 (8 * nlimbs)).
+- wp.
+  while (valid trace__redPM /\ 0 <= i <= nlimbs /\ BA_8n.is_init b_r 0 (8 * nlimbs)
+         /\ BA_8n.is_init b__s 0 (8 * nlimbs)).
+  + auto => /> &hr hv hi0 hi1 hr hs hin.
+    have w1 := BL_8n.is_init_word _ i{hr} _ _ _ hr; 1,2: smt().
+    have w2 := BL_8n.is_init_word _ i{hr} _ _ _ hs; 1,2: smt().
+    have m := BL_8n.is_init_mono64 _ (i{hr} * 8) _ _ hr.
+    smt().
+  wp.
+  while (valid trace__redPM /\ 1 <= i <= nlimbs /\ BA_8n.is_init b_r 0 (8 * nlimbs)
+         /\ BA_8n.is_init b__s 0 (8 * i)).
+  + auto => /> &hr hv hi0 hi1 hr hs hin.
+    have w1 := BL_8n.is_init_word _ i{hr} _ _ _ hr; 1,2: smt().
+    have e := BL_8n.is_init_ext64 b__s{hr} i{hr} _ hs; 1: smt().
+    smt().
+  auto => /> &hr hv hj0 hj1 hr hjn.
+  have w0 := BL_8n.is_init_word _ 0 _ _ _ hr; 1,2: smt(gt0_nlimbs).
+  split; first smt(gt0_nlimbs).
+  move=> b_s0 i0 tr0 hi _ hi0 hi1 hs0.
+  have hie : i0 = nlimbs by smt().
+  move: hs0; rewrite hie => hs0.
+  split; first smt(gt0_nlimbs).
+  move=> b_r1 i1 tr1 _ _ _ _ _ _.
+  smt().
+wp; ecall (BNUTIL.__cf_mask_proof param).
+wp.
+while (valid trace__redPM /\ 1 <= i <= nlimbs /\ BA_8n.is_init b_r 0 (8 * nlimbs)).
+- auto => /> &hr hv hi0 hi1 hr hin.
+  have w1 := BL_8n.is_init_word _ i{hr} _ _ _ hr; 1,2: smt().
+  have m := BL_8n.is_init_mono64 _ (i{hr} * 8) _ _ hr.
+  smt().
+wp.
+while (valid trace__redPM /\ 0 <= i <= nlimbs /\ BA_8n.is_init b_r 0 (8 * i)).
+- auto => /> &hr hv hi0 hi1 hr hin.
+  have e := BL_8n.is_init_ext64 b_r{hr} i{hr} _ hr; 1: smt().
+  smt().
+auto => /> ha hc.
+split; first smt(gt0_nlimbs).
+move=> b_r0 i0 tr0 hi _ hi0 hi1 hr0.
+have hie : i0 = nlimbs by smt().
+move: hr0; rewrite hie => hr0.
+have w0 := BL_8n.is_init_word _ 0 _ _ _ hr0; 1,2: smt(gt0_nlimbs).
+have m0 := BL_8n.is_init_mono64 _ 0 _ _ hr0.
+split; first smt(gt0_nlimbs).
+move=> b_r1 i1 tr1 _ _ _ _ hr1 _ _.
+have w1 := BL_8n.is_init_word _ 0 _ _ _ hr1; 1,2: smt(gt0_nlimbs).
+have m1 := BL_8n.is_init_mono64 _ 0 _ _ hr1.
+smt().
+qed.
+
+lemma _redPM__proof _r _b_r _a _b_a _ctx _b_ctx :
+  hoare [M(P)._redPM_ :
+    arg = (_r, _b_r, _a, _b_a, _ctx, _b_ctx) /\ _redPM__pre _r _b_r _a _b_a _ctx _b_ctx
+    ==> _redPM__post _r _b_r _a _b_a _ctx _b_ctx res /\ valid res.`3].
+proof.
+hint +safety.
+proc.
+wp; ecall (_redPM_proof param b_param param_0 ((BA_16n.init_arr (W8.of_int 255))) param_1 ((BA_32n_8.init_arr (W8.of_int 255)))).
+rewrite /_redPM_pre /_redPM_post /_redPM__pre /_redPM__post /fun_red_pre /fun_red_post.
+by auto => /> *; smt().
+qed.
+
+lemma _fromM__proof _a _b_a _ctx _b_ctx :
+  hoare [M(P)._fromM_ :
+    arg = (_a, _b_a, _ctx, _b_ctx) /\ _fromM__pre _a _b_a _ctx _b_ctx
+    ==> _fromM__post _a _b_a _ctx _b_ctx res /\ valid res.`3].
+proof.
+hint +safety.
+proc.
+rewrite /_fromM__pre /_fromM__post.
+by auto.
+qed.
+
+lemma fun_red_proof _r _b_r _a _b_a _ctx _b_ctx :
+  hoare [M(P).fun_red :
+    arg = (_r, _b_r, _a, _b_a, _ctx, _b_ctx) /\ fun_red_pre _r _b_r _a _b_a _ctx _b_ctx
+    ==> fun_red_post _r _b_r _a _b_a _ctx _b_ctx res /\ valid res.`3].
+proof.
+hint +safety.
+proc.
+wp; ecall (_redPM__proof param b_param param_0 ((BA_16n.init_arr (W8.of_int 255))) param_1 ((BA_32n_8.init_arr (W8.of_int 255)))).
+rewrite /_redPM_pre /_redPM_post /_redPM__pre /_redPM__post /fun_red_pre /fun_red_post.
+by auto => /> *; smt().
+qed.
+
+(* the parameters of the field operations of fp_base (included module):
+   the multiplications of P and this field's fun_red *)
+lemma P_FPB_muln_h _r _b_r _a _b_a _b _b_b :
+  hoare [M(P).P_FPB.fun_muln :
+    arg = (_r, _b_r, _a, _b_a, _b, _b_b) /\ FPB.fun_muln_pre _r _b_r _a _b_a _b _b_b
+    ==> FPB.fun_muln_post _r _b_r _a _b_a _b _b_b res /\ valid res.`3].
+proof.
+by conseq (fun_muln_h _r _b_r _a _b_a _b _b_b).
+qed.
+
+lemma P_FPB_sqrn_h _r _b_r _a _b_a :
+  hoare [M(P).P_FPB.fun_sqrn :
+    arg = (_r, _b_r, _a, _b_a) /\ FPB.fun_sqrn_pre _r _b_r _a _b_a
+    ==> FPB.fun_sqrn_post _r _b_r _a _b_a res /\ valid res.`3].
+proof.
+by conseq (fun_sqrn_h _r _b_r _a _b_a).
+qed.
+
+lemma P_FPB_red_h _r _b_r _a _b_a _ctx _b_ctx :
+  hoare [M(P).P_FPB.fun_red :
+    arg = (_r, _b_r, _a, _b_a, _ctx, _b_ctx) /\ FPB.fun_red_pre _r _b_r _a _b_a _ctx _b_ctx
+    ==> FPB.fun_red_post _r _b_r _a _b_a _ctx _b_ctx res /\ valid res.`3].
+proof.
+by conseq (fun_red_proof _r _b_r _a _b_a _ctx _b_ctx).
+qed.
+
+lemma _toM__proof _a _b_a _ctx _b_ctx :
+  hoare [M(P)._toM_ :
+    arg = (_a, _b_a, _ctx, _b_ctx) /\ _toM__pre _a _b_a _ctx _b_ctx
+    ==> _toM__post _a _b_a _ctx _b_ctx res /\ valid res.`3].
+proof.
+hint +safety.
+proc.
+rewrite /_toM__pre /_toM__post.
+by auto.
+qed.
+
+lemma _ctx_init__proof _ctx _b_ctx _p _b_P :
+  hoare [M(P)._ctx_init_ :
+    arg = (_ctx, _b_ctx, _p, _b_P) /\ _ctx_init__pre _ctx _b_ctx _p _b_P
+    ==> _ctx_init__post _ctx _b_ctx _p _b_P res /\ valid res.`3].
+proof.
+hint +safety.
+proc.
+wp; ecall (BNB._cminusP__proof param_7 ((BA_8n.init_arr (W8.of_int 255))) param_8 b_param_5 param_9).
+wp; ecall (BNB._mov__proof param_5 b_param_3 param_6 b_param_4).
+wp; ecall (BNB._set0__proof param_4 b_param_2).
+wp; ecall (BNB._set0__proof param_3 b_param_1).
+wp; ecall (BNB._neg__proof param_1 b_param_0 param_2 ((BA_8n.init_arr (W8.of_int 255)))).
+wp; ecall (BNB._mov__proof param b_param param_0 ((BA_8n.init_arr (W8.of_int 255)))).
+rewrite /_ctx_init__pre /_ctx_init__post.
+auto => /> hp.
+pose I := BA_8n.init_arr (W8.of_int 255).
+pose B1 := SB_32n_8__8n.set_sub _b_ctx 0 I.
+pose B2 := SB_32n_8__8n.set_sub B1 (8 * nlimbs) I.
+pose B3 := SB_32n_8__8n.set_sub B2 (8 * (2 * nlimbs)) I.
+pose B4 := BA_32n_8.set64d B3 (2 * nlimbs * 8) BL_32n_8.m1_64.
+pose B5 := SB_32n_8__8n.set_sub B4 (8 * (3 * nlimbs)) I.
+have h1 : BA_32n_8.is_init B1 0 (8 * nlimbs).
+- by have := SBL_32n_8__8n.is_init_ext_sub _b_ctx 0 _ _; [done | rewrite BL_32n_8.is_init_le0 | smt()].
+have h2 : BA_32n_8.is_init B2 0 (8 * (2 * nlimbs)).
+- by have := SBL_32n_8__8n.is_init_ext_sub B1 (8 * nlimbs) _ h1; [smt(gt0_nlimbs) | smt()].
+have h3 : BA_32n_8.is_init B3 0 (8 * (3 * nlimbs)).
+- by have := SBL_32n_8__8n.is_init_ext_sub B2 (8 * (2 * nlimbs)) _ h2; [smt(gt0_nlimbs) | smt()].
+have h4 : BA_32n_8.is_init B4 0 (8 * (3 * nlimbs)) by apply BL_32n_8.is_init_mono64.
+have h5 : BA_32n_8.is_init B5 0 (8 * (4 * nlimbs)).
+- by have := SBL_32n_8__8n.is_init_ext_sub B4 (8 * (3 * nlimbs)) _ h4; [smt(gt0_nlimbs) | smt()].
+have hm : BA_8n.is_init (SB_32n_8__8n.get_sub B5 (8 * nlimbs)) 0 (8 * nlimbs).
+- apply FPB.ctx_slice; 1,2: smt(gt0_nlimbs).
+  by apply (BL_32n_8.is_init_sub _ _ _ _ _ h5); smt(gt0_nlimbs).
+have h6 := BL_32n_8.is_init_ext64 B5 (4 * nlimbs) _ h5; 1: smt(gt0_nlimbs).
+move: hm h6; rewrite /B5 /B4 /B3 /B2 /B1 /I => hm h6.
+move=> r0 _ _ r1 _ _ r2 _ _ r3 _ _.
+split; first exact hm.
+move=> _ r4 _ _ r5 _ _.
+split; first exact h6.
+smt(gt0_nlimbs).
+qed.
+
+end section.

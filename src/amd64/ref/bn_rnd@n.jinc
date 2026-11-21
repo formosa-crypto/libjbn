@@ -27,6 +27,7 @@ inline fn _randombytes_
 */
 
 /* random number */
+#[safety = { ensures = is_arr_init(a, 0, 8*nlimbs) }]
 inline fn _rnd_
 ( reg mut ptr u64[nlimbs] a
 ) -> reg ptr u64[nlimbs] {
@@ -39,6 +40,7 @@ inline fn _rnd_
 /* mask = 2^k - 1, for k the bit length of bnd (bnd is public: the mask
    only depends on it). hi is all-ones below the most significant non-zero
    limb of bnd. */
+#[safety = { requires = is_arr_init(bnd, 0, 8*nlimbs), ensures = is_arr_init(mask, 0, 8*nlimbs) }]
 inline fn __bnd_mask
 ( reg mut ptr u64[nlimbs] mask
 , reg const ptr u64[nlimbs] bnd
@@ -68,6 +70,7 @@ inline fn __bnd_mask
    Each sample is first reduced to the bit length of bnd, so that it is
    accepted with probability > 1/2 whatever the size of bnd (without the
    mask, a bound much shorter than the array is practically never met). */
+#[safety = { requires = is_arr_init(bnd, 0, 8*nlimbs), ensures = is_arr_init(a, 0, 8*nlimbs) }]
 inline fn _rsample_
 ( reg mut ptr u64[nlimbs] a
 , reg const ptr u64[nlimbs] bnd

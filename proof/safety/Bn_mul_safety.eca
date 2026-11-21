@@ -1,0 +1,292 @@
+(* Safety of bn_mul (src/amd64/ref/bn_mul@n.jinc): the lemmas of the
+   specifications of theories/Bn_mul_safety_xtr.eca. *)
+require import AllCore IntDiv CoreMap List Distr.
+from Jasmin require import JModel_x86.
+import SLH64.
+from Jasmin require import Jcheck JSafety JByte_array JMemory.
+require import ByteArrayInit JbnSafetyLib.
+require Bn_mul_safety_xtr.
+
+clone include Bn_mul_safety_xtr.
+
+clone ByteArrayLib as BL24 with theory A <- BArray24.
+clone ByteArrayLib as BL_8n with theory A <- BA_8n.
+clone ByteArrayLib as BL_8n_8 with theory A <- BA_8n_8.
+clone ByteArrayLib as BL_16n with theory A <- BA_16n.
+clone SubByteArrayInit as SBI_16n__8n with theory SB <- SB_16n__8n.
+
+lemma BL16n_ext (t : BA_16n.t) i :
+  0 <= i => BA_16n.is_init t 0 (8 * i) =>
+  BA_16n.is_init (BA_16n.set64d t (i * 8) BL_16n.m1_64) 0 (8 * (i + 1)).
+proof.
+exact BL_16n.is_init_ext64.
+qed.
+
+lemma __mul1_proof _r _b_r _a _b _b_b : __mul1_spec _r _b_r _a _b _b_b.
+proof.
+hint +safety.
+rewrite /__mul1_spec; proc.
+wp; while (valid trace___mul1 /\ 1 <= i <= nlimbs /\ BA_8n_8.is_init b_rr 0 (8 * (i + 1))
+           /\ BA_16n.is_init b_r 0 (8 * i)).
+- auto => /> &hr hv hi1 hi2 hrr hr hin.
+  have h1 := BL_8n_8.is_init_ext64 b_rr{hr} (i{hr} + 1) _ hrr; 1: smt().
+  have h2 := BL_8n_8.is_init_mono64 _ (i{hr} * 8) _ _ h1.
+  have h3 := BL_16n.is_init_ext64 b_r{hr} i{hr} _ hr; 1: smt().
+  have w1 := BL_8n_8.is_init_word _ i{hr} _ _ _ h1; 1,2: smt().
+  have w2 := BL_8n_8.is_init_word _ i{hr} _ _ _ h2; 1,2: smt().
+  smt().
+auto => /> hb; split; first smt(gt0_nlimbs).
+move=> b_r0 b_rr0 i0 tr0 hin hv hi1 hi2 hrr hr.
+have hi : i0 = nlimbs by smt().
+move: hrr hr; rewrite hi => hrr hr.
+have w1 := BL_8n_8.is_init_word _ nlimbs _ _ _ hrr; 1,2: smt().
+have h3 := BL_16n.is_init_ext64 b_r0 nlimbs _ hr; 1: smt(gt0_nlimbs).
+smt(gt0_nlimbs).
+qed.
+
+lemma __mul1acc_proof _k _r _b_r _a _b _b_b __zero _of _cf : __mul1acc_spec _k _r _b_r _a _b _b_b __zero _of _cf.
+proof.
+hint +safety.
+rewrite /__mul1acc_spec; proc.
+wp; while (valid trace___mul1acc /\ inc = nlimbs - 1 /\ 0 <= i <= nlimbs - 1 /\ 1 <= k < nlimbs
+           /\ BA_8n_8.is_init b_rr 0 (8 * (i + 1)) /\ BA_16n.is_init b_r 0 (8 * (k + nlimbs))).
+- auto => /> &hr hv hi0 hi1 hk1 hk2 hrr hr hin.
+  have h1 := BL_8n_8.is_init_ext64 b_rr{hr} (i{hr} + 1) _ hrr; 1: smt().
+  have h2 := BL_8n_8.is_init_mono64 _ (i{hr} * 8) _ _ h1.
+  have h2b := BL_8n_8.is_init_mono64 _ ((i{hr} + 1) * 8) _ _ h2.
+  have h3 := BL_16n.is_init_mono64 _ ((k{hr} + i{hr}) * 8) _ _ hr.
+  have w1 := BL_8n_8.is_init_word _ i{hr} _ _ _ h1; 1,2: smt().
+  have w2 := BL_8n_8.is_init_word _ i{hr} _ _ _ h2; 1,2: smt().
+  have w3 := BL_8n_8.is_init_word _ (i{hr} + 1) _ _ _ h2; 1,2: smt().
+  have w4 := BL_16n.is_init_word _ (k{hr} + i{hr} + 1) _ _ _ hr; 1,2: smt().
+  smt().
+auto => /> hk1 hk2 hr hb; split.
+- split; first split; first smt().
+  + by apply (BL_16n.is_init_word _ _k (8 * (_k + nlimbs))) => /#.
+  smt(gt0_nlimbs).
+move=> b_r0 b_rr0 i0 tr0 hin hv hi0 hi1 hrr hr0.
+have hi : i0 = nlimbs - 1 by smt().
+move: hrr; rewrite hi /= => hrr.
+have h1 := BL_8n_8.is_init_ext64 b_rr0 nlimbs _ hrr; 1: smt(gt0_nlimbs).
+have h2 := BL_8n_8.is_init_mono64 _ ((nlimbs - 1) * 8) _ _ h1.
+have w1 := BL_8n_8.is_init_word _ (nlimbs - 1) _ _ _ h1; 1,2: smt(gt0_nlimbs).
+have w2 := BL_8n_8.is_init_word _ nlimbs _ _ _ h2; 1,2: smt().
+have h3 := BL_16n.is_init_mono64 _ ((_k + nlimbs - 1) * 8) _ _ hr0.
+have h4 := BL_16n.is_init_ext64 _ (_k + nlimbs) _ h3; 1: smt().
+smt(gt0_nlimbs).
+qed.
+
+lemma _os_muln_proof _r _b_r _a _b_a _b _b_b : _os_muln_spec _r _b_r _a _b_a _b _b_b.
+proof.
+hint +safety.
+rewrite /_os_muln_spec; proc.
+wp; while (valid trace__os_muln /\ 1 <= i <= nlimbs /\ BA_16n.is_init b_r 0 (8 * (i + nlimbs))).
+- wp; ecall (__mul1acc_proof param_2 param_3 b_param_0 param_4 param_5 (BA_8n.init_arr (W8.of_int 255)) param_6 param_7 param_8).
+  by auto => /> &hr *; smt().
+wp; ecall (__mul1_proof param b_param param_0 param_1 (BA_8n.init_arr (W8.of_int 255))).
+by auto => /> *; smt(gt0_nlimbs).
+qed.
+
+lemma _os_muln__proof _r _b_r _a _b_a _b _b_b : _os_muln__spec _r _b_r _a _b_a _b _b_b.
+proof.
+hint +safety.
+rewrite /_os_muln__spec; proc.
+wp; ecall (_os_muln_proof param b_param param_0 ((BA_8n.init_arr (W8.of_int 255))) param_1 ((BA_8n.init_arr (W8.of_int 255)))).
+by auto => />.
+qed.
+
+lemma __muln_innerloop_proof _x _b_x _k _istart _iend _a _b_a _b _b_b : __muln_innerloop_spec _x _b_x _k _istart _iend _a _b_a _b _b_b.
+proof.
+hint +safety.
+rewrite /__muln_innerloop_spec; proc.
+wp; while (valid trace___muln_innerloop /\ inc = iend
+           /\ istart <= i /\ (istart <= iend => i <= iend)
+           /\ 0 <= istart /\ iend <= nlimbs /\ 0 <= k - (iend - 1) /\ k - istart < nlimbs
+           /\ BA_8n.is_init b_a (8 * istart) (8 * (iend - istart))).
+- wp; ecall (BNUTIL.__addacc3_proof param (BArray24.init_arr (W8.of_int 255)) param_0 param_1 param_2).
+  auto => /> &hr hv hi hie h0 hn hk1 hk2 ha hin r hr hvr.
+  have hsub: BA_8n.is_init b_a{hr} (i{hr} * 8) 8.
+  - by apply (BL_8n.is_init_sub _ _ _ _ _ ha); smt().
+  smt().
+by auto => /> &hr *; smt().
+qed.
+
+lemma __ps_muln_proof _r _b_r _a _b_a _b _b_b : __ps_muln_spec _r _b_r _a _b_a _b _b_b.
+proof.
+hint +safety.
+rewrite /__ps_muln_spec; proc.
+wp.
+while (valid trace___ps_muln /\ inc = 2 * nlimbs - 1 /\ nlimbs <= k <= 2 * nlimbs - 1
+       /\ BA_16n.is_init b_r 0 (8 * k) /\ BArray24.is_init b_x 0 24).
+- wp; ecall (__muln_innerloop_proof param_5 b_param_0 param_6 param_7 param_8 param_9 ((BA_8n.init_arr (W8.of_int 255))) param_10 ((BA_8n.init_arr (W8.of_int 255)))).
+  auto => /> &hr *.
+  split; first smt().
+  move=> *.
+  have h := BL_16n.is_init_ext64 b_r{hr} k{hr} _ _; 1,2: smt().
+  smt(mod3_bnd BL24.is_init_mono64).
+wp.
+while (valid trace___ps_muln /\ 1 <= k <= nlimbs /\ BA_16n.is_init b_r 0 (8 * k) /\ BArray24.is_init b_x 0 24).
+- wp; ecall (__muln_innerloop_proof param b_param param_0 param_1 param_2 param_3 ((BA_8n.init_arr (W8.of_int 255))) param_4 ((BA_8n.init_arr (W8.of_int 255)))).
+  auto => /> &hr *.
+  split; first smt().
+  move=> *.
+  have h := BL_16n.is_init_ext64 b_r{hr} k{hr} _ _; 1,2: smt().
+  smt(mod3_bnd BL24.is_init_mono64).
+auto => /> *; split; first smt(gt0_nlimbs).
+move=> b_r0 b_x0 k0 tr0 hk hv hk0 hk1 hr0 hx0.
+split; first smt(gt0_nlimbs).
+move=> b_r1 b_x1 k1 tr1 hk' hv1 hk2 hk3 hr1 hx1.
+have hk4 : k1 = 2 * nlimbs - 1 by smt().
+move: hr1; rewrite hk4 => hr1.
+have h := BL_16n.is_init_ext64 b_r1 (2 * nlimbs - 1) _ hr1; 1: smt(gt0_nlimbs).
+have w := BL24.is_init_sub _ _ _ ((2 * nlimbs - 1) %% 3 * 8) 8 hx1 _ _; 1,2: smt(mod3_bnd).
+split; first by rewrite (_: 16 * nlimbs = 8 * (2 * nlimbs - 1 + 1)) 1:/#.
+smt(mod3_bnd gt0_nlimbs).
+qed.
+
+lemma _ps_muln_proof _r _b_r _a _b_a _b _b_b : _ps_muln_spec _r _b_r _a _b_a _b _b_b.
+proof.
+hint +safety.
+rewrite /_ps_muln_spec; proc.
+wp; ecall (__ps_muln_proof param b_param param_0 ((BA_8n.init_arr (W8.of_int 255))) param_1 ((BA_8n.init_arr (W8.of_int 255)))).
+by auto => />.
+qed.
+
+lemma _ps_muln__proof _r _b_r _a _b_a _b _b_b : _ps_muln__spec _r _b_r _a _b_a _b _b_b.
+proof.
+hint +safety.
+rewrite /_ps_muln__spec; proc.
+wp; ecall (_ps_muln_proof param b_param param_0 ((BA_8n.init_arr (W8.of_int 255))) param_1 ((BA_8n.init_arr (W8.of_int 255)))).
+by auto => />.
+qed.
+
+lemma __sqrn_innerloop_proof _x _b_x _k _istart _iend _a _b_a : __sqrn_innerloop_spec _x _b_x _k _istart _iend _a _b_a.
+proof.
+hint +safety.
+rewrite /__sqrn_innerloop_spec; proc.
+wp; while (valid trace___sqrn_innerloop /\ inc = iend
+           /\ istart <= i /\ (istart <= iend => i <= iend)
+           /\ 0 <= istart /\ iend <= nlimbs /\ 0 <= k - (iend - 1) /\ k - istart < nlimbs).
+- wp; ecall (BNUTIL.__addacc3x2_proof param (BArray24.init_arr (W8.of_int 255)) param_0 param_1 param_2).
+  by auto => /> &hr *; smt().
+by auto => /> &hr *; smt().
+qed.
+
+lemma __ps_sqrn_proof _r _b_r _a _b_a : __ps_sqrn_spec _r _b_r _a _b_a.
+proof.
+hint +safety.
+rewrite /__ps_sqrn_spec; proc.
+wp.
+while (valid trace___ps_sqrn /\ inc = 2 * nlimbs - 1 /\ nlimbs <= k <= 2 * nlimbs - 1
+       /\ BA_16n.is_init b_r 0 (8 * k) /\ BArray24.is_init b_x 0 24).
+- seq ^if : (valid trace___ps_sqrn /\ inc = 2 * nlimbs - 1 /\ nlimbs <= k < 2 * nlimbs - 1 /\ BA_16n.is_init b_r 0 (8 * k) /\ b_x = (BArray24.init_arr (W8.of_int 255))).
+  + wp; ecall (__sqrn_innerloop_proof param_8 b_param_0 param_9 param_10 param_11 param_12 ((BA_8n.init_arr (W8.of_int 255)))).
+    by auto => /> &hr *; smt().
+  if.
+  + wp; ecall (BNUTIL.__addacc3_proof param_13 ((BArray24.init_arr (W8.of_int 255))) param_14 param_15 param_16).
+    auto => /> &hr *.
+    have h := BL_16n.is_init_ext64 b_r{hr} k{hr} _ _; 1,2: smt().
+    smt(mod3_bnd BL24.is_init_mono64).
+  auto => /> &hr *.
+  have h := BL_16n.is_init_ext64 b_r{hr} k{hr} _ _; 1,2: smt().
+  smt(mod3_bnd BL24.is_init_mono64).
+wp.
+while (valid trace___ps_sqrn /\ 1 <= k <= nlimbs /\ BA_16n.is_init b_r 0 (8 * k) /\ BArray24.is_init b_x 0 24).
+- seq ^if : (valid trace___ps_sqrn /\ 1 <= k < nlimbs /\ BA_16n.is_init b_r 0 (8 * k) /\ b_x = (BArray24.init_arr (W8.of_int 255))).
+  + wp; ecall (__sqrn_innerloop_proof param b_param param_0 param_1 param_2 param_3 ((BA_8n.init_arr (W8.of_int 255)))).
+    by auto => /> &hr *; smt().
+  if.
+  + wp; ecall (BNUTIL.__addacc3_proof param_4 ((BArray24.init_arr (W8.of_int 255))) param_5 param_6 param_7).
+    auto => /> &hr *.
+    have h := BL_16n.is_init_ext64 b_r{hr} k{hr} _ _; 1,2: smt().
+    smt(mod3_bnd BL24.is_init_mono64).
+  auto => /> &hr *.
+  have h := BL_16n.is_init_ext64 b_r{hr} k{hr} _ _; 1,2: smt().
+  smt(mod3_bnd BL24.is_init_mono64).
+auto => /> *; split; first smt(gt0_nlimbs).
+move=> b_r0 b_x0 k0 tr0 hk hv hk0 hk1 hr0 hx0.
+split; first smt(gt0_nlimbs).
+move=> b_r1 b_x1 k1 tr1 hk' hv1 hk2 hk3 hr1 hx1.
+have hk4 : k1 = 2 * nlimbs - 1 by smt().
+move: hr1; rewrite hk4 => hr1.
+have h := BL_16n.is_init_ext64 b_r1 (2 * nlimbs - 1) _ hr1; 1: smt(gt0_nlimbs).
+have w := BL24.is_init_sub _ _ _ ((2 * nlimbs - 1) %% 3 * 8) 8 hx1 _ _; 1,2: smt(mod3_bnd).
+split; first by rewrite (_: 16 * nlimbs = 8 * (2 * nlimbs - 1 + 1)) 1:/#.
+smt(mod3_bnd gt0_nlimbs).
+qed.
+
+lemma _ps_sqrn_proof _r _b_r _a _b_a : _ps_sqrn_spec _r _b_r _a _b_a.
+proof.
+hint +safety.
+rewrite /_ps_sqrn_spec; proc.
+wp; ecall (__ps_sqrn_proof param b_param param_0 ((BA_8n.init_arr (W8.of_int 255)))).
+by auto => />.
+qed.
+
+lemma _ps_sqrn__proof _r _b_r _a _b_a : _ps_sqrn__spec _r _b_r _a _b_a.
+proof.
+hint +safety.
+rewrite /_ps_sqrn__spec; proc.
+wp; ecall (_ps_sqrn_proof param b_param param_0 ((BA_8n.init_arr (W8.of_int 255)))).
+by auto => />.
+qed.
+
+lemma _ps_ksqrn__proof _r _b_r _tmp _b_tmp _a _b_a : _ps_ksqrn__spec _r _b_r _tmp _b_tmp _a _b_a.
+proof.
+hint +safety.
+rewrite /_ps_ksqrn__spec; proc.
+wp; ecall (_ps_sqrn__proof param b_param param_0 ((BA_8n.init_arr (W8.of_int 255)))).
+by auto => />.
+qed.
+
+lemma __mont_redM_proof _r _b_r _a _b_a __P_mP _b__P_mP __U0 : __mont_redM_spec _r _b_r _a _b_a __P_mP _b__P_mP __U0.
+proof.
+hint +safety.
+rewrite /__mont_redM_spec; proc.
+wp; ecall (BNB._cminusP__proof param_23 b_param_5 param_24 b_param_6 param_25).
+wp.
+while (valid trace___mont_redM /\ inc = 2 * nlimbs - 1
+       /\ nlimbs <= k <= 2 * nlimbs - 1
+       /\ BA_8n.is_init b_r 0 (8 * nlimbs) /\ BArray24.is_init b_x 0 24
+       /\ BA_8n.is_init b_P 0 (8 * nlimbs) /\ BA_16n.is_init b__P_mP 0 (16 * nlimbs)).
+- wp; ecall (BNUTIL.__addacc3_proof param_19 ((BArray24.init_arr (W8.of_int 255))) param_20 param_21 param_22).
+  wp; ecall (__muln_innerloop_proof param_13 b_param_2 param_14 param_15 param_16 param_17 b_param_3 param_18 b_param_4).
+  auto => /> &hr hv hk0 hk1 hr hx hp hpm hin.
+  have hsub: BA_8n.is_init b_r{hr} (8 * (k{hr} - nlimbs + 1))
+                                (8 * (nlimbs - (k{hr} - nlimbs + 1))).
+  - by apply (BL_8n.is_init_sub _ _ _ _ _ hr); smt().
+  split; first smt().
+  move=> *; split; first smt(mod3_bnd).
+  split; first smt().
+  by apply BL_8n.is_init_mono64.
+wp.
+while (valid trace___mont_redM /\ 0 <= k <= nlimbs
+       /\ BA_8n.is_init b_r 0 (8 * k) /\ BArray24.is_init b_x 0 24
+       /\ BA_8n.is_init b_P 0 (8 * nlimbs) /\ BA_16n.is_init b__P_mP 0 (16 * nlimbs)).
+- wp; ecall (BNUTIL.__addacc3_proof param_9 ((BArray24.init_arr (W8.of_int 255))) param_10 param_11 param_12).
+  wp; ecall (BNUTIL.__addacc3_proof param_5 ((BArray24.init_arr (W8.of_int 255))) param_6 param_7 param_8).
+  wp; ecall (__muln_innerloop_proof param b_param param_0 param_1 param_2 param_3 b_param_0 param_4 b_param_1).
+  auto => /> &hr hv hk0 hk1 hr hx hp hpm hin.
+  split; first smt().
+  move=> *; split.
+  - split; first smt(mod3_bnd).
+    by apply (BL_8n.is_init_sub _ _ _ _ _ hp); smt().
+  split; first smt().
+  by apply BL_8n.is_init_ext64 => /#.
+auto => /> ha hpm.
+have hP: BA_8n.is_init (SB_16n__8n.get_sub _b__P_mP 0) 0 (8 * nlimbs).
+- rewrite SBI_16n__8n.is_init_get_sub; 1..4: smt(gt0_nlimbs).
+  by apply (BL_16n.is_init_sub _ _ _ _ _ hpm); smt(gt0_nlimbs).
+have hmP: BA_8n.is_init (SB_16n__8n.get_sub _b__P_mP (8 * nlimbs)) 0 (8 * nlimbs).
+- rewrite SBI_16n__8n.is_init_get_sub; 1..4: smt(gt0_nlimbs).
+  by apply (BL_16n.is_init_sub _ _ _ _ _ hpm); smt(gt0_nlimbs).
+split; first smt(gt0_nlimbs).
+move=> b_r0 b_x0 k0 tr0 hk hv0 hk0 hk1 hr0 hx0 _.
+split; first smt(gt0_nlimbs).
+move=> b_r1 b_x1 k1 tr1 hk' hv1 hk2 hk3 hr1 hx1.
+split; first by split; [done | apply BL_8n.is_init_mono64].
+move=> _ _ r0 _ _.
+have hx2 := BL24.is_init_sub _ _ _ (2 * nlimbs %% 3 * 8) 8 hx1 _ _; 1,2: smt(mod3_bnd).
+have hx3 := BL24.is_init_sub _ _ _ ((2 * nlimbs - 1) %% 3 * 8) 8 hx1 _ _; 1,2: smt(mod3_bnd).
+smt(mod3_bnd gt0_nlimbs).
+qed.
