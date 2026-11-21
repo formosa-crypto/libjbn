@@ -7,9 +7,7 @@ A big-number (multi-limb) and prime-field arithmetic library written in
 The library code is *generic*: almost everything is parametrised by the
 number of 64-bit limbs (`nlimbs`) and, for the field code, by the modulus
 and a few auxiliary constants and functions. Jasmin has no parametric
-modules yet (see the proposal in
-[jasmin-lang/jasmin#519](https://github.com/jasmin-lang/jasmin/issues/519)),
-so this repository emulates them:
+modules yet, so this repository emulates them:
 
 * on the **code side**, with *Jasmin namespaces*: a library module is a
   template, a plain Jasmin file `<module>@<tag>.jinc` that is `require`d
