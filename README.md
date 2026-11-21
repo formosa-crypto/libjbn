@@ -928,7 +928,10 @@ For RSA, the contracts hold for any well-formed expanded key (`wf_pk`,
 `wf_sk` in `RsaPss_keys.ec`: Montgomery contexts of n, p and q, and the
 values of e, dP, dQ, qInv): `rsa_enc` gives `m^e mod n`; `rsa_dec`, for
 `c < p*q` and `qInv * q = 1 (mod p)`, a result below `p*q`, congruent to
-`c^dP` modulo p and to `c^dQ` modulo q. `rsa_init` builds well-formed
+`c^dP` modulo p and to `c^dQ` modulo q (`rsa_dec_crt_h`), which is
+`c^d mod n` when p and q are distinct primes and d, dP, dQ are positive
+with `d = dP (mod p-1)`, `d = dQ (mod q-1)` (`rsa_dec_h`, from
+`Fermat_little` of `IntDiv`). `rsa_init` builds well-formed
 expanded keys of the example key pair (from the contract of
 `_ctx_init_`), whose facts (n = p*q, qInv) are computed by the
 simplifier.
@@ -1050,9 +1053,14 @@ the wiring of a Montgomery field instance (used by `test/misc` and
     well-formed expanded keys of the example key pair; for any
     well-formed expanded keys, `rsa_enc` returns `m^e mod n`, and
     `rsa_dec`, for `c < p*q` and `qInv * q = 1 (mod p)`, a result below
-    `p*q` congruent to `c^dP` modulo p and to `c^dQ` modulo q. That this
-    is `c^d mod n`, and that decryption inverts encryption, needs p and q
-    prime and Fermat's little theorem: not done.
+    `p*q` congruent to `c^dP` modulo p and to `c^dQ` modulo q; for p and q
+    distinct primes and `d = dP (mod p-1)`, `d = dQ (mod q-1)` (d, dP, dQ
+    positive), that result is `c^d mod n` (`rsa_dec_h`, from Fermat's
+    little theorem, `IntDiv.Fermat_little`). For the example key, whose d
+    (`d_val`, the inverse of e modulo lcm(p-1, q-1)) is computed, this
+    holds under the hypotheses that p and q are prime
+    (`rsa_dec_test_d_h`: their primality is not proved). That decryption
+    inverts encryption is not done.
   * `Bn_mul_loop.eca`, `Bn_mulx_loop.eca` and `Bn_mulx.eca` prove the
     contracts of `Bn_mul` for the other three modules: losslessness and
     correctness of `_os_muln_`, `_os_sqrn_` and `__mont_redM`. The rows

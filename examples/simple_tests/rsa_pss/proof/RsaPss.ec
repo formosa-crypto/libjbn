@@ -7,7 +7,10 @@
      rsa_dec    RSASP1 by the CRT, for any well-formed SK of
                 (p, q, dP, dQ, qInv) with qInv * q = 1 (mod p): for c < p*q,
                 a result below p*q, congruent to c^dP modulo p and to c^dQ
-                modulo q.
+                modulo q (rsa_dec_crt_h); if moreover p and q are distinct
+                primes, and d, dP, dQ positive with d = dP (mod p-1) and
+                d = dQ (mod q-1), the result is c^d mod n (rsa_dec_h, from
+                Fermat's little theorem of IntDiv).
 
    The library procedures they call have the contracts of the library
    theories (RsaPss_inst.ec); the formats of the keys and the example key
@@ -325,6 +328,79 @@ have: (mp - mq) * qi %% p * q <= (p - 1) * q.
 smt().
 qed.
 
+(* -------------------------------------------------------------------- *)
+(* from the CRT to c^d mod n: Fermat's little theorem (IntDiv)           *)
+
+(* modulo a prime p, the exponent of a c prime to p counts modulo p - 1 *)
+lemma fermat_exp p c x: prime p => ! p %| c => 0 <= x =>
+  c ^ x %% p = c ^ (x %% (p - 1)) %% p.
+proof.
+move=> Hp Hc Hx; have Hp1 := gt1_prime p Hp.
+have HF: c ^ (p - 1) %% p = 1.
+- have := Fermat_little p c Hp Hc.
+  rewrite -eqmodE => <-.
+  by rewrite modz_small 1:/#.
+rewrite {1}(divz_eq x (p - 1)) Ring.IntID.exprD_nneg.
+- by apply StdOrder.IntOrder.mulr_ge0; [apply divz_ge0 => /# | smt()].
+- by apply modz_ge0 => /#.
+rewrite (Ring.IntID.mulrC (x %/ (p - 1))) Ring.IntID.exprM -modzMml (JBigNumber.modz_pow (c ^ (p - 1)) (x %/ (p - 1)) p).
+- by apply divz_ge0 => /#.
+by rewrite HF Ring.IntID.expr1z modzMml.
+qed.
+
+(* a positive power of a multiple of p is a multiple of p *)
+lemma pow_dvd p c x: p %| c => 0 < x => c ^ x %% p = 0.
+proof.
+move=> Hc Hx; rewrite -dvdzE.
+have ->: x = (x - 1) + 1 by ring.
+by rewrite Ring.IntID.exprS 1:/#; apply dvdz_mulr.
+qed.
+
+(* modulo a prime p, positive exponents equal modulo p - 1 give the same
+   power *)
+lemma exp_eqm p c x y: prime p => 0 < x => 0 < y => x %% (p - 1) = y %% (p - 1) =>
+  c ^ x %% p = c ^ y %% p.
+proof.
+move=> Hp Hx Hy Hxy; case: (p %| c) => Hc.
+- by rewrite !(pow_dvd p c) //.
+by rewrite (fermat_exp p c x) // 1:/# (fermat_exp p c y) // 1:/# Hxy.
+qed.
+
+(* a number is determined modulo p * q by its residues modulo the distinct
+   primes p and q *)
+lemma crt_eq p q a b: prime p => prime q => p <> q =>
+  a %% p = b %% p => a %% q = b %% q => a %% (p * q) = b %% (p * q).
+proof.
+move=> Hp Hq Hpq Ha Hb.
+have Hcop: coprime q p.
+- apply (prime_coprime q Hq p); rewrite -dvdzE; apply/negP => Hd.
+  have [_ Hdiv] := Hp; have := Hdiv q Hd.
+  by have := gt1_prime q Hq; smt().
+have /eqmodE /dvdzP [k Hk] := Ha.
+have /eqmodE Hdq := Hb; apply/eqmodE.
+have: q %| p * k by rewrite Ring.IntID.mulrC -Hk; exact Hdq.
+move=> /Gauss /(_ Hcop) /dvdzP [j Hj].
+by rewrite Hk Hj; apply/dvdzP; exists j; ring.
+qed.
+
+(* the result of the CRT is c^d mod p*q, for d = dp (mod p-1) and
+   d = dq (mod q-1) *)
+lemma crt_pow p q d dp dq c r:
+  prime p => prime q => p <> q => 0 < d => 0 < dp => 0 < dq =>
+  dp %% (p - 1) = d %% (p - 1) => dq %% (q - 1) = d %% (q - 1) =>
+  r %% p = (c %% p) ^ dp %% p => r %% q = (c %% q) ^ dq %% q => 0 <= r < p * q =>
+  r = c ^ d %% (p * q).
+proof.
+move=> Hp Hq Hpq Hd Hdp Hdq Ep Eq Rp Rq Hr.
+have Hn: 0 < p * q by apply StdOrder.IntOrder.mulr_gt0; apply gt0_prime.
+rewrite -(modz_small r (p * q)); first by rewrite StdOrder.IntOrder.ger0_norm; smt().
+apply (crt_eq p q) => //.
+- rewrite Rp -(JBigNumber.modz_pow c dp p) 1:/#.
+  exact (exp_eqm p c dp d Hp Hdp Hd Ep).
+rewrite Rq -(JBigNumber.modz_pow c dq q) 1:/#.
+exact (exp_eqm q c dq d Hq Hdq Hd Eq).
+qed.
+
 (* a sum below R has no carry *)
 lemma withcarry_small (r: bool * W64.t Array32.t) s:
   F32.BigN.BN.bn_withcarry r = s => 0 <= s < R32 => bn32 r.`2 = s.
@@ -434,8 +510,9 @@ split; first exact Emq1.
 by case: Cb.
 qed.
 
-(* rsa_dec(m, c, SK): m = c^d mod n, by the CRT *)
-hoare rsa_dec_h P Q DP DQ QI _c:
+(* rsa_dec(m, c, SK), by the CRT: for c < p*q, a result below p*q,
+   congruent to c^dP modulo p and to c^dQ modulo q *)
+hoare rsa_dec_crt_h P Q DP DQ QI _c:
  M.rsa_dec
  : c = _c /\ wf_sk P Q DP DQ QI sk /\ QI < P /\ QI * Q %% P = 1 /\ bn32 _c < P * Q
    ==> bn32 res %% P = (bn32 _c %% P) ^ DP %% P
@@ -448,11 +525,27 @@ ecall (mov32_h c).
 by skip => &hr [-> H] /= m1 ->.
 qed.
 
+(* rsa_dec(m, c, SK): m = c^d mod n, for p and q distinct primes and
+   positive d, dP, dQ with d = dP (mod p-1) and d = dQ (mod q-1) *)
+hoare rsa_dec_h P Q D DP DQ QI _c:
+ M.rsa_dec
+ : c = _c /\ wf_sk P Q DP DQ QI sk /\ QI < P /\ QI * Q %% P = 1 /\ bn32 _c < P * Q
+   /\ prime P /\ prime Q /\ P <> Q /\ 0 < D /\ 0 < DP /\ 0 < DQ
+   /\ DP %% (P - 1) = D %% (P - 1) /\ DQ %% (Q - 1) = D %% (Q - 1)
+   ==> bn32 res = bn32 _c ^ D %% (P * Q).
+proof.
+conseq (rsa_dec_crt_h P Q DP DQ QI _c).
+- by move=> &hr />.
+move=> &hr [_ [_ [_ [_ [_ [Hp [Hq [Hpq [Hd [Hdp [Hdq [Ep Eq]]]]]]]]]]]] r [Rp [Rq Rb]].
+have [Hr0 _] := F32.BigN.BN.bnk_cmp 32 r.
+exact (crt_pow P Q D DP DQ (bn32 _c) (bn32 r) Hp Hq Hpq Hd Hdp Hdq Ep Eq Rp Rq).
+qed.
+
 (* -------------------------------------------------------------------- *)
 (* the example key pair                                                  *)
 
 (* with the expanded keys of rsa_init: c = m^e mod n, and RSASP1 by the
-   CRT for c < n (the key meets the hypotheses of rsa_dec_h) *)
+   CRT for c < n (the key meets the hypotheses of rsa_dec_crt_h) *)
 hoare rsa_enc_test_h _m:
  M.rsa_enc : m = _m /\ wf_pk n_val e_val pk
    ==> bn32 res = (bn32 _m %% n_val) ^ e_val %% n_val.
@@ -465,7 +558,22 @@ hoare rsa_dec_test_h _c:
     /\ bn32 res %% q_val = (bn32 _c %% q_val) ^ dQ_val %% q_val
     /\ bn32 res < n_val.
 proof.
-conseq (rsa_dec_h p_val q_val dP_val dQ_val qInv_val _c).
+conseq (rsa_dec_crt_h p_val q_val dP_val dQ_val qInv_val _c).
 - by move=> &hr [-> [Hk Hc]]; rewrite Hk qInv_bnd qInv_inv -n_pq Hc.
 - by move=> &hr r; rewrite n_pq.
+qed.
+
+(* m = c^d mod n, if p and q are prime: their primality is a hypothesis
+   (it is not proved for these 1024-bit numbers); the rest of the
+   hypotheses of rsa_dec_h are computed *)
+lemma rsa_dec_test_d_h _c: prime p_val => prime q_val =>
+  hoare [M.rsa_dec
+   : c = _c /\ wf_sk p_val q_val dP_val dQ_val qInv_val sk /\ bn32 _c < n_val
+   ==> bn32 res = bn32 _c ^ d_val %% n_val].
+proof.
+move=> Hp Hq.
+conseq (rsa_dec_h p_val q_val d_val dP_val dQ_val qInv_val _c).
+- move=> &hr [-> [Hk Hc]]; rewrite Hk qInv_bnd qInv_inv -n_pq Hc Hp Hq /=.
+  by rewrite pq_ne d_pos dP_pos dQ_pos d_dP d_dQ.
+- by move=> &hr _ r; rewrite n_pq.
 qed.

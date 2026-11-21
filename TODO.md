@@ -20,7 +20,7 @@
 - (medium term) port existing proofs to the new framework
 - add ct verification ([Done] generalize the extraction "heuristics/scripts" to deal with leakage)
 + [In progress] move sampling code/lemmas from `Bn_base` into `Bn_rnd`
-+ [Done] correctness of the RSA example (`examples/simple_tests/rsa_pss/proof`): the library theories at its sizes, the extracted code proved equal to theirs, the key facts computed, and the contracts of `rsa_init` (well-formed expanded keys, from `_ctx_init__h`), RSAVP1/`rsa_enc` and RSASP1/`rsa_dec` (for any well-formed expanded key); no admits. Still to do: `dec(enc m) = m` (p, q prime, Fermat: `ZModP.exp_sub_p_1`); the same for sike and schnorr-zk (after moving them to the selector)
++ [Done] correctness of the RSA example (`examples/simple_tests/rsa_pss/proof`): the library theories at its sizes, the extracted code proved equal to theirs, the key facts computed, and the contracts of `rsa_init` (well-formed expanded keys, from `_ctx_init__h`), RSAVP1/`rsa_enc` and RSASP1/`rsa_dec` (for any well-formed expanded key); no admits. `rsa_dec` gives `c^d mod n` for distinct primes p, q (`rsa_dec_h`, `IntDiv.Fermat_little`; for the example key, primality is a hypothesis). Still to do: `dec(enc m) = m` (from `e * d = 1 (mod lcm(p-1, q-1))`, `ed_inv` in `RsaPss_keys.ec`); the same for sike and schnorr-zk (after moving them to the selector)
 
 ## Code (nice to have)
 
