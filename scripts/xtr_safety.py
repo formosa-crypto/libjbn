@@ -259,6 +259,13 @@ THEORIES = OrderedDict([
                           calls={'uTIL__': 'bn_util', 'h__BN__': 'bn_base'},
                           params=['fun_kmuln'],
                           extparams={'bN__': ['_addU_', '_cnegU_']})),
+    # the squaring over the half size, in a 2n scope of its own (KSQR, whose
+    # size is a literal): as bn_karatsuba, with the 2n-size _subU_ (KSQR::BN)
+    # as a parameter
+    ('bn_ksqr', dict(xtr='BNKSQR_bn_ksqr', prefix='kSQR__', name='Bn_ksqr_safety',
+                     calls={'uTIL__': 'bn_util', 'h__BN__': 'bn_base'},
+                     params=['fun_ksqrn'],
+                     extparams={'kSQR__BN__': ['_subU_']})),
     ('bn_exp', dict(xtr='BNE_bn_exp', prefix='h__EXP__', name='Bn_exp_safety',
                     calls={'uTIL__': 'bn_util', 'h__BN__': 'bn_base'},
                     params=['fun_mulU', 'fun_sqrU'])),
@@ -304,6 +311,12 @@ THEORIES = OrderedDict([
                                             'bN____store', 'bN___store_'],
                                  pure_params=True,
                                  extparams={'h__KAR__': ['_kar_muln_']})),
+    ('bn_ksqr_export', dict(xtr='EXKSQR_bn_ksqr_export', prefix='',
+                            name='Bn_ksqr_export_safety',
+                            own_extra=['h__BN____load', 'h__BN___load', 'h__BN___load_',
+                                       'bN____store', 'bN___store_'],
+                            pure_params=True,
+                            extparams={'h__KSQR__': ['_kar_sqrn_']})),
     ('fp_mont_ctx_export', dict(xtr='EXFPC_fp_mont_ctx_export', prefix='',
                                 name='Fp_mont_ctx_export_safety',
                                 calls={'uTIL__': 'bn_util', 'h__BN__': 'bn_base'}, pure_params=True,

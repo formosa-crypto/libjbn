@@ -107,3 +107,19 @@ namespace KAR {
   ) -> reg ptr u64[nlimbs] { a=a; b=b; return r; }
   from Libjbn require "bn_karatsuba@2n.jinc"
 }
+
+/* the squaring over the half size, in a 2n scope of its own, whose size is a
+   literal (DUMMY_NLIMBS2 = 2*DUMMY_NLIMBS): the 2n-size bn_base it uses
+   (KSQR::BN) is then extracted with literal loop bounds, as the one of H,
+   which is what the theories have (the top-level BN, whose size is the
+   expression 2*DUMMY_NLIMBS, is extracted with its bounds in a variable) */
+namespace KSQR {
+  param int nlimbs = DUMMY_NLIMBS2;
+  namespace BN { from Libjbn require "bn_base@n.jinc" }        // size 2n
+  #[safety = { requires = is_arr_init(a, 0, 8*H::nlimbs), ensures = is_arr_init(r, 0, 8*nlimbs) }]
+  fn fun_ksqrn
+  ( reg mut ptr u64[nlimbs] r
+  , reg const ptr u64[H::nlimbs] a
+  ) -> reg ptr u64[nlimbs] { a=a; return r; }
+  from Libjbn require "bn_ksqr@2n.jinc"
+}

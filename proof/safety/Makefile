@@ -49,15 +49,19 @@ POINTS := A B
 
 # the theories (keys of scripts/xtr_safety.py), in dependency order
 THEORIES := bn_util bn_base bn_rnd bn_mul bn_mul_loop bn_mulx bn_mulx_loop \
-            bn_mulxr bn_mulsel bn_mulreg bn_karatsuba bn_exp fp_base fp_mont fp_pm \
+            bn_mulxr bn_mulsel bn_mulreg bn_karatsuba bn_ksqr bn_exp fp_base fp_mont \
+            fp_pm \
             bn_base_export bn_mul_export bn_mul_loop_export bn_karatsuba_export \
+            bn_ksqr_export \
             fp_mont_ctx_export fp_mont_export
 NAMES    := Bn_util_safety Bn_base_safety Bn_rnd_safety Bn_mul_safety \
             Bn_mul_loop_safety Bn_mulx_safety Bn_mulx_loop_safety Bn_mulxr_safety \
-            Bn_mulsel_safety Bn_mulreg_safety Bn_karatsuba_safety Bn_exp_safety \
+            Bn_mulsel_safety Bn_mulreg_safety Bn_karatsuba_safety Bn_ksqr_safety \
+            Bn_exp_safety \
             Fp_base_safety Fp_mont_safety Fp_pm_safety \
             Bn_base_export_safety Bn_mul_export_safety Bn_mul_loop_export_safety \
-            Bn_karatsuba_export_safety Fp_mont_ctx_export_safety Fp_mont_export_safety
+            Bn_karatsuba_export_safety Bn_ksqr_export_safety \
+            Fp_mont_ctx_export_safety Fp_mont_export_safety
 PROVED   := $(foreach n,$(NAMES),$(if $(wildcard $(n).eca),$(n)))
 # their extractions (lint)
 MODULES  := $(XTR_MODULES) $(EXPORT_MODULES)

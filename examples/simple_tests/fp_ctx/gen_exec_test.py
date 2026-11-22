@@ -23,12 +23,14 @@ usage: gen_exec_test.py N MODULE BINDING [--field] [--seed S] [--cases C]
        (a pseudo-Mersenne field, fp_pm: 2^255-19 and moduli R - c,
        R/2 - c; its reduction _redPM_ is also tested alone, on inputs that
        make each of its folds carry)
-       gen_exec_test.py 8 bn_mulsel@n.jinc fp_mul_ksqr@fp.jinc --field \
-           --ksqr 1 --profile x86_64_adx.jinc
+       gen_exec_test.py 4 bn_mulsel@n.jinc fp_mul_ksqr@fp.jinc --field \
+           --ksqr 1 --profile x86_64_adx.jinc --sqr-unroll-max 2
        (the squaring over the half size, bn_ksqr, with LEVELS levels of
-       half scopes, over the squaring of the selector at the last one: its
-       _kar_sqrn_ is tested alone, on operands whose halves are equal, one
-       apart, zero or all ones, and the field squares with it)
+       half scopes: its _kar_sqrn_ is tested alone, on operands whose
+       halves are equal, one apart, zero or all ones; the field is bound
+       with fp_mul_ksqr, which takes it above JBN_SQR_UNROLL_MAX, and so
+       does a half scope for its own half, which --sqr-unroll-max shadows
+       in the size scope, for the tests to take it at a small size)
 """
 import argparse
 import random
@@ -48,6 +50,8 @@ ap.add_argument("--ksqr", type=int, default=0, metavar="LEVELS",
                 help="instantiate bn_ksqr (the squaring over the half size) with "
                 "LEVELS levels of half scopes; MODULE must be bn_mulsel@n.jinc "
                 "and BINDING fp_mul_ksqr@fp.jinc")
+ap.add_argument("--sqr-unroll-max", type=int, metavar="MAX",
+                help="shadow JBN_SQR_UNROLL_MAX in the size scope (with --ksqr)")
 args = ap.parse_args()
 
 N = args.n
@@ -94,14 +98,22 @@ emit('from Libjbn require "profiles/%s"' % profile)
 def emit_ksqr(depth, ind):
     """KSQR of the scope at `depth` (0: the size under test): its half
     squaring is the one of the selector when the half scope is the last
-    one, and the KSQR of the half scope otherwise."""
-    half = "H::MUL::_sqrn_" if depth + 1 == args.ksqr else "H::KSQR::_kar_sqrn_"
+    one; otherwise it is selected by the profile, between the selector
+    and the KSQR of the half scope."""
     emit(ind + "namespace KSQR {")
     emit(ind + "  inline fn fun_ksqrn")
     emit(ind + "  ( reg mut ptr u64[nlimbs] r")
     emit(ind + "  , reg const ptr u64[H::nlimbs] a")
     emit(ind + "  ) -> reg ptr u64[nlimbs] {")
-    emit(ind + "    r = %s(r, a);" % half)
+    if depth + 1 == args.ksqr:
+        emit(ind + "    r = H::MUL::_sqrn_(r, a);")
+    else:
+        # as fp_mul_ksqr at the size of the field
+        emit(ind + "    if (H::nlimbs <= JBN_SQR_UNROLL_MAX) {")
+        emit(ind + "      r = H::MUL::_sqrn_(r, a);")
+        emit(ind + "    } else {")
+        emit(ind + "      r = H::KSQR::_kar_sqrn_(r, a);")
+        emit(ind + "    }")
     emit(ind + "    return r;")
     emit(ind + "  }")
     emit(ind + '  from Libjbn require "bn_ksqr@2n.jinc"')
@@ -115,9 +127,8 @@ def emit_half(depth, ind):
     if depth < args.ksqr:
         emit_half(depth + 1, ind + "  ")
     emit(ind + '  namespace BN  { from Libjbn require "bn_base@n.jinc" }')
-    if depth == args.ksqr:
-        emit(ind + '  namespace MUL { from Libjbn require "%s" }' % args.module)
-    else:
+    emit(ind + '  namespace MUL { from Libjbn require "%s" }' % args.module)
+    if depth < args.ksqr:
         emit_ksqr(depth, ind + "  ")
     emit(ind + "}")
 
@@ -125,6 +136,8 @@ def emit_half(depth, ind):
 emit("""namespace UTIL { from Libjbn require "bn_util.jinc" }
 namespace H {
   param int nlimbs = %d;""" % N)
+if args.sqr_unroll_max is not None:
+    emit("  param int JBN_SQR_UNROLL_MAX = %d;" % args.sqr_unroll_max)
 if args.ksqr:
     emit_half(1, "  ")
 emit("""  namespace BN  { from Libjbn require "bn_base@n.jinc" }

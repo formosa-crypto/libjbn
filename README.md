@@ -90,7 +90,7 @@ expects to find in scope and the names it provides.
 | `bn_mulsel@n` | the selector: `_muln_`, `_sqrn_` and `__mont_redM` of one of the five modules above, chosen at compile time from the profile and the size (see [Profiles](#profiles-and-the-selection-of-the-multiplication)); instantiates the five itself | `MUL`, in the place of `bn_mul` | `nlimbs`, `BN::`, `UTIL::`, a profile |
 | `jbn_features` | the feature bits (`JBN_FEATURE_BMI2`, `JBN_FEATURE_ADX`, `JBN_FEATURES_MULX`) | top level, required by a profile | — |
 | `bn_karatsuba@2n` | one Karatsuba level on top of a given multiplication | `KAR` (in the 2n scope) | `nlimbs` (2n), `H::nlimbs` (n), `fun_kmuln`, `BN::`, `H::BN::`, `UTIL::` |
-| `bn_ksqr@2n` | squaring over the half size (one Karatsuba level): three squarings of the half size, on top of a given squaring, and linear passes; for the sizes above `JBN_SQR_UNROLL_MAX` (see "A squaring over the half size", under [Unrolled or looped](#unrolled-or-looped-multiplication-and-reduction)); not selected by `bn_mulsel` | `KSQR` (in the 2n scope) | `nlimbs` (2n), `H::nlimbs` (n), `fun_ksqrn`, `BN::`, `H::BN::`, `UTIL::` |
+| `bn_ksqr@2n` | squaring over the half size (one Karatsuba level): three squarings of the half size, on top of a given squaring, and linear passes; for the sizes above `JBN_SQR_UNROLL_MAX` (see "A squaring over the half size", under [Unrolled or looped](#unrolled-or-looped-multiplication-and-reduction)); selected by the binding `fp_mul_ksqr`, not by `bn_mulsel` | `KSQR` (in the 2n scope) | `nlimbs` (2n), `H::nlimbs` (n), `fun_ksqrn`, `BN::`, `H::BN::`, `UTIL::` |
 | `bn_exp@exp` | modular exponentiation: constant time (`_expm_`, which is, by the profile, the Montgomery ladder `_expmML_` or `_expmW_`, a fixed window of 4 bits with a table of 16 `nlimbs` words on the stack) and not | `EXP` (inside a field) | `nlimbs`, `nlimbsexp`, `CTXLEN`, `CTX_ONE`, `fun_mulU`, `fun_sqrU` (both take the context), `BN::`, `UTIL::`, a profile (`JBN_EXP_WINDOW`) |
 | `fp_ctx@n` | layout of a field context (`CTX_P`, `CTX_MP`, `CTX_ONE`, `CTX_R2`, `CTX_U0`, `CTXLEN`) | required by `fp_base` | `nlimbs` |
 | `fp_base@fp` | prime-field operations, generic in the reduction; each takes the context of its modulus | a field (e.g. `FPM`), shared by all moduli of the size | `nlimbs`, `fun_muln`, `fun_sqrn`, `fun_red`, `BN::`, `RND::`, `UTIL::` |
@@ -99,7 +99,7 @@ expects to find in scope and the names it provides.
 | `fp_mul_ps@fp` | binds `fun_muln`/`fun_sqrn` to product-scanning multiplication | inside a field | `nlimbs`, `MUL::` |
 | `fp_mul_os@fp` | binds `fun_muln`/`fun_sqrn` to the operand-scanning multiplication of `bn_mul_loop`/`bn_mulx_loop`/`bn_mulx`/`bn_mulxr` | inside a field | `nlimbs`, `MUL::` |
 | `fp_mul_sel@fp` | binds `fun_muln`/`fun_sqrn` to those of `bn_mulsel` | inside a field | `nlimbs`, `MUL::` |
-| `fp_mul_ksqr@fp` | binds `fun_muln` to the multiplication of `bn_mulsel` and `fun_sqrn` to the squaring of `bn_ksqr` | inside a field, in the place of `fp_mul_sel` | `nlimbs`, `MUL::`, `KSQR::` |
+| `fp_mul_ksqr@fp` | binds `fun_muln` to the multiplication of `bn_mulsel`, and `fun_sqrn` to the squaring that the profile selects: the one of `bn_mulsel` up to `JBN_SQR_UNROLL_MAX`, the one of `bn_ksqr` above | inside a field, in the place of `fp_mul_sel` | `nlimbs` (even), `MUL::`, `KSQR::`, a profile |
 | `*_export@2n` | `export fn` wrappers forming the C interface: `fp_mont_export` (static modulus `H::FPM::glob_ctx`), `fp_mont_ctx_export` (context argument, `fpc_*`); their constant-time exponentiation `fp_exp`/`fpc_exp` is the one of the profile (the fixed window), and `fp_exp_ladder`/`fpc_exp_ladder` the ladder | top level | see the file headers |
 
 ### File names
@@ -230,7 +230,10 @@ parameters set by a **profile**:
   of its own. The looped modules square by multiplying, so that the
   unrolled squaring is worth taking above `JBN_UNROLL_MAX`, for as long
   as it fits the instruction cache with the looped multiplication and
-  reduction.
+  reduction. Above it the selector squares by the looped multiplication;
+  a field bound with `fp_mul_ksqr`, in a size scope that has a half scope,
+  takes the squaring over the half size instead (`bn_ksqr`, in the next
+  section: "A squaring over the half size").
 
 |  | `nlimbs <= JBN_REG_MAX` | `nlimbs <= JBN_UNROLL_MAX` | above |
 |---|---|---|---|
@@ -758,7 +761,7 @@ What is *not* settled:
     mixed wiring is 11% faster than it on the window.
   * The selector now does it, by a threshold of the squaring of its own:
     `JBN_SQR_UNROLL_MAX`, 40 in `x86_64_adx.jinc`.
-* **A squaring over the half size (`bn_ksqr`; not timed yet).** Above
+* **A squaring over the half size (`bn_ksqr`).** Above
   `JBN_SQR_UNROLL_MAX` the selector squares by the looped multiplication.
   `bn_ksqr` squares over the half size instead: for `a = lo + B hi`,
 
@@ -769,10 +772,14 @@ What is *not* settled:
   subtractions of `nlimbs` words, whose borrows are counted in a word that
   is added to the top quarter of the result. There is no multiplication,
   and no sign to keep, since the difference is squared. It is a module of
-  two sizes, as `bn_karatsuba`, and the selector does not take it: a size
-  scope that wants it defines the half scope `H`, with the squaring it is
-  built on, and binds the field with `fp_mul_ksqr` in the place of
-  `fp_mul_sel` (`fp_ctx_ksqrx16.jazz`):
+  two sizes, as `bn_karatsuba`, so that the selector cannot take it by
+  itself: the size scope defines the half scope `H`, with the squaring it
+  is built on, and binds the field with `fp_mul_ksqr` in the place of
+  `fp_mul_sel`. That binding selects from the profile: the squaring of
+  `bn_mulsel` up to `JBN_SQR_UNROLL_MAX`, and `bn_ksqr` above. One wiring
+  thus serves every even size, and the half scope costs nothing where it
+  is not taken (`fp_ctx_ksqrx16.jazz`, which shadows the threshold for its
+  tests):
 
   ```
   namespace H {
@@ -796,47 +803,127 @@ What is *not* settled:
       from Libjbn require "bn_ksqr@2n.jinc"
     }
     namespace FPM {
-      from Libjbn require "fp_mul_ksqr@fp.jinc"
+      from Libjbn require "fp_mul_ksqr@fp.jinc"   // 64 > JBN_SQR_UNROLL_MAX: KSQR
       from Libjbn require "fp_mont@fp.jinc"
     }
   }
   ```
 
-  * With two levels, the half scope has a `KSQR` of its own, over the
-    squaring of the quarter (`fp_ctx_ksqrx2_16.jazz`): for the sizes whose
-    half is itself above the threshold.
+  * With two levels of half scopes, the half scope has a `MUL` and a
+    `KSQR` of its own, over the squaring of the quarter, and `fun_ksqrn`
+    makes the same choice one size down (`H::MUL::_sqrn_` when
+    `H::nlimbs <= JBN_SQR_UNROLL_MAX`, `H::KSQR::_kar_sqrn_` otherwise:
+    `fp_ctx_ksqrx2_16.jazz`). The second level is then taken where the
+    half is itself above the threshold. Under `x86_64_adx.jinc` this
+    gives the unrolled squaring up to 40 limbs, one level from 42 to 80
+    and two above; with one level of half scopes, the half squaring above
+    80 limbs is the looped one.
   * Code size, under `x86_64_adx.jinc`: at 64 limbs `_kar_sqrn` has 457
     bytes and the passes it calls 2 430 (`_subc1U` at the full size;
     `_negc1`, `_subc1` and `_cmov` at the half), next to the unrolled
     squaring of 32 limbs (18.9 KB), which the three calls share; at 48
     limbs, 393 and 1 694 bytes, next to 10.6 KB. With two levels at 64
     limbs the unrolled squaring is the one of 16 limbs (4.5 KB).
-  * Expected at 64 limbs, from the squarings alone of the table above
-    (199.3 ns unrolled at 32 limbs, 1 279 ns looped at 64): three half
-    squarings and about 60 ns of passes, that is about 660 ns, 0.51 of
-    the looped squaring; `fpc_sqr` would take about 2 000 ns in the place
-    of 2 619, and `fpc_exp` about 0.81 of its time. This is a projection:
-    it was not timed. To time it (the squaring alone in `mults`, the field
-    in `fp_ctx`, whose variants `ksqrx` and `ksqrx2` are this wiring with
-    one and two levels):
+  * The squaring alone, against the looped multiplication of the same
+    size, which is the squaring of the looped modules (same CPU, one run;
+    `taskset -c 2 make -C examples/simple_tests/mults bench-ksqr`). With
+    MULX, over the unrolled squaring of `bn_mulx`, and without, over the
+    product-scanning squaring of `bn_mul`; ns (the multiplication is
+    the one timed with one level; with two it was timed again, within
+    1.6%):
 
-        taskset -c 2 make -C examples/simple_tests/mults bench-ksqr
-        taskset -c 2 make -C examples/simple_tests/fp_ctx bench \
-          BENCH_VARIANTS="mulx mulx_sqru selx ksqrx ksqrx2" BENCH_SIZES="24 32 40 48 64"
-        taskset -c 2 make -C examples/simple_tests/fp_ctx bench \
-          BENCH_VARIANTS="mulx selx ksqrx ksqrx2" BENCH_SIZES="96 128"
+    | `nlimbs` | `bn_mulx_loop` mult. | one level | over it | two levels | over it | `bn_mul_loop` mult. | one level | over it | two levels | over it |
+    |---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+    | 32 | 330.5 | 219.0 | 0.66 | 275.6 | 0.83 | 541.4 | 322.3 | 0.60 | 350.2 | 0.65 |
+    | 48 | 739.6 | 435.9 | 0.59 | 498.1 | 0.67 | 1 249.7 | 700.2 | 0.56 | 663.4 | 0.53 |
+    | 64 | 1 279.9 | 706.4 | 0.55 | 765.0 | 0.60 | 2 268.1 | 1 215.6 | 0.54 | 1 098.2 | 0.48 |
+    | 96 | 2 891.8 | 2 472.4 | 0.85 | 1 457.1 | 0.50 | 5 269.4 | 3 177.6 | 0.60 | 2 265.1 | 0.43 |
+    | 128 | 5 039.0 | 4 447.5 | 0.88 | 2 338.6 | 0.46 | 9 824.9 | 5 576.4 | 0.57 | 3 831.5 | 0.39 |
 
+    With MULX it takes 0.55 to 0.59 of the multiplication at 48 and 64
+    limbs with one level, and 0.50 and 0.46 at 96 and 128 with two; GMP's
+    `mpn_sec_sqr` takes 0.56 to 0.59 of its `mpn_sec_mul`. At 32 limbs
+    the unrolled squaring alone is faster (199.3 ns, table above). One
+    level at 96 and 128 limbs is over the unrolled squarings of 48 and 64
+    limbs (42 and 75 KB), which do not fit the instruction cache: hence
+    0.85 and 0.88. At 64 limbs the passes cost about 108 ns (706.4 less
+    three squarings of 199.3), where 60 had been projected.
+  * In a field, against what the profile selects (same CPU, one run;
+    `make bench` in `fp_ctx`, variants `selx`, `ksqrx` and `ksqrx2`: the
+    selector, and the selector with this squaring, one and two levels,
+    whose last level is the squaring that the selector takes at that
+    size; `fpc_exp` is the window). The run is from before the binding
+    selected by the profile: the squaring was `bn_ksqr` at every size and
+    every level, which is how the sizes up to 40 limbs could be compared;
+    with two levels of half scopes the binding now takes the smallest of
+    the three `fpc_sqr` columns of each line (with one level, the smaller
+    of the first two):
+
+    | `nlimbs` | `fpc_sqr` (ns): `selx` | one level | two levels | `fpc_exp` (µs): `selx` | one level | two levels | best over `selx`: `fpc_sqr` | `fpc_exp` |
+    |---:|---:|---:|---:|---:|---:|---:|---:|---:|
+    | 24 | 319.7 | 352.6 | 412.0 | 666.5 | 712.5 | 802.6 | 1.10 | 1.07 |
+    | 32 | 545.4 | 576.5 | 632.9 | 1 500.5 | 1 554.9 | 1 673.7 | 1.06 | 1.04 |
+    | 40 | 841.2 | 859.9 | 917.5 | 2 886.9 | 2 920.6 | 3 070.6 | 1.02 | 1.01 |
+    | 48 | 1 489.7 | 1 198.3 | 1 258.6 | 5 788.9 | 4 970.3 | 5 105.1 | 0.80 | 0.86 |
+    | 64 | 2 602.5 | 2 048.0 | 2 102.6 | 13 573.0 | 11 175.4 | 11 459.1 | 0.79 | 0.82 |
+    | 96 | 5 923.3 | 5 341.6 | 4 412.6 | 45 497.4 | 42 114.8 | 36 654.4 | 0.74 | 0.81 |
+    | 128 | 10 360.3 | 9 185.6 | 7 677.5 | 108 292.7 | 99 178.1 | 84 246.7 | 0.74 | 0.78 |
+
+    * From 48 limbs on it pays: `fpc_sqr` is 20% to 26% faster than with
+      the squaring of the profile, and the exponentiation 14% to 22%
+      (the ladder, 8% to 15%). `fpc_mul` is the same (within 1.7%).
+    * Up to 40 limbs the unrolled squaring that the profile selects is
+      faster, by 10%, 6% and 2% on `fpc_sqr` at 24, 32 and 40 limbs: the
+      two cross where the unrolled squaring leaves the instruction
+      cache, so that `JBN_SQR_UNROLL_MAX` is also the size from which
+      `fp_mul_ksqr` takes this squaring.
+    * One level is the faster while the half size has an unrolled
+      squaring (48 and 64 limbs: by 5% and 3% on `fpc_sqr`); two levels
+      where the half is itself above the threshold (96 and 128 limbs,
+      where one level, over the looped squaring of the half, gains 10%
+      to 11%).
+    * At 64 limbs it is what was projected (2 048 ns against about 2 000
+      for `fpc_sqr`, 0.82 against 0.81 for `fpc_exp`), and the
+      exponentiation takes 0.79 of the time of `mpz_powm_sec` built for
+      the CPU (14 190.4 µs, the run of the table below; 0.96 with the
+      looped squaring).
+    * Without MULX the field was not timed (variant `ksqr`, against
+      `sel`): the profile `x86_64.jinc` unrolls the squaring up to 64
+      limbs.
   * Tested against a C reference on operands whose halves are equal, one
     apart, zero or all ones, besides edge-case and random ones
     (`mults/testsqr_ksqr.c`: one and two levels over the squaring of
-    `bn_mul`, from 2 to 64 limbs), and in a field (`fp_ctx_ksqr16.jazz`,
-    in `make run`). Over the MULX modules it was run in the interpreter
-    of `jasminc` only (`make exec`: the field at 4 and 8 limbs, the
-    products up to 64 limbs, one and two levels); `make run-mulx` has the
-    two programs that need the CPU. `jasmin-ct --infer` accepts
-    `bn_kar_sqrn`, and `fpc_sqr` and `fpc_exp` over it.
-  * It has no proof yet, of correctness or of safety, and is not in the
-    extraction lists.
+    `bn_mul`, from 2 to 64 limbs), and in a field: `fp_ctx_ksqr16.jazz`
+    (in `make run`) and, on the same CPU, the two MULX instances of `make
+    run-mulx` (run before the binding selected by the profile; the three
+    wirings now shadow the threshold, so that 16 limbs still take
+    `bn_ksqr`). `make exec` runs the MULX wiring in the interpreter of
+    `jasminc` (the field at 4 limbs, the products up to 48 limbs, one and
+    two levels). `jasmin-ct --infer` accepts `bn_kar_sqrn`, and `fpc_sqr`
+    and `fpc_exp` over it.
+  * Proved, without admits. Correctness: `proof/Bn_ksqr.eca`, the first
+    theory over two sizes. Its parameter is the half size: `BigN` has the
+    arrays of `nlimbs` and `2 * nlimbs` words, and a second clone of it at
+    `2 * nlimbs`, `BigN2`, whose single array is the double one of the
+    first, has the `4 * nlimbs` words of the result; `Bn_base` is cloned
+    at both sizes. `_kar_sqrn_` has the contract of every squaring
+    (`BigN2.BN2.bn res = BigN2.BN.bn a * BigN2.BN.bn a`), for any half
+    squaring that has it. The proof rests on an identity on integers
+    (`ksqr_math`: with the borrows b1, b2 and b3 of the three
+    subtractions, the word b1 + b2 - b3 is 0, 1 or 2, adding it does not
+    overflow the top quarter, and the four quarters are the square) and
+    on the value of an array of `4 * nlimbs` words from its low quarter,
+    its middle window and its top quarter (`bn4_lmh`).
+    `Fp_mont_ksqr.eca` composes it with `Fp_mont` at `2 * nlimbs`, on
+    the arrays of `BigN2`: the bindings of `fp_mul_ksqr`, with their test
+    on the threshold, meet the contracts of the parameter of the field,
+    for any value of the profile and any half squaring that has the
+    contract of a squaring (the one of the selector at the half size, for
+    one level of half scopes). Safety: `proof/safety/Bn_ksqr_safety.eca` (as `bn_karatsuba`,
+    with the 2n-size `_subU_` as a parameter) and
+    `Bn_ksqr_export_safety.eca` (`bn_kar_sqrn`), checked at the two dummy
+    points. For the extraction the module has a 2n scope of its own in
+    `libjbn_abs.jazz` (section 3).
 * **What the profile selects, against GMP.** After the changes above (the
   window as the constant-time exponentiation, the squaring by its own
   threshold): one run of the bench variant `selx`, the selector under
@@ -1146,7 +1233,12 @@ All of this lives in `src/amd64/ref/extracted/`:
 * `libjbn_abs.jazz`: the abstract instantiation, laid out by the rules of
   section 2 (top level = 2n scope, `H` = n scope): `UTIL`, `H::BN`,
   `H::RND`, `H::MUL`, `H::MULREG`, `H::EXP`, `H::FP`, `H::FPM`, `H::FPPM`
-  (a pseudo-Mersenne field), `BN` (2n) and `KAR`. `H::MUL` is the selector
+  (a pseudo-Mersenne field), `BN` (2n), `KAR` and `KSQR`. `KSQR` (the
+  squaring over the half size, `bn_ksqr`) is a 2n scope of its own, whose
+  size is a literal and which has its own `bn_base`: the size of the top
+  level is the expression `2*DUMMY_NLIMBS`, and a loop bound that is an
+  expression is extracted into a variable, which the theories do not
+  have. `H::MUL` is the selector
   `bn_mulsel`, so the five multiplication modules are `H::MUL::UNR`
   (`bn_mul`), `H::MUL::LOOP`, `H::MUL::XUNR`, `H::MUL::XLOOP` and
   `H::MUL::XREG`, and the field `H::FPM` uses the selector's
@@ -1156,7 +1248,8 @@ All of this lives in `src/amd64/ref/extracted/`:
   parameters, selected by `-I Dummy=dummyA` or `-I Dummy=dummyB`: `nlimbs`
   11 or 7 (contexts then have 45 or 29 words), `nlimbsexp` 13 or 6, and the
   profile `JBN_FEATURES` 19 or 51, `JBN_REG_MAX` 23 or 18, `JBN_UNROLL_MAX`
-  17 or 12, `JBN_SQR_UNROLL_MAX` 29 or 31, `JBN_EXP_WINDOW` 37 or 41. The
+  17 or 12, `JBN_SQR_UNROLL_MAX` 29 or 31, `JBN_EXP_WINDOW` 37 or 41, and
+  the literal 2n size of the scope `KSQR`, 22 or 14. The
   extraction of this section uses
   A; the safety extraction
   uses both (section 5). `make check` in `src/amd64/ref` typechecks the
@@ -1216,6 +1309,8 @@ exponentiation used by `_invm_` calls the field's own `_mulmU_`; in
 | `Bn_mul_loop.eca`, `Bn_mulx.eca`, `Bn_mulx_loop.eca` | `nlimbs` (the looped ones with `4 * nlimbs < W64.modulus`, as `Bn_mul`: the row index is a word) | `bn_mul_loop`, `bn_mulx`, `bn_mulx_loop`: the contracts of `Bn_mul` (`_os_muln_`, `_os_sqrn_`, `__mont_redM`) |
 | `Bn_mulxr.eca` | `nlimbs` | `bn_mulxr`: the contracts of `Bn_mul` |
 | `Bn_mulsel.eca` | `nlimbs`, the profile `jbn_features`, `jbn_reg_max`, `jbn_unroll_max`, `jbn_sqr_unroll_max` (any values; clones the five theories above) | `bn_mulsel`: `_muln_`, `_sqrn_`, `__mont_redM`, proved for the five branches |
+| `Bn_ksqr.eca` | `nlimbs`, which is the half size: the operand has `2 * nlimbs` words and the result `4 * nlimbs` (`BigN` at `nlimbs`, and a second one, `BigN2`, at `2 * nlimbs`, whose single array is the double one of the first; two clones of `Bn_base`); module parameter `fun_ksqrn`, the half squaring | `bn_ksqr`: `_kar_sqrn_`, with the contract of every squaring, in `BigN2` (`BigN2.BN2.bn res = BigN2.BN.bn a * BigN2.BN.bn a`); from an identity on integers with the three borrows (`ksqr_math`) and the result as its low quarter, middle window and top quarter (`bn4_lmh`) |
+| `Fp_mont_ksqr.eca` | `nlimbs`, the half size (with `64 * (2 * nlimbs) < W64.modulus`), the profile (clones `Bn_ksqr`, `Bn_mulsel` at `nlimbs` and `Fp_mont` at `2 * nlimbs`, on the arrays of `Bn_ksqr`); module parameter `fun_ksqrn`, the half squaring | the wiring of a field bound with `fp_mul_ksqr`: its bindings (the multiplication of the selector; the squaring of the selector or of `bn_ksqr`, by `jbn_sqr_unroll_max`) meet the contracts that `Fp_mont` asks of its parameter, for any profile and any half squaring with the contract of a squaring, so that the lemmas of `Fp_mont` hold for that field; and the instance with the half squaring of the selector |
 | `Bn_rnd.eca` | `nlimbs`; the system call `#randombytes` (`Syscall`) | `bn_rnd`: `_rnd_` is a uniform sample; `_rsample_` a uniform sample below the bound (`_rsample__eq`), and `__bnd_mask` covers the numbers below it |
 | `Fp_ctx.eca` | `nlimbs` | `fp_ctx` (layout of a context: `ctxP`, `ctxMP`, `ctxONE`, `ctxR2`, `ctxU0`; `ctx_mod p c`, `ctx_mont p c`) |
 | `Bn_exp.eca` | `nlimbs`, `nlimbsexp` (with `64 * nlimbs < W64.modulus` and `64 * nlimbsexp < W64.modulus`), the profile `jbn_exp_window` (any value), an abstract monoid over contexts (`mok`, `mdom`, `mmul`; the unit is the context's ONE); module parameter `fun_mulU`, `fun_sqrU` | `bn_exp` |
@@ -1377,7 +1472,7 @@ partial correctness (termination is the `_ll` lemmas of section 4), and no
 claim on constant time.
 
 Every library module (section 1, including `bn_karatsuba` and
-`bn_mulreg`, which have no correctness theory) and every export template
+`bn_mulreg`, which have no correctness theory, and `bn_ksqr`) and every export template
 (`*_export@2n.jinc`) has a safety theory, proved without admits for any
 value of its parameters and any function parameters that meet their
 contracts; the RSA example is safe end to end (below).
@@ -1469,14 +1564,15 @@ The theories have four shapes:
 |---|---|---|
 | plain: `bn_util`, `bn_base`, the five multiplications, `bn_mulsel` (which clones them), `bn_mulreg` | `module M` | `op f_spec ... = hoare [M.f : ...]` |
 | system calls: `bn_rnd` | `module M(SC: Syscall_t)` | over `M(Syscall)` |
-| function parameters: `bn_exp`, `fp_base`, `fp_mont`, `fp_pm`, `bn_karatsuba` | `module M(P: MParam)` | `op f_pre`, `op f_post` (an `op` cannot mention a declared module); the lemmas are stated in a section, under a `declare axiom` per member of `P` |
+| function parameters: `bn_exp`, `fp_base`, `fp_mont`, `fp_pm`, `bn_karatsuba`, `bn_ksqr` | `module M(P: MParam)` | `op f_pre`, `op f_post` (an `op` cannot mention a declared module); the lemmas are stated in a section, under a `declare axiom` per member of `P` |
 | exports | top-level procedures; of `M(P: MParam)` with `P <: MParam {-Glob}`, except `bn_base_export` (plain: it only calls `bn_base`) | as above |
 
 As in section 4, a sub-instance is a nested module (`fp_base`'s
 exponentiation, `BNE.M(M(P).P_EXP)`) and an included module goes through one
 (`fp_base` in `fp_mont` and `fp_pm`, `FPB.M(M(P).P_FPB)`). Procedures of
 other modules can also be members of `P`: the selector's `__mont_redM` in
-`fp_mont`, the 2n-size `_addU_` and `_cnegU_` in `bn_karatsuba`, and the
+`fp_mont`, the 2n-size `_addU_` and `_cnegU_` in `bn_karatsuba`, the 2n-size
+`_subU_` in `bn_ksqr`, and the
 library operations an export calls. Those operations must not use the
 memory (`{-Glob}`): EasyCrypt keeps no fact on the memory across a call to
 an abstract procedure that may write it. The loads and stores of the
@@ -1488,7 +1584,7 @@ array sizes).
 ### Proofs
 
 `proof/safety/<Name>.eca` (a `clone include` of the generated theory) proves
-each specification (`f_proof`): 263 lemmas in 21 files. They use:
+each specification (`f_proof`): 277 lemmas in 23 files. They use:
 
 * the simplification hints of the database `safety`
   (`common/ByteArrayInit.ec`, from formosa-libjade, cloned per byte-array
@@ -1579,7 +1675,7 @@ make clean
 |---|---|
 | `simple_tests/sike` | Montgomery field arithmetic for the SIKE primes (434, 503, 610, 751 bits) |
 | `simple_tests/rsa_pss` | 2048-bit RSA from a key pair (`rsa_keys.jinc`: pk = (n, e), sk = (p, q, dP, dQ, qInv); layout in `rsa2048_params.jinc`): expanded keys with the contexts of n, p and q (PK = (ctx_n, e), SK = (ctx_p, ctx_q, dP, dQ, qInv)), computed once by `rsa_init`; RSAVP1 and RSASP1 by the CRT on them (`rsa2048@libjbn.jinc`; profile `x86_64`, the selector; the exponentiations by dP and dQ are `_expm_`, the fixed window by the profile); `make run` checks the expanded keys and both primitives against values computed in Python, and their round trips; `proof/`: their correctness in EasyCrypt from the contracts of the library (`make` there; see [Using the theories for a concrete instance](#using-the-theories-for-a-concrete-instance)); `proof/safety/`: their safety (`make safety` in `proof/`; see [Using the safety theories](#using-the-safety-theories-for-a-concrete-instance)) |
-| `simple_tests/fp_ctx` | moduli given at run time (7 and 16 limbs): `fpc_ctx_init` and every `fpc_*` operation, against Python (`make run`); each size is also built with `bn_mul_loop` (`fp_ctx_loop*.jazz`, in `make run`) and with `bn_mulx_loop` and `bn_mulx` (`fp_ctx_mulx_loop*.jazz`, `fp_ctx_mulx*.jazz`; `make run-mulx`, which needs BMI2 and ADX); and with the selector `bn_mulsel`, once per module (`fp_ctx_sel*.jazz`, profile `x86_64`, in `make run`; `fp_ctx_selx*.jazz`, profile `x86_64_adx`, in `make run-mulx`; the 16-limb ones shadow the thresholds: `fp_ctx_sel16.jazz` both, for the looped code, `fp_ctx_selx16.jazz` the one of the multiplication, for the looped multiplication with the unrolled squaring); with `bn_mulxr` at 4, 5 and 6 limbs (`fp_ctx_mulxr*.jazz`, in `make run-mulx`); with `bn_mulx_loop` and the unrolled squaring of `bn_mulx` (`fp_ctx_mulx_sqru7.jazz`, an experiment, in `make run-mulx`; the bench variant `mulx_sqru`, not in the default list); with the squaring over the half size of `bn_ksqr` in the place of the one of the selector (`fp_ctx_ksqr16.jazz`, profile `x86_64`, in `make run`; `fp_ctx_ksqrx16.jazz` and, with two levels, `fp_ctx_ksqrx2_16.jazz`, profile `x86_64_adx`, in `make run-mulx`; the bench variants `ksqr`, `ksqrx` and `ksqrx2`, not in the default list); pseudo-Mersenne fields (`fp_pm`, 2^255-19 among the moduli) at 4 and 6 limbs, over `bn_mul` (`fp_ctx_pm*.jazz`, in `make run`) and over `bn_mulxr` (`fp_ctx_pmxr*.jazz`, in `make run-mulx`), with `vectors_pm*.txt` (`gen_vectors.py N SEED pm`); `make exec` runs the same checks in the interpreter of `jasminc`, on any host (`gen_exec_test.py`, below); `make bench` times the five modules, what the selector takes under each profile (variants `sel`, `selx`), and `fp_pm` over `bn_mul` and over `bn_mulxr` (variants `pm_unr`, `pm_mulxr`; modulus 2^(64n-1)-19), with the two constant-time exponentiations on the same operands (`fpc_exp`, the one of the profile, here the fixed window, and the ladder `fpc_exp_ladder`); `fpc_mul` and `fpc_sqr` are timed on the same arguments at each call (throughput), or, with `BENCH_CHAINED=1`, each call on the result of the previous one (latency, as in `fpc_exp`); `make bench-gmp` times the exponentiations of GMP at the same sizes and on the same operands (`bench_gmp.c`: a native program on any host, with the GMP of the host or the one of `GMP_FLAGS`) |
+| `simple_tests/fp_ctx` | moduli given at run time (7 and 16 limbs): `fpc_ctx_init` and every `fpc_*` operation, against Python (`make run`); each size is also built with `bn_mul_loop` (`fp_ctx_loop*.jazz`, in `make run`) and with `bn_mulx_loop` and `bn_mulx` (`fp_ctx_mulx_loop*.jazz`, `fp_ctx_mulx*.jazz`; `make run-mulx`, which needs BMI2 and ADX); and with the selector `bn_mulsel`, once per module (`fp_ctx_sel*.jazz`, profile `x86_64`, in `make run`; `fp_ctx_selx*.jazz`, profile `x86_64_adx`, in `make run-mulx`; the 16-limb ones shadow the thresholds: `fp_ctx_sel16.jazz` both, for the looped code, `fp_ctx_selx16.jazz` the one of the multiplication, for the looped multiplication with the unrolled squaring); with `bn_mulxr` at 4, 5 and 6 limbs (`fp_ctx_mulxr*.jazz`, in `make run-mulx`); with `bn_mulx_loop` and the unrolled squaring of `bn_mulx` (`fp_ctx_mulx_sqru7.jazz`, an experiment, in `make run-mulx`; the bench variant `mulx_sqru`, not in the default list); with the binding `fp_mul_ksqr`, which takes the squaring over the half size of `bn_ksqr` above the threshold of the profile (`fp_ctx_ksqr16.jazz`, profile `x86_64`, in `make run`; `fp_ctx_ksqrx16.jazz` and, with two levels of half scopes, `fp_ctx_ksqrx2_16.jazz`, profile `x86_64_adx`, in `make run-mulx`; the three shadow the threshold, so that 16 limbs take it; the bench variants `ksqr`, `ksqrx` and `ksqrx2`, not in the default list, do not); pseudo-Mersenne fields (`fp_pm`, 2^255-19 among the moduli) at 4 and 6 limbs, over `bn_mul` (`fp_ctx_pm*.jazz`, in `make run`) and over `bn_mulxr` (`fp_ctx_pmxr*.jazz`, in `make run-mulx`), with `vectors_pm*.txt` (`gen_vectors.py N SEED pm`); `make exec` runs the same checks in the interpreter of `jasminc`, on any host (`gen_exec_test.py`, below); `make bench` times the five modules, what the selector takes under each profile (variants `sel`, `selx`), and `fp_pm` over `bn_mul` and over `bn_mulxr` (variants `pm_unr`, `pm_mulxr`; modulus 2^(64n-1)-19), with the two constant-time exponentiations on the same operands (`fpc_exp`, the one of the profile, here the fixed window, and the ladder `fpc_exp_ladder`); `fpc_mul` and `fpc_sqr` are timed on the same arguments at each call (throughput), or, with `BENCH_CHAINED=1`, each call on the result of the previous one (latency, as in `fpc_exp`); `make bench-gmp` times the exponentiations of GMP at the same sizes and on the same operands (`bench_gmp.c`: a native program on any host, with the GMP of the host or the one of `GMP_FLAGS`) |
 | `simple_tests/mults` | 32-limb multiplication: `ps`, `os`, `osreg` and Karatsuba variants; the `os` multiplication and squaring of `bn_mul_loop`, `bn_mulx_loop` and `bn_mulx` (`testmul_os_loop.c`, against a C reference); the squaring over the half size of `bn_ksqr`, one and two levels (`sqrn32_ksqr.jazz`, `sqrn32_ksqr2.jazz`; `testsqr_ksqr.c`, against a C reference); `make bench` (with `bn_mulxr`: variant `mulxr`), `make bench-kar` and `make bench-ksqr` time the multiplications and squarings alone |
 | `schnorr-zk` | a Schnorr zero-knowledge protocol over the RFC 3526 2048-bit group |
 
@@ -1604,7 +1700,9 @@ and the field operations over it (Montgomery, or `--pm`; with the
 profile of `--profile`, by default the one of the module), and returns the OR of the differences with the values
 computed in Python (0 when correct) and the number of words checked.
 With `--ksqr LEVELS` it wires the squaring over the half size (`bn_ksqr`,
-over the selector, with `fp_mul_ksqr`), and also checks `_kar_sqrn_` alone.
+over the selector, with `fp_mul_ksqr`; `--sqr-unroll-max` shadows the
+threshold, for the binding to take it at a small size), and also checks
+`_kar_sqrn_` alone.
 `EXEC_TESTS` lists the modules and sizes; it takes about 5 minutes, mostly
 the exponentiations (its four `bn_ksqr` entries add one minute).
 
@@ -1733,6 +1831,16 @@ the wiring of a Montgomery field instance (used by `test/misc` and
   Python, from 1 to 32 limbs; the `fpc_*` entry points of a field instance
   on the vectors of `fp_ctx`, at 1 to 5 limbs). `jasmin-ct` accepts it, and
   `jasmin-ct --sct --after=unroll` as well, as the other unrolled code.
+* `bn_ksqr` (the squaring over the half size) is proved, correctness and
+  safety (`Bn_ksqr.eca`, `Fp_mont_ksqr.eca`, `Bn_ksqr_safety.eca`,
+  `Bn_ksqr_export_safety.eca`). Its tests passed over `bn_mul`
+  (`testsqr_ksqr.c` in `mults`, `make run` in `fp_ctx`) and, on the same
+  CPU, over the MULX modules (`make run-mulx` in `fp_ctx`, at 16 limbs,
+  one and two levels; `make bench-ksqr` in `mults` checks one square per
+  size, from 32 to 128 limbs). It is selected by the binding
+  `fp_mul_ksqr`, above `JBN_SQR_UNROLL_MAX`, in a size scope that has a
+  half scope ("A squaring over the half size"); the selector `bn_mulsel`
+  alone does not take it.
 * `Fp_base`'s `_rnd_`, which calls `_rsample_`, is not in its theory, and
   has no contract (`_rsample_` has one, in `Bn_rnd.eca`).
 * `proof/extracted/Makefile` (the concrete `XtrCode` extraction) still uses

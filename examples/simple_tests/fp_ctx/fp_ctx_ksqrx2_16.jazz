@@ -1,18 +1,25 @@
 /* libjbn instance with run-time moduli of 16 limbs, whose multiplication
    and Montgomery reduction are selected by bn_mulsel from the profile
-   x86_64_adx, and whose squaring is the one over the half size of bn_ksqr,
-   two levels: its three squarings of 8 limbs are bn_ksqr again, over the
-   squaring that bn_mulsel selects at 4 limbs (here the one of bn_mulxr).
-   The field binds it with fp_mul_ksqr, in the place of fp_mul_sel. Needs a
+   x86_64_adx, and whose squaring is selected by the binding fp_mul_ksqr
+   (in the place of fp_mul_sel), with two levels of half scopes: the
+   squaring of bn_mulsel up to JBN_SQR_UNROLL_MAX, and above it the squaring
+   over the half size of bn_ksqr, whose three squarings of the half size
+   are selected in the same way, between the one of bn_mulsel at that size
+   and bn_ksqr again, over the squaring of bn_mulsel at the quarter. Needs a
    CPU with BMI2 and ADX.
 
    Three size scopes: H, the field (16 limbs), H::H (8 limbs) and H::H::H
-   (4 limbs); the last two only provide the squarings of the two KSQR. The
-   sizes are meant for the tests: two levels are meant for the sizes whose
-   half is itself above JBN_SQR_UNROLL_MAX (README, "A squaring over the
-   half size"). `make bench` times this wiring at any multiple of 4 limbs
-   as the variant ksqrx2 (not in its default list), e.g.
-     make bench BENCH_VARIANTS="mulx selx ksqrx ksqrx2" BENCH_SIZES="96 128"
+   (4 limbs); the last two only provide squarings. This is the wiring of a
+   field of any size that is a multiple of 4: a level costs nothing where
+   the profile does not take bn_ksqr, and the second one is taken where the
+   half size is itself above the threshold. Here the size scope shadows the
+   threshold of the profile, so that 16 and 8 limbs are above it and the
+   tests run both levels, over the squaring of bn_mulxr at 4 limbs; the
+   profile takes one level above 40 limbs and two above 80 (README, "A
+   squaring over the half size"). `make bench` times this wiring, without
+   the shadowing, at any multiple of 4 limbs as the variant ksqrx2 (not in
+   its default list), e.g.
+     make bench BENCH_VARIANTS="mulx selx ksqrx ksqrx2" BENCH_SIZES="48 64 96 128"
    The field code FPM is shared by every modulus, whose context
    (fp_ctx@n.jinc) is computed by fpc_ctx_init and passed to the other
    fpc_* entry points. */
@@ -23,6 +30,7 @@ namespace UTIL { from Libjbn require "bn_util.jinc" }
 
 namespace H {
   param int nlimbs = 16;
+  param int JBN_SQR_UNROLL_MAX = 4;   // (shadows the profile's): 16 and 8 limbs take bn_ksqr
 
   namespace H {             // the half size: the squarings of KSQR
     param int nlimbs = 8;
@@ -35,6 +43,7 @@ namespace H {
     }
 
     namespace BN  { from Libjbn require "bn_base@n.jinc" }
+    namespace MUL { from Libjbn require "bn_mulsel@n.jinc" }
 
     namespace KSQR {
       #[safety = { requires = is_arr_init(a, 0, 8*H::nlimbs), ensures = is_arr_init(r, 0, 8*nlimbs) }]
@@ -54,12 +63,18 @@ namespace H {
   namespace MUL { from Libjbn require "bn_mulsel@n.jinc" }   // multiplication, reduction
 
   namespace KSQR {                                           // squaring
+    /* the squaring of the half size: what the profile selects there, as
+       fp_mul_ksqr does at the size of the field */
     #[safety = { requires = is_arr_init(a, 0, 8*H::nlimbs), ensures = is_arr_init(r, 0, 8*nlimbs) }]
     inline fn fun_ksqrn
     ( reg mut ptr u64[nlimbs] r
     , reg const ptr u64[H::nlimbs] a
     ) -> reg ptr u64[nlimbs] {
-      r = H::KSQR::_kar_sqrn_(r, a);
+      if (H::nlimbs <= JBN_SQR_UNROLL_MAX) {
+        r = H::MUL::_sqrn_(r, a);
+      } else {
+        r = H::KSQR::_kar_sqrn_(r, a);
+      }
       return r;
     }
     from Libjbn require "bn_ksqr@2n.jinc"

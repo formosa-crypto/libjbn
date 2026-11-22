@@ -3,7 +3,7 @@
 # by this directory's Makefile (correctness extraction) and by
 # proof/safety/Makefile (safety extraction).
 
-XTR_MODULES = BNUTIL_bn_util BN_bn_base BNRND_bn_rnd BNMUL_bn_mul BNMULL_bn_mul_loop BNMULX_bn_mulx BNMULXL_bn_mulx_loop BNMULXR_bn_mulxr BNMULSEL_bn_mulsel BNMULREG_bn_mulreg BNKAR_bn_karatsuba BNE_bn_exp FP_fp_base FPM_fp_mont FPPM_fp_pm
+XTR_MODULES = BNUTIL_bn_util BN_bn_base BNRND_bn_rnd BNMUL_bn_mul BNMULL_bn_mul_loop BNMULX_bn_mulx BNMULXL_bn_mulx_loop BNMULXR_bn_mulxr BNMULSEL_bn_mulsel BNMULREG_bn_mulreg BNKAR_bn_karatsuba BNKSQR_bn_ksqr BNE_bn_exp FP_fp_base FPM_fp_mont FPPM_fp_pm
 
 BNUTIL_bn_util_NS  = UTIL::
 BNUTIL_bn_util_FNS = __mask_zf __mask_cf __cf_mask __ncf_mask __addacc3 __addacc3x2
@@ -37,6 +37,9 @@ BNMULREG_bn_mulreg_FNS = _osreg_muln_
 
 BNKAR_bn_karatsuba_NS  = KAR::
 BNKAR_bn_karatsuba_FNS = _kar_muln_
+
+BNKSQR_bn_ksqr_NS  = KSQR::
+BNKSQR_bn_ksqr_FNS = _kar_sqrn_
 
 BNE_bn_exp_NS  = H::EXP::
 BNE_bn_exp_FNS = _expm_noct_ _expmU_noct_ _expm_ _expmU_ _expmLR_noct_ _expmW_ _expmWU_

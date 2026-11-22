@@ -37,6 +37,12 @@
                    14% to 17% faster at 24, 32 and 40 limbs, and both 4%
                    slower at 48 limbs, where it has 42 KB (29 KB at 40) and
                    no longer fits the 32 KB instruction cache.
+                   Above it, a field bound with fp_mul_ksqr@fp.jinc takes
+                   the squaring over the half size (bn_ksqr@2n.jinc), in a
+                   size scope that has a half scope: on the same CPU it
+                   makes fpc_sqr 20% to 26% faster and an exponentiation
+                   14% to 22% faster from 48 to 128 limbs, and it is slower
+                   than the unrolled squaring up to 40 limbs (by 2% at 40).
    JBN_EXP_WINDOW: the constant-time exponentiation of a field (_expm_ of
                    bn_exp@exp.jinc): 0 for the Montgomery ladder, which
                    needs no table; otherwise the fixed window of 4 bits,

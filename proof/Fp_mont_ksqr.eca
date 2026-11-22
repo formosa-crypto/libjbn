@@ -1,0 +1,147 @@
+require import AllCore Int IntDiv List StdOrder.
+from Jasmin require import JModel_x86.
+import SLH64.
+
+require JBigNumber Bn_ksqr Bn_mulsel Fp_mont.
+
+(* A Montgomery field whose squaring is selected by the binding
+   fp_mul_ksqr@fp.jinc: the squaring of the selector up to
+   JBN_SQR_UNROLL_MAX, and the squaring over the half size (bn_ksqr) above
+   (the wiring of README, "A squaring over the half size").
+
+   [nlimbs] is the half size, as in Bn_ksqr: the field has 2*nlimbs limbs.
+   The theory instantiates Bn_ksqr, the selector at the half size and
+   Fp_mont at 2*nlimbs, on the arrays of Bn_ksqr at that size (its BigN2),
+   and proves that the bindings [B] meet the contracts that Fp_mont asks of
+   its parameter, for any value of the threshold and for any half squaring
+   [PK] of KSQR that has the contract of a squaring. Every lemma of Fp_mont
+   then holds for the field F.M(B(PK)); its squaring is stated below, as an
+   example. With one level of half scopes, [PK] is the squaring of the
+   selector at the half size ([PKsel], below); with two, it is the same
+   choice one size down, whose contract comes from a second instance of
+   this construction. *)
+
+(* Parameters *)
+op nlimbs: int.
+axiom gt0_nlimbs: 0 < nlimbs.
+(* the bound of Fp_mont, at the size of the field *)
+axiom nlimbs_bnd: 64 * (2 * nlimbs) < W64.modulus.
+lemma nlimbs_bndN: 64 * (2 * nlimbs) < 18446744073709551616 by have := nlimbs_bnd.
+(* and the one of the selector, at the half size *)
+lemma nlimbs_bnd4: 4 * nlimbs < W64.modulus.
+proof. rewrite (_: W64.modulus = 18446744073709551616) //; smt(nlimbs_bndN gt0_nlimbs). qed.
+
+(* the profile: any values, the same at both sizes *)
+op jbn_features: int.
+op jbn_reg_max: int.
+op jbn_unroll_max: int.
+op jbn_sqr_unroll_max: int.
+
+clone Bn_ksqr as K
+ with op nlimbs <- nlimbs
+      proof gt0_nlimbs by exact gt0_nlimbs.
+
+(* the selector of the half scope: the squarings of KSQR *)
+clone Bn_mulsel as SH
+ with op nlimbs <- nlimbs,
+      op jbn_features <- jbn_features,
+      op jbn_reg_max <- jbn_reg_max,
+      op jbn_unroll_max <- jbn_unroll_max,
+      op jbn_sqr_unroll_max <- jbn_sqr_unroll_max,
+      theory BigN <- K.BigN,
+      theory BNUTIL <- K.BNUTIL,
+      theory BNB <- K.BNB
+      proof gt0_nlimbs by exact gt0_nlimbs,
+            nlimbs_bnd by exact nlimbs_bnd4.
+
+(* the field, at 2*nlimbs limbs, on the arrays of K at that size *)
+clone Fp_mont as F
+ with op nlimbs <- 2 * nlimbs,
+      op jbn_features <- jbn_features,
+      op jbn_reg_max <- jbn_reg_max,
+      op jbn_unroll_max <- jbn_unroll_max,
+      op jbn_sqr_unroll_max <- jbn_sqr_unroll_max,
+      theory BigN <- K.BigN2
+      proof gt0_nlimbs by smt(gt0_nlimbs),
+            nlimbs_bnd by exact nlimbs_bnd.
+
+(* the bindings of fp_mul_ksqr@fp.jinc, over a half squaring PK of KSQR *)
+module B (PK: K.MParam) = {
+  proc fun_muln (r: K.BigN2.BN2.t, a b: K.BigN.BN2.t) : K.BigN2.BN2.t = {
+    r <@ F.BNMUL_M._muln_ (r, a, b);
+    return r;
+  }
+  proc fun_sqrn (r: K.BigN2.BN2.t, a: K.BigN.BN2.t) : K.BigN2.BN2.t = {
+    if (2 * nlimbs <= jbn_sqr_unroll_max) {
+      r <@ F.BNMUL_M._sqrn_ (r, a);
+    } else {
+      r <@ K.M(PK)._kar_sqrn_ (r, a);
+    }
+    return r;
+  }
+}.
+
+section.
+
+declare module PK <: K.MParam.
+
+declare axiom PK_ksqrn_ll: islossless PK.fun_ksqrn.
+declare axiom PK_ksqrn_h _a:
+ hoare [ PK.fun_ksqrn : arg.`2 = _a
+         ==> K.BigN.BN2.bn res = K.BigN.BN.bn _a * K.BigN.BN.bn _a ].
+
+lemma B_muln_ll: islossless B(PK).fun_muln.
+proof. by proc; call F.BNMUL._muln__ll. qed.
+
+lemma B_sqrn_ll: islossless B(PK).fun_sqrn.
+proof.
+proc; if.
+- by call F.BNMUL._sqrn__ll.
+- by call (K._kar_sqrn__ll PK PK_ksqrn_ll PK_ksqrn_h).
+qed.
+
+hoare B_muln_h _a _b:
+ B(PK).fun_muln : arg.`2 = _a /\ arg.`3 = _b
+   ==> K.BigN2.BN2.bn res = K.BigN.BN2.bn _a * K.BigN.BN2.bn _b.
+proof. by proc; ecall (F.BNMUL._muln__h a b). qed.
+
+(* both branches: any value of the threshold *)
+hoare B_sqrn_h _a:
+ B(PK).fun_sqrn : arg.`2 = _a
+   ==> K.BigN2.BN2.bn res = K.BigN.BN2.bn _a * K.BigN.BN2.bn _a.
+proof.
+proc; if.
+- by ecall (F.BNMUL._sqrn__h a).
+- by ecall (K._kar_sqrn__h PK PK_ksqrn_ll PK_ksqrn_h a).
+qed.
+
+(* the field over them: e.g. its squaring *)
+hoare _sqrm__h _p _a:
+ F.M(B(PK))._sqrm_
+ : F.FPC.ctx_mod _p ctx /\ F.mont_ctx _p ctx /\ a = _a /\ K.BigN.BN2.bn _a < _p
+   ==> K.BigN.BN2.bn res = F.FPB.red _p (K.BigN.BN2.bn _a * K.BigN.BN2.bn _a).
+proof. exact (F._sqrm__h (<: B(PK)) B_muln_ll B_sqrn_ll B_muln_h B_sqrn_h _p _a). qed.
+
+end section.
+
+(* One level of half scopes: the half squaring of KSQR is the one of the
+   selector at the half size (fun_ksqrn of the wiring) *)
+module PKsel = {
+  proc fun_ksqrn (r: K.BigN.BN2.t, a: K.BigN.BN.t) : K.BigN.BN2.t = {
+    r <@ SH.M._sqrn_ (r, a);
+    return r;
+  }
+}.
+
+lemma PKsel_ksqrn_ll: islossless PKsel.fun_ksqrn.
+proof. by proc; call SH._sqrn__ll. qed.
+
+hoare PKsel_ksqrn_h _a:
+ PKsel.fun_ksqrn : arg.`2 = _a ==> K.BigN.BN2.bn res = K.BigN.BN.bn _a * K.BigN.BN.bn _a.
+proof. by proc; ecall (SH._sqrn__h a). qed.
+
+hoare sel_sqrm__h _p _a:
+ F.M(B(PKsel))._sqrm_
+ : F.FPC.ctx_mod _p ctx /\ F.mont_ctx _p ctx /\ a = _a /\ K.BigN.BN2.bn _a < _p
+   ==> K.BigN.BN2.bn res = F.FPB.red _p (K.BigN.BN2.bn _a * K.BigN.BN2.bn _a).
+proof. exact (_sqrm__h PKsel PKsel_ksqrn_ll PKsel_ksqrn_h _p _a). qed.

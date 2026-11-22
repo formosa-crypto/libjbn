@@ -7,6 +7,7 @@
 
 param int DUMMY_NLIMBS = 11;      // nlimbs of the size scope H (the top level is 2n)
 param int DUMMY_NLIMBSEXP = 13;   // limbs of the exponents (bn_exp)
+param int DUMMY_NLIMBS2 = 22;     // 2*DUMMY_NLIMBS as a literal: the scope of bn_ksqr (libjbn_abs.jazz)
 
 /* the profile (src/amd64/ref/profiles): 19 has the bits of BMI2 and ADX, and
    11 <= 17 <= 23, but no value matters: the proofs cover every branch of the

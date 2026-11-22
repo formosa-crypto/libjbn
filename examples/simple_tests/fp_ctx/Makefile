@@ -40,10 +40,12 @@ MULX_PROGS += $(addprefix test_fp_ctx_pmxr, $(PM_SIZES))
 # bn_mulx_loop with the squaring of bn_mulx (fp_ctx_mulx_sqru7.jazz: an
 # experiment, see its header and the bench variant mulx_sqru), in `run-mulx`
 MULX_PROGS += test_fp_ctx_mulx_sqru7
-# the squaring over the half size (bn_ksqr), bound to the field in the place
-# of the squaring of the selector: fp_ctx_ksqr16 (profile x86_64, in `run`),
-# fp_ctx_ksqrx16 and, with two levels, fp_ctx_ksqrx2_16 (x86_64_adx, in
-# `run-mulx`); see their headers and the bench variants ksqr, ksqrx, ksqrx2
+# the squaring that the binding fp_mul_ksqr selects, between the one of the
+# selector and the squaring over the half size (bn_ksqr): fp_ctx_ksqr16
+# (profile x86_64, in `run`), fp_ctx_ksqrx16 and, with two levels of half
+# scopes, fp_ctx_ksqrx2_16 (x86_64_adx, in `run-mulx`). They shadow the
+# threshold of the profile, so that the tests run bn_ksqr at 16 limbs; see
+# their headers and the bench variants ksqr, ksqrx, ksqrx2
 PROGS += test_fp_ctx_ksqr16
 MULX_PROGS += test_fp_ctx_ksqrx16 test_fp_ctx_ksqrx2_16
 
@@ -120,23 +122,27 @@ run-mulx: $(MULX_PROGS) $(addprefix vectors, $(addsuffix .txt, $(SIZES) $(XR_SIZ
 # correct) and the number of words checked.
 #   module:binding:size:f    f = 1 with the (Montgomery) field, pm with the
 #                            pseudo-Mersenne field, 0 for the products only
-#   module:binding:size:f:levels:profile
+#   module:binding:size:f:levels:profile[:max]
 #                            the same with the squaring over the half size
-#                            (bn_ksqr, 1 or 2 levels, over the selector
-#                            bn_mulsel and the binding fp_mul_ksqr), under a
-#                            profile of src/amd64/ref/profiles
+#                            (bn_ksqr, with 1 or 2 levels of half scopes,
+#                            over the selector bn_mulsel and the binding
+#                            fp_mul_ksqr), under a profile of
+#                            src/amd64/ref/profiles; max, if given, shadows
+#                            JBN_SQR_UNROLL_MAX in the size scope, so that
+#                            the binding (and, with 2 levels, the half
+#                            scope) takes bn_ksqr at a small size
 # (the last entries: the field at 4 limbs, since at 8 it takes the
 # interpreter 5 minutes; at 48 limbs the multiplication is the looped one
-# and the half squaring the unrolled one, as where bn_ksqr is meant to be
-# used)
+# and the half squaring the unrolled one, which is what the profile selects
+# there)
 EXEC_TESTS ?= $(foreach n,1 2 3 4 5 6,bn_mulxr:fp_mul_os:$(n):1) \
               bn_mulxr:fp_mul_os:7:0 bn_mulxr:fp_mul_os:8:0 \
               bn_mulx:fp_mul_os:4:1 bn_mulx_loop:fp_mul_os:4:1 \
               bn_mul_loop:fp_mul_os:4:1 bn_mul:fp_mul_ps:4:1 \
               bn_mulxr:fp_mul_os:4:pm bn_mulxr:fp_mul_os:6:pm bn_mul:fp_mul_ps:4:pm \
-              bn_mulsel:fp_mul_ksqr:4:1:1:x86_64_adx \
+              bn_mulsel:fp_mul_ksqr:4:1:1:x86_64_adx:2 \
               bn_mulsel:fp_mul_ksqr:16:0:1:x86_64_adx \
-              bn_mulsel:fp_mul_ksqr:16:0:2:x86_64_adx \
+              bn_mulsel:fp_mul_ksqr:16:0:2:x86_64_adx:4 \
               bn_mulsel:fp_mul_ksqr:48:0:1:x86_64_adx
 JASMINC_EXEC ?= jasminc -I Libjbn=$(SRCDIR)
 
@@ -144,11 +150,11 @@ exec: gen_exec_test.py $(LIBJBN_SRC)
 	@for t in $(EXEC_TESTS); do \
 	  set -- $$(echo $$t | tr ':' ' '); \
 	  f=""; [ "$$4" = 1 ] && f=--field; [ "$$4" = pm ] && f="--field --pm"; \
-	  k=""; [ -n "$$5" ] && k="--ksqr $$5 --profile $$6.jinc"; \
+	  k=""; [ -n "$$5" ] && k="--ksqr $$5 --profile $$6.jinc $${7:+--sqr-unroll-max $$7}"; \
 	  j=tmpexec_$$1_$$3_$$4$${5:+_ksqr$$5}.jazz; \
 	  python3 gen_exec_test.py $$3 $$1@n.jinc $$2@fp.jinc $$f $$k --seed $$3 > $$j || exit 1; \
 	  res=$$($(JASMINC_EXEC) -o /dev/null $$j 2>&1 | awk '/Evaluation/{getline a; getline b; print a, b}'); \
-	  echo "$$1 n=$$3 $${f:-(products)}$${5:+, bn_ksqr ($$5 level(s), $$6)}: $$res"; \
+	  echo "$$1 n=$$3 $${f:-(products)}$${5:+, bn_ksqr ($$5 level(s), $$6$${7:+, JBN_SQR_UNROLL_MAX = $$7})}: $$res"; \
 	  case "$$res" in "0X0 "*) ;; *) echo "FAILED"; exit 1;; esac; \
 	done
 
@@ -180,13 +186,16 @@ exec: gen_exec_test.py $(LIBJBN_SRC)
 # see its header), to be compared with mulx and mulx_unr, e.g.
 #   make bench BENCH_VARIANTS="mulx_unr mulx mulx_sqru" BENCH_SIZES="24 32 40 48"
 # Three more, not in the default list either: the selector with the
-# squaring over the half size of bn_ksqr, whose half squarings are the ones
-# the selector takes at the half size: ksqr (x86_64, generated from
-# fp_ctx_ksqr16.jazz), ksqrx (x86_64_adx, from fp_ctx_ksqrx16.jazz) and,
-# with two levels, ksqrx2 (x86_64_adx, from fp_ctx_ksqrx2_16.jazz); a size
-# that the levels do not divide is skipped. To be compared with sel and
-# selx (the squaring that the profile selects), e.g.
-#   make bench BENCH_VARIANTS="mulx mulx_sqru selx ksqrx ksqrx2" BENCH_SIZES="24 32 40 48 64"
+# squaring that fp_mul_ksqr selects from the profile, which is the one of
+# the selector up to JBN_SQR_UNROLL_MAX and the squaring over the half size
+# of bn_ksqr above: ksqr (x86_64, generated from fp_ctx_ksqr16.jazz), ksqrx
+# (x86_64_adx, from fp_ctx_ksqrx16.jazz) and, with two levels of half
+# scopes, the second of which is taken where the half size is itself above
+# the threshold, ksqrx2 (x86_64_adx, from fp_ctx_ksqrx2_16.jazz). The
+# instances do not shadow the threshold, as the test wirings do; a size
+# that the levels do not divide is skipped. Up to the threshold they are
+# sel and selx; above, they are to be compared with them, e.g.
+#   make bench BENCH_VARIANTS="mulx selx ksqrx ksqrx2" BENCH_SIZES="24 32 40 48 64 96 128"
 BENCH_SIZES    ?= 4 5 6 8 16 32 64
 BENCH_VARIANTS ?= unr loop mulx_unr mulx mulxr pm_unr pm_mulxr sel selx
 BENCH_CHAINED  ?=
@@ -214,7 +223,8 @@ bench: bench_fp_ctx.c fp_ctx7.jazz fp_ctx_sel7.jazz fp_ctx_selx7.jazz fp_ctx_mul
 	  [ $$((n % d)) -eq 0 ] || continue; \
 	  f=tmpbench_$${v}_$$n; \
 	  if [ $$d -gt 1 ]; then \
-	    sed -e "s/param int nlimbs = 16;/param int nlimbs = SIZE1;/" \
+	    sed -e "/param int JBN_SQR_UNROLL_MAX = /d" \
+	        -e "s/param int nlimbs = 16;/param int nlimbs = SIZE1;/" \
 	        -e "s/param int nlimbs = 8;/param int nlimbs = SIZE2;/" \
 	        -e "s/param int nlimbs = 4;/param int nlimbs = SIZE4;/" \
 	        -e "s/= SIZE1;/= $$n;/" -e "s/= SIZE2;/= $$((n/2));/" -e "s/= SIZE4;/= $$((n/4));/" \
