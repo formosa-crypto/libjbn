@@ -156,6 +156,18 @@ bench: bench_fp_ctx.c fp_ctx7.jazz $(LIBJBN_SRC)
 	  ./$$f || echo "$$v n=$$n: did not run (the variants over bn_mulx, bn_mulx_loop and bn_mulxr need a CPU with BMI2 and ADX)"; \
 	done; done
 
+# GMP's exponentiations at the same sizes and on the same operands, as a
+# reference for fpc_exp (bench_gmp.c: mpz_powm_sec, its core mpn_sec_powm,
+# mpz_powm, and the products mpn_sec_mul/mpn_sec_sqr alone). It needs the
+# GMP of the host (no Jasmin code is linked, so that it is a native program
+# on any host); where GMP is not on the default paths, e.g.
+#   make bench-gmp GMP_FLAGS="-I/opt/homebrew/include -L/opt/homebrew/lib"
+GMP_CC    ?= cc
+GMP_FLAGS ?=
+bench-gmp: bench_gmp.c
+	$(GMP_CC) -O2 $(GMP_FLAGS) -o tmpbench_gmp bench_gmp.c -lgmp
+	./tmpbench_gmp $(BENCH_SIZES)
+
 .PRECIOUS: fp_ctx%.s
 
 clean:
