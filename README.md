@@ -613,9 +613,9 @@ What is *not* settled:
     `bn_mul_loop` at 16 and 64).
   * Timings: same CPU, `taskset -c 2 make -C examples/simple_tests/fp_ctx
     bench`, which times the window and the ladder on the same operands;
-    one run (the entry points were then `fpc_expw` and `fpc_exp`; they
-    are now `fpc_exp` and `fpc_exp_ladder`). The time of the window over
-    that of the ladder:
+    the first of two runs (the entry points were then `fpc_expw` and
+    `fpc_exp`; they are now `fpc_exp` and `fpc_exp_ladder`). The time of
+    the window over that of the ladder:
 
     | `nlimbs` | `bn_mul` | `bn_mul_loop` | `bn_mulx` | `bn_mulx_loop` | `bn_mulxr` | `fp_pm` over `bn_mul` | `fp_pm` over `bn_mulxr` |
     |---:|---:|---:|---:|---:|---:|---:|---:|
@@ -666,6 +666,18 @@ What is *not* settled:
       more at 4 limbs (next section, an earlier run), which for five
       products is the 24 ns. That leaves little for the lookup.
       `BENCH_CHAINED=1` would tell.
+    * A second run, after the switch of the entry points, agrees: 6 of
+      its 164 timings differ by more than 2% (4.9% at most), and no ratio
+      of the first table by more than 0.03. With it, `make bench-gmp` was
+      run again on both builds of GMP (their `mpz_powm_sec` within 2% of
+      the earlier run): the window takes 0.86 to 0.90 of the time of the
+      build for the CPU up to 16 limbs, 0.99 at 32 and 0.96 at 64, and
+      0.67 to 0.75 of that of the package, as above.
+    * Against `mpz_powm`, which is not constant time (same runs): the
+      window is level with the package's at 4 limbs and takes 0.76 to
+      0.95 of its time from 5 limbs on; against the build for the CPU it
+      takes 0.93 and 0.94 of its time at 8 and 16 limbs, and 1.06 to 1.12
+      times its time at the other sizes.
   * A window of 4 bits is the one of GMP up to 8 limbs. With its 5 bits
     at 16 and 32 limbs and 6 at 64, there would be 3% fewer products at 16
     and 32 limbs and 6% fewer at 64, and larger tables to read: not done.
