@@ -40,6 +40,10 @@ MULX_PROGS += $(addprefix test_fp_ctx_pmxr, $(PM_SIZES))
 # bn_mulx_loop with the squaring of bn_mulx (fp_ctx_mulx_sqru7.jazz: an
 # experiment, see its header and the bench variant mulx_sqru), in `run-mulx`
 MULX_PROGS += test_fp_ctx_mulx_sqru7
+# bn_mulx_loop with the looped squaring of bn_sqrx_loop, a prototype
+# (fp_ctx_mulx_sqrl7.jazz: see its header and the bench variants
+# mulx_sqrl<G>, mulx_sqrl<G>s), in `run-mulx`
+MULX_PROGS += test_fp_ctx_mulx_sqrl7
 # the squaring that the binding fp_mul_ksqr selects, between the one of the
 # selector and the squaring over the half size (bn_ksqr): fp_ctx_ksqr16
 # (profile x86_64, in `run`), fp_ctx_ksqrx16 and, with two levels of half
@@ -53,6 +57,9 @@ all: $(PROGS) $(MULX_PROGS)
 
 # (the more specific patterns first: make 3.81 takes the first match)
 test_fp_ctx_mulx_sqru%: test_fp_ctx.c fp_ctx_mulx_sqru%.s
+	$(GCC) -DNLIMBS=$* -o $@ $^
+
+test_fp_ctx_mulx_sqrl%: test_fp_ctx.c fp_ctx_mulx_sqrl%.s
 	$(GCC) -DNLIMBS=$* -o $@ $^
 
 test_fp_ctx_ksqrx2_%: test_fp_ctx.c fp_ctx_ksqrx2_%.s
@@ -113,6 +120,7 @@ run-mulx: $(MULX_PROGS) $(addprefix vectors, $(addsuffix .txt, $(SIZES) $(XR_SIZ
 	for n in $(XR_SIZES); do ./test_fp_ctx_mulxr$$n < vectors$$n.txt || exit 1; done
 	for n in $(PM_SIZES); do ./test_fp_ctx_pmxr$$n < vectors_pm$$n.txt || exit 1; done
 	./test_fp_ctx_mulx_sqru7 < vectors7.txt
+	./test_fp_ctx_mulx_sqrl7 < vectors7.txt
 	./test_fp_ctx_ksqrx16 < vectors16.txt
 	./test_fp_ctx_ksqrx2_16 < vectors16.txt
 
@@ -144,6 +152,14 @@ EXEC_TESTS ?= $(foreach n,1 2 3 4 5 6,bn_mulxr:fp_mul_os:$(n):1) \
               bn_mulsel:fp_mul_ksqr:16:0:1:x86_64_adx \
               bn_mulsel:fp_mul_ksqr:16:0:2:x86_64_adx:4 \
               bn_mulsel:fp_mul_ksqr:48:0:1:x86_64_adx
+# The looped squaring of bn_sqrx_loop (a prototype), next to bn_mulx_loop:
+#   size:f:group:tail        f as above; group: the products per group of a
+#                            row; tail: 1 for groups of group/2, .., 1
+#                            products, 0 for single products
+# (the products at the sizes around one and two groups, so that every length
+# of the tail is run; the field at 4 limbs)
+EXEC_SQRL_TESTS ?= $(foreach n,1 2 3 4 5 6 7 8 9 13 16 17 32 33,$(n):0:4:1) \
+                   9:0:4:0 17:0:8:1 17:0:8:0 33:0:16:1 33:0:16:0 4:1:4:1
 JASMINC_EXEC ?= jasminc -I Libjbn=$(SRCDIR)
 
 exec: gen_exec_test.py $(LIBJBN_SRC)
@@ -155,6 +171,15 @@ exec: gen_exec_test.py $(LIBJBN_SRC)
 	  python3 gen_exec_test.py $$3 $$1@n.jinc $$2@fp.jinc $$f $$k --seed $$3 > $$j || exit 1; \
 	  res=$$($(JASMINC_EXEC) -o /dev/null $$j 2>&1 | awk '/Evaluation/{getline a; getline b; print a, b}'); \
 	  echo "$$1 n=$$3 $${f:-(products)}$${5:+, bn_ksqr ($$5 level(s), $$6$${7:+, JBN_SQR_UNROLL_MAX = $$7})}: $$res"; \
+	  case "$$res" in "0X0 "*) ;; *) echo "FAILED"; exit 1;; esac; \
+	done
+	@for t in $(EXEC_SQRL_TESTS); do \
+	  set -- $$(echo $$t | tr ':' ' '); \
+	  f=""; [ "$$2" = 1 ] && f=--field; \
+	  j=tmpexec_sqrl_$$1_$$2_$$3_$$4.jazz; \
+	  python3 gen_exec_test.py $$1 bn_mulx_loop@n.jinc fp_mul_os@fp.jinc $$f --sqrl $$3:$$4 --seed $$1 > $$j || exit 1; \
+	  res=$$($(JASMINC_EXEC) -o /dev/null $$j 2>&1 | awk '/Evaluation/{getline a; getline b; print a, b}'); \
+	  echo "bn_sqrx_loop n=$$1 $${f:-(products)}, groups of $$3, tail $$4: $$res"; \
 	  case "$$res" in "0X0 "*) ;; *) echo "FAILED"; exit 1;; esac; \
 	done
 
@@ -185,6 +210,13 @@ exec: gen_exec_test.py $(LIBJBN_SRC)
 # the unrolled squaring of bn_mulx (generated from fp_ctx_mulx_sqru7.jazz;
 # see its header), to be compared with mulx and mulx_unr, e.g.
 #   make bench BENCH_VARIANTS="mulx_unr mulx mulx_sqru" BENCH_SIZES="24 32 40 48"
+# The looped squaring of bn_sqrx_loop, a prototype, in the same place
+# (generated from fp_ctx_mulx_sqrl7.jazz; see its header): mulx_sqrl<G>,
+# with rows cut into groups of G products (1, 2, 4, 8, 16, 32) and their
+# tail by groups of G/2, .., 1, and mulx_sqrl<G>s, with the tail by single
+# products; not in the default list. To be compared with mulx and
+# mulx_sqru, e.g.
+#   make bench BENCH_VARIANTS="mulx mulx_sqru mulx_sqrl4 mulx_sqrl8 mulx_sqrl16" BENCH_SIZES="8 16 24 32 48 64"
 # Three more, not in the default list either: the selector with the
 # squaring that fp_mul_ksqr selects from the profile, which is the one of
 # the selector up to JBN_SQR_UNROLL_MAX and the squaring over the half size
@@ -201,13 +233,16 @@ BENCH_VARIANTS ?= unr loop mulx_unr mulx mulxr pm_unr pm_mulxr sel selx
 BENCH_CHAINED  ?=
 
 bench: bench_fp_ctx.c fp_ctx7.jazz fp_ctx_sel7.jazz fp_ctx_selx7.jazz fp_ctx_mulx_sqru7.jazz \
+       fp_ctx_mulx_sqrl7.jazz \
        fp_ctx_ksqr16.jazz fp_ctx_ksqrx16.jazz fp_ctx_ksqrx2_16.jazz $(LIBJBN_SRC)
 	@for n in $(BENCH_SIZES); do for v in $(BENCH_VARIANTS); do \
-	  k=fp_mont; p=x86_64; t=fp_ctx7.jazz; m=bn_mul; s=fp_mul_ps; d=1; \
+	  k=fp_mont; p=x86_64; t=fp_ctx7.jazz; m=bn_mul; s=fp_mul_ps; d=1; sg=4; st=1; \
 	  case $$v in \
 	    sel)       t=fp_ctx_sel7.jazz;; \
 	    selx)      t=fp_ctx_selx7.jazz;; \
 	    mulx_sqru) t=fp_ctx_mulx_sqru7.jazz;; \
+	    mulx_sqrl*) t=fp_ctx_mulx_sqrl7.jazz; sg=$${v#mulx_sqrl}; \
+	               case $$sg in *s) st=0; sg=$${sg%s};; esac;; \
 	    ksqr)      t=fp_ctx_ksqr16.jazz;    d=2;; \
 	    ksqrx)     t=fp_ctx_ksqrx16.jazz;   d=2;; \
 	    ksqrx2)    t=fp_ctx_ksqrx2_16.jazz; d=4;; \
@@ -231,6 +266,8 @@ bench: bench_fp_ctx.c fp_ctx7.jazz fp_ctx_sel7.jazz fp_ctx_selx7.jazz fp_ctx_mul
 	        $$t > $$f.jazz; \
 	  else \
 	  sed -e "s/param int nlimbs = 7;/param int nlimbs = $$n;/" \
+	      -e "s/param int JBN_SQRL_GROUP = 4;/param int JBN_SQRL_GROUP = $$sg;/" \
+	      -e "s/param int JBN_SQRL_TAIL = 1;/param int JBN_SQRL_TAIL = $$st;/" \
 	      -e "s/bn_mul@n.jinc/$$m@n.jinc/" -e "s/fp_mul_ps@fp.jinc/$$s@fp.jinc/" \
 	      -e "s/fp_mont@fp.jinc/$$k@fp.jinc/" \
 	      -e "s|profiles/x86_64.jinc|profiles/$$p.jinc|" \

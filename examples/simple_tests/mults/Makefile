@@ -23,6 +23,9 @@ PROGS += testmul_os_mulx_32
 # squaring over the half size (bn_ksqr), one and two levels, over the
 # product-scanning squaring of bn_mul
 PROGS += testsqr_ksqr_32 testsqr_ksqr2_32
+# looped squaring with MULX/ADCX/ADOX rows (bn_sqrx_loop, a prototype; it
+# needs BMI2 and ADX), at 32 and at 33 limbs (an odd size: other tails)
+PROGS += testmul_os_mulx_sqrl_32 testmul_os_mulx_sqrl_33
 
 all: $(PROGS)
 
@@ -43,6 +46,17 @@ testmul_os_mulx_loop_32: testmul_os_loop.c muln32_mulx_loop.s
 
 testmul_os_mulx_32: testmul_os_loop.c muln32_mulx.s
 	$(GCC) -DNLIMBS=32 -o $@ $^
+
+testmul_os_mulx_sqrl_32: testmul_os_loop.c sqrn32_mulx_sqrl.s
+	$(GCC) -DNLIMBS=32 -DSQRN=bn_osl_sqrn -o $@ $^
+
+# (the same instance at 33 limbs, generated)
+sqrn33_mulx_sqrl.jazz: sqrn32_mulx_sqrl.jazz
+	sed -e "s/param int nlimbs = 64;/param int nlimbs = 66;/" \
+	    -e "s/param int nlimbs = 32;/param int nlimbs = 33;/" $< > $@
+
+testmul_os_mulx_sqrl_33: testmul_os_loop.c sqrn33_mulx_sqrl.s
+	$(GCC) -DNLIMBS=33 -DSQRN=bn_osl_sqrn -o $@ $^
 
 testsqr_ksqr_32: testsqr_ksqr.c sqrn32_ksqr.s
 	$(GCC) -DNLIMBS=32 -o $@ $^
@@ -176,8 +190,35 @@ bench-ksqr: bench_mul.c sqrn32_ksqr.jazz sqrn32_ksqr2.jazz $(LIBJBN_SRC)
 	  ./$$f || echo "ksqr$$l/$$b n=$$n: did not run (the mulx base needs a CPU with BMI2 and ADX)"; \
 	done; done; done
 
+# The looped squaring of bn_sqrx_loop (a prototype; BMI2 and ADX): sqrl<G>,
+# with the rows cut into groups of G products and their tail by groups of
+# G/2, .., 1, and sqrl<G>s, with the tail by single products. Each line also
+# times the row-looped multiplication of the same size (bn_mulx_loop), which
+# is the squaring of that module: `sqr` is to be compared with the `mul` of
+# its line, with the `sqr` of `bench` for mulx_unr (the unrolled squaring)
+# and with `bench-ksqr`. The instances are generated from
+# sqrn32_mulx_sqrl.jazz.
+BENCH_SQRL_SIZES  ?= 8 16 24 32 40 48 64 96 128
+BENCH_SQRL_GROUPS ?= 4 8 16
+BENCH_SQRL_TAILS  ?= 1 0
+
+bench-sqrl: bench_mul.c sqrn32_mulx_sqrl.jazz $(LIBJBN_SRC)
+	@for n in $(BENCH_SQRL_SIZES); do for g in $(BENCH_SQRL_GROUPS); do for tl in $(BENCH_SQRL_TAILS); do \
+	  sfx=; [ $$tl = 0 ] && sfx=s; \
+	  f=tmpbench_sqrl$${g}$${sfx}_$$n; \
+	  sed -e "s/param int nlimbs = 64;/param int nlimbs = TOP;/" \
+	      -e "s/param int nlimbs = 32;/param int nlimbs = $$n;/" \
+	      -e "s/param int nlimbs = TOP;/param int nlimbs = $$((2*n));/" \
+	      -e "s/param int JBN_SQRL_GROUP = 4;/param int JBN_SQRL_GROUP = $$g;/" \
+	      -e "s/param int JBN_SQRL_TAIL = 1;/param int JBN_SQRL_TAIL = $$tl;/" \
+	      sqrn32_mulx_sqrl.jazz > $$f.jazz; \
+	  $(JASMINC) $(JFLAGS) -o $$f.s $$f.jazz 2> $$f.log || { cat $$f.log; exit 1; }; \
+	  $(GCC) -O2 -DNLIMBS=$$n -DFN=bn_os_muln -DFN_SQR=bn_osl_sqrn -DVARIANT=\"sqrl$$g$$sfx\" -o $$f bench_mul.c $$f.s || exit 1; \
+	  ./$$f || echo "sqrl$$g$$sfx n=$$n: did not run (it needs a CPU with BMI2 and ADX)"; \
+	done; done; done
+
 clean:
-	rm -f $(PROGS) tmpbench_*
+	rm -f $(PROGS) tmpbench_* sqrn33_mulx_sqrl.jazz
 
 realclean: clean
 	rm -f *.s *~

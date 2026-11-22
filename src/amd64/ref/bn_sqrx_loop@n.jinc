@@ -1,0 +1,294 @@
+/* libjbn -- bn_sqrx_loop: squaring with MULX/ADCX/ADOX rows and run-time
+   loops (code size constant in nlimbs). A PROTOTYPE, to be timed: if it
+   pays, it becomes the squaring of bn_mulx_loop@n.jinc, which squares by
+   multiplying (README, "A looped squaring").
+
+   Library module, i.e. template (see README, sections 1 and 2): it is meant
+   to be `require`d inside a namespace, which becomes the instance; the tag
+   in the file name (@n) gives the kind of namespace. Names below are
+   resolved by Jasmin's outward namespace lookup.
+
+   a^2 = 2 * X + D as in bn_mulx@n.jinc, where
+     X = sum_{i<j} a[i]*a[j] * 2^(64*(i+j))    (words 1 .. 2*nlimbs-2)
+     D = sum_i a[i]^2 * 2^(128*i)
+   The rows of X get shorter with i, which a run-time loop over rows of a
+   fixed length cannot do, and a run-time loop over the products of a row
+   keeps at most one flag alive, where a row uses two carry chains. Here a
+   row is cut into groups of products: a group is straight-line code with
+   both chains, and it ends as a row does, by folding the two carries into
+   the running high word, so that no flag is live across the loop control.
+   A row is a run-time number of groups of JBN_SQRL_GROUP products, then a
+   tail of fewer than that. The doubling of X is done by shifts (no carry
+   chain) in the pass that adds D, which uses one chain, whose carry is
+   kept in a register between two iterations.
+
+   Instance:  SQR (in a size scope), next to a MUL module
+   Expects:   param int nlimbs;
+              JBN_SQRL_GROUP               // products per group: 1, 2, 4, 8, 16 or 32
+              JBN_SQRL_TAIL                // the tail of a row: 1 for groups of
+                                           // JBN_SQRL_GROUP/2, .., 1 products, each at
+                                           // most once; 0 for single products
+              (the two are knobs of the prototype, set by the wiring)
+   Provides:  _osl_sqrn _osl_sqrn_
+*/
+
+/* g products of row 0, from column j (j >= 1), with the high word hi of the
+   product before them: r[j..j+g-1] is defined (it is not read), and the
+   result is the high word of the last product */
+#[safety = { requires = 1 <= (uint) j && (uint) j + g <= nlimbs && is_arr_init(r, 8, 8*((uint) j - 1)) && is_arr_init(a, 0, 8*nlimbs), ensures = is_arr_init(r, 8, 8*((uint) j + g - 1)) }]
+inline fn __sqr_grp0
+( inline int g
+, reg mut ptr u64[2*nlimbs] r
+, reg const ptr u64[nlimbs] a
+, reg u64 ai hi j
+) -> reg ptr u64[2*nlimbs], reg u64
+{
+  inline int k;
+  reg bool of;
+  reg u64 zero lo t;
+
+  of, _, _, _, _, zero = #set0();
+
+  for k = 0 to g {
+    t = hi;
+    hi, lo = #MULX ( ai, a[j + k] );
+    of, t = #ADOX ( t, lo, of );
+    r[j + k] = t;
+  }
+  of, hi = #ADOX ( hi, zero, of );
+  // of = 0
+
+  return r, hi;
+}
+
+/* g products of row i (i >= 1), from column j (j > i; ij = i + j), with the
+   high word hi of the product before them: r[ij..ij+g-1] += a[i] * a[j..j+g-1]
+   + hi, and the result is the high word that is still to be added at
+   r[ij+g] */
+#[safety = { requires = (uint) j < (uint) ij && (uint) ij <= 2 * (uint) j - 1 && (uint) j + g <= nlimbs && is_arr_init(r, 8, 8*((uint) ij - (uint) j + nlimbs - 1)) && is_arr_init(a, 0, 8*nlimbs), ensures = is_arr_init(r, 8, 8*((uint) ij - (uint) j + nlimbs - 1)) }]
+inline fn __sqr_grp
+( inline int g
+, reg mut ptr u64[2*nlimbs] r
+, reg const ptr u64[nlimbs] a
+, reg u64 ai hi j ij
+) -> reg ptr u64[2*nlimbs], reg u64
+{
+  inline int k;
+  reg bool of cf;
+  reg u64 zero lo t;
+
+  of, cf, _, _, _, zero = #set0();
+
+  for k = 0 to g {
+    t = r[ij + k];
+    cf, t = #ADCX ( t, hi, cf );
+    hi, lo = #MULX ( ai, a[j + k] );
+    of, t = #ADOX ( t, lo, of );
+    r[ij + k] = t;
+  }
+  cf, hi = #ADCX ( hi, zero, cf );
+  of, hi = #ADOX ( hi, zero, of );
+  // cf = 0, of = 0
+
+  return r, hi;
+}
+
+/* row 0 of X (nlimbs >= 2): r[1..nlimbs] = a[0] * a[1..nlimbs-1] */
+#[safety = { requires = 2 <= nlimbs && is_arr_init(a, 0, 8*nlimbs), ensures = is_arr_init(r, 8, 8*nlimbs) }]
+inline fn __sqr_row0l
+( reg mut ptr u64[2*nlimbs] r
+, reg const ptr u64[nlimbs] a
+) -> reg ptr u64[2*nlimbs]
+{
+  reg u64 ai hi j jg;
+
+  ai = a[0];
+  hi = 0;
+  j = 1;
+  while { jg = j; jg += JBN_SQRL_GROUP; } (jg <= nlimbs) {
+    r, hi = __sqr_grp0(JBN_SQRL_GROUP, r, a, ai, hi, j);
+    j += JBN_SQRL_GROUP;
+  }
+  if (JBN_SQRL_TAIL == 1) {
+    if (JBN_SQRL_GROUP / 2 >= 1) {
+      jg = j; jg += JBN_SQRL_GROUP / 2;
+      if (jg <= nlimbs) { r, hi = __sqr_grp0(JBN_SQRL_GROUP / 2, r, a, ai, hi, j); j += JBN_SQRL_GROUP / 2; }
+    }
+    if (JBN_SQRL_GROUP / 4 >= 1) {
+      jg = j; jg += JBN_SQRL_GROUP / 4;
+      if (jg <= nlimbs) { r, hi = __sqr_grp0(JBN_SQRL_GROUP / 4, r, a, ai, hi, j); j += JBN_SQRL_GROUP / 4; }
+    }
+    if (JBN_SQRL_GROUP / 8 >= 1) {
+      jg = j; jg += JBN_SQRL_GROUP / 8;
+      if (jg <= nlimbs) { r, hi = __sqr_grp0(JBN_SQRL_GROUP / 8, r, a, ai, hi, j); j += JBN_SQRL_GROUP / 8; }
+    }
+    if (JBN_SQRL_GROUP / 16 >= 1) {
+      jg = j; jg += JBN_SQRL_GROUP / 16;
+      if (jg <= nlimbs) { r, hi = __sqr_grp0(JBN_SQRL_GROUP / 16, r, a, ai, hi, j); j += JBN_SQRL_GROUP / 16; }
+    }
+    if (JBN_SQRL_GROUP / 32 >= 1) {
+      jg = j; jg += JBN_SQRL_GROUP / 32;
+      if (jg <= nlimbs) { r, hi = __sqr_grp0(JBN_SQRL_GROUP / 32, r, a, ai, hi, j); j += JBN_SQRL_GROUP / 32; }
+    }
+  } else {
+    while (j < nlimbs) {
+      r, hi = __sqr_grp0(1, r, a, ai, hi, j);
+      j += 1;
+    }
+  }
+  // j = nlimbs
+  r[nlimbs] = hi;
+
+  return r;
+}
+
+/* row i of X (run-time, 0 < i < nlimbs-1): r[2i+1..i+nlimbs] += a[i] * a[i+1..nlimbs-1],
+   where r[i+nlimbs] is not read (it is still to be defined) */
+#[safety = { requires = 1 <= (uint) i && (uint) i < nlimbs - 1 && is_arr_init(r, 8, 8*((uint) i+nlimbs-1)) && is_arr_init(a, 0, 8*nlimbs), ensures = is_arr_init(r, 8, 8*((uint) i+nlimbs)) }]
+inline fn __sqr_rowl
+( reg mut ptr u64[2*nlimbs] r
+, reg const ptr u64[nlimbs] a
+, reg u64 i
+) -> reg ptr u64[2*nlimbs]
+{
+  reg u64 ai hi j ij jg;
+
+  ai = a[i];
+  hi = 0;
+  j = i; j += 1;
+  ij = i; ij += j;
+  while { jg = j; jg += JBN_SQRL_GROUP; } (jg <= nlimbs) {
+    r, hi = __sqr_grp(JBN_SQRL_GROUP, r, a, ai, hi, j, ij);
+    j += JBN_SQRL_GROUP; ij += JBN_SQRL_GROUP;
+  }
+  if (JBN_SQRL_TAIL == 1) {
+    if (JBN_SQRL_GROUP / 2 >= 1) {
+      jg = j; jg += JBN_SQRL_GROUP / 2;
+      if (jg <= nlimbs) { r, hi = __sqr_grp(JBN_SQRL_GROUP / 2, r, a, ai, hi, j, ij); j += JBN_SQRL_GROUP / 2; ij += JBN_SQRL_GROUP / 2; }
+    }
+    if (JBN_SQRL_GROUP / 4 >= 1) {
+      jg = j; jg += JBN_SQRL_GROUP / 4;
+      if (jg <= nlimbs) { r, hi = __sqr_grp(JBN_SQRL_GROUP / 4, r, a, ai, hi, j, ij); j += JBN_SQRL_GROUP / 4; ij += JBN_SQRL_GROUP / 4; }
+    }
+    if (JBN_SQRL_GROUP / 8 >= 1) {
+      jg = j; jg += JBN_SQRL_GROUP / 8;
+      if (jg <= nlimbs) { r, hi = __sqr_grp(JBN_SQRL_GROUP / 8, r, a, ai, hi, j, ij); j += JBN_SQRL_GROUP / 8; ij += JBN_SQRL_GROUP / 8; }
+    }
+    if (JBN_SQRL_GROUP / 16 >= 1) {
+      jg = j; jg += JBN_SQRL_GROUP / 16;
+      if (jg <= nlimbs) { r, hi = __sqr_grp(JBN_SQRL_GROUP / 16, r, a, ai, hi, j, ij); j += JBN_SQRL_GROUP / 16; ij += JBN_SQRL_GROUP / 16; }
+    }
+    if (JBN_SQRL_GROUP / 32 >= 1) {
+      jg = j; jg += JBN_SQRL_GROUP / 32;
+      if (jg <= nlimbs) { r, hi = __sqr_grp(JBN_SQRL_GROUP / 32, r, a, ai, hi, j, ij); j += JBN_SQRL_GROUP / 32; ij += JBN_SQRL_GROUP / 32; }
+    }
+  } else {
+    while (j < nlimbs) {
+      r, hi = __sqr_grp(1, r, a, ai, hi, j, ij);
+      j += 1; ij += 1;
+    }
+  }
+  // j = nlimbs, ij = i + nlimbs
+  r[ij] = hi;
+
+  return r;
+}
+
+/* r = 2 * X + D (nlimbs >= 2), for X in r[1..2*nlimbs-2]. Word m of 2 * X is
+   X[m] shifted by one bit, with the top bit of X[m-1], which is kept in a
+   register (prev); the squares are added on one carry chain, whose carry
+   (c) is kept in a register between two iterations. r[0] and
+   r[2*nlimbs-1] are not read (X is zero there). */
+#[safety = { requires = 2 <= nlimbs && is_arr_init(r, 8, 8*(2*nlimbs-2)) && is_arr_init(a, 0, 8*nlimbs), ensures = is_arr_init(r, 0, 16*nlimbs) }]
+inline fn __sqr_diagl
+( reg mut ptr u64[2*nlimbs] r
+, reg const ptr u64[nlimbs] a
+) -> reg ptr u64[2*nlimbs]
+{
+  reg bool cf;
+  reg u64 ai hi lo x0 x1 prev top c i i2;
+
+  ai = a[0];
+  hi, lo = #MULX ( ai, a[0] );
+  r[0] = lo;
+  x1 = r[1];
+  prev = x1;
+  x1 <<= 1;
+  cf, x1 += hi;
+  r[1] = x1;
+  c = #MOV ( 0 );
+  _, c += 0 + cf;
+
+  i = 1; i2 = 2;
+  while (i < nlimbs - 1) {
+    x0 = r[i2];
+    x1 = r[i2 + 1];
+    top = x1;
+    _, _, _, _, _, x1 = #SHLD ( x1, x0, 1 );
+    _, _, _, _, _, x0 = #SHLD ( x0, prev, 1 );
+    prev = top;
+    ai = a[i];
+    hi, lo = #MULX ( ai, a[i] );
+    _, cf, _, _, _, c = #NEG ( c );
+    cf, x0 += lo + cf;
+    cf, x1 += hi + cf;
+    r[i2] = x0;
+    r[i2 + 1] = x1;
+    c = #MOV ( 0 );
+    _, c += 0 + cf;
+    i += 1; i2 += 2;
+  }
+
+  x0 = r[2*nlimbs - 2];
+  top = x0;
+  _, _, _, _, _, x0 = #SHLD ( x0, prev, 1 );
+  top >>= 63;
+  ai = a[nlimbs - 1];
+  hi, lo = #MULX ( ai, a[nlimbs - 1] );
+  _, cf, _, _, _, c = #NEG ( c );
+  cf, x0 += lo + cf;
+  _, hi += top + cf;
+  r[2*nlimbs - 2] = x0;
+  r[2*nlimbs - 1] = hi;
+
+  return r;
+}
+
+/* Squaring */
+#[safety = { requires = is_arr_init(a, 0, 8*nlimbs), ensures = is_arr_init(r, 0, 16*nlimbs) }]
+fn _osl_sqrn
+( reg mut ptr u64[2*nlimbs] r
+, reg const ptr u64[nlimbs] a
+) -> reg ptr u64[2*nlimbs]
+{
+  reg u64 i ai hi lo;
+
+  if (nlimbs == 1) {
+    ai = a[0];
+    hi, lo = #MULX ( ai, a[0] );
+    r[0] = lo;
+    r[1] = hi;
+  } else {
+    r = __sqr_row0l(r, a);
+    i = 1;
+    while (i < nlimbs - 1) {
+      r = __sqr_rowl(r, a, i);
+      i += 1;
+    }
+    r = __sqr_diagl(r, a);
+  }
+
+  return r;
+}
+
+#[safety = { requires = is_arr_init(a, 0, 8*nlimbs), ensures = is_arr_init(r, 0, 16*nlimbs) }]
+inline fn _osl_sqrn_
+( reg mut ptr u64[2*nlimbs] r
+, reg const ptr u64[nlimbs] a
+) -> reg ptr u64[2*nlimbs]
+{
+  r = r; a = a;
+  r = _osl_sqrn(r, a);
+  r = r;
+  return r;
+}

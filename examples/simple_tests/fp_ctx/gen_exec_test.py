@@ -31,6 +31,10 @@ usage: gen_exec_test.py N MODULE BINDING [--field] [--seed S] [--cases C]
        with fp_mul_ksqr, which takes it above JBN_SQR_UNROLL_MAX, and so
        does a half scope for its own half, which --sqr-unroll-max shadows
        in the size scope, for the tests to take it at a small size)
+       gen_exec_test.py 17 bn_mulx_loop@n.jinc fp_mul_os@fp.jinc --sqrl 8:1
+       (the looped squaring of bn_sqrx_loop, a prototype, as SQR next to
+       the module: its _osl_sqrn_ is tested alone, and with --field the
+       field squares with it)
 """
 import argparse
 import random
@@ -52,6 +56,11 @@ ap.add_argument("--ksqr", type=int, default=0, metavar="LEVELS",
                 "and BINDING fp_mul_ksqr@fp.jinc")
 ap.add_argument("--sqr-unroll-max", type=int, metavar="MAX",
                 help="shadow JBN_SQR_UNROLL_MAX in the size scope (with --ksqr)")
+ap.add_argument("--sqrl", metavar="GROUP:TAIL",
+                help="instantiate bn_sqrx_loop (the looped squaring, a prototype) "
+                "as SQR, with GROUP products per group of a row and the tail TAIL "
+                "(1: groups of GROUP/2, .., 1; 0: single products); its _osl_sqrn_ "
+                "is tested alone and, with --field, the field squares with it")
 args = ap.parse_args()
 
 N = args.n
@@ -138,6 +147,10 @@ namespace H {
   param int nlimbs = %d;""" % N)
 if args.sqr_unroll_max is not None:
     emit("  param int JBN_SQR_UNROLL_MAX = %d;" % args.sqr_unroll_max)
+if args.sqrl:
+    sqrl_group, sqrl_tail = (int(x) for x in args.sqrl.split(":"))
+    emit("  param int JBN_SQRL_GROUP = %d;" % sqrl_group)
+    emit("  param int JBN_SQRL_TAIL = %d;" % sqrl_tail)
 if args.ksqr:
     emit_half(1, "  ")
 emit("""  namespace BN  { from Libjbn require "bn_base@n.jinc" }
@@ -145,7 +158,28 @@ emit("""  namespace BN  { from Libjbn require "bn_base@n.jinc" }
   namespace MUL { from Libjbn require "%s" }""" % args.module)
 if args.ksqr:
     emit_ksqr(0, "  ")
-if args.field:
+if args.sqrl:
+    emit('  namespace SQR { from Libjbn require "bn_sqrx_loop@n.jinc" }')
+if args.field and args.sqrl:
+    # the bindings of fp_mul_os@fp.jinc, with the squaring of SQR
+    emit("""  namespace FPM {
+    inline fn fun_muln
+    ( reg mut ptr u64[2*nlimbs] r
+    , reg const ptr u64[nlimbs] a b
+    ) -> reg ptr u64[2*nlimbs] {
+      r = MUL::_os_muln_(r, a, b);
+      return r;
+    }
+    inline fn fun_sqrn
+    ( reg mut ptr u64[2*nlimbs] r
+    , reg const ptr u64[nlimbs] a
+    ) -> reg ptr u64[2*nlimbs] {
+      r = SQR::_osl_sqrn_(r, a);
+      return r;
+    }
+    from Libjbn require "fp_mont@fp.jinc"
+  }""")
+elif args.field:
     emit("""  namespace FPM {
     from Libjbn require "%s"
     from Libjbn require "%s"
@@ -176,6 +210,22 @@ for _ in range(args.cases + 2):
     check("_r2", limbs(x * y, 2 * N))
     emit("  a = _a; r2 = _r2; r2 = H::MUL::%s(r2, a)" % SQRN + "; _r2 = r2;")
     check("_r2", limbs(x * x, 2 * N))
+
+if args.sqrl:
+    # the looped squaring alone: operands of all zeros, all ones and of
+    # limbs taken among 0, 1, 2^64-1, 2^63 and random ones, so that the
+    # folded carries of the groups and the carry of the diagonal pass take
+    # their extreme values
+    def edge():
+        return sum(random.choice([0, 1, W - 1, 1 << 63, random.randrange(W)]) << (64 * i)
+                   for i in range(N))
+    xs = [0, 1, R - 1, R // 2, W - 1] + [edge() for _ in range(6)]
+    xs += [random.randrange(R) for _ in range(args.cases + 2)]
+    for x in xs:
+        x %= R
+        load("_a", limbs(x))
+        emit("  a = _a; r2 = _r2; r2 = H::SQR::_osl_sqrn_(r2, a); _r2 = r2;")
+        check("_r2", limbs(x * x, 2 * N))
 
 if args.ksqr:
     # the squaring over the half size alone: x = lo + B * hi, on which it

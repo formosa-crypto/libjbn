@@ -2,7 +2,9 @@
    (bn_mul_loop), against a schoolbook reference in C.
 
    Build with -DNLIMBS=<n> (operand size, in limbs) and link with the
-   matching instance (muln<n>_loop.s). */
+   matching instance (muln<n>_loop.s). The squaring that is tested is
+   bn_os_sqrn, or the entry point given with -DSQRN=<name> (bn_osl_sqrn,
+   the looped squaring of bn_sqrx_loop: sqrn<n>_mulx_sqrl.s). */
 #include <stdio.h>
 #include <stdint.h>
 #include <string.h>
@@ -11,8 +13,12 @@
 #define NLIMBS 32
 #endif
 
+#ifndef SQRN
+#define SQRN bn_os_sqrn
+#endif
+
 extern void bn_os_muln(uint64_t*, const uint64_t*, const uint64_t*);
-extern void bn_os_sqrn(uint64_t*, const uint64_t*);
+extern void SQRN(uint64_t*, const uint64_t*);
 
 /* reference: r[0..2n-1] = a * b */
 static void ref_mul(uint64_t r[], const uint64_t a[], const uint64_t b[]) {
@@ -67,7 +73,7 @@ static void check(const char *what, const uint64_t a[], const uint64_t b[]) {
   }
   if (a == b) {
     memset(got, 0x5a, sizeof got);
-    bn_os_sqrn(got, a);
+    SQRN(got, a);
     if (memcmp(expected, got, sizeof got) != 0) {
       if (errors < 5) printf("FAIL sqr (%s)\n", what);
       errors++;
