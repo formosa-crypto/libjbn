@@ -312,7 +312,7 @@ THEORIES = OrderedDict([
                             calls={'uTIL__': 'bn_util', 'h__BN__': 'bn_base'}, pure_params=True,
                             extparams={'h__FPM__': ['_addmU_', '_submU_', '_mulm_', '_sqrm_',
                                                     '_invm_', '_toM_', '_fromM_'],
-                                       'h__FPM__EXP__': ['_expm_', '_expm_noct_', '_expmLR_noct_']},
+                                       'h__FPM__EXP__': ['_expm_', '_expmW_', '_expm_noct_', '_expmLR_noct_']},
                             globals={'h__FPM__glob_ctx': ('glob_ctx', 'BA_32n_8')})),
 ])
 

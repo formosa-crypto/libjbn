@@ -726,7 +726,7 @@ module M(P: MParam) = {
     param_4 <- a;
     param_5 <- b;
     param_6 <- ctx;
-    (aux_3, aux_4, tmp__trace) <@ P._expm_ (param_3, b_param_1,
+    (aux_3, aux_4, tmp__trace) <@ P._expmW_ (param_3, b_param_1,
     param_4, (BA_8n.init_arr (W8.of_int 255)), param_5,
     (BA_8n.init_arr (W8.of_int 255)), param_6,
     (BA_32n_8.init_arr (W8.of_int 255)));
@@ -744,8 +744,8 @@ module M(P: MParam) = {
     trace_fpc_exp <- (trace_fpc_exp ++ tmp__trace);
     return (trace_fpc_exp);
   }
-  proc fpc_expw (rp:W64.t, ap:W64.t, bp:W64.t, ctx:BA_32n_8.t,
-                 b_ctx:BA_32n_8.t) : trace = {
+  proc fpc_exp_ladder (rp:W64.t, ap:W64.t, bp:W64.t, ctx:BA_32n_8.t,
+                       b_ctx:BA_32n_8.t) : trace = {
     var aux:BA_8n.t;
     var aux_0:BA_8n.t;
     var aux_1:BA_8n.t;
@@ -785,7 +785,7 @@ module M(P: MParam) = {
     var b_result_1:BA_8n.t;
     var param_7:W64.t;
     var param_8:BA_8n.t;
-    var trace_fpc_expw:trace;
+    var trace_fpc_exp_ladder:trace;
     _a <- witness;
     _b <- witness;
     _ctx <- witness;
@@ -815,9 +815,9 @@ module M(P: MParam) = {
     result <- witness;
     result_0 <- witness;
     result_1 <- witness;
-    trace_fpc_expw <- [];
-    trace_fpc_expw <-
-    (trace_fpc_expw ++
+    trace_fpc_exp_ladder <- [];
+    trace_fpc_exp_ladder <-
+    (trace_fpc_exp_ladder ++
     [(Assert,
      ((((is_valid ptr_modulus Glob.mem_v (W64.to_uint ap) (8 * nlimbs)) /\
        (is_valid ptr_modulus Glob.mem_v (W64.to_uint bp) (8 * nlimbs))) /\
@@ -836,9 +836,9 @@ module M(P: MParam) = {
     (aux, aux_0, tmp__trace) <@ BNB.M._load_ (param, b_param, param_0);
     result <- aux;
     b_result <- aux_0;
-    trace_fpc_expw <- (trace_fpc_expw ++ tmp__trace);
-    trace_fpc_expw <-
-    (trace_fpc_expw ++ [(Assert, (BA_8n.is_init b_result 0 (8 * nlimbs)))]);
+    trace_fpc_exp_ladder <- (trace_fpc_exp_ladder ++ tmp__trace);
+    trace_fpc_exp_ladder <-
+    (trace_fpc_exp_ladder ++ [(Assert, (BA_8n.is_init b_result 0 (8 * nlimbs)))]);
     a <- result;
     b_b <- b__b;
     b <- _b;
@@ -849,9 +849,9 @@ module M(P: MParam) = {
     param_2);
     result_0 <- aux_1;
     b_result_0 <- aux_2;
-    trace_fpc_expw <- (trace_fpc_expw ++ tmp__trace);
-    trace_fpc_expw <-
-    (trace_fpc_expw ++ [(Assert, (BA_8n.is_init b_result_0 0 (8 * nlimbs)))]);
+    trace_fpc_exp_ladder <- (trace_fpc_exp_ladder ++ tmp__trace);
+    trace_fpc_exp_ladder <-
+    (trace_fpc_exp_ladder ++ [(Assert, (BA_8n.is_init b_result_0 0 (8 * nlimbs)))]);
     b <- result_0;
     b_r <- b__r;
     r <- _r;
@@ -861,23 +861,23 @@ module M(P: MParam) = {
     param_4 <- a;
     param_5 <- b;
     param_6 <- ctx;
-    (aux_3, aux_4, tmp__trace) <@ P._expmW_ (param_3, b_param_1,
+    (aux_3, aux_4, tmp__trace) <@ P._expm_ (param_3, b_param_1,
     param_4, (BA_8n.init_arr (W8.of_int 255)), param_5,
     (BA_8n.init_arr (W8.of_int 255)), param_6,
     (BA_32n_8.init_arr (W8.of_int 255)));
     result_1 <- aux_3;
     b_result_1 <- aux_4;
-    trace_fpc_expw <- (trace_fpc_expw ++ tmp__trace);
-    trace_fpc_expw <-
-    (trace_fpc_expw ++ [(Assert, (BA_8n.is_init b_result_1 0 (8 * nlimbs)))]);
+    trace_fpc_exp_ladder <- (trace_fpc_exp_ladder ++ tmp__trace);
+    trace_fpc_exp_ladder <-
+    (trace_fpc_exp_ladder ++ [(Assert, (BA_8n.is_init b_result_1 0 (8 * nlimbs)))]);
     r <- result_1;
     rp <- _rp;
     param_7 <- rp;
     param_8 <- r;
     tmp__trace <@ BNB.M._store_ (param_7, param_8,
     (BA_8n.init_arr (W8.of_int 255)));
-    trace_fpc_expw <- (trace_fpc_expw ++ tmp__trace);
-    return (trace_fpc_expw);
+    trace_fpc_exp_ladder <- (trace_fpc_exp_ladder ++ tmp__trace);
+    return (trace_fpc_exp_ladder);
   }
   proc fpc_exp_noct (rp:W64.t, ap:W64.t, bp:W64.t, ctx:BA_32n_8.t,
                      b_ctx:BA_32n_8.t) : trace = {
@@ -1340,7 +1340,7 @@ op fpc_exp_pre (_mem_v : global_mem_v_t) (_rp : W64.t) (_ap : W64.t) (_bp : W64.
 op fpc_exp_post (_rp : W64.t) (_ap : W64.t) (_bp : W64.t) (_ctx : BA_32n_8.t) (_b_ctx : BA_32n_8.t) (_res : trace) =
   true.
 
-op fpc_expw_pre (_mem_v : global_mem_v_t) (_rp : W64.t) (_ap : W64.t) (_bp : W64.t) (_ctx : BA_32n_8.t) (_b_ctx : BA_32n_8.t) =
+op fpc_exp_ladder_pre (_mem_v : global_mem_v_t) (_rp : W64.t) (_ap : W64.t) (_bp : W64.t) (_ctx : BA_32n_8.t) (_b_ctx : BA_32n_8.t) =
   (true /\
    (true /\
    (true /\
@@ -1349,7 +1349,7 @@ op fpc_expw_pre (_mem_v : global_mem_v_t) (_rp : W64.t) (_ap : W64.t) (_bp : W64
     (is_valid ptr_modulus _mem_v (W64.to_uint _rp) (8 * nlimbs))) /\
    (BA_32n_8.is_init _b_ctx 0 (8 * ((4 * nlimbs) + 1))))))).
 
-op fpc_expw_post (_rp : W64.t) (_ap : W64.t) (_bp : W64.t) (_ctx : BA_32n_8.t) (_b_ctx : BA_32n_8.t) (_res : trace) =
+op fpc_exp_ladder_post (_rp : W64.t) (_ap : W64.t) (_bp : W64.t) (_ctx : BA_32n_8.t) (_b_ctx : BA_32n_8.t) (_res : trace) =
   true.
 
 op fpc_exp_noct_pre (_mem_v : global_mem_v_t) (_rp : W64.t) (_ap : W64.t) (_bp : W64.t) (_ctx : BA_32n_8.t) (_b_ctx : BA_32n_8.t) =

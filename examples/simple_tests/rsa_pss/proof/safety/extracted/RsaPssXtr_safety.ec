@@ -9,11 +9,12 @@ from Jasmin require import Jcheck JSafety.
 require import
 Array3 Array4 Array16 Array24 Array32 Array36 Array64 Array65 Array80
 Array128 Array129 Array133 Array178 Array256 Array288 Array512 Array520
-Array640 Array1032 Array1064 Array1424 WArray288 WArray640 BArray24 BArray32
-BArray128 BArray256 BArray288 BArray512 BArray520 BArray640 BArray1032
-BArray1064 BArray1424 SBArray1064_32 SBArray256_128 SBArray520_128
-SBArray640_128 SBArray1424_128 SBArray288_256 SBArray512_256 SBArray520_256
-SBArray1032_256 SBArray1032_512 SBArray1424_520 SBArray1064_1032.
+Array640 Array1032 Array1064 Array1424 Array2048 WArray288 WArray640 BArray24
+BArray32 BArray128 BArray256 BArray288 BArray512 BArray520 BArray640
+BArray1032 BArray1064 BArray1424 BArray2048 SBArray1064_32 SBArray256_128
+SBArray520_128 SBArray640_128 SBArray1424_128 SBArray2048_128 SBArray288_256
+SBArray512_256 SBArray520_256 SBArray1032_256 SBArray1032_512 SBArray1424_520
+SBArray1064_1032.
 
 abbrev  sk_test =
 (BArray640.of_list64
@@ -404,167 +405,6 @@ module M = {
     a <- a;
     b_a <- (BArray128.init_arr (W8.of_int 255));
     return (a, b_a, trace_h__H__BN___cmov_);
-  }
-  proc h__H__BN____cswap_mask (x:BArray128.t, b_x:BArray128.t, y:BArray128.t,
-                               b_y:BArray128.t, mask:W64.t) : BArray128.t *
-                                                              BArray128.t *
-                                                              BArray128.t *
-                                                              BArray128.t *
-                                                              trace = {
-    var i:int;
-    var tmp:W64.t;
-    var trace_h__H__BN____cswap_mask:trace;
-    trace_h__H__BN____cswap_mask <- [];
-    trace_h__H__BN____cswap_mask <-
-    (trace_h__H__BN____cswap_mask ++
-    [(Assert, (BArray128.is_init b_x 0 128))]);
-    trace_h__H__BN____cswap_mask <-
-    (trace_h__H__BN____cswap_mask ++
-    [(Assert, (BArray128.is_init b_y 0 128))]);
-    i <- 0;
-    while ((i < 16)) {
-      trace_h__H__BN____cswap_mask <-
-      (trace_h__H__BN____cswap_mask ++
-      [(Assert, ((0 <= (i * 8)) /\ (((i * 8) + 8) <= 128)))]);
-      tmp <- (BArray128.get64 x i);
-      trace_h__H__BN____cswap_mask <-
-      (trace_h__H__BN____cswap_mask ++
-      [(Assert, ((0 <= (i * 8)) /\ (((i * 8) + 8) <= 128)))]);
-      tmp <- (tmp `^` (BArray128.get64 y i));
-      tmp <- (tmp `&` mask);
-      trace_h__H__BN____cswap_mask <-
-      (trace_h__H__BN____cswap_mask ++
-      [(Assert, ((0 <= (i * 8)) /\ (((i * 8) + 8) <= 128)))]);
-      trace_h__H__BN____cswap_mask <-
-      (trace_h__H__BN____cswap_mask ++
-      [(Assert, ((0 <= (i * 8)) /\ (((i * 8) + 8) <= 128)))]);
-      x <- (BArray128.set64 x i ((BArray128.get64 x i) `^` tmp));
-      trace_h__H__BN____cswap_mask <-
-      (trace_h__H__BN____cswap_mask ++
-      [(Assert, ((0 <= (i * 8)) /\ (((i * 8) + 8) <= 128)))]);
-      trace_h__H__BN____cswap_mask <-
-      (trace_h__H__BN____cswap_mask ++
-      [(Assert, ((0 <= (i * 8)) /\ (((i * 8) + 8) <= 128)))]);
-      y <- (BArray128.set64 y i ((BArray128.get64 y i) `^` tmp));
-      i <- (i + 1);
-    }
-    b_x <- (BArray128.init_arr (W8.of_int 255));
-    b_y <- (BArray128.init_arr (W8.of_int 255));
-    return (x, b_x, y, b_y, trace_h__H__BN____cswap_mask);
-  }
-  proc h__H__BN___cswap_mask (x:BArray128.t, b_x:BArray128.t, y:BArray128.t,
-                              b_y:BArray128.t, mask:W64.t) : BArray128.t *
-                                                             BArray128.t *
-                                                             BArray128.t *
-                                                             BArray128.t *
-                                                             trace = {
-    var aux:BArray128.t;
-    var aux_0:BArray128.t;
-    var aux_1:BArray128.t;
-    var aux_2:BArray128.t;
-    var param:BArray128.t;
-    var param_0:BArray128.t;
-    var param_1:W64.t;
-    var result:BArray128.t;
-    var b_result:BArray128.t;
-    var result_0:BArray128.t;
-    var b_result_0:BArray128.t;
-    var trace_h__H__BN___cswap_mask:trace;
-    b_result <- witness;
-    b_result_0 <- witness;
-    param <- witness;
-    param_0 <- witness;
-    result <- witness;
-    result_0 <- witness;
-    trace_h__H__BN___cswap_mask <- [];
-    trace_h__H__BN___cswap_mask <-
-    (trace_h__H__BN___cswap_mask ++
-    [(Assert, (BArray128.is_init b_x 0 128))]);
-    trace_h__H__BN___cswap_mask <-
-    (trace_h__H__BN___cswap_mask ++
-    [(Assert, (BArray128.is_init b_y 0 128))]);
-    param <- x;
-    param_0 <- y;
-    param_1 <- mask;
-    (aux, aux_0, aux_1, aux_2, tmp__trace) <@ h__H__BN____cswap_mask (
-    param, (BArray128.init_arr (W8.of_int 255)), param_0,
-    (BArray128.init_arr (W8.of_int 255)), param_1);
-    result <- aux;
-    b_result <- aux_0;
-    result_0 <- aux_1;
-    b_result_0 <- aux_2;
-    trace_h__H__BN___cswap_mask <-
-    (trace_h__H__BN___cswap_mask ++ tmp__trace);
-    trace_h__H__BN___cswap_mask <-
-    (trace_h__H__BN___cswap_mask ++
-    [(Assert, (BArray128.is_init b_result 0 128))]);
-    trace_h__H__BN___cswap_mask <-
-    (trace_h__H__BN___cswap_mask ++
-    [(Assert, (BArray128.is_init b_result_0 0 128))]);
-    x <- result;
-    y <- result_0;
-    b_x <- (BArray128.init_arr (W8.of_int 255));
-    b_y <- (BArray128.init_arr (W8.of_int 255));
-    return (x, b_x, y, b_y, trace_h__H__BN___cswap_mask);
-  }
-  proc h__H__BN___cswap_mask_ (x:BArray128.t, b_x:BArray128.t, y:BArray128.t,
-                               b_y:BArray128.t, mask:W64.t) : BArray128.t *
-                                                              BArray128.t *
-                                                              BArray128.t *
-                                                              BArray128.t *
-                                                              trace = {
-    var aux:BArray128.t;
-    var aux_0:BArray128.t;
-    var aux_1:BArray128.t;
-    var aux_2:BArray128.t;
-    var param:BArray128.t;
-    var param_0:BArray128.t;
-    var param_1:W64.t;
-    var result:BArray128.t;
-    var b_result:BArray128.t;
-    var result_0:BArray128.t;
-    var b_result_0:BArray128.t;
-    var trace_h__H__BN___cswap_mask_:trace;
-    b_result <- witness;
-    b_result_0 <- witness;
-    param <- witness;
-    param_0 <- witness;
-    result <- witness;
-    result_0 <- witness;
-    trace_h__H__BN___cswap_mask_ <- [];
-    trace_h__H__BN___cswap_mask_ <-
-    (trace_h__H__BN___cswap_mask_ ++
-    [(Assert, (BArray128.is_init b_x 0 128))]);
-    trace_h__H__BN___cswap_mask_ <-
-    (trace_h__H__BN___cswap_mask_ ++
-    [(Assert, (BArray128.is_init b_y 0 128))]);
-    x <- x;
-    y <- y;
-    param <- x;
-    param_0 <- y;
-    param_1 <- mask;
-    (aux, aux_0, aux_1, aux_2, tmp__trace) <@ h__H__BN___cswap_mask (
-    param, (BArray128.init_arr (W8.of_int 255)), param_0,
-    (BArray128.init_arr (W8.of_int 255)), param_1);
-    result <- aux;
-    b_result <- aux_0;
-    result_0 <- aux_1;
-    b_result_0 <- aux_2;
-    trace_h__H__BN___cswap_mask_ <-
-    (trace_h__H__BN___cswap_mask_ ++ tmp__trace);
-    trace_h__H__BN___cswap_mask_ <-
-    (trace_h__H__BN___cswap_mask_ ++
-    [(Assert, (BArray128.is_init b_result 0 128))]);
-    trace_h__H__BN___cswap_mask_ <-
-    (trace_h__H__BN___cswap_mask_ ++
-    [(Assert, (BArray128.is_init b_result_0 0 128))]);
-    x <- result;
-    y <- result_0;
-    x <- x;
-    y <- y;
-    b_x <- (BArray128.init_arr (W8.of_int 255));
-    b_y <- (BArray128.init_arr (W8.of_int 255));
-    return (x, b_x, y, b_y, trace_h__H__BN___cswap_mask_);
   }
   proc h__H__BN____fill (a:BArray128.t, b_a:BArray128.t, x:W64.t) : BArray128.t *
                                                                     BArray128.t *
@@ -6650,14 +6490,57 @@ module M = {
     b_a <- (BArray128.init_arr (W8.of_int 255));
     return (a, b_a, trace_h__H__FPM__fun_sqrU);
   }
-  proc h__H__FPM__EXP___expm (x0:BArray128.t, b_x0:BArray128.t,
-                              x1:BArray128.t, b_x1:BArray128.t,
-                              b:BArray128.t, b_b:BArray128.t,
-                              ctx:BArray520.t, b_ctx:BArray520.t) : BArray128.t *
-                                                                    BArray128.t *
-                                                                    BArray128.t *
-                                                                    BArray128.t *
-                                                                    trace = {
+  proc h__H__FPM__EXP____tblsel (r:BArray128.t, b_r:BArray128.t,
+                                 tbl:BArray2048.t, b_tbl:BArray2048.t,
+                                 idx:W64.t) : BArray128.t * BArray128.t *
+                                              trace = {
+    var k:W64.t;
+    var t:W64.t;
+    var i:int;
+    var zf:bool;
+    var trace_h__H__FPM__EXP____tblsel:trace;
+    trace_h__H__FPM__EXP____tblsel <- [];
+    trace_h__H__FPM__EXP____tblsel <-
+    (trace_h__H__FPM__EXP____tblsel ++
+    [(Assert, (BArray2048.is_init b_tbl 0 2048))]);
+    k <- (W64.of_int 0);
+    while ((k \ult (W64.of_int 16))) {
+      trace_h__H__FPM__EXP____tblsel <-
+      (trace_h__H__FPM__EXP____tblsel ++
+      [(Assert,
+       ((0 <= ((W64.to_uint k) * 8)) /\
+       ((((W64.to_uint k) * 8) + 8) <= 2048)))]);
+      t <- (BArray2048.get64 tbl (W64.to_uint k));
+      i <- 1;
+      while ((i < 16)) {
+        zf <- (idx = (W64.of_int i));
+        trace_h__H__FPM__EXP____tblsel <-
+        (trace_h__H__FPM__EXP____tblsel ++
+        [(Assert,
+         ((0 <= ((W64.to_uint (k + (W64.of_int (i * 16)))) * 8)) /\
+         ((((W64.to_uint (k + (W64.of_int (i * 16)))) * 8) + 8) <= 2048)))]);
+        t <-
+        (zf ? (BArray2048.get64 tbl (W64.to_uint (k + (W64.of_int (i * 16))))
+              ) : t);
+        i <- (i + 1);
+      }
+      trace_h__H__FPM__EXP____tblsel <-
+      (trace_h__H__FPM__EXP____tblsel ++
+      [(Assert,
+       ((0 <= ((W64.to_uint k) * 8)) /\ ((((W64.to_uint k) * 8) + 8) <= 128)))]);
+      b_r <-
+      (BArray128.set64d b_r ((W64.to_uint k) * 8)
+      (W64.of_int 18446744073709551615));
+      r <- (BArray128.set64 r (W64.to_uint k) t);
+      k <- (k + (W64.of_int 1));
+    }
+    return (r, b_r, trace_h__H__FPM__EXP____tblsel);
+  }
+  proc h__H__FPM__EXP___expmW (r:BArray128.t, b_r:BArray128.t, a:BArray128.t,
+                               b_a:BArray128.t, b:BArray128.t,
+                               b_b:BArray128.t, ctx:BArray520.t,
+                               b_ctx:BArray520.t) : BArray128.t *
+                                                    BArray128.t * trace = {
     var aux:BArray128.t;
     var aux_0:BArray128.t;
     var aux_1:BArray128.t;
@@ -6674,317 +6557,112 @@ module M = {
     var aux_12:BArray128.t;
     var aux_13:BArray128.t;
     var aux_14:BArray128.t;
-    var aux_15:BArray128.t;
-    var aux_16:BArray128.t;
-    var aux_17:BArray128.t;
-    var aux_18:BArray128.t;
+    var b_tbl:BArray2048.t;
+    var b_sel:BArray128.t;
+    var b__r:BArray128.t;
+    var _r:BArray128.t;
+    var _a:BArray128.t;
     var _b:BArray128.t;
     var _ctx:BArray520.t;
-    var _mask:W64.t;
-    var j:int;
-    var t:W64.t;
-    var _k:W64.t;
-    var cf:bool;
-    var _t:W64.t;
-    var param:bool;
-    var result:W64.t;
-    var mask:W64.t;
-    var swap_0:W64.t;
+    var b_one:BArray128.t;
+    var one:BArray128.t;
+    var b_p:BArray128.t;
+    var p:BArray128.t;
+    var tbl:BArray2048.t;
+    var b_param:BArray128.t;
+    var param:BArray128.t;
+    var b_param_0:BArray128.t;
     var param_0:BArray128.t;
-    var param_1:BArray128.t;
-    var param_2:W64.t;
-    var result_0:BArray128.t;
+    var result:BArray128.t;
     var b_result:BArray128.t;
-    var result_1:BArray128.t;
+    var b_param_1:BArray128.t;
+    var param_1:BArray128.t;
+    var param_2:BArray128.t;
+    var result_0:BArray128.t;
     var b_result_0:BArray128.t;
-    var _x0:BArray128.t;
+    var i:int;
+    var b_param_2:BArray128.t;
     var param_3:BArray128.t;
     var param_4:BArray128.t;
-    var param_5:BArray520.t;
-    var result_2:BArray128.t;
+    var result_1:BArray128.t;
     var b_result_1:BArray128.t;
-    var _x1:BArray128.t;
+    var b_q:BArray128.t;
+    var q:BArray128.t;
+    var b_param_3:BArray128.t;
+    var param_5:BArray128.t;
+    var b_param_4:BArray128.t;
     var param_6:BArray128.t;
     var param_7:BArray520.t;
-    var result_3:BArray128.t;
+    var result_2:BArray128.t;
     var b_result_2:BArray128.t;
-    var zf:bool;
+    var b_param_5:BArray128.t;
     var param_8:BArray128.t;
+    var b_param_6:BArray128.t;
     var param_9:BArray128.t;
-    var param_10:W64.t;
-    var result_4:BArray128.t;
+    var result_3:BArray128.t;
     var b_result_3:BArray128.t;
-    var result_5:BArray128.t;
+    var j:W64.t;
+    var _j:W64.t;
+    var t:W64.t;
+    var _t:W64.t;
+    var k:W64.t;
+    var _k:W64.t;
+    var idx:W64.t;
+    var b_psel:BArray128.t;
+    var psel:BArray128.t;
+    var sel:BArray128.t;
+    var b_ptbl:BArray2048.t;
+    var ptbl:BArray2048.t;
+    var b_param_7:BArray128.t;
+    var param_10:BArray128.t;
+    var b_param_8:BArray2048.t;
+    var param_11:BArray2048.t;
+    var param_12:W64.t;
+    var result_4:BArray128.t;
     var b_result_4:BArray128.t;
-    var  _0:bool;
-    var  _1:bool;
-    var  _2:bool;
-    var  _3:bool;
-    var  _4:bool;
-    var  _5:bool;
-    var  _6:bool;
-    var trace_h__H__FPM__EXP___expm:trace;
+    var s:int;
+    var param_13:BArray128.t;
+    var param_14:BArray520.t;
+    var result_5:BArray128.t;
+    var b_result_5:BArray128.t;
+    var param_15:BArray128.t;
+    var param_16:BArray128.t;
+    var param_17:BArray520.t;
+    var result_6:BArray128.t;
+    var b_result_6:BArray128.t;
+    var trace_h__H__FPM__EXP___expmW:trace;
+    _a <- witness;
     _b <- witness;
     _ctx <- witness;
-    _x0 <- witness;
-    _x1 <- witness;
+    _r <- witness;
+    b__r <- witness;
+    b_one <- witness;
+    b_p <- witness;
+    b_param <- witness;
+    b_param_0 <- witness;
+    b_param_1 <- witness;
+    b_param_2 <- witness;
+    b_param_3 <- witness;
+    b_param_4 <- witness;
+    b_param_5 <- witness;
+    b_param_6 <- witness;
+    b_param_7 <- witness;
+    b_param_8 <- witness;
+    b_psel <- witness;
+    b_ptbl <- witness;
+    b_q <- witness;
     b_result <- witness;
     b_result_0 <- witness;
     b_result_1 <- witness;
     b_result_2 <- witness;
     b_result_3 <- witness;
     b_result_4 <- witness;
-    param_0 <- witness;
-    param_1 <- witness;
-    param_3 <- witness;
-    param_4 <- witness;
-    param_5 <- witness;
-    param_6 <- witness;
-    param_7 <- witness;
-    param_8 <- witness;
-    param_9 <- witness;
-    result_0 <- witness;
-    result_1 <- witness;
-    result_2 <- witness;
-    result_3 <- witness;
-    result_4 <- witness;
-    result_5 <- witness;
-    trace_h__H__FPM__EXP___expm <- [];
-    trace_h__H__FPM__EXP___expm <-
-    (trace_h__H__FPM__EXP___expm ++
-    [(Assert, (BArray128.is_init b_x0 0 128))]);
-    trace_h__H__FPM__EXP___expm <-
-    (trace_h__H__FPM__EXP___expm ++
-    [(Assert, (BArray128.is_init b_x1 0 128))]);
-    trace_h__H__FPM__EXP___expm <-
-    (trace_h__H__FPM__EXP___expm ++
-    [(Assert, (BArray128.is_init b_b 0 128))]);
-    trace_h__H__FPM__EXP___expm <-
-    (trace_h__H__FPM__EXP___expm ++
-    [(Assert, (BArray520.is_init b_ctx 0 520))]);
-    _b <- b;
-    _ctx <- ctx;
-    _mask <- (W64.of_int 0);
-    j <- (16 - 1);
-    while (((-1) < j)) {
-      b <- _b;
-      trace_h__H__FPM__EXP___expm <-
-      (trace_h__H__FPM__EXP___expm ++
-      [(Assert, ((0 <= (j * 8)) /\ (((j * 8) + 8) <= 128)))]);
-      t <- (BArray128.get64 b j);
-      _k <- (W64.of_int 64);
-      ( _0, cf,  _1,  _2,  _3, t) <- (SHL_64 t (W8.of_int 1));
-      _t <- t;
-      param <- cf;
-      (result, tmp__trace) <@ uTIL____cf_mask (param);
-      trace_h__H__FPM__EXP___expm <-
-      (trace_h__H__FPM__EXP___expm ++ tmp__trace);
-      mask <- result;
-      swap_0 <- _mask;
-      swap_0 <- (swap_0 `^` mask);
-      _mask <- mask;
-      param_0 <- x0;
-      param_1 <- x1;
-      param_2 <- swap_0;
-      (aux_7, aux_8, aux_9, aux_10, tmp__trace) <@ h__H__BN___cswap_mask_ (
-      param_0, (BArray128.init_arr (W8.of_int 255)), param_1,
-      (BArray128.init_arr (W8.of_int 255)), param_2);
-      result_0 <- aux_7;
-      b_result <- aux_8;
-      result_1 <- aux_9;
-      b_result_0 <- aux_10;
-      trace_h__H__FPM__EXP___expm <-
-      (trace_h__H__FPM__EXP___expm ++ tmp__trace);
-      trace_h__H__FPM__EXP___expm <-
-      (trace_h__H__FPM__EXP___expm ++
-      [(Assert, (BArray128.is_init b_result 0 128))]);
-      trace_h__H__FPM__EXP___expm <-
-      (trace_h__H__FPM__EXP___expm ++
-      [(Assert, (BArray128.is_init b_result_0 0 128))]);
-      x0 <- result_0;
-      x1 <- result_1;
-      _x0 <- x0;
-      ctx <- _ctx;
-      param_3 <- x1;
-      param_4 <- x0;
-      param_5 <- ctx;
-      (aux_11, aux_12, tmp__trace) <@ h__H__FPM__fun_mulU (param_3,
-      (BArray128.init_arr (W8.of_int 255)), param_4,
-      (BArray128.init_arr (W8.of_int 255)), param_5,
-      (BArray520.init_arr (W8.of_int 255)));
-      result_2 <- aux_11;
-      b_result_1 <- aux_12;
-      trace_h__H__FPM__EXP___expm <-
-      (trace_h__H__FPM__EXP___expm ++ tmp__trace);
-      trace_h__H__FPM__EXP___expm <-
-      (trace_h__H__FPM__EXP___expm ++
-      [(Assert, (BArray128.is_init b_result_1 0 128))]);
-      x1 <- result_2;
-      _x1 <- x1;
-      x0 <- _x0;
-      ctx <- _ctx;
-      param_6 <- x0;
-      param_7 <- ctx;
-      (aux_13, aux_14, tmp__trace) <@ h__H__FPM__fun_sqrU (param_6,
-      (BArray128.init_arr (W8.of_int 255)), param_7,
-      (BArray520.init_arr (W8.of_int 255)));
-      result_3 <- aux_13;
-      b_result_2 <- aux_14;
-      trace_h__H__FPM__EXP___expm <-
-      (trace_h__H__FPM__EXP___expm ++ tmp__trace);
-      trace_h__H__FPM__EXP___expm <-
-      (trace_h__H__FPM__EXP___expm ++
-      [(Assert, (BArray128.is_init b_result_2 0 128))]);
-      x0 <- result_3;
-      x1 <- _x1;
-      t <- _t;
-      ( _4,  _5,  _6, zf, _k) <- (DEC_64 _k);
-      while ((! zf)) {
-        ( _0, cf,  _1,  _2,  _3, t) <- (SHL_64 t (W8.of_int 1));
-        _t <- t;
-        param <- cf;
-        (result, tmp__trace) <@ uTIL____cf_mask (param);
-        trace_h__H__FPM__EXP___expm <-
-        (trace_h__H__FPM__EXP___expm ++ tmp__trace);
-        mask <- result;
-        swap_0 <- _mask;
-        swap_0 <- (swap_0 `^` mask);
-        _mask <- mask;
-        param_0 <- x0;
-        param_1 <- x1;
-        param_2 <- swap_0;
-        (aux, aux_0, aux_1, aux_2, tmp__trace) <@ h__H__BN___cswap_mask_ (
-        param_0, (BArray128.init_arr (W8.of_int 255)), param_1,
-        (BArray128.init_arr (W8.of_int 255)), param_2);
-        result_0 <- aux;
-        b_result <- aux_0;
-        result_1 <- aux_1;
-        b_result_0 <- aux_2;
-        trace_h__H__FPM__EXP___expm <-
-        (trace_h__H__FPM__EXP___expm ++ tmp__trace);
-        trace_h__H__FPM__EXP___expm <-
-        (trace_h__H__FPM__EXP___expm ++
-        [(Assert, (BArray128.is_init b_result 0 128))]);
-        trace_h__H__FPM__EXP___expm <-
-        (trace_h__H__FPM__EXP___expm ++
-        [(Assert, (BArray128.is_init b_result_0 0 128))]);
-        x0 <- result_0;
-        x1 <- result_1;
-        _x0 <- x0;
-        ctx <- _ctx;
-        param_3 <- x1;
-        param_4 <- x0;
-        param_5 <- ctx;
-        (aux_3, aux_4, tmp__trace) <@ h__H__FPM__fun_mulU (param_3,
-        (BArray128.init_arr (W8.of_int 255)), param_4,
-        (BArray128.init_arr (W8.of_int 255)), param_5,
-        (BArray520.init_arr (W8.of_int 255)));
-        result_2 <- aux_3;
-        b_result_1 <- aux_4;
-        trace_h__H__FPM__EXP___expm <-
-        (trace_h__H__FPM__EXP___expm ++ tmp__trace);
-        trace_h__H__FPM__EXP___expm <-
-        (trace_h__H__FPM__EXP___expm ++
-        [(Assert, (BArray128.is_init b_result_1 0 128))]);
-        x1 <- result_2;
-        _x1 <- x1;
-        x0 <- _x0;
-        ctx <- _ctx;
-        param_6 <- x0;
-        param_7 <- ctx;
-        (aux_5, aux_6, tmp__trace) <@ h__H__FPM__fun_sqrU (param_6,
-        (BArray128.init_arr (W8.of_int 255)), param_7,
-        (BArray520.init_arr (W8.of_int 255)));
-        result_3 <- aux_5;
-        b_result_2 <- aux_6;
-        trace_h__H__FPM__EXP___expm <-
-        (trace_h__H__FPM__EXP___expm ++ tmp__trace);
-        trace_h__H__FPM__EXP___expm <-
-        (trace_h__H__FPM__EXP___expm ++
-        [(Assert, (BArray128.is_init b_result_2 0 128))]);
-        x0 <- result_3;
-        x1 <- _x1;
-        t <- _t;
-        ( _4,  _5,  _6, zf, _k) <- (DEC_64 _k);
-      }
-      j <- (j - 1);
-    }
-    mask <- _mask;
-    param_8 <- x0;
-    param_9 <- x1;
-    param_10 <- mask;
-    (aux_15, aux_16, aux_17, aux_18, tmp__trace) <@ h__H__BN___cswap_mask_ (
-    param_8, (BArray128.init_arr (W8.of_int 255)), param_9,
-    (BArray128.init_arr (W8.of_int 255)), param_10);
-    result_4 <- aux_15;
-    b_result_3 <- aux_16;
-    result_5 <- aux_17;
-    b_result_4 <- aux_18;
-    trace_h__H__FPM__EXP___expm <-
-    (trace_h__H__FPM__EXP___expm ++ tmp__trace);
-    trace_h__H__FPM__EXP___expm <-
-    (trace_h__H__FPM__EXP___expm ++
-    [(Assert, (BArray128.is_init b_result_3 0 128))]);
-    trace_h__H__FPM__EXP___expm <-
-    (trace_h__H__FPM__EXP___expm ++
-    [(Assert, (BArray128.is_init b_result_4 0 128))]);
-    x0 <- result_4;
-    x1 <- result_5;
-    b_x0 <- (BArray128.init_arr (W8.of_int 255));
-    b_x1 <- (BArray128.init_arr (W8.of_int 255));
-    return (x0, b_x0, x1, b_x1, trace_h__H__FPM__EXP___expm);
-  }
-  proc h__H__FPM__EXP___expm_ (x0:BArray128.t, b_x0:BArray128.t,
-                               a:BArray128.t, b_a:BArray128.t, b:BArray128.t,
-                               b_b:BArray128.t, ctx:BArray520.t,
-                               b_ctx:BArray520.t) : BArray128.t *
-                                                    BArray128.t * trace = {
-    var aux:BArray128.t;
-    var aux_0:BArray128.t;
-    var aux_1:BArray128.t;
-    var aux_2:BArray128.t;
-    var aux_3:BArray128.t;
-    var aux_4:BArray128.t;
-    var aux_5:BArray128.t;
-    var aux_6:BArray128.t;
-    var b__x1:BArray128.t;
-    var b_x1:BArray128.t;
-    var x1:BArray128.t;
-    var _x1:BArray128.t;
-    var b_param:BArray128.t;
-    var param:BArray128.t;
-    var param_0:BArray128.t;
-    var result:BArray128.t;
-    var b_result:BArray128.t;
-    var b_exp0:BArray128.t;
-    var exp0:BArray128.t;
-    var b_param_0:BArray128.t;
-    var param_1:BArray128.t;
-    var b_param_1:BArray128.t;
-    var param_2:BArray128.t;
-    var result_0:BArray128.t;
-    var b_result_0:BArray128.t;
-    var param_3:BArray128.t;
-    var param_4:BArray128.t;
-    var param_5:BArray128.t;
-    var param_6:BArray520.t;
-    var result_1:BArray128.t;
-    var b_result_1:BArray128.t;
-    var result_2:BArray128.t;
-    var b_result_2:BArray128.t;
-    var trace_h__H__FPM__EXP___expm_:trace;
-    _x1 <- witness;
-    b__x1 <- witness;
-    b_exp0 <- witness;
-    b_param <- witness;
-    b_param_0 <- witness;
-    b_param_1 <- witness;
-    b_result <- witness;
-    b_result_0 <- witness;
-    b_result_1 <- witness;
-    b_result_2 <- witness;
-    b_x1 <- witness;
-    exp0 <- witness;
+    b_result_5 <- witness;
+    b_result_6 <- witness;
+    b_sel <- witness;
+    b_tbl <- witness;
+    one <- witness;
+    p <- witness;
     param <- witness;
     param_0 <- witness;
     param_1 <- witness;
@@ -6993,78 +6671,314 @@ module M = {
     param_4 <- witness;
     param_5 <- witness;
     param_6 <- witness;
+    param_7 <- witness;
+    param_8 <- witness;
+    param_9 <- witness;
+    param_10 <- witness;
+    param_11 <- witness;
+    param_13 <- witness;
+    param_14 <- witness;
+    param_15 <- witness;
+    param_16 <- witness;
+    param_17 <- witness;
+    psel <- witness;
+    ptbl <- witness;
+    q <- witness;
     result <- witness;
     result_0 <- witness;
     result_1 <- witness;
     result_2 <- witness;
-    x1 <- witness;
-    trace_h__H__FPM__EXP___expm_ <- [];
-    trace_h__H__FPM__EXP___expm_ <-
-    (trace_h__H__FPM__EXP___expm_ ++
+    result_3 <- witness;
+    result_4 <- witness;
+    result_5 <- witness;
+    result_6 <- witness;
+    sel <- witness;
+    tbl <- witness;
+    trace_h__H__FPM__EXP___expmW <- [];
+    trace_h__H__FPM__EXP___expmW <-
+    (trace_h__H__FPM__EXP___expmW ++
     [(Assert,
      (((BArray128.is_init b_a 0 128) /\ (BArray128.is_init b_b 0 128)) /\
      (BArray520.is_init b_ctx 0 520)))]);
-    b__x1 <- (BArray128.init_arr (W8.of_int 0));
-    b_x1 <- b__x1;
-    x1 <- _x1;
-    b_param <- b_x1;
-    param <- x1;
-    param_0 <- a;
+    b_tbl <- (BArray2048.init_arr (W8.of_int 0));
+    b_sel <- (BArray128.init_arr (W8.of_int 0));
+    b__r <- b_r;
+    _r <- r;
+    _a <- a;
+    _b <- b;
+    _ctx <- ctx;
+    trace_h__H__FPM__EXP___expmW <-
+    (trace_h__H__FPM__EXP___expmW ++
+    [(Assert, ((0 <= (32 * 8)) /\ (((32 * 8) + 128) <= 520)))]);
+    b_one <- (SBArray520_128.get_sub64 b_ctx 32);
+    one <- (SBArray520_128.get_sub64 ctx 32);
+    b_p <- (SBArray2048_128.get_sub64 b_tbl 0);
+    p <- (SBArray2048_128.get_sub64 tbl 0);
+    b_param <- b_p;
+    param <- p;
+    b_param_0 <- b_one;
+    param_0 <- one;
     (aux, aux_0, tmp__trace) <@ h__H__BN___mov_ (param, b_param, param_0,
-    (BArray128.init_arr (W8.of_int 255)));
+    b_param_0);
     result <- aux;
     b_result <- aux_0;
-    trace_h__H__FPM__EXP___expm_ <-
-    (trace_h__H__FPM__EXP___expm_ ++ tmp__trace);
-    trace_h__H__FPM__EXP___expm_ <-
-    (trace_h__H__FPM__EXP___expm_ ++
+    trace_h__H__FPM__EXP___expmW <-
+    (trace_h__H__FPM__EXP___expmW ++ tmp__trace);
+    trace_h__H__FPM__EXP___expmW <-
+    (trace_h__H__FPM__EXP___expmW ++
     [(Assert, (BArray128.is_init b_result 0 128))]);
-    x1 <- result;
-    trace_h__H__FPM__EXP___expm_ <-
-    (trace_h__H__FPM__EXP___expm_ ++
-    [(Assert, ((0 <= (32 * 8)) /\ (((32 * 8) + 128) <= 520)))]);
-    b_exp0 <- (SBArray520_128.get_sub64 b_ctx 32);
-    exp0 <- (SBArray520_128.get_sub64 ctx 32);
-    b_param_0 <- b_x0;
-    param_1 <- x0;
-    b_param_1 <- b_exp0;
-    param_2 <- exp0;
-    (aux_1, aux_2, tmp__trace) <@ h__H__BN___mov_ (param_1, b_param_0,
-    param_2, b_param_1);
+    p <- result;
+    b_tbl <-
+    (SBArray2048_128.set_sub64 b_tbl 0 (BArray128.init_arr (W8.of_int 255)));
+    tbl <- (SBArray2048_128.set_sub64 tbl 0 p);
+    a <- _a;
+    trace_h__H__FPM__EXP___expmW <-
+    (trace_h__H__FPM__EXP___expmW ++
+    [(Assert, ((0 <= (16 * 8)) /\ (((16 * 8) + 128) <= 2048)))]);
+    b_p <- (SBArray2048_128.get_sub64 b_tbl 16);
+    p <- (SBArray2048_128.get_sub64 tbl 16);
+    b_param_1 <- b_p;
+    param_1 <- p;
+    param_2 <- a;
+    (aux_1, aux_2, tmp__trace) <@ h__H__BN___mov_ (param_1, b_param_1,
+    param_2, (BArray128.init_arr (W8.of_int 255)));
     result_0 <- aux_1;
     b_result_0 <- aux_2;
-    trace_h__H__FPM__EXP___expm_ <-
-    (trace_h__H__FPM__EXP___expm_ ++ tmp__trace);
-    trace_h__H__FPM__EXP___expm_ <-
-    (trace_h__H__FPM__EXP___expm_ ++
+    trace_h__H__FPM__EXP___expmW <-
+    (trace_h__H__FPM__EXP___expmW ++ tmp__trace);
+    trace_h__H__FPM__EXP___expmW <-
+    (trace_h__H__FPM__EXP___expmW ++
     [(Assert, (BArray128.is_init b_result_0 0 128))]);
-    x0 <- result_0;
+    p <- result_0;
+    trace_h__H__FPM__EXP___expmW <-
+    (trace_h__H__FPM__EXP___expmW ++
+    [(Assert, ((0 <= (16 * 8)) /\ (((16 * 8) + 128) <= 2048)))]);
+    b_tbl <-
+    (SBArray2048_128.set_sub64 b_tbl 16 (BArray128.init_arr (W8.of_int 255)));
+    tbl <- (SBArray2048_128.set_sub64 tbl 16 p);
+    i <- 2;
+    while ((i < 16)) {
+      a <- _a;
+      trace_h__H__FPM__EXP___expmW <-
+      (trace_h__H__FPM__EXP___expmW ++
+      [(Assert, ((0 <= ((i * 16) * 8)) /\ ((((i * 16) * 8) + 128) <= 2048)))]);
+      b_p <- (SBArray2048_128.get_sub64 b_tbl (i * 16));
+      p <- (SBArray2048_128.get_sub64 tbl (i * 16));
+      b_param_2 <- b_p;
+      param_3 <- p;
+      param_4 <- a;
+      (aux_3, aux_4, tmp__trace) <@ h__H__BN___mov_ (param_3, b_param_2,
+      param_4, (BArray128.init_arr (W8.of_int 255)));
+      result_1 <- aux_3;
+      b_result_1 <- aux_4;
+      trace_h__H__FPM__EXP___expmW <-
+      (trace_h__H__FPM__EXP___expmW ++ tmp__trace);
+      trace_h__H__FPM__EXP___expmW <-
+      (trace_h__H__FPM__EXP___expmW ++
+      [(Assert, (BArray128.is_init b_result_1 0 128))]);
+      p <- result_1;
+      trace_h__H__FPM__EXP___expmW <-
+      (trace_h__H__FPM__EXP___expmW ++
+      [(Assert, ((0 <= ((i * 16) * 8)) /\ ((((i * 16) * 8) + 128) <= 2048)))]);
+      b_tbl <-
+      (SBArray2048_128.set_sub64 b_tbl (i * 16)
+      (BArray128.init_arr (W8.of_int 255)));
+      tbl <- (SBArray2048_128.set_sub64 tbl (i * 16) p);
+      trace_h__H__FPM__EXP___expmW <-
+      (trace_h__H__FPM__EXP___expmW ++
+      [(Assert,
+       ((0 <= (((i - 1) * 16) * 8)) /\
+       (((((i - 1) * 16) * 8) + 128) <= 2048)))]);
+      b_q <- (SBArray2048_128.get_sub64 b_tbl ((i - 1) * 16));
+      q <- (SBArray2048_128.get_sub64 tbl ((i - 1) * 16));
+      trace_h__H__FPM__EXP___expmW <-
+      (trace_h__H__FPM__EXP___expmW ++
+      [(Assert, ((0 <= ((i * 16) * 8)) /\ ((((i * 16) * 8) + 128) <= 2048)))]);
+      b_p <- (SBArray2048_128.get_sub64 b_tbl (i * 16));
+      p <- (SBArray2048_128.get_sub64 tbl (i * 16));
+      ctx <- _ctx;
+      b_param_3 <- b_p;
+      param_5 <- p;
+      b_param_4 <- b_q;
+      param_6 <- q;
+      param_7 <- ctx;
+      (aux_5, aux_6, tmp__trace) <@ h__H__FPM__fun_mulU (param_5, b_param_3,
+      param_6, b_param_4, param_7, (BArray520.init_arr (W8.of_int 255)));
+      result_2 <- aux_5;
+      b_result_2 <- aux_6;
+      trace_h__H__FPM__EXP___expmW <-
+      (trace_h__H__FPM__EXP___expmW ++ tmp__trace);
+      trace_h__H__FPM__EXP___expmW <-
+      (trace_h__H__FPM__EXP___expmW ++
+      [(Assert, (BArray128.is_init b_result_2 0 128))]);
+      p <- result_2;
+      trace_h__H__FPM__EXP___expmW <-
+      (trace_h__H__FPM__EXP___expmW ++
+      [(Assert, ((0 <= ((i * 16) * 8)) /\ ((((i * 16) * 8) + 128) <= 2048)))]);
+      b_tbl <-
+      (SBArray2048_128.set_sub64 b_tbl (i * 16)
+      (BArray128.init_arr (W8.of_int 255)));
+      tbl <- (SBArray2048_128.set_sub64 tbl (i * 16) p);
+      i <- (i + 1);
+    }
+    b_r <- b__r;
+    r <- _r;
+    b_ctx <- (BArray520.init_arr (W8.of_int 255));
+    ctx <- _ctx;
+    trace_h__H__FPM__EXP___expmW <-
+    (trace_h__H__FPM__EXP___expmW ++
+    [(Assert, ((0 <= (32 * 8)) /\ (((32 * 8) + 128) <= 520)))]);
+    b_one <- (SBArray520_128.get_sub64 b_ctx 32);
+    one <- (SBArray520_128.get_sub64 ctx 32);
+    b_param_5 <- b_r;
+    param_8 <- r;
+    b_param_6 <- b_one;
+    param_9 <- one;
+    (aux_7, aux_8, tmp__trace) <@ h__H__BN___mov_ (param_8, b_param_5,
+    param_9, b_param_6);
+    result_3 <- aux_7;
+    b_result_3 <- aux_8;
+    trace_h__H__FPM__EXP___expmW <-
+    (trace_h__H__FPM__EXP___expmW ++ tmp__trace);
+    trace_h__H__FPM__EXP___expmW <-
+    (trace_h__H__FPM__EXP___expmW ++
+    [(Assert, (BArray128.is_init b_result_3 0 128))]);
+    r <- result_3;
+    j <- (W64.of_int 16);
+    while ((j <> (W64.of_int 0))) {
+      j <- (j - (W64.of_int 1));
+      _j <- j;
+      b <- _b;
+      trace_h__H__FPM__EXP___expmW <-
+      (trace_h__H__FPM__EXP___expmW ++
+      [(Assert,
+       ((0 <= ((W64.to_uint j) * 8)) /\ ((((W64.to_uint j) * 8) + 8) <= 128)))]);
+      t <- (BArray128.get64 b (W64.to_uint j));
+      _t <- t;
+      k <- (W64.of_int 16);
+      while ((k <> (W64.of_int 0))) {
+        _k <- k;
+        t <- _t;
+        idx <- t;
+        idx <- (idx `>>` (W8.of_int 60));
+        t <- (t `<<` (W8.of_int 4));
+        _t <- t;
+        b_psel <- b_sel;
+        psel <- sel;
+        b_ptbl <- b_tbl;
+        ptbl <- tbl;
+        b_param_7 <- b_psel;
+        param_10 <- psel;
+        b_param_8 <- b_ptbl;
+        param_11 <- ptbl;
+        param_12 <- idx;
+        (aux_9, aux_10, tmp__trace) <@ h__H__FPM__EXP____tblsel (param_10,
+        b_param_7, param_11, b_param_8, param_12);
+        result_4 <- aux_9;
+        b_result_4 <- aux_10;
+        trace_h__H__FPM__EXP___expmW <-
+        (trace_h__H__FPM__EXP___expmW ++ tmp__trace);
+        trace_h__H__FPM__EXP___expmW <-
+        (trace_h__H__FPM__EXP___expmW ++
+        [(Assert, (BArray128.is_init b_result_4 0 128))]);
+        psel <- result_4;
+        b_sel <- (BArray128.init_arr (W8.of_int 255));
+        sel <- psel;
+        s <- 0;
+        while ((s < 4)) {
+          ctx <- _ctx;
+          param_13 <- r;
+          param_14 <- ctx;
+          (aux_11, aux_12, tmp__trace) <@ h__H__FPM__fun_sqrU (param_13,
+          (BArray128.init_arr (W8.of_int 255)), param_14,
+          (BArray520.init_arr (W8.of_int 255)));
+          result_5 <- aux_11;
+          b_result_5 <- aux_12;
+          trace_h__H__FPM__EXP___expmW <-
+          (trace_h__H__FPM__EXP___expmW ++ tmp__trace);
+          trace_h__H__FPM__EXP___expmW <-
+          (trace_h__H__FPM__EXP___expmW ++
+          [(Assert, (BArray128.is_init b_result_5 0 128))]);
+          r <- result_5;
+          s <- (s + 1);
+        }
+        psel <- sel;
+        ctx <- _ctx;
+        param_15 <- r;
+        param_16 <- psel;
+        param_17 <- ctx;
+        (aux_13, aux_14, tmp__trace) <@ h__H__FPM__fun_mulU (param_15,
+        (BArray128.init_arr (W8.of_int 255)), param_16,
+        (BArray128.init_arr (W8.of_int 255)), param_17,
+        (BArray520.init_arr (W8.of_int 255)));
+        result_6 <- aux_13;
+        b_result_6 <- aux_14;
+        trace_h__H__FPM__EXP___expmW <-
+        (trace_h__H__FPM__EXP___expmW ++ tmp__trace);
+        trace_h__H__FPM__EXP___expmW <-
+        (trace_h__H__FPM__EXP___expmW ++
+        [(Assert, (BArray128.is_init b_result_6 0 128))]);
+        r <- result_6;
+        k <- _k;
+        k <- (k - (W64.of_int 1));
+      }
+      j <- _j;
+    }
+    b_r <- (BArray128.init_arr (W8.of_int 255));
+    return (r, b_r, trace_h__H__FPM__EXP___expmW);
+  }
+  proc h__H__FPM__EXP___expmW_ (r:BArray128.t, b_r:BArray128.t,
+                                a:BArray128.t, b_a:BArray128.t,
+                                b:BArray128.t, b_b:BArray128.t,
+                                ctx:BArray520.t, b_ctx:BArray520.t) : 
+  BArray128.t * BArray128.t * trace = {
+    var aux:BArray128.t;
+    var aux_0:BArray128.t;
+    var b_param:BArray128.t;
+    var param:BArray128.t;
+    var param_0:BArray128.t;
+    var param_1:BArray128.t;
+    var param_2:BArray520.t;
+    var result:BArray128.t;
+    var b_result:BArray128.t;
+    var trace_h__H__FPM__EXP___expmW_:trace;
+    b_param <- witness;
+    b_result <- witness;
+    param <- witness;
+    param_0 <- witness;
+    param_1 <- witness;
+    param_2 <- witness;
+    result <- witness;
+    trace_h__H__FPM__EXP___expmW_ <- [];
+    trace_h__H__FPM__EXP___expmW_ <-
+    (trace_h__H__FPM__EXP___expmW_ ++
+    [(Assert,
+     (((BArray128.is_init b_a 0 128) /\ (BArray128.is_init b_b 0 128)) /\
+     (BArray520.is_init b_ctx 0 520)))]);
+    b_r <- b_r;
+    r <- r;
+    a <- a;
     b <- b;
-    param_3 <- x0;
-    param_4 <- x1;
-    param_5 <- b;
-    param_6 <- ctx;
-    (aux_3, aux_4, aux_5, aux_6, tmp__trace) <@ h__H__FPM__EXP___expm (
-    param_3, (BArray128.init_arr (W8.of_int 255)), param_4,
-    (BArray128.init_arr (W8.of_int 255)), param_5,
-    (BArray128.init_arr (W8.of_int 255)), param_6,
+    b_param <- b_r;
+    param <- r;
+    param_0 <- a;
+    param_1 <- b;
+    param_2 <- ctx;
+    (aux, aux_0, tmp__trace) <@ h__H__FPM__EXP___expmW (param, b_param,
+    param_0, (BArray128.init_arr (W8.of_int 255)), param_1,
+    (BArray128.init_arr (W8.of_int 255)), param_2,
     (BArray520.init_arr (W8.of_int 255)));
-    result_1 <- aux_3;
-    b_result_1 <- aux_4;
-    result_2 <- aux_5;
-    b_result_2 <- aux_6;
-    trace_h__H__FPM__EXP___expm_ <-
-    (trace_h__H__FPM__EXP___expm_ ++ tmp__trace);
-    trace_h__H__FPM__EXP___expm_ <-
-    (trace_h__H__FPM__EXP___expm_ ++
-    [(Assert, (BArray128.is_init b_result_1 0 128))]);
-    trace_h__H__FPM__EXP___expm_ <-
-    (trace_h__H__FPM__EXP___expm_ ++
-    [(Assert, (BArray128.is_init b_result_2 0 128))]);
-    x0 <- result_1;
-    x0 <- x0;
-    b_x0 <- (BArray128.init_arr (W8.of_int 255));
-    return (x0, b_x0, trace_h__H__FPM__EXP___expm_);
+    result <- aux;
+    b_result <- aux_0;
+    trace_h__H__FPM__EXP___expmW_ <-
+    (trace_h__H__FPM__EXP___expmW_ ++ tmp__trace);
+    trace_h__H__FPM__EXP___expmW_ <-
+    (trace_h__H__FPM__EXP___expmW_ ++
+    [(Assert, (BArray128.is_init b_result 0 128))]);
+    r <- result;
+    r <- r;
+    b_r <- (BArray128.init_arr (W8.of_int 255));
+    return (r, b_r, trace_h__H__FPM__EXP___expmW_);
   }
   proc h__H__FPM___toM_ (a:BArray128.t, b_a:BArray128.t, ctx:BArray520.t,
                          b_ctx:BArray520.t) : BArray128.t * BArray128.t *
@@ -15190,8 +15104,8 @@ module M = {
     param_7 <- cX;
     param_8 <- dX;
     param_9 <- ctxX;
-    (aux_5, aux_6, tmp__trace) <@ h__H__FPM__EXP___expm_ (param_6, b_param_0,
-    param_7, (BArray128.init_arr (W8.of_int 255)), param_8,
+    (aux_5, aux_6, tmp__trace) <@ h__H__FPM__EXP___expmW_ (param_6,
+    b_param_0, param_7, (BArray128.init_arr (W8.of_int 255)), param_8,
     (BArray128.init_arr (W8.of_int 255)), param_9,
     (BArray520.init_arr (W8.of_int 255)));
     result_2 <- aux_5;
@@ -15856,30 +15770,6 @@ op h__H__BN___cmov__spec _a _b_a _cond _b _b_b =
    ((BArray128.is_init _b_b 0 128) /\ (BArray128.is_init _b_a 0 128))) ==>
    ((BArray128.is_init res.`2 0 128) /\ (valid res.`3))].
 
-op h__H__BN____cswap_mask_spec _x _b_x _y _b_y _mask =
-   hoare [M.h__H__BN____cswap_mask :
-   (((_mask = mask) /\
-    ((_b_y = b_y) /\ ((_y = y) /\ ((_b_x = b_x) /\ (_x = x))))) /\
-   ((BArray128.is_init _b_y 0 128) /\ (BArray128.is_init _b_x 0 128))) ==>
-   (((BArray128.is_init res.`4 0 128) /\ (BArray128.is_init res.`2 0 128)) /\
-   (valid res.`5))].
-
-op h__H__BN___cswap_mask_spec _x _b_x _y _b_y _mask =
-   hoare [M.h__H__BN___cswap_mask :
-   (((_mask = mask) /\
-    ((_b_y = b_y) /\ ((_y = y) /\ ((_b_x = b_x) /\ (_x = x))))) /\
-   ((BArray128.is_init _b_y 0 128) /\ (BArray128.is_init _b_x 0 128))) ==>
-   (((BArray128.is_init res.`4 0 128) /\ (BArray128.is_init res.`2 0 128)) /\
-   (valid res.`5))].
-
-op h__H__BN___cswap_mask__spec _x _b_x _y _b_y _mask =
-   hoare [M.h__H__BN___cswap_mask_ :
-   (((_mask = mask) /\
-    ((_b_y = b_y) /\ ((_y = y) /\ ((_b_x = b_x) /\ (_x = x))))) /\
-   ((BArray128.is_init _b_y 0 128) /\ (BArray128.is_init _b_x 0 128))) ==>
-   (((BArray128.is_init res.`4 0 128) /\ (BArray128.is_init res.`2 0 128)) /\
-   (valid res.`5))].
-
 op h__H__BN____fill_spec _a _b_a _x =
    hoare [M.h__H__BN____fill :
    (((_x = x) /\ ((_b_a = b_a) /\ (_a = a))) /\ true) ==>
@@ -16491,26 +16381,30 @@ op h__H__FPM__fun_sqrU_spec _a _b_a _ctx _b_ctx =
    ((BArray520.is_init _b_ctx 0 520) /\ (BArray128.is_init _b_a 0 128))) ==>
    ((BArray128.is_init res.`2 0 128) /\ (valid res.`3))].
 
-op h__H__FPM__EXP___expm_spec _x0 _b_x0 _x1 _b_x1 _b _b_b _ctx _b_ctx =
-   hoare [M.h__H__FPM__EXP___expm :
-   (((_b_ctx = b_ctx) /\
-    ((_ctx = ctx) /\
-    ((_b_b = b_b) /\
-    ((_b = b) /\
-    ((_b_x1 = b_x1) /\ ((_x1 = x1) /\ ((_b_x0 = b_x0) /\ (_x0 = x0)))))))) /\
-   ((BArray520.is_init _b_ctx 0 520) /\
-   ((BArray128.is_init _b_b 0 128) /\
-   ((BArray128.is_init _b_x1 0 128) /\ (BArray128.is_init _b_x0 0 128))))) ==>
-   (((BArray128.is_init res.`4 0 128) /\ (BArray128.is_init res.`2 0 128)) /\
-   (valid res.`5))].
+op h__H__FPM__EXP____tblsel_spec _r _b_r _tbl _b_tbl _idx =
+   hoare [M.h__H__FPM__EXP____tblsel :
+   (((_idx = idx) /\
+    ((_b_tbl = b_tbl) /\ ((_tbl = tbl) /\ ((_b_r = b_r) /\ (_r = r))))) /\
+   (BArray2048.is_init _b_tbl 0 (128 * 16))) ==>
+   ((BArray128.is_init res.`2 0 (8 * 16)) /\ (valid res.`3))].
 
-op h__H__FPM__EXP___expm__spec _x0 _b_x0 _a _b_a _b _b_b _ctx _b_ctx =
-   hoare [M.h__H__FPM__EXP___expm_ :
+op h__H__FPM__EXP___expmW_spec _r _b_r _a _b_a _b _b_b _ctx _b_ctx =
+   hoare [M.h__H__FPM__EXP___expmW :
    (((_b_ctx = b_ctx) /\
     ((_ctx = ctx) /\
     ((_b_b = b_b) /\
-    ((_b = b) /\
-    ((_b_a = b_a) /\ ((_a = a) /\ ((_b_x0 = b_x0) /\ (_x0 = x0)))))))) /\
+    ((_b = b) /\ ((_b_a = b_a) /\ ((_a = a) /\ ((_b_r = b_r) /\ (_r = r)))))))) /\
+   (((BArray128.is_init _b_a 0 (8 * 16)) /\
+    (BArray128.is_init _b_b 0 (8 * 16))) /\
+   (BArray520.is_init _b_ctx 0 (8 * 65)))) ==>
+   ((BArray128.is_init res.`2 0 (8 * 16)) /\ (valid res.`3))].
+
+op h__H__FPM__EXP___expmW__spec _r _b_r _a _b_a _b _b_b _ctx _b_ctx =
+   hoare [M.h__H__FPM__EXP___expmW_ :
+   (((_b_ctx = b_ctx) /\
+    ((_ctx = ctx) /\
+    ((_b_b = b_b) /\
+    ((_b = b) /\ ((_b_a = b_a) /\ ((_a = a) /\ ((_b_r = b_r) /\ (_r = r)))))))) /\
    (((BArray128.is_init _b_a 0 (8 * 16)) /\
     (BArray128.is_init _b_b 0 (8 * 16))) /\
    (BArray520.is_init _b_ctx 0 (8 * 65)))) ==>

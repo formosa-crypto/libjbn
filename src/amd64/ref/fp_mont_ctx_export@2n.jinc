@@ -7,7 +7,9 @@
               in constant time; a context has 4*n+1 words (fp_ctx@n.jinc).
               The other fpc_* entry points take a context as their last
               argument (fpc_inv and the _noct exponentiation assume a public
-              P, see fp_base).
+              P, see fp_base). fpc_exp is the fixed-window exponentiation
+              (a table of 16*n words on the stack), fpc_exp_ladder the
+              Montgomery ladder; both are constant time.
 
    The context is an array argument: the field code reads it where the
    caller keeps it, without a copy (it must not overlap the result). The
@@ -118,7 +120,7 @@ export fn fpc_sqr(reg u64 rp ap, reg const ptr u64[H::FPM::CTXLEN] ctx)
   H::BN::_store_(rp, r);
 }
 
-/* r = a^b (Montgomery form), constant time */
+/* r = a^b (Montgomery form), constant time: fixed window of 4 bits */
 #[safety = { requires = is_mem_init(ap, 8*H::nlimbs) && is_mem_init(bp, 8*H::nlimbs) && is_mem_init(rp, 8*H::nlimbs) && is_arr_init(ctx, 0, 8*H::FPM::CTXLEN) }]
 export fn fpc_exp(reg u64 rp ap bp, reg const ptr u64[H::FPM::CTXLEN] ctx)
 {
@@ -135,14 +137,14 @@ export fn fpc_exp(reg u64 rp ap bp, reg const ptr u64[H::FPM::CTXLEN] ctx)
   b = H::BN::_load_(b, bp);
   r = _r;
   ctx = _ctx;
-  r = H::FPM::EXP::_expm_(r, a, b, ctx);
+  r = H::FPM::EXP::_expmW_(r, a, b, ctx);
   rp = _rp;
   H::BN::_store_(rp, r);
 }
 
-/* r = a^b (Montgomery form), constant time: fixed window of 4 bits */
+/* r = a^b (Montgomery form), constant time: Montgomery ladder (no table) */
 #[safety = { requires = is_mem_init(ap, 8*H::nlimbs) && is_mem_init(bp, 8*H::nlimbs) && is_mem_init(rp, 8*H::nlimbs) && is_arr_init(ctx, 0, 8*H::FPM::CTXLEN) }]
-export fn fpc_expw(reg u64 rp ap bp, reg const ptr u64[H::FPM::CTXLEN] ctx)
+export fn fpc_exp_ladder(reg u64 rp ap bp, reg const ptr u64[H::FPM::CTXLEN] ctx)
 {
   stack u64[H::nlimbs] _a _b _r;
   reg ptr u64[H::nlimbs] a b r;
@@ -157,7 +159,7 @@ export fn fpc_expw(reg u64 rp ap bp, reg const ptr u64[H::FPM::CTXLEN] ctx)
   b = H::BN::_load_(b, bp);
   r = _r;
   ctx = _ctx;
-  r = H::FPM::EXP::_expmW_(r, a, b, ctx);
+  r = H::FPM::EXP::_expm_(r, a, b, ctx);
   rp = _rp;
   H::BN::_store_(rp, r);
 }

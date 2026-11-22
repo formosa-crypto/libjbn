@@ -151,7 +151,7 @@ inline fn _crt_exp
   cX = H::FPM::_redM_(cX, c, ctxX);   // c * R^-1 mod X
   cX = H::FPM::_toM_(cX, ctxX);        // c mod X
   cX = H::FPM::_toM_(cX, ctxX);        // toM
-  r = H::FPM::EXP::_expm_(r, cX, dX, ctxX);
+  r = H::FPM::EXP::_expmW_(r, cX, dX, ctxX);
 
   return r; // result in Mont. form
 }

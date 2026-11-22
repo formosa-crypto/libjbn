@@ -30,7 +30,7 @@ namespace FPM {
     reg ptr u64[CTXLEN] ctx;
     gM = P::glob_gM;
     ctx = P::glob_ctx;
-    r = EXP::_expm_(r, gM, x, ctx);
+    r = EXP::_expmW_(r, gM, x, ctx);
     return r;
   }
 }

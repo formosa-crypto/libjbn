@@ -239,7 +239,7 @@ hoare crt_exp_h X _c _d _ctx:
    ==> bn16 res = (F16.BigN.BN2.bn _c %% X) ^ bn16 _d * R16 %% X.
 proof.
 proc.
-ecall (expm16_h ctxX cX dX).
+ecall (expmW16_h ctxX cX dX).
 ecall (toM16_h X cX).
 ecall (toM16_h X cX).
 ecall (redM16_h X c).

@@ -9392,7 +9392,7 @@ module M = {
     param_4 <- a;
     param_5 <- b;
     param_6 <- ctx;
-    (aux_3, aux_4, tmp__trace) <@ h__FPM__EXP___expm_ (param_3, b_param_1,
+    (aux_3, aux_4, tmp__trace) <@ h__FPM__EXP___expmW_ (param_3, b_param_1,
     param_4, (BArray56.init_arr (W8.of_int 255)), param_5,
     (BArray56.init_arr (W8.of_int 255)), param_6,
     (BArray232.init_arr (W8.of_int 255)));
@@ -9410,8 +9410,8 @@ module M = {
     trace_fpc_exp <- (trace_fpc_exp ++ tmp__trace);
     return (trace_fpc_exp);
   }
-  proc fpc_expw (rp:W64.t, ap:W64.t, bp:W64.t, ctx:BArray232.t,
-                 b_ctx:BArray232.t) : trace = {
+  proc fpc_exp_ladder (rp:W64.t, ap:W64.t, bp:W64.t, ctx:BArray232.t,
+                       b_ctx:BArray232.t) : trace = {
     var aux:BArray56.t;
     var aux_0:BArray56.t;
     var aux_1:BArray56.t;
@@ -9451,7 +9451,7 @@ module M = {
     var b_result_1:BArray56.t;
     var param_7:W64.t;
     var param_8:BArray56.t;
-    var trace_fpc_expw:trace;
+    var trace_fpc_exp_ladder:trace;
     _a <- witness;
     _b <- witness;
     _ctx <- witness;
@@ -9481,9 +9481,9 @@ module M = {
     result <- witness;
     result_0 <- witness;
     result_1 <- witness;
-    trace_fpc_expw <- [];
-    trace_fpc_expw <-
-    (trace_fpc_expw ++
+    trace_fpc_exp_ladder <- [];
+    trace_fpc_exp_ladder <-
+    (trace_fpc_exp_ladder ++
     [(Assert,
      ((((is_valid ptr_modulus Glob.mem_v (W64.to_uint ap) (8 * 7)) /\
        (is_valid ptr_modulus Glob.mem_v (W64.to_uint bp) (8 * 7))) /\
@@ -9502,9 +9502,9 @@ module M = {
     (aux, aux_0, tmp__trace) <@ h__BN___load_ (param, b_param, param_0);
     result <- aux;
     b_result <- aux_0;
-    trace_fpc_expw <- (trace_fpc_expw ++ tmp__trace);
-    trace_fpc_expw <-
-    (trace_fpc_expw ++ [(Assert, (BArray56.is_init b_result 0 56))]);
+    trace_fpc_exp_ladder <- (trace_fpc_exp_ladder ++ tmp__trace);
+    trace_fpc_exp_ladder <-
+    (trace_fpc_exp_ladder ++ [(Assert, (BArray56.is_init b_result 0 56))]);
     a <- result;
     b_b <- b__b;
     b <- _b;
@@ -9515,9 +9515,9 @@ module M = {
     param_2);
     result_0 <- aux_1;
     b_result_0 <- aux_2;
-    trace_fpc_expw <- (trace_fpc_expw ++ tmp__trace);
-    trace_fpc_expw <-
-    (trace_fpc_expw ++ [(Assert, (BArray56.is_init b_result_0 0 56))]);
+    trace_fpc_exp_ladder <- (trace_fpc_exp_ladder ++ tmp__trace);
+    trace_fpc_exp_ladder <-
+    (trace_fpc_exp_ladder ++ [(Assert, (BArray56.is_init b_result_0 0 56))]);
     b <- result_0;
     b_r <- b__r;
     r <- _r;
@@ -9527,23 +9527,23 @@ module M = {
     param_4 <- a;
     param_5 <- b;
     param_6 <- ctx;
-    (aux_3, aux_4, tmp__trace) <@ h__FPM__EXP___expmW_ (param_3, b_param_1,
+    (aux_3, aux_4, tmp__trace) <@ h__FPM__EXP___expm_ (param_3, b_param_1,
     param_4, (BArray56.init_arr (W8.of_int 255)), param_5,
     (BArray56.init_arr (W8.of_int 255)), param_6,
     (BArray232.init_arr (W8.of_int 255)));
     result_1 <- aux_3;
     b_result_1 <- aux_4;
-    trace_fpc_expw <- (trace_fpc_expw ++ tmp__trace);
-    trace_fpc_expw <-
-    (trace_fpc_expw ++ [(Assert, (BArray56.is_init b_result_1 0 56))]);
+    trace_fpc_exp_ladder <- (trace_fpc_exp_ladder ++ tmp__trace);
+    trace_fpc_exp_ladder <-
+    (trace_fpc_exp_ladder ++ [(Assert, (BArray56.is_init b_result_1 0 56))]);
     r <- result_1;
     rp <- _rp;
     param_7 <- rp;
     param_8 <- r;
     tmp__trace <@ h__BN___store_ (param_7, param_8,
     (BArray56.init_arr (W8.of_int 255)));
-    trace_fpc_expw <- (trace_fpc_expw ++ tmp__trace);
-    return (trace_fpc_expw);
+    trace_fpc_exp_ladder <- (trace_fpc_exp_ladder ++ tmp__trace);
+    return (trace_fpc_exp_ladder);
   }
   proc fpc_exp_noct (rp:W64.t, ap:W64.t, bp:W64.t, ctx:BArray232.t,
                      b_ctx:BArray232.t) : trace = {
@@ -10867,8 +10867,8 @@ op fpc_exp_spec _rp _ap _bp _ctx _b_ctx =
     (is_valid ptr_modulus Glob.mem_v (W64.to_uint _rp) (8 * 7))) /\
    (BArray232.is_init _b_ctx 0 (8 * 29))))))) ==> (true /\ (valid res))].
 
-op fpc_expw_spec _rp _ap _bp _ctx _b_ctx =
-   hoare [M.fpc_expw :
+op fpc_exp_ladder_spec _rp _ap _bp _ctx _b_ctx =
+   hoare [M.fpc_exp_ladder :
    (((_b_ctx = b_ctx) /\
     ((_ctx = ctx) /\ ((_bp = bp) /\ ((_ap = ap) /\ (_rp = rp))))) /\
    (true /\

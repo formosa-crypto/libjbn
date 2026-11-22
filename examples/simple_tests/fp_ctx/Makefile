@@ -127,7 +127,8 @@ exec: gen_exec_test.py $(LIBJBN_SRC)
 # fpc_mul and fpc_sqr are timed on the same arguments at each call, so that
 # consecutive calls may overlap (throughput); with BENCH_CHAINED=1, each
 # call takes the result of the previous one (latency, as in fpc_exp), and
-# the lines end with "(chained)".
+# the lines end with "(chained)". The two constant-time exponentiations are
+# timed on the same operands: fpc_exp (the fixed window) and fpc_exp_ladder.
 BENCH_SIZES    ?= 4 5 6 8 16 32 64
 BENCH_VARIANTS ?= unr loop mulx_unr mulx mulxr pm_unr pm_mulxr
 BENCH_CHAINED  ?=
