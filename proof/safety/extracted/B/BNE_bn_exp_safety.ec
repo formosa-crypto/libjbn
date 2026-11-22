@@ -7,8 +7,8 @@ import SLH64.
 from Jasmin require import Jcheck JSafety.
 
 require import
-Array6 Array7 Array29 Array48 Array56 Array232 BArray48 BArray56 BArray232
-SBArray232_56.
+Array6 Array7 Array29 Array48 Array56 Array112 Array232 Array896 BArray48
+BArray56 BArray232 BArray896 SBArray232_56 SBArray896_56.
 
 module M = {
   var tmp__trace : trace
@@ -1639,6 +1639,557 @@ module M = {
     b_a <- (BArray56.init_arr (W8.of_int 255));
     return (a, b_a, trace_h__EXP___expmU_);
   }
+  proc h__EXP____tblsel (r:BArray56.t, b_r:BArray56.t, tbl:BArray896.t,
+                         b_tbl:BArray896.t, idx:W64.t) : BArray56.t *
+                                                         BArray56.t * trace = {
+    var k:W64.t;
+    var t:W64.t;
+    var i:int;
+    var zf:bool;
+    var trace_h__EXP____tblsel:trace;
+    trace_h__EXP____tblsel <- [];
+    trace_h__EXP____tblsel <-
+    (trace_h__EXP____tblsel ++ [(Assert, (BArray896.is_init b_tbl 0 896))]);
+    k <- (W64.of_int 0);
+    while ((k \ult (W64.of_int 7))) {
+      trace_h__EXP____tblsel <-
+      (trace_h__EXP____tblsel ++
+      [(Assert,
+       ((0 <= ((W64.to_uint k) * 8)) /\ ((((W64.to_uint k) * 8) + 8) <= 896)))]);
+      t <- (BArray896.get64 tbl (W64.to_uint k));
+      i <- 1;
+      while ((i < 16)) {
+        zf <- (idx = (W64.of_int i));
+        trace_h__EXP____tblsel <-
+        (trace_h__EXP____tblsel ++
+        [(Assert,
+         ((0 <= ((W64.to_uint (k + (W64.of_int (i * 7)))) * 8)) /\
+         ((((W64.to_uint (k + (W64.of_int (i * 7)))) * 8) + 8) <= 896)))]);
+        t <-
+        (zf ? (BArray896.get64 tbl (W64.to_uint (k + (W64.of_int (i * 7))))) : 
+        t);
+        i <- (i + 1);
+      }
+      trace_h__EXP____tblsel <-
+      (trace_h__EXP____tblsel ++
+      [(Assert,
+       ((0 <= ((W64.to_uint k) * 8)) /\ ((((W64.to_uint k) * 8) + 8) <= 56)))]);
+      b_r <-
+      (BArray56.set64d b_r ((W64.to_uint k) * 8)
+      (W64.of_int 18446744073709551615));
+      r <- (BArray56.set64 r (W64.to_uint k) t);
+      k <- (k + (W64.of_int 1));
+    }
+    return (r, b_r, trace_h__EXP____tblsel);
+  }
+  proc h__EXP___expmW (r:BArray56.t, b_r:BArray56.t, a:BArray56.t,
+                       b_a:BArray56.t, b:BArray48.t, b_b:BArray48.t,
+                       ctx:BArray232.t, b_ctx:BArray232.t) : BArray56.t *
+                                                             BArray56.t *
+                                                             trace = {
+    var aux:BArray56.t;
+    var aux_0:BArray56.t;
+    var aux_1:BArray56.t;
+    var aux_2:BArray56.t;
+    var aux_3:BArray56.t;
+    var aux_4:BArray56.t;
+    var aux_5:BArray56.t;
+    var aux_6:BArray56.t;
+    var aux_7:BArray56.t;
+    var aux_8:BArray56.t;
+    var aux_9:BArray56.t;
+    var aux_10:BArray56.t;
+    var aux_11:BArray56.t;
+    var aux_12:BArray56.t;
+    var aux_13:BArray56.t;
+    var aux_14:BArray56.t;
+    var b_tbl:BArray896.t;
+    var b_sel:BArray56.t;
+    var b__r:BArray56.t;
+    var _r:BArray56.t;
+    var _a:BArray56.t;
+    var _b:BArray48.t;
+    var _ctx:BArray232.t;
+    var b_one:BArray56.t;
+    var one:BArray56.t;
+    var b_p:BArray56.t;
+    var p:BArray56.t;
+    var tbl:BArray896.t;
+    var b_param:BArray56.t;
+    var param:BArray56.t;
+    var b_param_0:BArray56.t;
+    var param_0:BArray56.t;
+    var result:BArray56.t;
+    var b_result:BArray56.t;
+    var b_param_1:BArray56.t;
+    var param_1:BArray56.t;
+    var param_2:BArray56.t;
+    var result_0:BArray56.t;
+    var b_result_0:BArray56.t;
+    var i:int;
+    var b_param_2:BArray56.t;
+    var param_3:BArray56.t;
+    var param_4:BArray56.t;
+    var result_1:BArray56.t;
+    var b_result_1:BArray56.t;
+    var b_q:BArray56.t;
+    var q:BArray56.t;
+    var b_param_3:BArray56.t;
+    var param_5:BArray56.t;
+    var b_param_4:BArray56.t;
+    var param_6:BArray56.t;
+    var param_7:BArray232.t;
+    var result_2:BArray56.t;
+    var b_result_2:BArray56.t;
+    var b_param_5:BArray56.t;
+    var param_8:BArray56.t;
+    var b_param_6:BArray56.t;
+    var param_9:BArray56.t;
+    var result_3:BArray56.t;
+    var b_result_3:BArray56.t;
+    var j:W64.t;
+    var _j:W64.t;
+    var t:W64.t;
+    var _t:W64.t;
+    var k:W64.t;
+    var _k:W64.t;
+    var idx:W64.t;
+    var b_psel:BArray56.t;
+    var psel:BArray56.t;
+    var sel:BArray56.t;
+    var b_ptbl:BArray896.t;
+    var ptbl:BArray896.t;
+    var b_param_7:BArray56.t;
+    var param_10:BArray56.t;
+    var b_param_8:BArray896.t;
+    var param_11:BArray896.t;
+    var param_12:W64.t;
+    var result_4:BArray56.t;
+    var b_result_4:BArray56.t;
+    var s:int;
+    var param_13:BArray56.t;
+    var param_14:BArray232.t;
+    var result_5:BArray56.t;
+    var b_result_5:BArray56.t;
+    var param_15:BArray56.t;
+    var param_16:BArray56.t;
+    var param_17:BArray232.t;
+    var result_6:BArray56.t;
+    var b_result_6:BArray56.t;
+    var trace_h__EXP___expmW:trace;
+    _a <- witness;
+    _b <- witness;
+    _ctx <- witness;
+    _r <- witness;
+    b__r <- witness;
+    b_one <- witness;
+    b_p <- witness;
+    b_param <- witness;
+    b_param_0 <- witness;
+    b_param_1 <- witness;
+    b_param_2 <- witness;
+    b_param_3 <- witness;
+    b_param_4 <- witness;
+    b_param_5 <- witness;
+    b_param_6 <- witness;
+    b_param_7 <- witness;
+    b_param_8 <- witness;
+    b_psel <- witness;
+    b_ptbl <- witness;
+    b_q <- witness;
+    b_result <- witness;
+    b_result_0 <- witness;
+    b_result_1 <- witness;
+    b_result_2 <- witness;
+    b_result_3 <- witness;
+    b_result_4 <- witness;
+    b_result_5 <- witness;
+    b_result_6 <- witness;
+    b_sel <- witness;
+    b_tbl <- witness;
+    one <- witness;
+    p <- witness;
+    param <- witness;
+    param_0 <- witness;
+    param_1 <- witness;
+    param_2 <- witness;
+    param_3 <- witness;
+    param_4 <- witness;
+    param_5 <- witness;
+    param_6 <- witness;
+    param_7 <- witness;
+    param_8 <- witness;
+    param_9 <- witness;
+    param_10 <- witness;
+    param_11 <- witness;
+    param_13 <- witness;
+    param_14 <- witness;
+    param_15 <- witness;
+    param_16 <- witness;
+    param_17 <- witness;
+    psel <- witness;
+    ptbl <- witness;
+    q <- witness;
+    result <- witness;
+    result_0 <- witness;
+    result_1 <- witness;
+    result_2 <- witness;
+    result_3 <- witness;
+    result_4 <- witness;
+    result_5 <- witness;
+    result_6 <- witness;
+    sel <- witness;
+    tbl <- witness;
+    trace_h__EXP___expmW <- [];
+    trace_h__EXP___expmW <-
+    (trace_h__EXP___expmW ++
+    [(Assert,
+     (((BArray56.is_init b_a 0 56) /\ (BArray48.is_init b_b 0 48)) /\
+     (BArray232.is_init b_ctx 0 232)))]);
+    b_tbl <- (BArray896.init_arr (W8.of_int 0));
+    b_sel <- (BArray56.init_arr (W8.of_int 0));
+    b__r <- b_r;
+    _r <- r;
+    _a <- a;
+    _b <- b;
+    _ctx <- ctx;
+    trace_h__EXP___expmW <-
+    (trace_h__EXP___expmW ++
+    [(Assert, ((0 <= (14 * 8)) /\ (((14 * 8) + 56) <= 232)))]);
+    b_one <- (SBArray232_56.get_sub64 b_ctx 14);
+    one <- (SBArray232_56.get_sub64 ctx 14);
+    b_p <- (SBArray896_56.get_sub64 b_tbl 0);
+    p <- (SBArray896_56.get_sub64 tbl 0);
+    b_param <- b_p;
+    param <- p;
+    b_param_0 <- b_one;
+    param_0 <- one;
+    (aux, aux_0, tmp__trace) <@ h__BN___mov_ (param, b_param, param_0,
+    b_param_0);
+    result <- aux;
+    b_result <- aux_0;
+    trace_h__EXP___expmW <- (trace_h__EXP___expmW ++ tmp__trace);
+    trace_h__EXP___expmW <-
+    (trace_h__EXP___expmW ++ [(Assert, (BArray56.is_init b_result 0 56))]);
+    p <- result;
+    b_tbl <-
+    (SBArray896_56.set_sub64 b_tbl 0 (BArray56.init_arr (W8.of_int 255)));
+    tbl <- (SBArray896_56.set_sub64 tbl 0 p);
+    a <- _a;
+    trace_h__EXP___expmW <-
+    (trace_h__EXP___expmW ++
+    [(Assert, ((0 <= (7 * 8)) /\ (((7 * 8) + 56) <= 896)))]);
+    b_p <- (SBArray896_56.get_sub64 b_tbl 7);
+    p <- (SBArray896_56.get_sub64 tbl 7);
+    b_param_1 <- b_p;
+    param_1 <- p;
+    param_2 <- a;
+    (aux_1, aux_2, tmp__trace) <@ h__BN___mov_ (param_1, b_param_1, param_2,
+    (BArray56.init_arr (W8.of_int 255)));
+    result_0 <- aux_1;
+    b_result_0 <- aux_2;
+    trace_h__EXP___expmW <- (trace_h__EXP___expmW ++ tmp__trace);
+    trace_h__EXP___expmW <-
+    (trace_h__EXP___expmW ++ [(Assert, (BArray56.is_init b_result_0 0 56))]);
+    p <- result_0;
+    trace_h__EXP___expmW <-
+    (trace_h__EXP___expmW ++
+    [(Assert, ((0 <= (7 * 8)) /\ (((7 * 8) + 56) <= 896)))]);
+    b_tbl <-
+    (SBArray896_56.set_sub64 b_tbl 7 (BArray56.init_arr (W8.of_int 255)));
+    tbl <- (SBArray896_56.set_sub64 tbl 7 p);
+    i <- 2;
+    while ((i < 16)) {
+      a <- _a;
+      trace_h__EXP___expmW <-
+      (trace_h__EXP___expmW ++
+      [(Assert, ((0 <= ((i * 7) * 8)) /\ ((((i * 7) * 8) + 56) <= 896)))]);
+      b_p <- (SBArray896_56.get_sub64 b_tbl (i * 7));
+      p <- (SBArray896_56.get_sub64 tbl (i * 7));
+      b_param_2 <- b_p;
+      param_3 <- p;
+      param_4 <- a;
+      (aux_3, aux_4, tmp__trace) <@ h__BN___mov_ (param_3, b_param_2,
+      param_4, (BArray56.init_arr (W8.of_int 255)));
+      result_1 <- aux_3;
+      b_result_1 <- aux_4;
+      trace_h__EXP___expmW <- (trace_h__EXP___expmW ++ tmp__trace);
+      trace_h__EXP___expmW <-
+      (trace_h__EXP___expmW ++
+      [(Assert, (BArray56.is_init b_result_1 0 56))]);
+      p <- result_1;
+      trace_h__EXP___expmW <-
+      (trace_h__EXP___expmW ++
+      [(Assert, ((0 <= ((i * 7) * 8)) /\ ((((i * 7) * 8) + 56) <= 896)))]);
+      b_tbl <-
+      (SBArray896_56.set_sub64 b_tbl (i * 7)
+      (BArray56.init_arr (W8.of_int 255)));
+      tbl <- (SBArray896_56.set_sub64 tbl (i * 7) p);
+      trace_h__EXP___expmW <-
+      (trace_h__EXP___expmW ++
+      [(Assert,
+       ((0 <= (((i - 1) * 7) * 8)) /\ (((((i - 1) * 7) * 8) + 56) <= 896)))]);
+      b_q <- (SBArray896_56.get_sub64 b_tbl ((i - 1) * 7));
+      q <- (SBArray896_56.get_sub64 tbl ((i - 1) * 7));
+      trace_h__EXP___expmW <-
+      (trace_h__EXP___expmW ++
+      [(Assert, ((0 <= ((i * 7) * 8)) /\ ((((i * 7) * 8) + 56) <= 896)))]);
+      b_p <- (SBArray896_56.get_sub64 b_tbl (i * 7));
+      p <- (SBArray896_56.get_sub64 tbl (i * 7));
+      ctx <- _ctx;
+      b_param_3 <- b_p;
+      param_5 <- p;
+      b_param_4 <- b_q;
+      param_6 <- q;
+      param_7 <- ctx;
+      (aux_5, aux_6, tmp__trace) <@ h__EXP__fun_mulU (param_5, b_param_3,
+      param_6, b_param_4, param_7, (BArray232.init_arr (W8.of_int 255)));
+      result_2 <- aux_5;
+      b_result_2 <- aux_6;
+      trace_h__EXP___expmW <- (trace_h__EXP___expmW ++ tmp__trace);
+      trace_h__EXP___expmW <-
+      (trace_h__EXP___expmW ++
+      [(Assert, (BArray56.is_init b_result_2 0 56))]);
+      p <- result_2;
+      trace_h__EXP___expmW <-
+      (trace_h__EXP___expmW ++
+      [(Assert, ((0 <= ((i * 7) * 8)) /\ ((((i * 7) * 8) + 56) <= 896)))]);
+      b_tbl <-
+      (SBArray896_56.set_sub64 b_tbl (i * 7)
+      (BArray56.init_arr (W8.of_int 255)));
+      tbl <- (SBArray896_56.set_sub64 tbl (i * 7) p);
+      i <- (i + 1);
+    }
+    b_r <- b__r;
+    r <- _r;
+    b_ctx <- (BArray232.init_arr (W8.of_int 255));
+    ctx <- _ctx;
+    trace_h__EXP___expmW <-
+    (trace_h__EXP___expmW ++
+    [(Assert, ((0 <= (14 * 8)) /\ (((14 * 8) + 56) <= 232)))]);
+    b_one <- (SBArray232_56.get_sub64 b_ctx 14);
+    one <- (SBArray232_56.get_sub64 ctx 14);
+    b_param_5 <- b_r;
+    param_8 <- r;
+    b_param_6 <- b_one;
+    param_9 <- one;
+    (aux_7, aux_8, tmp__trace) <@ h__BN___mov_ (param_8, b_param_5, param_9,
+    b_param_6);
+    result_3 <- aux_7;
+    b_result_3 <- aux_8;
+    trace_h__EXP___expmW <- (trace_h__EXP___expmW ++ tmp__trace);
+    trace_h__EXP___expmW <-
+    (trace_h__EXP___expmW ++ [(Assert, (BArray56.is_init b_result_3 0 56))]);
+    r <- result_3;
+    j <- (W64.of_int 6);
+    while ((j <> (W64.of_int 0))) {
+      j <- (j - (W64.of_int 1));
+      _j <- j;
+      b <- _b;
+      trace_h__EXP___expmW <-
+      (trace_h__EXP___expmW ++
+      [(Assert,
+       ((0 <= ((W64.to_uint j) * 8)) /\ ((((W64.to_uint j) * 8) + 8) <= 48)))]);
+      t <- (BArray48.get64 b (W64.to_uint j));
+      _t <- t;
+      k <- (W64.of_int 16);
+      while ((k <> (W64.of_int 0))) {
+        _k <- k;
+        t <- _t;
+        idx <- t;
+        idx <- (idx `>>` (W8.of_int 60));
+        t <- (t `<<` (W8.of_int 4));
+        _t <- t;
+        b_psel <- b_sel;
+        psel <- sel;
+        b_ptbl <- b_tbl;
+        ptbl <- tbl;
+        b_param_7 <- b_psel;
+        param_10 <- psel;
+        b_param_8 <- b_ptbl;
+        param_11 <- ptbl;
+        param_12 <- idx;
+        (aux_9, aux_10, tmp__trace) <@ h__EXP____tblsel (param_10, b_param_7,
+        param_11, b_param_8, param_12);
+        result_4 <- aux_9;
+        b_result_4 <- aux_10;
+        trace_h__EXP___expmW <- (trace_h__EXP___expmW ++ tmp__trace);
+        trace_h__EXP___expmW <-
+        (trace_h__EXP___expmW ++
+        [(Assert, (BArray56.is_init b_result_4 0 56))]);
+        psel <- result_4;
+        b_sel <- (BArray56.init_arr (W8.of_int 255));
+        sel <- psel;
+        s <- 0;
+        while ((s < 4)) {
+          ctx <- _ctx;
+          param_13 <- r;
+          param_14 <- ctx;
+          (aux_11, aux_12, tmp__trace) <@ h__EXP__fun_sqrU (param_13,
+          (BArray56.init_arr (W8.of_int 255)), param_14,
+          (BArray232.init_arr (W8.of_int 255)));
+          result_5 <- aux_11;
+          b_result_5 <- aux_12;
+          trace_h__EXP___expmW <- (trace_h__EXP___expmW ++ tmp__trace);
+          trace_h__EXP___expmW <-
+          (trace_h__EXP___expmW ++
+          [(Assert, (BArray56.is_init b_result_5 0 56))]);
+          r <- result_5;
+          s <- (s + 1);
+        }
+        psel <- sel;
+        ctx <- _ctx;
+        param_15 <- r;
+        param_16 <- psel;
+        param_17 <- ctx;
+        (aux_13, aux_14, tmp__trace) <@ h__EXP__fun_mulU (param_15,
+        (BArray56.init_arr (W8.of_int 255)), param_16,
+        (BArray56.init_arr (W8.of_int 255)), param_17,
+        (BArray232.init_arr (W8.of_int 255)));
+        result_6 <- aux_13;
+        b_result_6 <- aux_14;
+        trace_h__EXP___expmW <- (trace_h__EXP___expmW ++ tmp__trace);
+        trace_h__EXP___expmW <-
+        (trace_h__EXP___expmW ++
+        [(Assert, (BArray56.is_init b_result_6 0 56))]);
+        r <- result_6;
+        k <- _k;
+        k <- (k - (W64.of_int 1));
+      }
+      j <- _j;
+    }
+    b_r <- (BArray56.init_arr (W8.of_int 255));
+    return (r, b_r, trace_h__EXP___expmW);
+  }
+  proc h__EXP___expmW_ (r:BArray56.t, b_r:BArray56.t, a:BArray56.t,
+                        b_a:BArray56.t, b:BArray48.t, b_b:BArray48.t,
+                        ctx:BArray232.t, b_ctx:BArray232.t) : BArray56.t *
+                                                              BArray56.t *
+                                                              trace = {
+    var aux:BArray56.t;
+    var aux_0:BArray56.t;
+    var b_param:BArray56.t;
+    var param:BArray56.t;
+    var param_0:BArray56.t;
+    var param_1:BArray48.t;
+    var param_2:BArray232.t;
+    var result:BArray56.t;
+    var b_result:BArray56.t;
+    var trace_h__EXP___expmW_:trace;
+    b_param <- witness;
+    b_result <- witness;
+    param <- witness;
+    param_0 <- witness;
+    param_1 <- witness;
+    param_2 <- witness;
+    result <- witness;
+    trace_h__EXP___expmW_ <- [];
+    trace_h__EXP___expmW_ <-
+    (trace_h__EXP___expmW_ ++
+    [(Assert,
+     (((BArray56.is_init b_a 0 56) /\ (BArray48.is_init b_b 0 48)) /\
+     (BArray232.is_init b_ctx 0 232)))]);
+    b_r <- b_r;
+    r <- r;
+    a <- a;
+    b <- b;
+    b_param <- b_r;
+    param <- r;
+    param_0 <- a;
+    param_1 <- b;
+    param_2 <- ctx;
+    (aux, aux_0, tmp__trace) <@ h__EXP___expmW (param, b_param, param_0,
+    (BArray56.init_arr (W8.of_int 255)), param_1,
+    (BArray48.init_arr (W8.of_int 255)), param_2,
+    (BArray232.init_arr (W8.of_int 255)));
+    result <- aux;
+    b_result <- aux_0;
+    trace_h__EXP___expmW_ <- (trace_h__EXP___expmW_ ++ tmp__trace);
+    trace_h__EXP___expmW_ <-
+    (trace_h__EXP___expmW_ ++ [(Assert, (BArray56.is_init b_result 0 56))]);
+    r <- result;
+    r <- r;
+    b_r <- (BArray56.init_arr (W8.of_int 255));
+    return (r, b_r, trace_h__EXP___expmW_);
+  }
+  proc h__EXP___expmWU_ (a:BArray56.t, b_a:BArray56.t, b:BArray48.t,
+                         b_b:BArray48.t, ctx:BArray232.t, b_ctx:BArray232.t) : 
+  BArray56.t * BArray56.t * trace = {
+    var aux:BArray56.t;
+    var aux_0:BArray56.t;
+    var aux_1:BArray56.t;
+    var aux_2:BArray56.t;
+    var b__tmp:BArray56.t;
+    var b_tmp:BArray56.t;
+    var tmp:BArray56.t;
+    var _tmp:BArray56.t;
+    var b_param:BArray56.t;
+    var param:BArray56.t;
+    var param_0:BArray56.t;
+    var result:BArray56.t;
+    var b_result:BArray56.t;
+    var param_1:BArray56.t;
+    var param_2:BArray56.t;
+    var param_3:BArray48.t;
+    var param_4:BArray232.t;
+    var result_0:BArray56.t;
+    var b_result_0:BArray56.t;
+    var trace_h__EXP___expmWU_:trace;
+    _tmp <- witness;
+    b__tmp <- witness;
+    b_param <- witness;
+    b_result <- witness;
+    b_result_0 <- witness;
+    b_tmp <- witness;
+    param <- witness;
+    param_0 <- witness;
+    param_1 <- witness;
+    param_2 <- witness;
+    param_3 <- witness;
+    param_4 <- witness;
+    result <- witness;
+    result_0 <- witness;
+    tmp <- witness;
+    trace_h__EXP___expmWU_ <- [];
+    trace_h__EXP___expmWU_ <-
+    (trace_h__EXP___expmWU_ ++ [(Assert, (BArray56.is_init b_a 0 56))]);
+    trace_h__EXP___expmWU_ <-
+    (trace_h__EXP___expmWU_ ++ [(Assert, (BArray48.is_init b_b 0 48))]);
+    trace_h__EXP___expmWU_ <-
+    (trace_h__EXP___expmWU_ ++ [(Assert, (BArray232.is_init b_ctx 0 232))]);
+    b__tmp <- (BArray56.init_arr (W8.of_int 0));
+    b_tmp <- b__tmp;
+    tmp <- _tmp;
+    b_param <- b_tmp;
+    param <- tmp;
+    param_0 <- a;
+    (aux, aux_0, tmp__trace) <@ h__BN___mov_ (param, b_param, param_0,
+    (BArray56.init_arr (W8.of_int 255)));
+    result <- aux;
+    b_result <- aux_0;
+    trace_h__EXP___expmWU_ <- (trace_h__EXP___expmWU_ ++ tmp__trace);
+    trace_h__EXP___expmWU_ <-
+    (trace_h__EXP___expmWU_ ++ [(Assert, (BArray56.is_init b_result 0 56))]);
+    tmp <- result;
+    param_1 <- a;
+    param_2 <- tmp;
+    param_3 <- b;
+    param_4 <- ctx;
+    (aux_1, aux_2, tmp__trace) <@ h__EXP___expmW_ (param_1,
+    (BArray56.init_arr (W8.of_int 255)), param_2,
+    (BArray56.init_arr (W8.of_int 255)), param_3,
+    (BArray48.init_arr (W8.of_int 255)), param_4,
+    (BArray232.init_arr (W8.of_int 255)));
+    result_0 <- aux_1;
+    b_result_0 <- aux_2;
+    trace_h__EXP___expmWU_ <- (trace_h__EXP___expmWU_ ++ tmp__trace);
+    trace_h__EXP___expmWU_ <-
+    (trace_h__EXP___expmWU_ ++
+    [(Assert, (BArray56.is_init b_result_0 0 56))]);
+    a <- result_0;
+    b_a <- (BArray56.init_arr (W8.of_int 255));
+    return (a, b_a, trace_h__EXP___expmWU_);
+  }
 }.
 
 (* The post and trace are valid. *)
@@ -1798,6 +2349,42 @@ op h__EXP___expm__spec _x0 _b_x0 _a _b_a _b _b_b _ctx _b_ctx =
 
 op h__EXP___expmU__spec _a _b_a _b _b_b _ctx _b_ctx =
    hoare [M.h__EXP___expmU_ :
+   (((_b_ctx = b_ctx) /\
+    ((_ctx = ctx) /\
+    ((_b_b = b_b) /\ ((_b = b) /\ ((_b_a = b_a) /\ (_a = a)))))) /\
+   ((BArray232.is_init _b_ctx 0 232) /\
+   ((BArray48.is_init _b_b 0 48) /\ (BArray56.is_init _b_a 0 56)))) ==>
+   ((BArray56.is_init res.`2 0 56) /\ (valid res.`3))].
+
+op h__EXP____tblsel_spec _r _b_r _tbl _b_tbl _idx =
+   hoare [M.h__EXP____tblsel :
+   (((_idx = idx) /\
+    ((_b_tbl = b_tbl) /\ ((_tbl = tbl) /\ ((_b_r = b_r) /\ (_r = r))))) /\
+   (BArray896.is_init _b_tbl 0 (128 * 7))) ==>
+   ((BArray56.is_init res.`2 0 (8 * 7)) /\ (valid res.`3))].
+
+op h__EXP___expmW_spec _r _b_r _a _b_a _b _b_b _ctx _b_ctx =
+   hoare [M.h__EXP___expmW :
+   (((_b_ctx = b_ctx) /\
+    ((_ctx = ctx) /\
+    ((_b_b = b_b) /\
+    ((_b = b) /\ ((_b_a = b_a) /\ ((_a = a) /\ ((_b_r = b_r) /\ (_r = r)))))))) /\
+   (((BArray56.is_init _b_a 0 (8 * 7)) /\ (BArray48.is_init _b_b 0 (8 * 6))) /\
+   (BArray232.is_init _b_ctx 0 (8 * 29)))) ==>
+   ((BArray56.is_init res.`2 0 (8 * 7)) /\ (valid res.`3))].
+
+op h__EXP___expmW__spec _r _b_r _a _b_a _b _b_b _ctx _b_ctx =
+   hoare [M.h__EXP___expmW_ :
+   (((_b_ctx = b_ctx) /\
+    ((_ctx = ctx) /\
+    ((_b_b = b_b) /\
+    ((_b = b) /\ ((_b_a = b_a) /\ ((_a = a) /\ ((_b_r = b_r) /\ (_r = r)))))))) /\
+   (((BArray56.is_init _b_a 0 (8 * 7)) /\ (BArray48.is_init _b_b 0 (8 * 6))) /\
+   (BArray232.is_init _b_ctx 0 (8 * 29)))) ==>
+   ((BArray56.is_init res.`2 0 (8 * 7)) /\ (valid res.`3))].
+
+op h__EXP___expmWU__spec _a _b_a _b _b_b _ctx _b_ctx =
+   hoare [M.h__EXP___expmWU_ :
    (((_b_ctx = b_ctx) /\
     ((_ctx = ctx) /\
     ((_b_b = b_b) /\ ((_b = b) /\ ((_b_a = b_a) /\ (_a = a)))))) /\

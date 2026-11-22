@@ -68,7 +68,7 @@ PARAMS = OrderedDict([
 SIZE_PARAMS = ('nlimbs', 'nlimbsexp')
 MAX_CONST = 16
 MAX_CONST_FAR = 96
-MAX_COEF = 64
+MAX_COEF = 128                     # the table of bn_exp: 16*nlimbs words
 
 TOKEN = re.compile(r"[A-Za-z_][A-Za-z_0-9']*|\d+|\S")
 BARRAY = re.compile(r'^BArray(\d+)$')
@@ -307,7 +307,7 @@ THEORIES = OrderedDict([
                                 calls={'uTIL__': 'bn_util', 'h__BN__': 'bn_base'}, pure_params=True,
                                 extparams={'h__FPM__': ['_ctx_init_', '_addmU_', '_submU_', '_mulm_',
                                                         '_sqrm_', '_invm_', '_toM_', '_fromM_'],
-                                           'h__FPM__EXP__': ['_expm_', '_expm_noct_']})),
+                                           'h__FPM__EXP__': ['_expm_', '_expmW_', '_expm_noct_']})),
     ('fp_mont_export', dict(xtr='EXFP_fp_mont_export', prefix='', name='Fp_mont_export_safety',
                             calls={'uTIL__': 'bn_util', 'h__BN__': 'bn_base'}, pure_params=True,
                             extparams={'h__FPM__': ['_addmU_', '_submU_', '_mulm_', '_sqrm_',

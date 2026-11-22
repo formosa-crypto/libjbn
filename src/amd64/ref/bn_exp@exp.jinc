@@ -17,8 +17,10 @@
               fn fun_sqrU (reg mut ptr u64[nlimbs], reg const ptr u64[CTXLEN])
                           -> reg ptr u64[nlimbs]
               UTIL::  BN::                 // bn_util, bn_base (same size)
-   Provides:  _expm_noct_ _expmU_noct_ _expm_ _expmU_ (and LR variants); all
-              take the context ctx as their last argument
+   Provides:  _expm_noct_ _expmU_noct_ _expm_ _expmU_ (and LR variants),
+              _expmW_ _expmWU_ (constant time as _expm_, with a window of 4
+              bits and a table of 16*nlimbs words on the stack); all take
+              the context ctx as their last argument
 */
 
 // ////////////////////////////////////
@@ -335,5 +337,154 @@ inline fn _expmU_
   b = b;
   a, _ = _expm(a, x1, b, ctx);
   a = a;
+  return a;
+}
+
+// ////////////////////////////////////
+
+/* The entry idx of a table of 16 numbers (idx < 16), in constant time:
+   every entry is read, whatever idx. One word of the result at a time, in
+   a register, so that the entries are not chained through memory; the
+   loop over the entries is unrolled, the one over the words is not (the
+   size of the code does not depend on nlimbs). Inline: _expmW calls it
+   from one place. */
+#[safety = { requires = is_arr_init(tbl, 0, 128*nlimbs), ensures = is_arr_init(r, 0, 8*nlimbs) }]
+inline fn __tblsel
+( reg mut ptr u64[nlimbs] r
+, reg const ptr u64[16*nlimbs] tbl
+, reg u64 idx
+) -> reg ptr u64[nlimbs] {
+  inline int i;
+  reg u64 k t;
+  reg bool zf;
+  k = 0;
+  while (k < nlimbs) {
+    t = tbl[k];
+    for i = 1 to 16 {
+      zf = idx == i;
+      t = tbl[k + i*nlimbs] if zf;
+    }
+    r[k] = t;
+    k += 1;
+  }
+  return r;
+}
+
+/* Modular exponentiation (constant time)
+   Fixed window of 4 bits: a table of the powers a^0 .. a^15, then, for
+   each window of the exponent (most significant first), four squarings and
+   a multiplication by the entry of the window, selected by __tblsel. A
+   squaring per bit of the exponent and a multiplication per window, where
+   the ladder _expm does a squaring and a multiplication per bit; the table
+   takes 16*nlimbs words of stack and 14 multiplications. The loops over
+   the limbs of the exponent and over their windows are not unrolled. */
+#[safety = { requires = is_arr_init(a, 0, 8*nlimbs) && is_arr_init(b, 0, 8*nlimbsexp) && is_arr_init(ctx, 0, 8*CTXLEN), ensures = is_arr_init(r, 0, 8*nlimbs) }]
+fn _expmW
+( reg mut ptr u64[nlimbs] r
+, reg const ptr u64[nlimbs] a
+, reg const ptr u64[nlimbsexp] b
+, reg const ptr u64[CTXLEN] ctx
+) -> reg ptr u64[nlimbs] {
+  inline int i s;
+  reg u64 j k t idx;
+  reg ptr u64[nlimbs] p q one psel;
+  reg ptr u64[16*nlimbs] ptbl;
+  stack u64[16*nlimbs] tbl;
+  stack u64[nlimbs] sel;
+  stack u64 _j _k _t;
+  stack ptr u64[nlimbs] _r _a;
+  stack ptr u64[nlimbsexp] _b;
+  stack ptr u64[CTXLEN] _ctx;
+
+  _r = r;
+  _a = a;
+  _b = b;
+  _ctx = ctx;
+
+  // the table: tbl[i] = a^i (no register is live across the calls)
+  one = ctx[CTX_ONE:nlimbs];
+  p = tbl[0:nlimbs];
+  p = BN::_mov_(p, one);
+  tbl[0:nlimbs] = p;
+  a = _a;
+  p = tbl[nlimbs:nlimbs];
+  p = BN::_mov_(p, a);
+  tbl[nlimbs:nlimbs] = p;
+  for i = 2 to 16 {
+    a = _a;
+    p = tbl[i*nlimbs:nlimbs];
+    p = BN::_mov_(p, a);
+    tbl[i*nlimbs:nlimbs] = p;
+    q = tbl[(i-1)*nlimbs:nlimbs];
+    p = tbl[i*nlimbs:nlimbs];
+    ctx = _ctx;
+    p = fun_mulU(p, q, ctx);
+    tbl[i*nlimbs:nlimbs] = p;
+  }
+
+  // r = 1
+  r = _r;
+  ctx = _ctx;
+  one = ctx[CTX_ONE:nlimbs];
+  r = BN::_mov_(r, one);
+
+  j = nlimbsexp;
+  while (j != 0) {
+    j -= 1;
+    _j = j;
+    b = _b;
+    t = b[j];
+    _t = t;
+    k = 16;
+    while (k != 0) {
+      _k = k;
+      // the next window, from the top of t
+      t = _t;
+      idx = t;
+      idx >>= 60;
+      t <<= 4;
+      _t = t;
+      psel = sel;
+      ptbl = tbl;
+      psel = __tblsel(psel, ptbl, idx);
+      sel = psel;
+      for s = 0 to 4 {
+        ctx = _ctx;
+        r = fun_sqrU(r, ctx);
+      }
+      psel = sel;
+      ctx = _ctx;
+      r = fun_mulU(r, psel, ctx);
+      k = _k;
+      k -= 1;
+    }
+    j = _j;
+  }
+  return r;
+}
+
+#[safety = { requires = is_arr_init(a, 0, 8*nlimbs) && is_arr_init(b, 0, 8*nlimbsexp) && is_arr_init(ctx, 0, 8*CTXLEN), ensures = is_arr_init(r, 0, 8*nlimbs) }]
+inline fn _expmW_
+( reg mut ptr u64[nlimbs] r
+, reg const ptr u64[nlimbs] a
+, reg const ptr u64[nlimbsexp] b
+, reg const ptr u64[CTXLEN] ctx
+) -> reg ptr u64[nlimbs] {
+  r = r; a = a; b = b;
+  r = _expmW(r, a, b, ctx);
+  r = r;
+  return r;
+}
+
+inline fn _expmWU_
+( reg mut ptr u64[nlimbs] a
+, reg const ptr u64[nlimbsexp] b
+, reg const ptr u64[CTXLEN] ctx
+) -> reg ptr u64[nlimbs] {
+  stack u64[nlimbs] _tmp;
+  reg ptr u64[nlimbs] tmp;
+  tmp = _tmp;
+  tmp = BN::_mov_(tmp, a);
+  a = _expmW_(a, tmp, b, ctx);
   return a;
 }

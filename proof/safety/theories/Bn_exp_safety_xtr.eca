@@ -17,7 +17,10 @@ axiom nlimbsexp_bnd : 64 * nlimbsexp < W64.modulus.
 clone ByteArray as BA_8n with op size <= (8 * nlimbs).
 clone ByteArray as BA_16n with op size <= (16 * nlimbs).
 clone ByteArray as BA_32n_8 with op size <= (8 * ((4 * nlimbs) + 1)).
+clone ByteArray as BA_128n with op size <= (128 * nlimbs).
 clone ByteArray as BA_8e with op size <= (8 * nlimbsexp).
+clone SubByteArray as SB_128n__8n
+  with theory Asmall <= BA_8n, theory Abig <= BA_128n.
 clone SubByteArray as SB_32n_8__8n
   with theory Asmall <= BA_8n, theory Abig <= BA_32n_8.
 
@@ -1392,6 +1395,558 @@ module M(P: MParam) = {
     b_a <- (BA_8n.init_arr (W8.of_int 255));
     return (a, b_a, trace__expmU_);
   }
+  proc __tblsel (r:BA_8n.t, b_r:BA_8n.t, tbl:BA_128n.t,
+                         b_tbl:BA_128n.t, idx:W64.t) : BA_8n.t *
+                                                          BA_8n.t * trace = {
+    var k:W64.t;
+    var t:W64.t;
+    var i:int;
+    var zf:bool;
+    var trace___tblsel:trace;
+    trace___tblsel <- [];
+    trace___tblsel <-
+    (trace___tblsel ++ [(Assert, (BA_128n.is_init b_tbl 0 (128 * nlimbs)))]);
+    k <- (W64.of_int 0);
+    while ((k \ult (W64.of_int nlimbs))) {
+      trace___tblsel <-
+      (trace___tblsel ++
+      [(Assert,
+       ((0 <= ((W64.to_uint k) * 8)) /\
+       ((((W64.to_uint k) * 8) + 8) <= (128 * nlimbs))))]);
+      t <- (BA_128n.get64 tbl (W64.to_uint k));
+      i <- 1;
+      while ((i < 16)) {
+        zf <- (idx = (W64.of_int i));
+        trace___tblsel <-
+        (trace___tblsel ++
+        [(Assert,
+         ((0 <= ((W64.to_uint (k + (W64.of_int (i * nlimbs)))) * 8)) /\
+         ((((W64.to_uint (k + (W64.of_int (i * nlimbs)))) * 8) + 8) <= (128 * nlimbs))))]);
+        t <-
+        (zf ? (BA_128n.get64 tbl (W64.to_uint (k + (W64.of_int (i * nlimbs))))
+              ) : t);
+        i <- (i + 1);
+      }
+      trace___tblsel <-
+      (trace___tblsel ++
+      [(Assert,
+       ((0 <= ((W64.to_uint k) * 8)) /\ ((((W64.to_uint k) * 8) + 8) <= (8 * nlimbs))))]);
+      b_r <-
+      (BA_8n.set64d b_r ((W64.to_uint k) * 8)
+      (W64.of_int 18446744073709551615));
+      r <- (BA_8n.set64 r (W64.to_uint k) t);
+      k <- (k + (W64.of_int 1));
+    }
+    return (r, b_r, trace___tblsel);
+  }
+  proc _expmW (r:BA_8n.t, b_r:BA_8n.t, a:BA_8n.t,
+                       b_a:BA_8n.t, b:BA_8e.t, b_b:BA_8e.t,
+                       ctx:BA_32n_8.t, b_ctx:BA_32n_8.t) : BA_8n.t *
+                                                             BA_8n.t *
+                                                             trace = {
+    var aux:BA_8n.t;
+    var aux_0:BA_8n.t;
+    var aux_1:BA_8n.t;
+    var aux_2:BA_8n.t;
+    var aux_3:BA_8n.t;
+    var aux_4:BA_8n.t;
+    var aux_5:BA_8n.t;
+    var aux_6:BA_8n.t;
+    var aux_7:BA_8n.t;
+    var aux_8:BA_8n.t;
+    var aux_9:BA_8n.t;
+    var aux_10:BA_8n.t;
+    var aux_11:BA_8n.t;
+    var aux_12:BA_8n.t;
+    var aux_13:BA_8n.t;
+    var aux_14:BA_8n.t;
+    var b_tbl:BA_128n.t;
+    var b_sel:BA_8n.t;
+    var b__r:BA_8n.t;
+    var _r:BA_8n.t;
+    var _a:BA_8n.t;
+    var _b:BA_8e.t;
+    var _ctx:BA_32n_8.t;
+    var b_one:BA_8n.t;
+    var one:BA_8n.t;
+    var b_p:BA_8n.t;
+    var p:BA_8n.t;
+    var tbl:BA_128n.t;
+    var b_param:BA_8n.t;
+    var param:BA_8n.t;
+    var b_param_0:BA_8n.t;
+    var param_0:BA_8n.t;
+    var result:BA_8n.t;
+    var b_result:BA_8n.t;
+    var b_param_1:BA_8n.t;
+    var param_1:BA_8n.t;
+    var param_2:BA_8n.t;
+    var result_0:BA_8n.t;
+    var b_result_0:BA_8n.t;
+    var i:int;
+    var b_param_2:BA_8n.t;
+    var param_3:BA_8n.t;
+    var param_4:BA_8n.t;
+    var result_1:BA_8n.t;
+    var b_result_1:BA_8n.t;
+    var b_q:BA_8n.t;
+    var q:BA_8n.t;
+    var b_param_3:BA_8n.t;
+    var param_5:BA_8n.t;
+    var b_param_4:BA_8n.t;
+    var param_6:BA_8n.t;
+    var param_7:BA_32n_8.t;
+    var result_2:BA_8n.t;
+    var b_result_2:BA_8n.t;
+    var b_param_5:BA_8n.t;
+    var param_8:BA_8n.t;
+    var b_param_6:BA_8n.t;
+    var param_9:BA_8n.t;
+    var result_3:BA_8n.t;
+    var b_result_3:BA_8n.t;
+    var j:W64.t;
+    var _j:W64.t;
+    var t:W64.t;
+    var _t:W64.t;
+    var k:W64.t;
+    var _k:W64.t;
+    var idx:W64.t;
+    var b_psel:BA_8n.t;
+    var psel:BA_8n.t;
+    var sel:BA_8n.t;
+    var b_ptbl:BA_128n.t;
+    var ptbl:BA_128n.t;
+    var b_param_7:BA_8n.t;
+    var param_10:BA_8n.t;
+    var b_param_8:BA_128n.t;
+    var param_11:BA_128n.t;
+    var param_12:W64.t;
+    var result_4:BA_8n.t;
+    var b_result_4:BA_8n.t;
+    var s:int;
+    var param_13:BA_8n.t;
+    var param_14:BA_32n_8.t;
+    var result_5:BA_8n.t;
+    var b_result_5:BA_8n.t;
+    var param_15:BA_8n.t;
+    var param_16:BA_8n.t;
+    var param_17:BA_32n_8.t;
+    var result_6:BA_8n.t;
+    var b_result_6:BA_8n.t;
+    var trace__expmW:trace;
+    _a <- witness;
+    _b <- witness;
+    _ctx <- witness;
+    _r <- witness;
+    b__r <- witness;
+    b_one <- witness;
+    b_p <- witness;
+    b_param <- witness;
+    b_param_0 <- witness;
+    b_param_1 <- witness;
+    b_param_2 <- witness;
+    b_param_3 <- witness;
+    b_param_4 <- witness;
+    b_param_5 <- witness;
+    b_param_6 <- witness;
+    b_param_7 <- witness;
+    b_param_8 <- witness;
+    b_psel <- witness;
+    b_ptbl <- witness;
+    b_q <- witness;
+    b_result <- witness;
+    b_result_0 <- witness;
+    b_result_1 <- witness;
+    b_result_2 <- witness;
+    b_result_3 <- witness;
+    b_result_4 <- witness;
+    b_result_5 <- witness;
+    b_result_6 <- witness;
+    b_sel <- witness;
+    b_tbl <- witness;
+    one <- witness;
+    p <- witness;
+    param <- witness;
+    param_0 <- witness;
+    param_1 <- witness;
+    param_2 <- witness;
+    param_3 <- witness;
+    param_4 <- witness;
+    param_5 <- witness;
+    param_6 <- witness;
+    param_7 <- witness;
+    param_8 <- witness;
+    param_9 <- witness;
+    param_10 <- witness;
+    param_11 <- witness;
+    param_13 <- witness;
+    param_14 <- witness;
+    param_15 <- witness;
+    param_16 <- witness;
+    param_17 <- witness;
+    psel <- witness;
+    ptbl <- witness;
+    q <- witness;
+    result <- witness;
+    result_0 <- witness;
+    result_1 <- witness;
+    result_2 <- witness;
+    result_3 <- witness;
+    result_4 <- witness;
+    result_5 <- witness;
+    result_6 <- witness;
+    sel <- witness;
+    tbl <- witness;
+    trace__expmW <- [];
+    trace__expmW <-
+    (trace__expmW ++
+    [(Assert,
+     (((BA_8n.is_init b_a 0 (8 * nlimbs)) /\ (BA_8e.is_init b_b 0 (8 * nlimbsexp))) /\
+     (BA_32n_8.is_init b_ctx 0 (8 * ((4 * nlimbs) + 1)))))]);
+    b_tbl <- (BA_128n.init_arr (W8.of_int 0));
+    b_sel <- (BA_8n.init_arr (W8.of_int 0));
+    b__r <- b_r;
+    _r <- r;
+    _a <- a;
+    _b <- b;
+    _ctx <- ctx;
+    trace__expmW <-
+    (trace__expmW ++
+    [(Assert, ((0 <= ((2 * nlimbs) * 8)) /\ ((((2 * nlimbs) * 8) + (8 * nlimbs)) <= (8 * ((4 * nlimbs) + 1)))))]);
+    b_one <- (SB_32n_8__8n.get_sub64 b_ctx (2 * nlimbs));
+    one <- (SB_32n_8__8n.get_sub64 ctx (2 * nlimbs));
+    b_p <- (SB_128n__8n.get_sub64 b_tbl 0);
+    p <- (SB_128n__8n.get_sub64 tbl 0);
+    b_param <- b_p;
+    param <- p;
+    b_param_0 <- b_one;
+    param_0 <- one;
+    (aux, aux_0, tmp__trace) <@ BNB.M._mov_ (param, b_param, param_0,
+    b_param_0);
+    result <- aux;
+    b_result <- aux_0;
+    trace__expmW <- (trace__expmW ++ tmp__trace);
+    trace__expmW <-
+    (trace__expmW ++ [(Assert, (BA_8n.is_init b_result 0 (8 * nlimbs)))]);
+    p <- result;
+    b_tbl <-
+    (SB_128n__8n.set_sub64 b_tbl 0 (BA_8n.init_arr (W8.of_int 255)));
+    tbl <- (SB_128n__8n.set_sub64 tbl 0 p);
+    a <- _a;
+    trace__expmW <-
+    (trace__expmW ++
+    [(Assert, ((0 <= (nlimbs * 8)) /\ (((nlimbs * 8) + (8 * nlimbs)) <= (128 * nlimbs))))]);
+    b_p <- (SB_128n__8n.get_sub64 b_tbl nlimbs);
+    p <- (SB_128n__8n.get_sub64 tbl nlimbs);
+    b_param_1 <- b_p;
+    param_1 <- p;
+    param_2 <- a;
+    (aux_1, aux_2, tmp__trace) <@ BNB.M._mov_ (param_1, b_param_1, param_2,
+    (BA_8n.init_arr (W8.of_int 255)));
+    result_0 <- aux_1;
+    b_result_0 <- aux_2;
+    trace__expmW <- (trace__expmW ++ tmp__trace);
+    trace__expmW <-
+    (trace__expmW ++ [(Assert, (BA_8n.is_init b_result_0 0 (8 * nlimbs)))]);
+    p <- result_0;
+    trace__expmW <-
+    (trace__expmW ++
+    [(Assert, ((0 <= (nlimbs * 8)) /\ (((nlimbs * 8) + (8 * nlimbs)) <= (128 * nlimbs))))]);
+    b_tbl <-
+    (SB_128n__8n.set_sub64 b_tbl nlimbs (BA_8n.init_arr (W8.of_int 255)));
+    tbl <- (SB_128n__8n.set_sub64 tbl nlimbs p);
+    i <- 2;
+    while ((i < 16)) {
+      a <- _a;
+      trace__expmW <-
+      (trace__expmW ++
+      [(Assert, ((0 <= ((i * nlimbs) * 8)) /\ ((((i * nlimbs) * 8) + (8 * nlimbs)) <= (128 * nlimbs))))]);
+      b_p <- (SB_128n__8n.get_sub64 b_tbl (i * nlimbs));
+      p <- (SB_128n__8n.get_sub64 tbl (i * nlimbs));
+      b_param_2 <- b_p;
+      param_3 <- p;
+      param_4 <- a;
+      (aux_3, aux_4, tmp__trace) <@ BNB.M._mov_ (param_3, b_param_2,
+      param_4, (BA_8n.init_arr (W8.of_int 255)));
+      result_1 <- aux_3;
+      b_result_1 <- aux_4;
+      trace__expmW <- (trace__expmW ++ tmp__trace);
+      trace__expmW <-
+      (trace__expmW ++
+      [(Assert, (BA_8n.is_init b_result_1 0 (8 * nlimbs)))]);
+      p <- result_1;
+      trace__expmW <-
+      (trace__expmW ++
+      [(Assert, ((0 <= ((i * nlimbs) * 8)) /\ ((((i * nlimbs) * 8) + (8 * nlimbs)) <= (128 * nlimbs))))]);
+      b_tbl <-
+      (SB_128n__8n.set_sub64 b_tbl (i * nlimbs)
+      (BA_8n.init_arr (W8.of_int 255)));
+      tbl <- (SB_128n__8n.set_sub64 tbl (i * nlimbs) p);
+      trace__expmW <-
+      (trace__expmW ++
+      [(Assert,
+       ((0 <= (((i - 1) * nlimbs) * 8)) /\ (((((i - 1) * nlimbs) * 8) + (8 * nlimbs)) <= (128 * nlimbs))))]);
+      b_q <- (SB_128n__8n.get_sub64 b_tbl ((i - 1) * nlimbs));
+      q <- (SB_128n__8n.get_sub64 tbl ((i - 1) * nlimbs));
+      trace__expmW <-
+      (trace__expmW ++
+      [(Assert, ((0 <= ((i * nlimbs) * 8)) /\ ((((i * nlimbs) * 8) + (8 * nlimbs)) <= (128 * nlimbs))))]);
+      b_p <- (SB_128n__8n.get_sub64 b_tbl (i * nlimbs));
+      p <- (SB_128n__8n.get_sub64 tbl (i * nlimbs));
+      ctx <- _ctx;
+      b_param_3 <- b_p;
+      param_5 <- p;
+      b_param_4 <- b_q;
+      param_6 <- q;
+      param_7 <- ctx;
+      (aux_5, aux_6, tmp__trace) <@ P.fun_mulU (param_5, b_param_3,
+      param_6, b_param_4, param_7, (BA_32n_8.init_arr (W8.of_int 255)));
+      result_2 <- aux_5;
+      b_result_2 <- aux_6;
+      trace__expmW <- (trace__expmW ++ tmp__trace);
+      trace__expmW <-
+      (trace__expmW ++
+      [(Assert, (BA_8n.is_init b_result_2 0 (8 * nlimbs)))]);
+      p <- result_2;
+      trace__expmW <-
+      (trace__expmW ++
+      [(Assert, ((0 <= ((i * nlimbs) * 8)) /\ ((((i * nlimbs) * 8) + (8 * nlimbs)) <= (128 * nlimbs))))]);
+      b_tbl <-
+      (SB_128n__8n.set_sub64 b_tbl (i * nlimbs)
+      (BA_8n.init_arr (W8.of_int 255)));
+      tbl <- (SB_128n__8n.set_sub64 tbl (i * nlimbs) p);
+      i <- (i + 1);
+    }
+    b_r <- b__r;
+    r <- _r;
+    b_ctx <- (BA_32n_8.init_arr (W8.of_int 255));
+    ctx <- _ctx;
+    trace__expmW <-
+    (trace__expmW ++
+    [(Assert, ((0 <= ((2 * nlimbs) * 8)) /\ ((((2 * nlimbs) * 8) + (8 * nlimbs)) <= (8 * ((4 * nlimbs) + 1)))))]);
+    b_one <- (SB_32n_8__8n.get_sub64 b_ctx (2 * nlimbs));
+    one <- (SB_32n_8__8n.get_sub64 ctx (2 * nlimbs));
+    b_param_5 <- b_r;
+    param_8 <- r;
+    b_param_6 <- b_one;
+    param_9 <- one;
+    (aux_7, aux_8, tmp__trace) <@ BNB.M._mov_ (param_8, b_param_5, param_9,
+    b_param_6);
+    result_3 <- aux_7;
+    b_result_3 <- aux_8;
+    trace__expmW <- (trace__expmW ++ tmp__trace);
+    trace__expmW <-
+    (trace__expmW ++ [(Assert, (BA_8n.is_init b_result_3 0 (8 * nlimbs)))]);
+    r <- result_3;
+    j <- (W64.of_int nlimbsexp);
+    while ((j <> (W64.of_int 0))) {
+      j <- (j - (W64.of_int 1));
+      _j <- j;
+      b <- _b;
+      trace__expmW <-
+      (trace__expmW ++
+      [(Assert,
+       ((0 <= ((W64.to_uint j) * 8)) /\ ((((W64.to_uint j) * 8) + 8) <= (8 * nlimbsexp))))]);
+      t <- (BA_8e.get64 b (W64.to_uint j));
+      _t <- t;
+      k <- (W64.of_int 16);
+      while ((k <> (W64.of_int 0))) {
+        _k <- k;
+        t <- _t;
+        idx <- t;
+        idx <- (idx `>>` (W8.of_int 60));
+        t <- (t `<<` (W8.of_int 4));
+        _t <- t;
+        b_psel <- b_sel;
+        psel <- sel;
+        b_ptbl <- b_tbl;
+        ptbl <- tbl;
+        b_param_7 <- b_psel;
+        param_10 <- psel;
+        b_param_8 <- b_ptbl;
+        param_11 <- ptbl;
+        param_12 <- idx;
+        (aux_9, aux_10, tmp__trace) <@ __tblsel (param_10, b_param_7,
+        param_11, b_param_8, param_12);
+        result_4 <- aux_9;
+        b_result_4 <- aux_10;
+        trace__expmW <- (trace__expmW ++ tmp__trace);
+        trace__expmW <-
+        (trace__expmW ++
+        [(Assert, (BA_8n.is_init b_result_4 0 (8 * nlimbs)))]);
+        psel <- result_4;
+        b_sel <- (BA_8n.init_arr (W8.of_int 255));
+        sel <- psel;
+        s <- 0;
+        while ((s < 4)) {
+          ctx <- _ctx;
+          param_13 <- r;
+          param_14 <- ctx;
+          (aux_11, aux_12, tmp__trace) <@ P.fun_sqrU (param_13,
+          (BA_8n.init_arr (W8.of_int 255)), param_14,
+          (BA_32n_8.init_arr (W8.of_int 255)));
+          result_5 <- aux_11;
+          b_result_5 <- aux_12;
+          trace__expmW <- (trace__expmW ++ tmp__trace);
+          trace__expmW <-
+          (trace__expmW ++
+          [(Assert, (BA_8n.is_init b_result_5 0 (8 * nlimbs)))]);
+          r <- result_5;
+          s <- (s + 1);
+        }
+        psel <- sel;
+        ctx <- _ctx;
+        param_15 <- r;
+        param_16 <- psel;
+        param_17 <- ctx;
+        (aux_13, aux_14, tmp__trace) <@ P.fun_mulU (param_15,
+        (BA_8n.init_arr (W8.of_int 255)), param_16,
+        (BA_8n.init_arr (W8.of_int 255)), param_17,
+        (BA_32n_8.init_arr (W8.of_int 255)));
+        result_6 <- aux_13;
+        b_result_6 <- aux_14;
+        trace__expmW <- (trace__expmW ++ tmp__trace);
+        trace__expmW <-
+        (trace__expmW ++
+        [(Assert, (BA_8n.is_init b_result_6 0 (8 * nlimbs)))]);
+        r <- result_6;
+        k <- _k;
+        k <- (k - (W64.of_int 1));
+      }
+      j <- _j;
+    }
+    b_r <- (BA_8n.init_arr (W8.of_int 255));
+    return (r, b_r, trace__expmW);
+  }
+  proc _expmW_ (r:BA_8n.t, b_r:BA_8n.t, a:BA_8n.t,
+                        b_a:BA_8n.t, b:BA_8e.t, b_b:BA_8e.t,
+                        ctx:BA_32n_8.t, b_ctx:BA_32n_8.t) : BA_8n.t *
+                                                              BA_8n.t *
+                                                              trace = {
+    var aux:BA_8n.t;
+    var aux_0:BA_8n.t;
+    var b_param:BA_8n.t;
+    var param:BA_8n.t;
+    var param_0:BA_8n.t;
+    var param_1:BA_8e.t;
+    var param_2:BA_32n_8.t;
+    var result:BA_8n.t;
+    var b_result:BA_8n.t;
+    var trace__expmW_:trace;
+    b_param <- witness;
+    b_result <- witness;
+    param <- witness;
+    param_0 <- witness;
+    param_1 <- witness;
+    param_2 <- witness;
+    result <- witness;
+    trace__expmW_ <- [];
+    trace__expmW_ <-
+    (trace__expmW_ ++
+    [(Assert,
+     (((BA_8n.is_init b_a 0 (8 * nlimbs)) /\ (BA_8e.is_init b_b 0 (8 * nlimbsexp))) /\
+     (BA_32n_8.is_init b_ctx 0 (8 * ((4 * nlimbs) + 1)))))]);
+    b_r <- b_r;
+    r <- r;
+    a <- a;
+    b <- b;
+    b_param <- b_r;
+    param <- r;
+    param_0 <- a;
+    param_1 <- b;
+    param_2 <- ctx;
+    (aux, aux_0, tmp__trace) <@ _expmW (param, b_param, param_0,
+    (BA_8n.init_arr (W8.of_int 255)), param_1,
+    (BA_8e.init_arr (W8.of_int 255)), param_2,
+    (BA_32n_8.init_arr (W8.of_int 255)));
+    result <- aux;
+    b_result <- aux_0;
+    trace__expmW_ <- (trace__expmW_ ++ tmp__trace);
+    trace__expmW_ <-
+    (trace__expmW_ ++ [(Assert, (BA_8n.is_init b_result 0 (8 * nlimbs)))]);
+    r <- result;
+    r <- r;
+    b_r <- (BA_8n.init_arr (W8.of_int 255));
+    return (r, b_r, trace__expmW_);
+  }
+  proc _expmWU_ (a:BA_8n.t, b_a:BA_8n.t, b:BA_8e.t,
+                         b_b:BA_8e.t, ctx:BA_32n_8.t, b_ctx:BA_32n_8.t) : 
+  BA_8n.t * BA_8n.t * trace = {
+    var aux:BA_8n.t;
+    var aux_0:BA_8n.t;
+    var aux_1:BA_8n.t;
+    var aux_2:BA_8n.t;
+    var b__tmp:BA_8n.t;
+    var b_tmp:BA_8n.t;
+    var tmp:BA_8n.t;
+    var _tmp:BA_8n.t;
+    var b_param:BA_8n.t;
+    var param:BA_8n.t;
+    var param_0:BA_8n.t;
+    var result:BA_8n.t;
+    var b_result:BA_8n.t;
+    var param_1:BA_8n.t;
+    var param_2:BA_8n.t;
+    var param_3:BA_8e.t;
+    var param_4:BA_32n_8.t;
+    var result_0:BA_8n.t;
+    var b_result_0:BA_8n.t;
+    var trace__expmWU_:trace;
+    _tmp <- witness;
+    b__tmp <- witness;
+    b_param <- witness;
+    b_result <- witness;
+    b_result_0 <- witness;
+    b_tmp <- witness;
+    param <- witness;
+    param_0 <- witness;
+    param_1 <- witness;
+    param_2 <- witness;
+    param_3 <- witness;
+    param_4 <- witness;
+    result <- witness;
+    result_0 <- witness;
+    tmp <- witness;
+    trace__expmWU_ <- [];
+    trace__expmWU_ <-
+    (trace__expmWU_ ++ [(Assert, (BA_8n.is_init b_a 0 (8 * nlimbs)))]);
+    trace__expmWU_ <-
+    (trace__expmWU_ ++ [(Assert, (BA_8e.is_init b_b 0 (8 * nlimbsexp)))]);
+    trace__expmWU_ <-
+    (trace__expmWU_ ++ [(Assert, (BA_32n_8.is_init b_ctx 0 (8 * ((4 * nlimbs) + 1))))]);
+    b__tmp <- (BA_8n.init_arr (W8.of_int 0));
+    b_tmp <- b__tmp;
+    tmp <- _tmp;
+    b_param <- b_tmp;
+    param <- tmp;
+    param_0 <- a;
+    (aux, aux_0, tmp__trace) <@ BNB.M._mov_ (param, b_param, param_0,
+    (BA_8n.init_arr (W8.of_int 255)));
+    result <- aux;
+    b_result <- aux_0;
+    trace__expmWU_ <- (trace__expmWU_ ++ tmp__trace);
+    trace__expmWU_ <-
+    (trace__expmWU_ ++ [(Assert, (BA_8n.is_init b_result 0 (8 * nlimbs)))]);
+    tmp <- result;
+    param_1 <- a;
+    param_2 <- tmp;
+    param_3 <- b;
+    param_4 <- ctx;
+    (aux_1, aux_2, tmp__trace) <@ _expmW_ (param_1,
+    (BA_8n.init_arr (W8.of_int 255)), param_2,
+    (BA_8n.init_arr (W8.of_int 255)), param_3,
+    (BA_8e.init_arr (W8.of_int 255)), param_4,
+    (BA_32n_8.init_arr (W8.of_int 255)));
+    result_0 <- aux_1;
+    b_result_0 <- aux_2;
+    trace__expmWU_ <- (trace__expmWU_ ++ tmp__trace);
+    trace__expmWU_ <-
+    (trace__expmWU_ ++
+    [(Assert, (BA_8n.is_init b_result_0 0 (8 * nlimbs)))]);
+    a <- result_0;
+    b_a <- (BA_8n.init_arr (W8.of_int 255));
+    return (a, b_a, trace__expmWU_);
+  }
 }.
 
 (* the specifications, as module-free pre- and postconditions (an op
@@ -1471,6 +2026,35 @@ op _expmU__pre (_a : BA_8n.t) (_b_a : BA_8n.t) (_b : BA_8e.t) (_b_b : BA_8e.t) (
    ((BA_8e.is_init _b_b 0 (8 * nlimbsexp)) /\ (BA_8n.is_init _b_a 0 (8 * nlimbs)))).
 
 op _expmU__post (_a : BA_8n.t) (_b_a : BA_8n.t) (_b : BA_8e.t) (_b_b : BA_8e.t) (_ctx : BA_32n_8.t) (_b_ctx : BA_32n_8.t) (_res : BA_8n.t * BA_8n.t * trace) =
+  (BA_8n.is_init _res.`2 0 (8 * nlimbs)).
+
+op __tblsel_pre (_r : BA_8n.t) (_b_r : BA_8n.t) (_tbl : BA_128n.t) (_b_tbl : BA_128n.t) (_idx : W64.t) =
+  (BA_128n.is_init _b_tbl 0 (128 * nlimbs)).
+
+op __tblsel_post (_r : BA_8n.t) (_b_r : BA_8n.t) (_tbl : BA_128n.t) (_b_tbl : BA_128n.t) (_idx : W64.t) (_res : BA_8n.t * BA_8n.t * trace) =
+  (BA_8n.is_init _res.`2 0 (8 * nlimbs)).
+
+op _expmW_pre (_r : BA_8n.t) (_b_r : BA_8n.t) (_a : BA_8n.t) (_b_a : BA_8n.t) (_b : BA_8e.t) (_b_b : BA_8e.t) (_ctx : BA_32n_8.t) (_b_ctx : BA_32n_8.t) =
+  (((BA_8n.is_init _b_a 0 (8 * nlimbs)) /\
+    (BA_8e.is_init _b_b 0 (8 * nlimbsexp))) /\
+   (BA_32n_8.is_init _b_ctx 0 (8 * ((4 * nlimbs) + 1)))).
+
+op _expmW_post (_r : BA_8n.t) (_b_r : BA_8n.t) (_a : BA_8n.t) (_b_a : BA_8n.t) (_b : BA_8e.t) (_b_b : BA_8e.t) (_ctx : BA_32n_8.t) (_b_ctx : BA_32n_8.t) (_res : BA_8n.t * BA_8n.t * trace) =
+  (BA_8n.is_init _res.`2 0 (8 * nlimbs)).
+
+op _expmW__pre (_r : BA_8n.t) (_b_r : BA_8n.t) (_a : BA_8n.t) (_b_a : BA_8n.t) (_b : BA_8e.t) (_b_b : BA_8e.t) (_ctx : BA_32n_8.t) (_b_ctx : BA_32n_8.t) =
+  (((BA_8n.is_init _b_a 0 (8 * nlimbs)) /\
+    (BA_8e.is_init _b_b 0 (8 * nlimbsexp))) /\
+   (BA_32n_8.is_init _b_ctx 0 (8 * ((4 * nlimbs) + 1)))).
+
+op _expmW__post (_r : BA_8n.t) (_b_r : BA_8n.t) (_a : BA_8n.t) (_b_a : BA_8n.t) (_b : BA_8e.t) (_b_b : BA_8e.t) (_ctx : BA_32n_8.t) (_b_ctx : BA_32n_8.t) (_res : BA_8n.t * BA_8n.t * trace) =
+  (BA_8n.is_init _res.`2 0 (8 * nlimbs)).
+
+op _expmWU__pre (_a : BA_8n.t) (_b_a : BA_8n.t) (_b : BA_8e.t) (_b_b : BA_8e.t) (_ctx : BA_32n_8.t) (_b_ctx : BA_32n_8.t) =
+  ((BA_32n_8.is_init _b_ctx 0 (8 * ((4 * nlimbs) + 1))) /\
+   ((BA_8e.is_init _b_b 0 (8 * nlimbsexp)) /\ (BA_8n.is_init _b_a 0 (8 * nlimbs)))).
+
+op _expmWU__post (_a : BA_8n.t) (_b_a : BA_8n.t) (_b : BA_8e.t) (_b_b : BA_8e.t) (_ctx : BA_32n_8.t) (_b_ctx : BA_32n_8.t) (_res : BA_8n.t * BA_8n.t * trace) =
   (BA_8n.is_init _res.`2 0 (8 * nlimbs)).
 
 op fun_mulU_pre (_a : BA_8n.t) (_b_a : BA_8n.t) (_b : BA_8n.t) (_b_b : BA_8n.t) (_ctx : BA_32n_8.t) (_b_ctx : BA_32n_8.t) =

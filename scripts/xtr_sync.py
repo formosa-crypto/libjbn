@@ -167,7 +167,9 @@ THEORIES = {
         params=['fun_mulU', 'fun_sqrU'],
         arrays={'Array11': ('BN.t', 'BN.A', 'BigN.BN.A'),
                 'Array13': ('BNexp.t', 'BNexp.A', 'BNexp.A'),
-                'Array45': ('W64.t FPC.CTX.t', 'FPC.CTX', 'FPC.CTX')},
+                'Array45': ('W64.t FPC.CTX.t', 'FPC.CTX', 'FPC.CTX'),
+                # the table of the windowed exponentiation: 16*nlimbs words
+                'Array176': ('W64.t TBL.t', 'TBL', 'TBL')},
         clone_ops=['op nlimbsexp <- 13'],
     ),
     'bn_rnd': dict(

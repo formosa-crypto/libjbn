@@ -8,7 +8,7 @@ them). Since the compiler is verified, this checks the code that is
 emitted. `test` checks the multiplication and squaring of the MUL module
 and, with --field, the context and the field operations (fp_mont over
 that module: _ctx_init_, _mulm_, _sqrm_, _addm_, _subm_, _toM_, _fromM_ and
-the three exponentiations), against values computed here; it returns the
+the four exponentiations), against values computed here; it returns the
 OR of the XORs of every word against its expected value (0: all correct)
 and the number of words checked. `make exec` runs it for the modules and
 sizes of the Makefile.
@@ -175,6 +175,8 @@ if args.field:
                 load("_e", limbs(e))
                 want = limbs(pow(a * Ri % P, e, P) * Rr % P)
                 emit("  a = _a; e = _e; r = _r; c = _c; r = H::FPM::EXP::_expm_(r, a, e, c); _r = r;")
+                check("_r", want)
+                emit("  a = _a; e = _e; r = _r; c = _c; r = H::FPM::EXP::_expmW_(r, a, e, c); _r = r;")
                 check("_r", want)
                 emit("  a = _a; e = _e; r = _r; c = _c; r = H::FPM::EXP::_expm_noct_(r, a, e, c); _r = r;")
                 check("_r", want)

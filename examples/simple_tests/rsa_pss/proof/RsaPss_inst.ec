@@ -63,6 +63,7 @@ clone Bn_exp as E32
  proof gt0_nlimbs by done,
        gt0_nlimbsexp by done,
        nlimbsexp_bnd by done,
+       nlimbs_bnd by done,
        mmul_dom by exact F32.FPB.fp_mmul_dom,
        mmulA by smt(F32.FPB.red_assoc),
        mmulC by smt(F32.FPB.redC),

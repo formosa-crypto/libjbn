@@ -54,6 +54,11 @@ declare axiom _expm__h _x0 _b_x0 _a _b_a _b _b_b _ctx _b_ctx :
     arg = (_x0, _b_x0, _a, _b_a, _b, _b_b, _ctx, _b_ctx) /\ _expm__pre _x0 _b_x0 _a _b_a _b _b_b _ctx _b_ctx
     ==> _expm__post _x0 _b_x0 _a _b_a _b _b_b _ctx _b_ctx res /\ valid res.`3].
 
+declare axiom _expmW__h _r _b_r _a _b_a _b _b_b _ctx _b_ctx :
+  hoare [P._expmW_ :
+    arg = (_r, _b_r, _a, _b_a, _b, _b_b, _ctx, _b_ctx) /\ _expmW__pre _r _b_r _a _b_a _b _b_b _ctx _b_ctx
+    ==> _expmW__post _r _b_r _a _b_a _b _b_b _ctx _b_ctx res /\ valid res.`3].
+
 declare axiom _invm__h _r _b_r _a _b_a _ctx _b_ctx :
   hoare [P._invm_ :
     arg = (_r, _b_r, _a, _b_a, _ctx, _b_ctx) /\ _invm__pre _r _b_r _a _b_a _ctx _b_ctx
@@ -151,6 +156,21 @@ proc.
 rewrite /fpc_exp_pre /fpc_exp_post /_expm__pre /_expm__post.
 wp; ecall (BNB._store__proof param_7 param_8 ((BA_8n.init_arr (W8.of_int 255)))).
 wp; ecall (_expm__h param_3 b_param_1 param_4 ((BA_8n.init_arr (W8.of_int 255))) param_5 ((BA_8n.init_arr (W8.of_int 255))) param_6 ((BA_32n_8.init_arr (W8.of_int 255)))).
+wp; ecall (BNB._load__proof param_1 b_param_0 param_2).
+wp; ecall (BNB._load__proof param b_param param_0).
+by auto => /> *; smt(gt0_nlimbs).
+qed.
+
+lemma fpc_expw_proof _rp _ap _bp _ctx _b_ctx :
+  hoare [M(P).fpc_expw :
+    arg = (_rp, _ap, _bp, _ctx, _b_ctx) /\ fpc_expw_pre Glob.mem_v _rp _ap _bp _ctx _b_ctx
+    ==> fpc_expw_post _rp _ap _bp _ctx _b_ctx res /\ valid res].
+proof.
+hint +safety.
+proc.
+rewrite /fpc_expw_pre /fpc_expw_post /_expmW__pre /_expmW__post.
+wp; ecall (BNB._store__proof param_7 param_8 ((BA_8n.init_arr (W8.of_int 255)))).
+wp; ecall (_expmW__h param_3 b_param_1 param_4 ((BA_8n.init_arr (W8.of_int 255))) param_5 ((BA_8n.init_arr (W8.of_int 255))) param_6 ((BA_32n_8.init_arr (W8.of_int 255)))).
 wp; ecall (BNB._load__proof param_1 b_param_0 param_2).
 wp; ecall (BNB._load__proof param b_param param_0).
 by auto => /> *; smt(gt0_nlimbs).

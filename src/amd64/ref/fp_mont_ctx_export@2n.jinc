@@ -140,6 +140,28 @@ export fn fpc_exp(reg u64 rp ap bp, reg const ptr u64[H::FPM::CTXLEN] ctx)
   H::BN::_store_(rp, r);
 }
 
+/* r = a^b (Montgomery form), constant time: fixed window of 4 bits */
+#[safety = { requires = is_mem_init(ap, 8*H::nlimbs) && is_mem_init(bp, 8*H::nlimbs) && is_mem_init(rp, 8*H::nlimbs) && is_arr_init(ctx, 0, 8*H::FPM::CTXLEN) }]
+export fn fpc_expw(reg u64 rp ap bp, reg const ptr u64[H::FPM::CTXLEN] ctx)
+{
+  stack u64[H::nlimbs] _a _b _r;
+  reg ptr u64[H::nlimbs] a b r;
+  stack u64 _rp;
+  stack ptr u64[H::FPM::CTXLEN] _ctx;
+
+  _rp = rp;
+  _ctx = ctx;
+  a = _a;
+  a = H::BN::_load_(a, ap);
+  b = _b;
+  b = H::BN::_load_(b, bp);
+  r = _r;
+  ctx = _ctx;
+  r = H::FPM::EXP::_expmW_(r, a, b, ctx);
+  rp = _rp;
+  H::BN::_store_(rp, r);
+}
+
 /* r = a^b (Montgomery form), variable time in b */
 #[safety = { requires = is_mem_init(ap, 8*H::nlimbs) && is_mem_init(bp, 8*H::nlimbs) && is_mem_init(rp, 8*H::nlimbs) && is_arr_init(ctx, 0, 8*H::FPM::CTXLEN) }]
 export fn fpc_exp_noct(reg u64 rp ap bp, reg const ptr u64[H::FPM::CTXLEN] ctx)

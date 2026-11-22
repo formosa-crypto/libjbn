@@ -14,6 +14,9 @@ axiom nlimbs_bnd : 64 * nlimbs < W64.modulus.
 clone ByteArray as BA_8n with op size <= (8 * nlimbs).
 clone ByteArray as BA_16n with op size <= (16 * nlimbs).
 clone ByteArray as BA_32n_8 with op size <= (8 * ((4 * nlimbs) + 1)).
+clone ByteArray as BA_128n with op size <= (128 * nlimbs).
+clone SubByteArray as SB_128n__8n
+  with theory Asmall <= BA_8n, theory Abig <= BA_128n.
 clone SubByteArray as SB_32n_8__8n
   with theory Asmall <= BA_8n, theory Abig <= BA_32n_8.
 
@@ -31,6 +34,8 @@ clone Fp_base_safety as FPB with
   theory BA_8n <- BA_8n,
   theory BA_16n <- BA_16n,
   theory BA_32n_8 <- BA_32n_8,
+  theory BA_128n <- BA_128n,
+  theory SB_128n__8n <- SB_128n__8n,
   theory SB_32n_8__8n <- SB_32n_8__8n
   proof gt0_nlimbs by exact gt0_nlimbs,
         nlimbs_bnd by exact nlimbs_bnd.
