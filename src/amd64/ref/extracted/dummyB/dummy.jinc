@@ -6,6 +6,7 @@
 
 param int DUMMY_NLIMBS = 7;
 param int DUMMY_NLIMBSEXP = 6;
+param int DUMMY_NLIMBS2 = 14;     // 2*DUMMY_NLIMBS as a literal
 
 /* chosen so that no value pair (A, B) of a parameter is also the pair of
    k*nlimbs + c or k*nlimbsexp + c for a small c (scripts/xtr_safety.py

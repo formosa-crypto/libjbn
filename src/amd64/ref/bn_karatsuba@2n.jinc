@@ -37,13 +37,13 @@ fn _kar_muln
 , reg const ptr u64[nlimbs] a b
 ) -> reg ptr u64[2*nlimbs]
 {
-  stack u64[nlimbs] _tmp;
+  stack u64[nlimbs] _tmp _x;
   stack u64 _sa;
   stack ptr u64[2*nlimbs] _r;
   stack ptr u64[nlimbs] _a _b;
   reg ptr u64[H::nlimbs] alo ahi blo bhi rlolo rlohi rhihi;
-  reg ptr u64[nlimbs] tmp rlo rhi rmid;
-  reg u64 sa sb;
+  reg ptr u64[nlimbs] tmp x rlo rhi rmid;
+  reg u64 sa sb m;
   reg bool cf;
 
   _r = r;
@@ -76,8 +76,22 @@ fn _kar_muln
 //  rlohi = _r[H::nlimbs:H::nlimbs];
   tmp = fun_kmuln(tmp, rlolo, rlohi);
 
+  /* tmp = (alo - ahi) * (bhi - blo) modulo B^2 (B = 2^(64*H::nlimbs)): the
+     product of the absolute values, negated when the signs differ (the
+     mask sa). Negated, it stands for tmp - B^2, and the mask (-1) is the
+     word that is then added to the top quarter, with the carries of the
+     additions below. That holds only if the negation borrows, that is, if
+     the product is not zero: a zero product with a negative mask (one
+     difference zero, the other negative) is zero, and its mask is cleared
+     by the borrow of the negation. */
+  x = _x;
+  cf, x = BN::_neg_(x, tmp);     // x = -tmp, cf = (tmp != 0)
+  m = UTIL::__cf_mask(cf);
   sa = _sa;
-  tmp = BN::_cnegU_(tmp, sa);
+  sa &= m;
+  _sa = sa;
+  cf = UTIL::__mask_cf(sa);
+  tmp = BN::_cmov_(tmp, cf, x);
   _tmp = tmp;
 
   rlo = _r[0:nlimbs];

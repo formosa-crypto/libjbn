@@ -1,0 +1,60 @@
+/* libjbn instance with run-time moduli of 16 limbs, whose multiplication
+   and Montgomery reduction are selected by bn_mulsel from the profile
+   x86_64, and whose squaring is selected by the binding fp_mul_ksqr
+   (in the place of fp_mul_sel): the squaring of bn_mulsel up to
+   JBN_SQR_UNROLL_MAX, and above it the squaring over the half size of
+   bn_ksqr, that is, three squarings of the half size, which are the ones
+   bn_mulsel selects at that size, and linear passes.
+
+   Two size scopes: H, the field (16 limbs), and H::H, the half size (8
+   limbs), which only provides the squarings of KSQR. This is the wiring of
+   a field of any even size: the half scope costs nothing where the profile
+   does not take bn_ksqr. Here the size scope shadows the threshold of the
+   profile, so that 16 limbs are above it and the tests run bn_ksqr, over
+   the product-scanning squaring of bn_mul at 8 limbs; the profile takes it
+   above 64 limbs (README, "A squaring over the half size"). `make bench`
+   times this wiring, without the shadowing, at any even size as the
+   variant ksqr (not in its default list).
+   The field code FPM is shared by every modulus, whose context
+   (fp_ctx@n.jinc) is computed by fpc_ctx_init and passed to the other
+   fpc_* entry points. */
+
+from Libjbn require "profiles/x86_64.jinc"
+
+namespace UTIL { from Libjbn require "bn_util.jinc" }
+
+namespace H {
+  param int nlimbs = 16;
+  param int JBN_SQR_UNROLL_MAX = 8;   // (shadows the profile's): 16 limbs take bn_ksqr
+
+  namespace H {             // the half size: the squarings of KSQR
+    param int nlimbs = 8;
+
+    namespace BN  { from Libjbn require "bn_base@n.jinc" }
+    namespace MUL { from Libjbn require "bn_mulsel@n.jinc" }
+  }
+
+  namespace BN  { from Libjbn require "bn_base@n.jinc" }
+  namespace RND { from Libjbn require "bn_rnd@n.jinc" }
+  namespace MUL { from Libjbn require "bn_mulsel@n.jinc" }   // multiplication, reduction
+
+  namespace KSQR {                                           // squaring
+    #[safety = { requires = is_arr_init(a, 0, 8*H::nlimbs), ensures = is_arr_init(r, 0, 8*nlimbs) }]
+    inline fn fun_ksqrn
+    ( reg mut ptr u64[nlimbs] r
+    , reg const ptr u64[H::nlimbs] a
+    ) -> reg ptr u64[nlimbs] {
+      r = H::MUL::_sqrn_(r, a);
+      return r;
+    }
+    from Libjbn require "bn_ksqr@2n.jinc"
+  }
+
+  namespace FPM {
+    from Libjbn require "fp_mul_ksqr@fp.jinc"
+    from Libjbn require "fp_mont@fp.jinc"
+  }
+}
+
+/* C entry points */
+from Libjbn require "fp_mont_ctx_export@2n.jinc"

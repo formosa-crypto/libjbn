@@ -1,0 +1,158 @@
+(* Safety of bn_ksqr (src/amd64/ref/bn_ksqr@2n.jinc): the squaring over the
+   half size, in the 2n scope (nlimbs is the half size n), for any half-size
+   squaring fun_ksqrn and any 2n-size _subU_ meeting their contracts
+   (declared axioms of the section). *)
+require import AllCore IntDiv CoreMap List Distr.
+from Jasmin require import JModel_x86.
+import SLH64.
+from Jasmin require import Jcheck JSafety JByte_array JMemory.
+require import ByteArrayInit JbnSafetyLib.
+require Bn_ksqr_safety_xtr.
+
+clone include Bn_ksqr_safety_xtr.
+
+clone ByteArrayLib as BL_8n with theory A <- BA_8n.
+clone ByteArrayLib as BL_16n with theory A <- BA_16n.
+clone ByteArrayLib as BL_32n with theory A <- BA_32n.
+clone SubByteArrayInit as SBI_16n__8n with theory SB <- SB_16n__8n.
+clone SubByteArrayInit as SBI_32n__16n with theory SB <- SB_32n__16n.
+clone SubByteArrayInit as SBI_32n__8n with theory SB <- SB_32n__8n.
+clone SubByteArrayLib as SBL_32n__16n with theory SB <- SB_32n__16n.
+clone SubByteArrayLib as SBL_32n__8n with theory SB <- SB_32n__8n.
+
+(* the initialisation of the halves of the operand, and of the halves, the
+   middle and the quarters of the result (32n bytes) *)
+lemma half16 (t : BA_16n.t) o :
+  0 <= o => o + 8 * nlimbs <= 16 * nlimbs => BA_16n.is_init t 0 (16 * nlimbs) =>
+  BA_8n.is_init (SB_16n__8n.get_sub t o) 0 (8 * nlimbs).
+proof.
+move=> h0 h1 h; rewrite SBI_16n__8n.is_init_get_sub; 1..4: smt(gt0_nlimbs).
+by apply (BL_16n.is_init_sub _ _ _ _ _ h); smt().
+qed.
+
+lemma half32 (t : BA_32n.t) o :
+  0 <= o => o + 16 * nlimbs <= 32 * nlimbs => BA_32n.is_init t 0 (32 * nlimbs) =>
+  BA_16n.is_init (SB_32n__16n.get_sub t o) 0 (16 * nlimbs).
+proof.
+move=> h0 h1 h; rewrite SBI_32n__16n.is_init_get_sub; 1..4: smt(gt0_nlimbs).
+by apply (BL_32n.is_init_sub _ _ _ _ _ h); smt().
+qed.
+
+lemma quarter32 (t : BA_32n.t) o :
+  0 <= o => o + 8 * nlimbs <= 32 * nlimbs => BA_32n.is_init t 0 (32 * nlimbs) =>
+  BA_8n.is_init (SB_32n__8n.get_sub t o) 0 (8 * nlimbs).
+proof.
+move=> h0 h1 h; rewrite SBI_32n__8n.is_init_get_sub; 1..4: smt(gt0_nlimbs).
+by apply (BL_32n.is_init_sub _ _ _ _ _ h); smt().
+qed.
+
+(* the low quarter of the result, where |lo - hi| is written first: it is
+   read back through the low half *)
+lemma low_quarter (t : BA_32n.t) :
+  BA_32n.is_init t 0 (8 * nlimbs) =>
+  BA_8n.is_init (SB_16n__8n.get_sub (SB_32n__16n.get_sub t 0) 0) 0 (8 * nlimbs).
+proof.
+move=> h; rewrite SBI_16n__8n.is_init_get_sub; 1..4: smt(gt0_nlimbs).
+by rewrite SBI_32n__16n.is_init_get_sub; 1..4: smt(gt0_nlimbs).
+qed.
+
+(* the two squares of the halves cover the result *)
+lemma cover32 (t : BA_32n.t) (y1 y2 : BA_16n.t) :
+  BA_16n.is_init y1 0 (16 * nlimbs) => BA_16n.is_init y2 0 (16 * nlimbs) =>
+  BA_32n.is_init (SB_32n__16n.set_sub (SB_32n__16n.set_sub t 0 y1) (16 * nlimbs) y2) 0 (32 * nlimbs).
+proof.
+move=> h1 h2 j hj0 hj1; rewrite !SB_32n__16n.is_init_cell_set.
+case: (16 * nlimbs <= j < 16 * nlimbs + 16 * nlimbs /\ 0 <= j < 32 * nlimbs) => c /=.
+- by apply h2; smt().
+have -> /= : 0 <= j < 16 * nlimbs + 0 /\ 0 <= j < 32 * nlimbs by smt().
+by apply h1; smt().
+qed.
+
+section.
+
+declare module P <: MParam.
+
+declare axiom _subU__h _a _b_a _b _b_b :
+  hoare [P._subU_ :
+    arg = (_a, _b_a, _b, _b_b) /\ _subU__pre _a _b_a _b _b_b
+    ==> _subU__post _a _b_a _b _b_b res /\ valid res.`4].
+
+declare axiom fun_ksqrn_h _r _b_r _a _b_a :
+  hoare [P.fun_ksqrn :
+    arg = (_r, _b_r, _a, _b_a) /\ fun_ksqrn_pre _r _b_r _a _b_a
+    ==> fun_ksqrn_post _r _b_r _a _b_a res /\ valid res.`3].
+
+lemma __sub_abs_proof _r _b_r _a _b_a _b _b_b :
+  hoare [M(P).__sub_abs :
+    arg = (_r, _b_r, _a, _b_a, _b, _b_b) /\ __sub_abs_pre _r _b_r _a _b_a _b _b_b
+    ==> __sub_abs_post _r _b_r _a _b_a _b _b_b res /\ valid res.`3].
+proof.
+hint +safety.
+proc.
+wp; ecall (BNB._cnegU__proof param_3 ((BA_8n.init_arr (W8.of_int 255))) param_4).
+wp; ecall (BNUTIL.__cf_mask_proof param_2).
+wp; ecall (BNB._sub__proof param b_param param_0 ((BA_8n.init_arr (W8.of_int 255))) param_1 ((BA_8n.init_arr (W8.of_int 255)))).
+by auto => />.
+qed.
+
+lemma _kar_sqrn_proof _r _b_r _a _b_a :
+  hoare [M(P)._kar_sqrn :
+    arg = (_r, _b_r, _a, _b_a) /\ _kar_sqrn_pre _r _b_r _a _b_a
+    ==> _kar_sqrn_post _r _b_r _a _b_a res /\ valid res.`3].
+proof.
+hint +safety.
+proc.
+(* |lo - hi|, written to the low quarter of the result *)
+seq 90 : (valid trace__kar_sqrn /\ BA_32n.is_init b_r 0 (8 * nlimbs)).
+- wp; ecall (__sub_abs_proof param b_param param_0 b_param_0 param_1 b_param_1).
+  auto => /> ha.
+  rewrite /__sub_abs_post.
+  have ha0 := half16 _b_a 0 _ _ _; 1..3: smt(gt0_nlimbs).
+  have ha1 := half16 _b_a (8 * nlimbs) _ _ _; 1..3: smt(gt0_nlimbs).
+  have hq := SBL_32n__8n.is_init_ext_sub _b_r 0 _ _; 1: done.
+  + by rewrite BL_32n.is_init_le0.
+  smt(gt0_nlimbs).
+(* the three squarings: the ones of the halves cover the result *)
+seq 63 : (valid trace__kar_sqrn /\ BA_32n.is_init b_r 0 (32 * nlimbs)).
+- wp; ecall (fun_ksqrn_h param_6 b_param_6 param_7 b_param_7).
+  wp; ecall (fun_ksqrn_h param_4 b_param_4 param_5 b_param_5).
+  wp; ecall (fun_ksqrn_h param_2 b_param_2 param_3 b_param_3).
+  auto => /> &hr hv hq.
+  rewrite /fun_ksqrn_pre /fun_ksqrn_post.
+  have hd := low_quarter b_r{hr} hq.
+  have g0 := half16 (BA_16n.init_arr (W8.of_int 255)) 0 _ _ _; 1..3: smt(gt0_nlimbs BL_16n.is_init_init_arr).
+  have g1 := half16 (BA_16n.init_arr (W8.of_int 255)) (8 * nlimbs) _ _ _; 1..3: smt(gt0_nlimbs BL_16n.is_init_init_arr).
+  have hc := cover32 b_r{hr} (BA_16n.init_arr (W8.of_int 255)) (BA_16n.init_arr (W8.of_int 255)) _ _;
+    1,2: by rewrite BL_16n.is_init_init_arr.
+  smt(gt0_nlimbs).
+(* the three subtractions, the word of the counter and the top quarter *)
+wp; ecall (BNB.__carrypropU_proof param_14 b_param_11 param_15 param_16).
+wp; ecall (_subU__h param_12 b_param_10 param_13 ((BA_16n.init_arr (W8.of_int 255)))).
+wp; ecall (_subU__h param_10 ((BA_16n.init_arr (W8.of_int 255))) param_11 b_param_9).
+wp; ecall (_subU__h param_8 ((BA_16n.init_arr (W8.of_int 255))) param_9 b_param_8).
+auto => /> &hr hv hr.
+rewrite /_subU__post /_kar_sqrn_post.
+have h0 := half32 b_r{hr} 0 _ _ hr; 1,2: smt(gt0_nlimbs).
+have h2 := half32 b_r{hr} (16 * nlimbs) _ _ hr; 1,2: smt(gt0_nlimbs).
+have h1 := half32 b_r{hr} (8 * nlimbs) _ _ hr; 1,2: smt(gt0_nlimbs).
+have s1 := SBL_32n__16n.is_init_mono_sub b_r{hr} (8 * nlimbs) 0 (32 * nlimbs) hr.
+have w := BL_32n.is_init_word _ (3 * nlimbs) _ _ _ s1; 1,2: smt(gt0_nlimbs).
+have m1 := BL_32n.is_init_mono64 _ (3 * nlimbs * 8) _ _ s1.
+have q := quarter32 _ (8 * (3 * nlimbs)) _ _ m1; 1,2: smt(gt0_nlimbs).
+have s2 := SBL_32n__8n.is_init_mono_sub _ (8 * (3 * nlimbs)) 0 (32 * nlimbs) m1.
+smt(gt0_nlimbs).
+qed.
+
+lemma _kar_sqrn__proof _r _b_r _a _b_a :
+  hoare [M(P)._kar_sqrn_ :
+    arg = (_r, _b_r, _a, _b_a) /\ _kar_sqrn__pre _r _b_r _a _b_a
+    ==> _kar_sqrn__post _r _b_r _a _b_a res /\ valid res.`3].
+proof.
+hint +safety.
+proc.
+wp; ecall (_kar_sqrn_proof param b_param param_0 ((BA_16n.init_arr (W8.of_int 255)))).
+rewrite /_kar_sqrn_pre /_kar_sqrn_post /_kar_sqrn__pre /_kar_sqrn__post.
+by auto => /> *; smt().
+qed.
+
+end section.

@@ -16,7 +16,10 @@
                    (the product-scanning squaring of bn_mul) up to this
                    size, also where the multiplication and the reduction
                    loop. 64, as JBN_UNROLL_MAX: the two were not timed
-                   apart without MULX.
+                   apart without MULX. Above it, a field bound with
+                   fp_mul_ksqr@fp.jinc takes the squaring over the half
+                   size (bn_ksqr@2n.jinc), in a size scope that has a half
+                   scope (not timed in a field without MULX).
    JBN_EXP_WINDOW: the constant-time exponentiation of a field (_expm_ of
                    bn_exp@exp.jinc): 0 for the Montgomery ladder, which
                    needs no table; otherwise the fixed window of 4 bits,

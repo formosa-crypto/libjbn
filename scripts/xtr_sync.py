@@ -160,6 +160,20 @@ THEORIES = {
         clone_ops=['op jbn_features <- 19', 'op jbn_reg_max <- 23',
                    'op jbn_unroll_max <- 17', 'op jbn_sqr_unroll_max <- 29'],
     ),
+    'bn_ksqr': dict(
+        source='bn_ksqr@2n.jinc',
+        xtr='BNKSQR_bn_ksqr.ec',
+        prefix='kSQR__',                 # a 2n scope of its own (libjbn_abs.jazz)
+        target='proof/Bn_ksqr.eca',
+        # two sizes: nlimbs is the half size (H::BN), and the operand has
+        # 2*nlimbs words (KSQR::BN, a second clone of Bn_base); the result
+        # has 4*nlimbs, the double array of a second BigN, at 2*nlimbs
+        calls={'uTIL__': 'BNUTIL_M.', 'h__BN__': 'BNB_M.', 'kSQR__BN__': 'BNB2_M.'},
+        params=['fun_ksqrn'],
+        arrays={'Array11': ('BN.t', 'BN.A', 'BigN.BN.A'),
+                'Array22': ('BN2.t', 'BN2.A', 'BigN.BN2.A'),
+                'Array44': ('BigN2.BN2.t', 'BigN2.BN2.A', 'BigN2.BN2.A')},
+    ),
     'bn_exp': dict(
         source='bn_exp@exp.jinc',
         xtr='BNE_bn_exp.ec',

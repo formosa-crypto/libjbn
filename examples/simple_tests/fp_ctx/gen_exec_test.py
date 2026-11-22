@@ -23,6 +23,14 @@ usage: gen_exec_test.py N MODULE BINDING [--field] [--seed S] [--cases C]
        (a pseudo-Mersenne field, fp_pm: 2^255-19 and moduli R - c,
        R/2 - c; its reduction _redPM_ is also tested alone, on inputs that
        make each of its folds carry)
+       gen_exec_test.py 4 bn_mulsel@n.jinc fp_mul_ksqr@fp.jinc --field \
+           --ksqr 1 --profile x86_64_adx.jinc --sqr-unroll-max 2
+       (the squaring over the half size, bn_ksqr, with LEVELS levels of
+       half scopes: its _kar_sqrn_ is tested alone, on operands whose
+       halves are equal, one apart, zero or all ones; the field is bound
+       with fp_mul_ksqr, which takes it above JBN_SQR_UNROLL_MAX, and so
+       does a half scope for its own half, which --sqr-unroll-max shadows
+       in the size scope, for the tests to take it at a small size)
 """
 import argparse
 import random
@@ -38,9 +46,18 @@ ap.add_argument("--exp", type=int, default=1, help="exponentiations per modulus"
 ap.add_argument("--profile", help="a profile of src/amd64/ref/profiles (default: "
                 "x86_64_adx.jinc for a MULX module, x86_64.jinc otherwise)")
 ap.add_argument("--pm", action="store_true", help="the field is fp_pm (pseudo-Mersenne)")
+ap.add_argument("--ksqr", type=int, default=0, metavar="LEVELS",
+                help="instantiate bn_ksqr (the squaring over the half size) with "
+                "LEVELS levels of half scopes; MODULE must be bn_mulsel@n.jinc "
+                "and BINDING fp_mul_ksqr@fp.jinc")
+ap.add_argument("--sqr-unroll-max", type=int, metavar="MAX",
+                help="shadow JBN_SQR_UNROLL_MAX in the size scope (with --ksqr)")
 args = ap.parse_args()
 
 N = args.n
+if args.ksqr:
+    assert N % (1 << args.ksqr) == 0, "the size is not a multiple of 2^LEVELS"
+    assert "bn_mulsel" in args.module and "fp_mul_ksqr" in args.binding
 random.seed(args.seed)
 W = 2 ** 64
 R = W ** N
@@ -76,12 +93,58 @@ def check(arr, words):
 # constant-time exponentiation _expm_ of bn_exp (JBN_EXP_WINDOW)
 profile = args.profile or ("x86_64_adx.jinc" if "mulx" in args.module else "x86_64.jinc")
 emit('from Libjbn require "profiles/%s"' % profile)
+
+
+def emit_ksqr(depth, ind):
+    """KSQR of the scope at `depth` (0: the size under test): its half
+    squaring is the one of the selector when the half scope is the last
+    one; otherwise it is selected by the profile, between the selector
+    and the KSQR of the half scope."""
+    emit(ind + "namespace KSQR {")
+    emit(ind + "  inline fn fun_ksqrn")
+    emit(ind + "  ( reg mut ptr u64[nlimbs] r")
+    emit(ind + "  , reg const ptr u64[H::nlimbs] a")
+    emit(ind + "  ) -> reg ptr u64[nlimbs] {")
+    if depth + 1 == args.ksqr:
+        emit(ind + "    r = H::MUL::_sqrn_(r, a);")
+    else:
+        # as fp_mul_ksqr at the size of the field
+        emit(ind + "    if (H::nlimbs <= JBN_SQR_UNROLL_MAX) {")
+        emit(ind + "      r = H::MUL::_sqrn_(r, a);")
+        emit(ind + "    } else {")
+        emit(ind + "      r = H::KSQR::_kar_sqrn_(r, a);")
+        emit(ind + "    }")
+    emit(ind + "    return r;")
+    emit(ind + "  }")
+    emit(ind + '  from Libjbn require "bn_ksqr@2n.jinc"')
+    emit(ind + "}")
+
+
+def emit_half(depth, ind):
+    """The scope of the half size at `depth` (1 .. LEVELS), nested."""
+    emit(ind + "namespace H {")
+    emit(ind + "  param int nlimbs = %d;" % (N >> depth))
+    if depth < args.ksqr:
+        emit_half(depth + 1, ind + "  ")
+    emit(ind + '  namespace BN  { from Libjbn require "bn_base@n.jinc" }')
+    emit(ind + '  namespace MUL { from Libjbn require "%s" }' % args.module)
+    if depth < args.ksqr:
+        emit_ksqr(depth, ind + "  ")
+    emit(ind + "}")
+
+
 emit("""namespace UTIL { from Libjbn require "bn_util.jinc" }
 namespace H {
-  param int nlimbs = %d;
-  namespace BN  { from Libjbn require "bn_base@n.jinc" }
+  param int nlimbs = %d;""" % N)
+if args.sqr_unroll_max is not None:
+    emit("  param int JBN_SQR_UNROLL_MAX = %d;" % args.sqr_unroll_max)
+if args.ksqr:
+    emit_half(1, "  ")
+emit("""  namespace BN  { from Libjbn require "bn_base@n.jinc" }
   namespace RND { from Libjbn require "bn_rnd@n.jinc" }
-  namespace MUL { from Libjbn require "%s" }""" % (N, args.module))
+  namespace MUL { from Libjbn require "%s" }""" % args.module)
+if args.ksqr:
+    emit_ksqr(0, "  ")
 if args.field:
     emit("""  namespace FPM {
     from Libjbn require "%s"
@@ -102,7 +165,7 @@ emit("""  reg ptr u64[H::nlimbs] a b e r p;
 
 # plain products
 MULN, SQRN = ("_ps_muln_", "_ps_sqrn_") if "fp_mul_ps" in args.binding \
-    else ("_muln_", "_sqrn_") if "fp_mul_sel" in args.binding \
+    else ("_muln_", "_sqrn_") if "fp_mul_sel" in args.binding or args.ksqr \
     else ("_os_muln_", "_os_sqrn_")
 for _ in range(args.cases + 2):
     x, y = random.randrange(R), random.randrange(R)
@@ -113,6 +176,26 @@ for _ in range(args.cases + 2):
     check("_r2", limbs(x * y, 2 * N))
     emit("  a = _a; r2 = _r2; r2 = H::MUL::%s(r2, a)" % SQRN + "; _r2 = r2;")
     check("_r2", limbs(x * x, 2 * N))
+
+if args.ksqr:
+    # the squaring over the half size alone: x = lo + B * hi, on which it
+    # squares lo, hi and |lo - hi| and counts the borrows of three
+    # subtractions
+    B = W ** (N // 2)
+    lo, hi = sorted(random.randrange(1, B - 1) for _ in range(2))
+    h = random.randrange(B)
+    halves = [(0, 0), (B - 1, B - 1), (h, h),                 # lo = hi
+              ((h + 1) % B, h), ((h - 1) % B, h),             # one apart
+              (0, B - 1), (B - 1, 0),                         # the largest |lo - hi|
+              (h, 0), (0, h), (1, 0), (0, 1),                 # a zero half
+              (lo, hi), (hi, lo),                             # lo < hi, lo > hi
+              (lo, lo + 1), (hi, hi - 1)]
+    halves += [(random.randrange(B), random.randrange(B)) for _ in range(args.cases)]
+    for lo_, hi_ in halves:
+        x = lo_ + B * hi_
+        load("_a", limbs(x))
+        emit("  a = _a; r2 = _r2; r2 = H::KSQR::_kar_sqrn_(r2, a); _r2 = r2;")
+        check("_r2", limbs(x * x, 2 * N))
 
 if args.field:
     def rand_odd(lo, hi):

@@ -1,0 +1,63 @@
+/* libjbn instance: 32-limb squaring over the half size (bn_ksqr), two
+   levels: its three 16-limb squarings are bn_ksqr again, over the 8-limb
+   product-scanning squaring of bn_mul; with the row-looped multiplication
+   of the same size (bn_mul_loop), as the reference of the bench.
+
+   Size scopes, one bn_base instance each (halving nesting, see README):
+     top          : 64 limbs, result store of the exports
+     H            : 32 limbs, MUL (bn_mul_loop) and KSQR
+     H::H         : 16 limbs, KSQR
+     H::H::H      : 8 limbs, MUL (bn_mul): the squaring of the last level
+
+   `make bench-ksqr` generates its instances from this file: other sizes,
+   and the MULX modules (bn_mulx_loop, and the unrolled squaring of bn_mulx
+   at the last level).
+*/
+
+param int nlimbsL = 8;
+param int nlimbs = 8*nlimbsL;
+
+namespace UTIL { from Libjbn require "bn_util.jinc" }
+
+namespace H { // 32 limbs
+  param int nlimbs = 4*nlimbsL;
+  namespace H { // 16 limbs
+    param int nlimbs = 2*nlimbsL;
+    namespace H { // 8 limbs
+      param int nlimbs = nlimbsL;
+      namespace BN  { from Libjbn require "bn_base@n.jinc" }
+      namespace MUL { from Libjbn require "bn_mul@n.jinc" }
+    }
+    namespace BN  { from Libjbn require "bn_base@n.jinc" }
+    namespace KSQR {
+      #[safety = { requires = is_arr_init(a, 0, 8*H::nlimbs), ensures = is_arr_init(r, 0, 8*nlimbs) }]
+      inline fn fun_ksqrn
+      ( reg mut ptr u64[nlimbs] r
+      , reg const ptr u64[H::nlimbs] a
+      ) -> reg ptr u64[nlimbs] {
+        r = H::MUL::_ps_sqrn_(r, a);
+        return r;
+      }
+      from Libjbn require "bn_ksqr@2n.jinc"
+    }
+  }
+  namespace BN  { from Libjbn require "bn_base@n.jinc" }
+  namespace MUL { from Libjbn require "bn_mul_loop@n.jinc" }
+  namespace KSQR {
+    #[safety = { requires = is_arr_init(a, 0, 8*H::nlimbs), ensures = is_arr_init(r, 0, 8*nlimbs) }]
+    inline fn fun_ksqrn
+    ( reg mut ptr u64[nlimbs] r
+    , reg const ptr u64[H::nlimbs] a
+    ) -> reg ptr u64[nlimbs] {
+      r = H::KSQR::_kar_sqrn_(r, a);
+      return r;
+    }
+    from Libjbn require "bn_ksqr@2n.jinc"
+  }
+}
+
+namespace BN { from Libjbn require "bn_base@n.jinc" } // 64 limbs
+
+/* C entry points */
+from Libjbn require "bn_mul_loop_export@2n.jinc"
+from Libjbn require "bn_ksqr_export@2n.jinc"

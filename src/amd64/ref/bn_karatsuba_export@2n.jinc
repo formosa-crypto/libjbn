@@ -24,23 +24,3 @@ export fn bn_kar_muln(reg u64 rp ap bp)
   rp = _rp;
   BN::_store_(rp, r);
 }
-
-/*
-export fn bn_kar_sqrn(reg u64 rp ap)
-{
-  stack u64[H::nlimbs] _a;
-  stack u64[nlimbs] _r;
-  stack u64 _rp;
-  reg ptr u64[H::nlimbs] a;
-  reg ptr u64[nlimbs] r;
-
-  _rp = rp;
-  a = _a;
-  a = H::BN::_load_(a, ap);
-  r = _r;
-  r = H::KAR::_kar_sqrn_(r, a);
-  rp = _rp;
-  BN::_store_(rp, r);
-}
-*/
-

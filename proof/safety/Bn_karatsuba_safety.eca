@@ -1,6 +1,6 @@
 (* Safety of bn_karatsuba (src/amd64/ref/bn_karatsuba@2n.jinc): one level of
    Karatsuba in the 2n scope (nlimbs is the half size n), for any half-size
-   multiplication fun_kmuln and any 2n-size _addU_, _cnegU_ meeting their
+   multiplication fun_kmuln and any 2n-size _addU_, _neg_, _cmov_ meeting their
    contracts (declared axioms of the section). *)
 require import AllCore IntDiv CoreMap List Distr.
 from Jasmin require import JModel_x86.
@@ -103,15 +103,20 @@ section.
 
 declare module P <: MParam.
 
+declare axiom _cmov__h _a _b_a _cond _b _b_b :
+  hoare [P._cmov_ :
+    arg = (_a, _b_a, _cond, _b, _b_b) /\ _cmov__pre _a _b_a _cond _b _b_b
+    ==> _cmov__post _a _b_a _cond _b _b_b res /\ valid res.`3].
+
 declare axiom _addU__h _a _b_a _b _b_b :
   hoare [P._addU_ :
     arg = (_a, _b_a, _b, _b_b) /\ _addU__pre _a _b_a _b _b_b
     ==> _addU__post _a _b_a _b _b_b res /\ valid res.`4].
 
-declare axiom _cnegU__h _a _b_a _cond :
-  hoare [P._cnegU_ :
-    arg = (_a, _b_a, _cond) /\ _cnegU__pre _a _b_a _cond
-    ==> _cnegU__post _a _b_a _cond res /\ valid res.`3].
+declare axiom _neg__h _r _b_r _a _b_a :
+  hoare [P._neg_ :
+    arg = (_r, _b_r, _a, _b_a) /\ _neg__pre _r _b_r _a _b_a
+    ==> _neg__post _r _b_r _a _b_a res /\ valid res.`4].
 
 declare axiom fun_kmuln_h _r _b_r _a _b_a _b _b_b :
   hoare [P.fun_kmuln :
@@ -138,7 +143,7 @@ lemma _kar_muln_proof _r _b_r _a _b_a _b _b_b :
 proof.
 hint +safety.
 proc.
-seq 160 : (valid trace__kar_muln /\ BA_8n.is_init b_rlolo 0 (8 * nlimbs) /\ BA_8n.is_init b_rlohi 0 (8 * nlimbs)).
+seq 171 : (valid trace__kar_muln /\ BA_8n.is_init b_rlolo 0 (8 * nlimbs) /\ BA_8n.is_init b_rlohi 0 (8 * nlimbs)).
 - wp; ecall (__sub_signabs_proof param_2 b_param_2 param_3 b_param_3 param_4 b_param_4).
   wp; ecall (__sub_signabs_proof param b_param param_0 b_param_0 param_1 b_param_1).
   auto => /> ha hb.
@@ -153,22 +158,27 @@ seq 160 : (valid trace__kar_muln /\ BA_8n.is_init b_rlolo 0 (8 * nlimbs) /\ BA_8
   have hq0 := half16 _ 0 _ _ hg; 1,2: smt(gt0_nlimbs).
   have hq1 := half16 _ (8 * nlimbs) _ _ hg; 1,2: smt(gt0_nlimbs).
   smt(gt0_nlimbs).
-seq 78 : (valid trace__kar_muln /\ BA_32n.is_init b_r 0 (32 * nlimbs)).
-- wp; ecall (fun_kmuln_h param_13 b_param_11 param_14 b_param_12 param_15 b_param_13).
-  wp; ecall (fun_kmuln_h param_10 b_param_8 param_11 b_param_9 param_12 b_param_10).
-  wp; ecall (_cnegU__h param_8 ((BA_16n.init_arr (W8.of_int 255))) param_9).
+seq 102 : (valid trace__kar_muln /\ BA_32n.is_init b_r 0 (32 * nlimbs)).
+- wp; ecall (fun_kmuln_h param_18 b_param_12 param_19 b_param_13 param_20 b_param_14).
+  wp; ecall (fun_kmuln_h param_15 b_param_9 param_16 b_param_10 param_17 b_param_11).
+  (* the product, negated when the signs differ: _neg_ into a temporary, the
+     mask cleared by its borrow, then _cmov_ *)
+  wp; ecall (_cmov__h param_12 ((BA_16n.init_arr (W8.of_int 255))) param_13 param_14 ((BA_16n.init_arr (W8.of_int 255)))).
+  wp; ecall (BNUTIL.__mask_cf_proof param_11).
+  wp; ecall (BNUTIL.__cf_mask_proof param_10).
+  wp; ecall (_neg__h param_8 b_param_8 param_9 ((BA_16n.init_arr (W8.of_int 255)))).
   wp; ecall (fun_kmuln_h param_5 b_param_5 param_6 b_param_6 param_7 b_param_7).
   auto => /> &hr hv hlo hhi.
-  rewrite /fun_kmuln_pre /fun_kmuln_post /_cnegU__pre /_cnegU__post.
+  rewrite /fun_kmuln_pre /fun_kmuln_post /_neg__pre /_neg__post /_cmov__pre /_cmov__post.
   have g0 := half16 (BA_16n.init_arr (W8.of_int 255)) 0 _ _ _; 1..3: smt(gt0_nlimbs BL_16n.is_init_init_arr).
   have g1 := half16 (BA_16n.init_arr (W8.of_int 255)) (8 * nlimbs) _ _ _; 1..3: smt(gt0_nlimbs BL_16n.is_init_init_arr).
   have hc := cover32 b__r{hr} (BA_16n.init_arr (W8.of_int 255)) (BA_16n.init_arr (W8.of_int 255)) _ _;
     1,2: by rewrite BL_16n.is_init_init_arr.
   smt(gt0_nlimbs).
-wp; ecall (BNB.__carrypropU_proof param_22 b_param_17 param_23 param_24).
-wp; ecall (_addU__h param_20 b_param_16 param_21 ((BA_16n.init_arr (W8.of_int 255)))).
-wp; ecall (_addU__h param_18 ((BA_16n.init_arr (W8.of_int 255))) param_19 b_param_15).
-wp; ecall (_addU__h param_16 ((BA_16n.init_arr (W8.of_int 255))) param_17 b_param_14).
+wp; ecall (BNB.__carrypropU_proof param_27 b_param_18 param_28 param_29).
+wp; ecall (_addU__h param_25 b_param_17 param_26 ((BA_16n.init_arr (W8.of_int 255)))).
+wp; ecall (_addU__h param_23 ((BA_16n.init_arr (W8.of_int 255))) param_24 b_param_16).
+wp; ecall (_addU__h param_21 ((BA_16n.init_arr (W8.of_int 255))) param_22 b_param_15).
 auto => /> &hr hv hr.
 rewrite /_addU__pre /_addU__post /_kar_muln_post.
 have h0 := half32 b_r{hr} 0 _ _ hr; 1,2: smt(gt0_nlimbs).

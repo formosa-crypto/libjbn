@@ -1,0 +1,24 @@
+/* libjbn -- bn_ksqr_export: C entry point for bn_ksqr.
+
+   Required at the top level (the 4n scope), so that symbols are unqualified.
+   Expects:   H::nlimbs, H::BN::, H::KSQR:: // operand size 2n (KSQR's scope)
+              BN::                          // size 4n (store of results)
+*/
+
+#[safety = { requires = is_mem_init(ap, 8*H::nlimbs) && is_mem_init(rp, 8*nlimbs) }]
+export fn bn_kar_sqrn(reg u64 rp ap)
+{
+  stack u64[H::nlimbs] _a;
+  stack u64[nlimbs] _r;
+  stack u64 _rp;
+  reg ptr u64[H::nlimbs] a;
+  reg ptr u64[nlimbs] r;
+
+  _rp = rp;
+  a = _a;
+  a = H::BN::_load_(a, ap);
+  r = _r;
+  r = H::KSQR::_kar_sqrn_(r, a);
+  rp = _rp;
+  BN::_store_(rp, r);
+}

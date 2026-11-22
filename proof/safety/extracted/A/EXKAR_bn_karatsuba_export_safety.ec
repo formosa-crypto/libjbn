@@ -1443,83 +1443,6 @@ module M = {
     b_r <- (BArray176.init_arr (W8.of_int 255));
     return (cf, r, b_r, trace_h__BN___neg_);
   }
-  proc h__BN___cnegU_ (a:BArray176.t, b_a:BArray176.t, cond:W64.t) : 
-  BArray176.t * BArray176.t * trace = {
-    var aux_0:BArray176.t;
-    var aux_1:BArray176.t;
-    var aux_2:BArray176.t;
-    var aux_3:BArray176.t;
-    var aux:bool;
-    var b__x:BArray176.t;
-    var b_x:BArray176.t;
-    var x:BArray176.t;
-    var _x:BArray176.t;
-    var b_param:BArray176.t;
-    var param:BArray176.t;
-    var param_0:BArray176.t;
-    var result:bool;
-    var result_0:BArray176.t;
-    var b_result:BArray176.t;
-    var param_1:W64.t;
-    var result_1:bool;
-    var cf:bool;
-    var param_2:BArray176.t;
-    var param_3:bool;
-    var param_4:BArray176.t;
-    var result_2:BArray176.t;
-    var b_result_0:BArray176.t;
-    var trace_h__BN___cnegU_:trace;
-    _x <- witness;
-    b__x <- witness;
-    b_param <- witness;
-    b_result <- witness;
-    b_result_0 <- witness;
-    b_x <- witness;
-    param <- witness;
-    param_0 <- witness;
-    param_2 <- witness;
-    param_4 <- witness;
-    result_0 <- witness;
-    result_2 <- witness;
-    x <- witness;
-    trace_h__BN___cnegU_ <- [];
-    trace_h__BN___cnegU_ <-
-    (trace_h__BN___cnegU_ ++ [(Assert, (BArray176.is_init b_a 0 176))]);
-    b__x <- (BArray176.init_arr (W8.of_int 0));
-    b_x <- b__x;
-    x <- _x;
-    b_param <- b_x;
-    param <- x;
-    param_0 <- a;
-    (aux, aux_0, aux_1, tmp__trace) <@ h__BN___neg_ (param, b_param, 
-    param_0, (BArray176.init_arr (W8.of_int 255)));
-    result <- aux;
-    result_0 <- aux_0;
-    b_result <- aux_1;
-    trace_h__BN___cnegU_ <- (trace_h__BN___cnegU_ ++ tmp__trace);
-    trace_h__BN___cnegU_ <-
-    (trace_h__BN___cnegU_ ++ [(Assert, (BArray176.is_init b_result 0 176))]);
-    x <- result_0;
-    param_1 <- cond;
-    (result_1, tmp__trace) <@ uTIL____mask_cf (param_1);
-    trace_h__BN___cnegU_ <- (trace_h__BN___cnegU_ ++ tmp__trace);
-    cf <- result_1;
-    param_2 <- a;
-    param_3 <- cf;
-    param_4 <- x;
-    (aux_2, aux_3, tmp__trace) <@ h__BN___cmov_ (param_2,
-    (BArray176.init_arr (W8.of_int 255)), param_3, param_4,
-    (BArray176.init_arr (W8.of_int 255)));
-    result_2 <- aux_2;
-    b_result_0 <- aux_3;
-    trace_h__BN___cnegU_ <- (trace_h__BN___cnegU_ ++ tmp__trace);
-    trace_h__BN___cnegU_ <-
-    (trace_h__BN___cnegU_ ++
-    [(Assert, (BArray176.is_init b_result_0 0 176))]);
-    a <- result_2;
-    b_a <- (BArray176.init_arr (W8.of_int 255));
-    return (a, b_a, trace_h__BN___cnegU_);
-  }
   proc h__fun_kmuln (r:BArray176.t, b_r:BArray176.t, a:BArray88.t,
                      b_a:BArray88.t, b:BArray88.t, b_b:BArray88.t) : 
   BArray176.t * BArray176.t * trace = {
@@ -1637,33 +1560,37 @@ module M = {
   BArray352.t * BArray352.t * trace = {
     var aux_5:BArray176.t;
     var aux_6:BArray176.t;
-    var aux_7:BArray176.t;
     var aux_8:BArray176.t;
     var aux_9:BArray176.t;
     var aux_10:BArray176.t;
     var aux_11:BArray176.t;
     var aux_12:BArray176.t;
+    var aux_13:BArray176.t;
     var aux_14:BArray176.t;
     var aux_15:BArray176.t;
     var aux_17:BArray176.t;
     var aux_18:BArray176.t;
     var aux_20:BArray176.t;
     var aux_21:BArray176.t;
+    var aux_23:BArray176.t;
+    var aux_24:BArray176.t;
     var aux_0:BArray88.t;
     var aux_1:BArray88.t;
     var aux_3:BArray88.t;
     var aux_4:BArray88.t;
-    var aux_25:BArray88.t;
-    var aux_26:BArray88.t;
+    var aux_28:BArray88.t;
+    var aux_29:BArray88.t;
     var aux:W64.t;
     var aux_2:W64.t;
-    var aux_23:W64.t;
-    var aux_13:bool;
+    var aux_26:W64.t;
+    var aux_7:bool;
     var aux_16:bool;
     var aux_19:bool;
     var aux_22:bool;
-    var aux_24:bool;
+    var aux_25:bool;
+    var aux_27:bool;
     var b__tmp:BArray176.t;
+    var b__x:BArray176.t;
     var b__r:BArray352.t;
     var _r:BArray352.t;
     var b_rlo:BArray176.t;
@@ -1714,58 +1641,73 @@ module M = {
     var param_7:BArray88.t;
     var result_3:BArray176.t;
     var b_result_1:BArray176.t;
-    var param_8:BArray176.t;
-    var param_9:W64.t;
-    var result_4:BArray176.t;
-    var b_result_2:BArray176.t;
+    var b_x:BArray176.t;
+    var x:BArray176.t;
+    var _x:BArray176.t;
     var b_param_8:BArray176.t;
-    var param_10:BArray176.t;
-    var b_param_9:BArray88.t;
-    var param_11:BArray88.t;
-    var b_param_10:BArray88.t;
-    var param_12:BArray88.t;
+    var param_8:BArray176.t;
+    var param_9:BArray176.t;
+    var result_4:bool;
     var result_5:BArray176.t;
+    var b_result_2:BArray176.t;
+    var cf:bool;
+    var param_10:bool;
+    var result_6:W64.t;
+    var m:W64.t;
+    var param_11:W64.t;
+    var result_7:bool;
+    var param_12:BArray176.t;
+    var param_13:bool;
+    var param_14:BArray176.t;
+    var result_8:BArray176.t;
     var b_result_3:BArray176.t;
+    var b_param_9:BArray176.t;
+    var param_15:BArray176.t;
+    var b_param_10:BArray88.t;
+    var param_16:BArray88.t;
+    var b_param_11:BArray88.t;
+    var param_17:BArray88.t;
+    var result_9:BArray176.t;
+    var b_result_4:BArray176.t;
     var b_rhi:BArray176.t;
     var rhi:BArray176.t;
-    var b_param_11:BArray176.t;
-    var param_13:BArray176.t;
-    var b_param_12:BArray88.t;
-    var param_14:BArray88.t;
-    var b_param_13:BArray88.t;
-    var param_15:BArray88.t;
-    var result_6:BArray176.t;
-    var b_result_4:BArray176.t;
-    var param_16:BArray176.t;
-    var b_param_14:BArray176.t;
-    var param_17:BArray176.t;
-    var result_7:bool;
-    var result_8:BArray176.t;
-    var b_result_5:BArray176.t;
-    var cf:bool;
+    var b_param_12:BArray176.t;
     var param_18:BArray176.t;
-    var b_param_15:BArray176.t;
-    var param_19:BArray176.t;
-    var result_9:bool;
+    var b_param_13:BArray88.t;
+    var param_19:BArray88.t;
+    var b_param_14:BArray88.t;
+    var param_20:BArray88.t;
     var result_10:BArray176.t;
-    var b_result_6:BArray176.t;
-    var b_rmid:BArray176.t;
-    var rmid:BArray176.t;
-    var b_param_16:BArray176.t;
-    var param_20:BArray176.t;
+    var b_result_5:BArray176.t;
     var param_21:BArray176.t;
+    var b_param_15:BArray176.t;
+    var param_22:BArray176.t;
     var result_11:bool;
     var result_12:BArray176.t;
+    var b_result_6:BArray176.t;
+    var param_23:BArray176.t;
+    var b_param_16:BArray176.t;
+    var param_24:BArray176.t;
+    var result_13:bool;
+    var result_14:BArray176.t;
     var b_result_7:BArray176.t;
+    var b_rmid:BArray176.t;
+    var rmid:BArray176.t;
+    var b_param_17:BArray176.t;
+    var param_25:BArray176.t;
+    var param_26:BArray176.t;
+    var result_15:bool;
+    var result_16:BArray176.t;
+    var b_result_8:BArray176.t;
     var b_rhihi:BArray88.t;
     var rhihi:BArray88.t;
-    var b_param_17:BArray88.t;
-    var param_22:BArray88.t;
-    var param_23:bool;
-    var param_24:int;
-    var result_13:bool;
-    var result_14:BArray88.t;
-    var b_result_8:BArray88.t;
+    var b_param_18:BArray88.t;
+    var param_27:BArray88.t;
+    var param_28:bool;
+    var param_29:int;
+    var result_17:bool;
+    var result_18:BArray88.t;
+    var b_result_9:BArray88.t;
     var  _0:bool;
     var  _1:bool;
     var  _2:bool;
@@ -1774,10 +1716,12 @@ module M = {
     _b <- witness;
     _r <- witness;
     _tmp <- witness;
+    _x <- witness;
     ahi <- witness;
     alo <- witness;
     b__r <- witness;
     b__tmp <- witness;
+    b__x <- witness;
     b_ahi <- witness;
     b_alo <- witness;
     b_bhi <- witness;
@@ -1801,6 +1745,7 @@ module M = {
     b_param_15 <- witness;
     b_param_16 <- witness;
     b_param_17 <- witness;
+    b_param_18 <- witness;
     b_result <- witness;
     b_result_0 <- witness;
     b_result_1 <- witness;
@@ -1811,6 +1756,7 @@ module M = {
     b_result_6 <- witness;
     b_result_7 <- witness;
     b_result_8 <- witness;
+    b_result_9 <- witness;
     b_rhi <- witness;
     b_rhihi <- witness;
     b_rlo <- witness;
@@ -1818,6 +1764,7 @@ module M = {
     b_rlolo <- witness;
     b_rmid <- witness;
     b_tmp <- witness;
+    b_x <- witness;
     bhi <- witness;
     blo <- witness;
     param <- witness;
@@ -1830,10 +1777,8 @@ module M = {
     param_6 <- witness;
     param_7 <- witness;
     param_8 <- witness;
-    param_10 <- witness;
-    param_11 <- witness;
+    param_9 <- witness;
     param_12 <- witness;
-    param_13 <- witness;
     param_14 <- witness;
     param_15 <- witness;
     param_16 <- witness;
@@ -1843,16 +1788,22 @@ module M = {
     param_20 <- witness;
     param_21 <- witness;
     param_22 <- witness;
+    param_23 <- witness;
+    param_24 <- witness;
+    param_25 <- witness;
+    param_26 <- witness;
+    param_27 <- witness;
     result_0 <- witness;
     result_2 <- witness;
     result_3 <- witness;
-    result_4 <- witness;
     result_5 <- witness;
-    result_6 <- witness;
     result_8 <- witness;
+    result_9 <- witness;
     result_10 <- witness;
     result_12 <- witness;
     result_14 <- witness;
+    result_16 <- witness;
+    result_18 <- witness;
     rhi <- witness;
     rhihi <- witness;
     rlo <- witness;
@@ -1860,12 +1811,14 @@ module M = {
     rlolo <- witness;
     rmid <- witness;
     tmp <- witness;
+    x <- witness;
     trace_h__KAR___kar_muln <- [];
     trace_h__KAR___kar_muln <-
     (trace_h__KAR___kar_muln ++
     [(Assert,
      ((BArray176.is_init b_a 0 176) /\ (BArray176.is_init b_b 0 176)))]);
     b__tmp <- (BArray176.init_arr (W8.of_int 0));
+    b__x <- (BArray176.init_arr (W8.of_int 0));
     b__r <- b_r;
     _r <- r;
     b_rlo <- (SBArray352_176.get_sub64 b__r 0);
@@ -1965,18 +1918,46 @@ module M = {
     (trace_h__KAR___kar_muln ++
     [(Assert, (BArray176.is_init b_result_1 0 176))]);
     tmp <- result_3;
-    sa <- _sa;
-    param_8 <- tmp;
-    param_9 <- sa;
-    (aux_7, aux_8, tmp__trace) <@ h__BN___cnegU_ (param_8,
-    (BArray176.init_arr (W8.of_int 255)), param_9);
+    b_x <- b__x;
+    x <- _x;
+    b_param_8 <- b_x;
+    param_8 <- x;
+    param_9 <- tmp;
+    (aux_7, aux_8, aux_9, tmp__trace) <@ h__BN___neg_ (param_8, b_param_8,
+    param_9, (BArray176.init_arr (W8.of_int 255)));
     result_4 <- aux_7;
-    b_result_2 <- aux_8;
+    result_5 <- aux_8;
+    b_result_2 <- aux_9;
     trace_h__KAR___kar_muln <- (trace_h__KAR___kar_muln ++ tmp__trace);
     trace_h__KAR___kar_muln <-
     (trace_h__KAR___kar_muln ++
     [(Assert, (BArray176.is_init b_result_2 0 176))]);
-    tmp <- result_4;
+    cf <- result_4;
+    x <- result_5;
+    param_10 <- cf;
+    (result_6, tmp__trace) <@ uTIL____cf_mask (param_10);
+    trace_h__KAR___kar_muln <- (trace_h__KAR___kar_muln ++ tmp__trace);
+    m <- result_6;
+    sa <- _sa;
+    sa <- (sa `&` m);
+    _sa <- sa;
+    param_11 <- sa;
+    (result_7, tmp__trace) <@ uTIL____mask_cf (param_11);
+    trace_h__KAR___kar_muln <- (trace_h__KAR___kar_muln ++ tmp__trace);
+    cf <- result_7;
+    param_12 <- tmp;
+    param_13 <- cf;
+    param_14 <- x;
+    (aux_10, aux_11, tmp__trace) <@ h__BN___cmov_ (param_12,
+    (BArray176.init_arr (W8.of_int 255)), param_13, param_14,
+    (BArray176.init_arr (W8.of_int 255)));
+    result_8 <- aux_10;
+    b_result_3 <- aux_11;
+    trace_h__KAR___kar_muln <- (trace_h__KAR___kar_muln ++ tmp__trace);
+    trace_h__KAR___kar_muln <-
+    (trace_h__KAR___kar_muln ++
+    [(Assert, (BArray176.is_init b_result_3 0 176))]);
+    tmp <- result_8;
     _tmp <- tmp;
     b_rlo <- (SBArray352_176.get_sub64 b__r 0);
     rlo <- (SBArray352_176.get_sub64 _r 0);
@@ -1988,21 +1969,21 @@ module M = {
     b <- _b;
     b_blo <- (SBArray176_88.get_sub64 b_b 0);
     blo <- (SBArray176_88.get_sub64 b 0);
-    b_param_8 <- b_rlo;
-    param_10 <- rlo;
-    b_param_9 <- b_alo;
-    param_11 <- alo;
-    b_param_10 <- b_blo;
-    param_12 <- blo;
-    (aux_9, aux_10, tmp__trace) <@ h__fun_kmuln (param_10, b_param_8,
-    param_11, b_param_9, param_12, b_param_10);
-    result_5 <- aux_9;
-    b_result_3 <- aux_10;
+    b_param_9 <- b_rlo;
+    param_15 <- rlo;
+    b_param_10 <- b_alo;
+    param_16 <- alo;
+    b_param_11 <- b_blo;
+    param_17 <- blo;
+    (aux_12, aux_13, tmp__trace) <@ h__fun_kmuln (param_15, b_param_9,
+    param_16, b_param_10, param_17, b_param_11);
+    result_9 <- aux_12;
+    b_result_4 <- aux_13;
     trace_h__KAR___kar_muln <- (trace_h__KAR___kar_muln ++ tmp__trace);
     trace_h__KAR___kar_muln <-
     (trace_h__KAR___kar_muln ++
-    [(Assert, (BArray176.is_init b_result_3 0 176))]);
-    rlo <- result_5;
+    [(Assert, (BArray176.is_init b_result_4 0 176))]);
+    rlo <- result_9;
     b__r <-
     (SBArray352_176.set_sub64 b__r 0 (BArray176.init_arr (W8.of_int 255)));
     _r <- (SBArray352_176.set_sub64 _r 0 rlo);
@@ -2027,21 +2008,21 @@ module M = {
     [(Assert, ((0 <= (22 * 8)) /\ (((22 * 8) + 176) <= 352)))]);
     b_rhi <- (SBArray352_176.get_sub64 b_r 22);
     rhi <- (SBArray352_176.get_sub64 r 22);
-    b_param_11 <- b_rhi;
-    param_13 <- rhi;
-    b_param_12 <- b_ahi;
-    param_14 <- ahi;
-    b_param_13 <- b_bhi;
-    param_15 <- bhi;
-    (aux_11, aux_12, tmp__trace) <@ h__fun_kmuln (param_13, b_param_11,
-    param_14, b_param_12, param_15, b_param_13);
-    result_6 <- aux_11;
-    b_result_4 <- aux_12;
+    b_param_12 <- b_rhi;
+    param_18 <- rhi;
+    b_param_13 <- b_ahi;
+    param_19 <- ahi;
+    b_param_14 <- b_bhi;
+    param_20 <- bhi;
+    (aux_14, aux_15, tmp__trace) <@ h__fun_kmuln (param_18, b_param_12,
+    param_19, b_param_13, param_20, b_param_14);
+    result_10 <- aux_14;
+    b_result_5 <- aux_15;
     trace_h__KAR___kar_muln <- (trace_h__KAR___kar_muln ++ tmp__trace);
     trace_h__KAR___kar_muln <-
     (trace_h__KAR___kar_muln ++
-    [(Assert, (BArray176.is_init b_result_4 0 176))]);
-    rhi <- result_6;
+    [(Assert, (BArray176.is_init b_result_5 0 176))]);
+    rhi <- result_10;
     trace_h__KAR___kar_muln <-
     (trace_h__KAR___kar_muln ++
     [(Assert, ((0 <= (22 * 8)) /\ (((22 * 8) + 176) <= 352)))]);
@@ -2053,20 +2034,20 @@ module M = {
     tmp <- _tmp;
     b_rlo <- (SBArray352_176.get_sub64 b_r 0);
     rlo <- (SBArray352_176.get_sub64 r 0);
-    param_16 <- tmp;
-    b_param_14 <- b_rlo;
-    param_17 <- rlo;
-    (aux_13, aux_14, aux_15, tmp__trace) <@ h__BN___addU_ (param_16,
-    (BArray176.init_arr (W8.of_int 255)), param_17, b_param_14);
-    result_7 <- aux_13;
-    result_8 <- aux_14;
-    b_result_5 <- aux_15;
+    param_21 <- tmp;
+    b_param_15 <- b_rlo;
+    param_22 <- rlo;
+    (aux_16, aux_17, aux_18, tmp__trace) <@ h__BN___addU_ (param_21,
+    (BArray176.init_arr (W8.of_int 255)), param_22, b_param_15);
+    result_11 <- aux_16;
+    result_12 <- aux_17;
+    b_result_6 <- aux_18;
     trace_h__KAR___kar_muln <- (trace_h__KAR___kar_muln ++ tmp__trace);
     trace_h__KAR___kar_muln <-
     (trace_h__KAR___kar_muln ++
-    [(Assert, (BArray176.is_init b_result_5 0 176))]);
-    cf <- result_7;
-    tmp <- result_8;
+    [(Assert, (BArray176.is_init b_result_6 0 176))]);
+    cf <- result_11;
+    tmp <- result_12;
     sa <- _sa;
     ( _0, sa) <- (adc_64 sa (W64.of_int 0) cf);
     trace_h__KAR___kar_muln <-
@@ -2074,40 +2055,40 @@ module M = {
     [(Assert, ((0 <= (22 * 8)) /\ (((22 * 8) + 176) <= 352)))]);
     b_rhi <- (SBArray352_176.get_sub64 b_r 22);
     rhi <- (SBArray352_176.get_sub64 r 22);
-    param_18 <- tmp;
-    b_param_15 <- b_rhi;
-    param_19 <- rhi;
-    (aux_16, aux_17, aux_18, tmp__trace) <@ h__BN___addU_ (param_18,
-    (BArray176.init_arr (W8.of_int 255)), param_19, b_param_15);
-    result_9 <- aux_16;
-    result_10 <- aux_17;
-    b_result_6 <- aux_18;
+    param_23 <- tmp;
+    b_param_16 <- b_rhi;
+    param_24 <- rhi;
+    (aux_19, aux_20, aux_21, tmp__trace) <@ h__BN___addU_ (param_23,
+    (BArray176.init_arr (W8.of_int 255)), param_24, b_param_16);
+    result_13 <- aux_19;
+    result_14 <- aux_20;
+    b_result_7 <- aux_21;
     trace_h__KAR___kar_muln <- (trace_h__KAR___kar_muln ++ tmp__trace);
     trace_h__KAR___kar_muln <-
     (trace_h__KAR___kar_muln ++
-    [(Assert, (BArray176.is_init b_result_6 0 176))]);
-    cf <- result_9;
-    tmp <- result_10;
+    [(Assert, (BArray176.is_init b_result_7 0 176))]);
+    cf <- result_13;
+    tmp <- result_14;
     ( _1, sa) <- (adc_64 sa (W64.of_int 0) cf);
     trace_h__KAR___kar_muln <-
     (trace_h__KAR___kar_muln ++
     [(Assert, ((0 <= (11 * 8)) /\ (((11 * 8) + 176) <= 352)))]);
     b_rmid <- (SBArray352_176.get_sub64 b_r 11);
     rmid <- (SBArray352_176.get_sub64 r 11);
-    b_param_16 <- b_rmid;
-    param_20 <- rmid;
-    param_21 <- tmp;
-    (aux_19, aux_20, aux_21, tmp__trace) <@ h__BN___addU_ (param_20,
-    b_param_16, param_21, (BArray176.init_arr (W8.of_int 255)));
-    result_11 <- aux_19;
-    result_12 <- aux_20;
-    b_result_7 <- aux_21;
+    b_param_17 <- b_rmid;
+    param_25 <- rmid;
+    param_26 <- tmp;
+    (aux_22, aux_23, aux_24, tmp__trace) <@ h__BN___addU_ (param_25,
+    b_param_17, param_26, (BArray176.init_arr (W8.of_int 255)));
+    result_15 <- aux_22;
+    result_16 <- aux_23;
+    b_result_8 <- aux_24;
     trace_h__KAR___kar_muln <- (trace_h__KAR___kar_muln ++ tmp__trace);
     trace_h__KAR___kar_muln <-
     (trace_h__KAR___kar_muln ++
-    [(Assert, (BArray176.is_init b_result_7 0 176))]);
-    cf <- result_11;
-    rmid <- result_12;
+    [(Assert, (BArray176.is_init b_result_8 0 176))]);
+    cf <- result_15;
+    rmid <- result_16;
     trace_h__KAR___kar_muln <-
     (trace_h__KAR___kar_muln ++
     [(Assert, ((0 <= (11 * 8)) /\ (((11 * 8) + 176) <= 352)))]);
@@ -2126,28 +2107,28 @@ module M = {
     [(Assert, (BArray352.is_init b_r ((3 * 11) * 8) 8))]);
     b_r <-
     (BArray352.set64d b_r ((3 * 11) * 8) (W64.of_int 18446744073709551615));
-    (aux_22, aux_23) <- (adc_64 (BArray352.get64 r (3 * 11)) sa false);
-    cf <- aux_22;
-    r <- (BArray352.set64 r (3 * 11) aux_23);
+    (aux_25, aux_26) <- (adc_64 (BArray352.get64 r (3 * 11)) sa false);
+    cf <- aux_25;
+    r <- (BArray352.set64 r (3 * 11) aux_26);
     trace_h__KAR___kar_muln <-
     (trace_h__KAR___kar_muln ++
     [(Assert, ((0 <= ((3 * 11) * 8)) /\ ((((3 * 11) * 8) + 88) <= 352)))]);
     b_rhihi <- (SBArray352_88.get_sub64 b_r (3 * 11));
     rhihi <- (SBArray352_88.get_sub64 r (3 * 11));
-    b_param_17 <- b_rhihi;
-    param_22 <- rhihi;
-    param_23 <- cf;
-    param_24 <- 1;
-    (aux_24, aux_25, aux_26, tmp__trace) <@ h__H__BN____carrypropU (param_22,
-    b_param_17, param_23, param_24);
-    result_13 <- aux_24;
-    result_14 <- aux_25;
-    b_result_8 <- aux_26;
+    b_param_18 <- b_rhihi;
+    param_27 <- rhihi;
+    param_28 <- cf;
+    param_29 <- 1;
+    (aux_27, aux_28, aux_29, tmp__trace) <@ h__H__BN____carrypropU (param_27,
+    b_param_18, param_28, param_29);
+    result_17 <- aux_27;
+    result_18 <- aux_28;
+    b_result_9 <- aux_29;
     trace_h__KAR___kar_muln <- (trace_h__KAR___kar_muln ++ tmp__trace);
     trace_h__KAR___kar_muln <-
     (trace_h__KAR___kar_muln ++
-    [(Assert, (BArray88.is_init b_result_8 0 88))]);
-    rhihi <- result_14;
+    [(Assert, (BArray88.is_init b_result_9 0 88))]);
+    rhihi <- result_18;
     trace_h__KAR___kar_muln <-
     (trace_h__KAR___kar_muln ++
     [(Assert, ((0 <= ((3 * 11) * 8)) /\ ((((3 * 11) * 8) + 88) <= 352)))]);
@@ -2623,12 +2604,6 @@ op h__BN___neg__spec _r _b_r _a _b_a =
    (((_b_a = b_a) /\ ((_a = a) /\ ((_b_r = b_r) /\ (_r = r)))) /\
    (BArray176.is_init _b_a 0 (8 * 22))) ==>
    ((BArray176.is_init res.`3 0 (8 * 22)) /\ (valid res.`4))].
-
-op h__BN___cnegU__spec _a _b_a _cond =
-   hoare [M.h__BN___cnegU_ :
-   (((_cond = cond) /\ ((_b_a = b_a) /\ (_a = a))) /\
-   (BArray176.is_init _b_a 0 176)) ==>
-   ((BArray176.is_init res.`2 0 176) /\ (valid res.`3))].
 
 op h__fun_kmuln_spec _r _b_r _a _b_a _b _b_b =
    hoare [M.h__fun_kmuln :
