@@ -138,18 +138,25 @@ exec: gen_exec_test.py $(LIBJBN_SRC)
 # the lines end with "(chained)". The two constant-time exponentiations are
 # timed on the same operands: fpc_exp (the one of the profile: the fixed
 # window) and fpc_exp_ladder.
+# The variants above wire a module directly. Two more are what the selector
+# bn_mulsel takes at each size, from a profile: sel (x86_64, generated from
+# fp_ctx_sel7.jazz) and selx (x86_64_adx, from fp_ctx_selx7.jazz, which
+# needs BMI2 and ADX); each should equal the best direct variant of its
+# instruction set.
 # One more variant, not in the default list: mulx_sqru, bn_mulx_loop with
 # the unrolled squaring of bn_mulx (generated from fp_ctx_mulx_sqru7.jazz;
 # see its header), to be compared with mulx and mulx_unr, e.g.
 #   make bench BENCH_VARIANTS="mulx_unr mulx mulx_sqru" BENCH_SIZES="24 32 40 48"
 BENCH_SIZES    ?= 4 5 6 8 16 32 64
-BENCH_VARIANTS ?= unr loop mulx_unr mulx mulxr pm_unr pm_mulxr
+BENCH_VARIANTS ?= unr loop mulx_unr mulx mulxr pm_unr pm_mulxr sel selx
 BENCH_CHAINED  ?=
 
-bench: bench_fp_ctx.c fp_ctx7.jazz fp_ctx_mulx_sqru7.jazz $(LIBJBN_SRC)
+bench: bench_fp_ctx.c fp_ctx7.jazz fp_ctx_sel7.jazz fp_ctx_selx7.jazz fp_ctx_mulx_sqru7.jazz $(LIBJBN_SRC)
 	@for n in $(BENCH_SIZES); do for v in $(BENCH_VARIANTS); do \
 	  k=fp_mont; p=x86_64; t=fp_ctx7.jazz; m=bn_mul; s=fp_mul_ps; \
 	  case $$v in \
+	    sel)       t=fp_ctx_sel7.jazz;; \
+	    selx)      t=fp_ctx_selx7.jazz;; \
 	    mulx_sqru) t=fp_ctx_mulx_sqru7.jazz;; \
 	    unr)      m=bn_mul;       s=fp_mul_ps;; \
 	    loop)     m=bn_mul_loop;  s=fp_mul_os;; \
@@ -169,7 +176,7 @@ bench: bench_fp_ctx.c fp_ctx7.jazz fp_ctx_mulx_sqru7.jazz $(LIBJBN_SRC)
 	  $(JASMINC) $(JFLAGS) -o $$f.s $$f.jazz 2> $$f.log || { cat $$f.log; exit 1; }; \
 	  pm=; [ $$k = fp_pm ] && pm=-DPM; \
 	  $(GCC) -O2 -DNLIMBS=$$n -DVARIANT=\"$$v\" $$pm $(if $(BENCH_CHAINED),-DCHAINED) -o $$f bench_fp_ctx.c $$f.s || exit 1; \
-	  ./$$f || echo "$$v n=$$n: did not run (the variants over bn_mulx, bn_mulx_loop and bn_mulxr need a CPU with BMI2 and ADX)"; \
+	  ./$$f || echo "$$v n=$$n: did not run (selx and the variants over bn_mulx, bn_mulx_loop and bn_mulxr need a CPU with BMI2 and ADX)"; \
 	done; done
 
 # GMP's exponentiations at the same sizes and on the same operands, as a
