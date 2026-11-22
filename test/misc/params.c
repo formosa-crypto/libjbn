@@ -297,6 +297,8 @@ void params_print_jasmin(
                        "   (layout: see the libjbn README; top level = scope of the exports,\n"
                        "   H = size scope, FPM = Montgomery field modulo P) */\n\n");
          fprintf(fout, "param int NLIMBS = %zu;\n\n", NLIMBS);
+         fprintf(fout, "// the profile: JBN_EXP_WINDOW, the constant-time exponentiation (fp_exp)\n");
+         fprintf(fout, "from Libjbn require \"profiles/x86_64.jinc\"\n\n");
          fprintf(fout, "namespace UTIL { from Libjbn require \"bn_util.jinc\" }\n\n");
          fprintf(fout, "namespace H {\n");
          fprintf(fout, "param int nlimbs = NLIMBS;\n");

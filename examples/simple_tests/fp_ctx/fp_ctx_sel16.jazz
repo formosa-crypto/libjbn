@@ -1,7 +1,9 @@
 /* libjbn instance with run-time moduli of 16 limbs, whose multiplication,
    squaring and Montgomery reduction are selected by bn_mulsel from the
-   profile x86_64, with the threshold of the
-   profile shadowed in the size scope: here bn_mul_loop (16 > 8). The field
+   profile x86_64, with the thresholds of the
+   profile shadowed in the size scope: here bn_mul_loop (16 > 8), its
+   squaring included; so is its JBN_EXP_WINDOW, so that fpc_exp is the
+   Montgomery ladder here. The field
    code FPM is shared by every modulus, whose context (fp_ctx@n.jinc) is
    computed by fpc_ctx_init and passed to the other fpc_* entry points. */
 
@@ -12,6 +14,8 @@ namespace UTIL { from Libjbn require "bn_util.jinc" }
 namespace H {
   param int nlimbs = 16;
   param int JBN_UNROLL_MAX = 8;     // (shadows the profile's): rows looped
+  param int JBN_SQR_UNROLL_MAX = 8; // (shadows the profile's): and the squaring
+  param int JBN_EXP_WINDOW = 0;     // (shadows the profile's): the ladder
 
   namespace BN  { from Libjbn require "bn_base@n.jinc" }
   namespace RND { from Libjbn require "bn_rnd@n.jinc" }

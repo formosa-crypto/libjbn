@@ -19,6 +19,7 @@ extern void fpc_sqr(uint64_t *r, const uint64_t *a, const uint64_t *ctx);
 extern void fpc_toM(uint64_t *r, const uint64_t *a, const uint64_t *ctx);
 extern void fpc_fromM(uint64_t *r, const uint64_t *a, const uint64_t *ctx);
 extern void fpc_exp(uint64_t *r, const uint64_t *a, const uint64_t *b, const uint64_t *ctx);
+extern void fpc_exp_ladder(uint64_t *r, const uint64_t *a, const uint64_t *b, const uint64_t *ctx);
 extern void fpc_exp_noct(uint64_t *r, const uint64_t *a, const uint64_t *b, const uint64_t *ctx);
 extern void fpc_inv(uint64_t *r, const uint64_t *a, const uint64_t *ctx);
 
@@ -56,6 +57,7 @@ int main(void) {
       fpc_toM(r, a, ctx);         check("toM", m, r, want[4], NLIMBS);
       fpc_fromM(r, a, ctx);       check("fromM", m, r, want[5], NLIMBS);
       fpc_exp(r, a, e, ctx);      check("exp", m, r, want[6], NLIMBS);
+      fpc_exp_ladder(r, a, e, ctx); check("exp_ladder", m, r, want[6], NLIMBS);
       fpc_exp_noct(r, a, e, ctx); check("exp_noct", m, r, want[6], NLIMBS);
       if (prime) { fpc_inv(r, a, ctx); check("inv", m, r, want[7], NLIMBS); }
     }

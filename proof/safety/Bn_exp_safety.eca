@@ -15,6 +15,9 @@ clone ByteArrayLib as BL_16n with theory A <- BA_16n.
 clone ByteArrayLib as BL_32n_8 with theory A <- BA_32n_8.
 clone ByteArrayLib as BL_8e with theory A <- BA_8e.
 clone SubByteArrayInit as SBI_32n_8__8n with theory SB <- SB_32n_8__8n.
+clone ByteArrayLib as BL_128n with theory A <- BA_128n.
+clone SubByteArrayInit as SBI_128n__8n with theory SB <- SB_128n__8n.
+clone SubByteArrayLib as SBL_128n__8n with theory SB <- SB_128n__8n.
 
 (* the 1 of the context (ctx[CTX_ONE : nlimbs], CTX_ONE = 2 * nlimbs) *)
 lemma ctx_one (b : BA_32n_8.t) :
@@ -23,6 +26,41 @@ lemma ctx_one (b : BA_32n_8.t) :
 proof.
 move=> h; rewrite SBI_32n_8__8n.is_init_get_sub; 1..4: smt(gt0_nlimbs).
 by apply (BL_32n_8.is_init_sub _ _ _ _ _ h); smt(gt0_nlimbs).
+qed.
+
+(* word k of the entry i of the table of the windowed exponentiation *)
+lemma tbl_idx i k : 0 <= i < 16 => 0 <= k < nlimbs =>
+  0 <= i * nlimbs + k < 16 * nlimbs.
+proof.
+move=> [hi0 hi1] [hk0 hk1]; have hn := gt0_nlimbs.
+have h0 : 0 <= i * nlimbs by apply StdOrder.IntOrder.mulr_ge0 => /#.
+have h1 : i * nlimbs <= 15 * nlimbs by apply StdOrder.IntOrder.ler_wpmul2r => /#.
+smt().
+qed.
+
+(* the table: writing the entry i extends an initialised prefix of i
+   entries *)
+lemma tbl_set (t : BA_128n.t) i : 0 <= i < 16 =>
+  BA_128n.is_init t 0 (8 * (i * nlimbs)) =>
+  BA_128n.is_init (SB_128n__8n.set_sub t (8 * (i * nlimbs)) (BA_8n.init_arr (W8.of_int 255)))
+    0 (8 * ((i + 1) * nlimbs)).
+proof.
+move=> hi h; have hx := tbl_idx i 0 _ _; 1,2: smt(gt0_nlimbs).
+have := SBL_128n__8n.is_init_ext_sub t (8 * (i * nlimbs)) _ h; first smt().
+by rewrite (_: 8 * (i * nlimbs) + 8 * nlimbs = 8 * ((i + 1) * nlimbs)) //; ring.
+qed.
+
+(* an entry of an initialised prefix *)
+lemma tbl_get (t : BA_128n.t) i j : 0 <= j < i => i <= 16 =>
+  BA_128n.is_init t 0 (8 * (i * nlimbs)) =>
+  BA_8n.is_init (SB_128n__8n.get_sub t (8 * (j * nlimbs))) 0 (8 * nlimbs).
+proof.
+move=> hj hi h; have hn := gt0_nlimbs.
+have hx := tbl_idx j 0 _ _; 1,2: smt().
+have hy : (j + 1) * nlimbs <= i * nlimbs by apply StdOrder.IntOrder.ler_wpmul2r => /#.
+have hz : i * nlimbs <= 16 * nlimbs by apply StdOrder.IntOrder.ler_wpmul2r => /#.
+rewrite SBI_128n__8n.is_init_get_sub; 1..4: smt().
+by apply (BL_128n.is_init_sub _ _ _ _ _ h); smt().
 qed.
 
 section.
@@ -186,18 +224,18 @@ wp; ecall (BNB._mov__proof param b_param param_0 ((BA_8n.init_arr (W8.of_int 255
 by auto => />.
 qed.
 
-lemma _expm_proof _x0 _b_x0 _x1 _b_x1 _b _b_b _ctx _b_ctx :
-  hoare [M(P)._expm :
-    arg = (_x0, _b_x0, _x1, _b_x1, _b, _b_b, _ctx, _b_ctx) /\ _expm_pre _x0 _b_x0 _x1 _b_x1 _b _b_b _ctx _b_ctx
-    ==> _expm_post _x0 _b_x0 _x1 _b_x1 _b _b_b _ctx _b_ctx res /\ valid res.`5].
+lemma _expmML_proof _x0 _b_x0 _x1 _b_x1 _b _b_b _ctx _b_ctx :
+  hoare [M(P)._expmML :
+    arg = (_x0, _b_x0, _x1, _b_x1, _b, _b_b, _ctx, _b_ctx) /\ _expmML_pre _x0 _b_x0 _x1 _b_x1 _b _b_b _ctx _b_ctx
+    ==> _expmML_post _x0 _b_x0 _x1 _b_x1 _b _b_b _ctx _b_ctx res /\ valid res.`5].
 proof.
 hint +safety.
 proc.
 wp; ecall (BNB._cswap_mask__proof param_8 ((BA_8n.init_arr (W8.of_int 255))) param_9 ((BA_8n.init_arr (W8.of_int 255))) param_10).
 wp.
-while (valid trace__expm /\ -1 <= j < nlimbsexp).
+while (valid trace__expmML /\ -1 <= j < nlimbsexp).
 - wp.
-  while (valid trace__expm /\ 0 <= j < nlimbsexp).
+  while (valid trace__expmML /\ 0 <= j < nlimbsexp).
   + wp; ecall (fun_sqrU_h param_6 ((BA_8n.init_arr (W8.of_int 255))) param_7 ((BA_32n_8.init_arr (W8.of_int 255)))). wp; ecall (fun_mulU_h param_3 ((BA_8n.init_arr (W8.of_int 255))) param_4 ((BA_8n.init_arr (W8.of_int 255))) param_5 ((BA_32n_8.init_arr (W8.of_int 255)))). wp; ecall (BNB._cswap_mask__proof param_0 ((BA_8n.init_arr (W8.of_int 255))) param_1 ((BA_8n.init_arr (W8.of_int 255))) param_2). wp; ecall (BNUTIL.__cf_mask_proof param).
     by auto => />.
   wp; ecall (fun_sqrU_h param_6 ((BA_8n.init_arr (W8.of_int 255))) param_7 ((BA_32n_8.init_arr (W8.of_int 255)))). wp; ecall (fun_mulU_h param_3 ((BA_8n.init_arr (W8.of_int 255))) param_4 ((BA_8n.init_arr (W8.of_int 255))) param_5 ((BA_32n_8.init_arr (W8.of_int 255)))). wp; ecall (BNB._cswap_mask__proof param_0 ((BA_8n.init_arr (W8.of_int 255))) param_1 ((BA_8n.init_arr (W8.of_int 255))) param_2). wp; ecall (BNUTIL.__cf_mask_proof param).
@@ -205,17 +243,172 @@ while (valid trace__expm /\ -1 <= j < nlimbsexp).
 by auto => />; smt(gt0_nlimbsexp).
 qed.
 
-lemma _expm__proof _x0 _b_x0 _a _b_a _b _b_b _ctx _b_ctx :
-  hoare [M(P)._expm_ :
-    arg = (_x0, _b_x0, _a, _b_a, _b, _b_b, _ctx, _b_ctx) /\ _expm__pre _x0 _b_x0 _a _b_a _b _b_b _ctx _b_ctx
-    ==> _expm__post _x0 _b_x0 _a _b_a _b _b_b _ctx _b_ctx res /\ valid res.`3].
+lemma _expmML__proof _x0 _b_x0 _a _b_a _b _b_b _ctx _b_ctx :
+  hoare [M(P)._expmML_ :
+    arg = (_x0, _b_x0, _a, _b_a, _b, _b_b, _ctx, _b_ctx) /\ _expmML__pre _x0 _b_x0 _a _b_a _b _b_b _ctx _b_ctx
+    ==> _expmML__post _x0 _b_x0 _a _b_a _b _b_b _ctx _b_ctx res /\ valid res.`3].
 proof.
 hint +safety.
 proc.
-wp; ecall (_expm_proof param_3 ((BA_8n.init_arr (W8.of_int 255))) param_4 ((BA_8n.init_arr (W8.of_int 255))) param_5 ((BA_8e.init_arr (W8.of_int 255))) param_6 ((BA_32n_8.init_arr (W8.of_int 255)))).
+wp; ecall (_expmML_proof param_3 ((BA_8n.init_arr (W8.of_int 255))) param_4 ((BA_8n.init_arr (W8.of_int 255))) param_5 ((BA_8e.init_arr (W8.of_int 255))) param_6 ((BA_32n_8.init_arr (W8.of_int 255)))).
 wp; ecall (BNB._mov__proof param_1 b_param_0 param_2 b_param_1).
 wp; ecall (BNB._mov__proof param b_param param_0 ((BA_8n.init_arr (W8.of_int 255)))).
 by auto => /> *; smt(ctx_one gt0_nlimbs).
+qed.
+
+lemma _expmMLU__proof _a _b_a _b _b_b _ctx _b_ctx :
+  hoare [M(P)._expmMLU_ :
+    arg = (_a, _b_a, _b, _b_b, _ctx, _b_ctx) /\ _expmMLU__pre _a _b_a _b _b_b _ctx _b_ctx
+    ==> _expmMLU__post _a _b_a _b _b_b _ctx _b_ctx res /\ valid res.`3].
+proof.
+hint +safety.
+proc.
+wp; ecall (_expmML_proof param_3 ((BA_8n.init_arr (W8.of_int 255))) param_4 ((BA_8n.init_arr (W8.of_int 255))) param_5 ((BA_8e.init_arr (W8.of_int 255))) param_6 ((BA_32n_8.init_arr (W8.of_int 255)))).
+wp; ecall (BNB._mov__proof param_1 ((BA_8n.init_arr (W8.of_int 255))) param_2 b_param_0).
+wp; ecall (BNB._mov__proof param b_param param_0 ((BA_8n.init_arr (W8.of_int 255)))).
+by auto => /> *; smt(ctx_one gt0_nlimbs).
+qed.
+
+lemma __tblsel_proof _r _b_r _tbl _b_tbl _idx :
+  hoare [M(P).__tblsel :
+    arg = (_r, _b_r, _tbl, _b_tbl, _idx) /\ __tblsel_pre _r _b_r _tbl _b_tbl _idx
+    ==> __tblsel_post _r _b_r _tbl _b_tbl _idx res /\ valid res.`3].
+proof.
+hint +safety.
+have hn := gt0_nlimbs; have hb := nlimbs_bnd.
+proc.
+while (valid trace___tblsel /\ 0 <= W64.to_uint k <= nlimbs
+       /\ BA_8n.is_init b_r 0 (8 * W64.to_uint k)).
+- wp.
+  while (valid trace___tblsel /\ 1 <= i <= 16 /\ 0 <= W64.to_uint k < nlimbs).
+  + auto => /> &hr hv hi0 hi1 hk0 hk1 hi.
+    have hix := tbl_idx i{hr} (W64.to_uint k{hr}) _ _; 1,2: smt().
+    have hix0 := tbl_idx i{hr} 0 _ _; 1,2: smt().
+    have hu := to_uint_add_of_int k{hr} (i{hr} * nlimbs) _ _; 1,2: by move: hix hix0 hb hn => /#.
+    by rewrite hu; move: hix hi0 hi => /#.
+  auto => /> &hr hv hk0 hk1 hinit.
+  rewrite ult_of_intE; first by move: hb hn => /#.
+  move=> hlt; split; first by move: hlt hk0 hn => /#.
+  move=> i0 tr0 hi16 hv0 hi0 hi1 _.
+  have hk := to_uint_inc k{hr} nlimbs hlt _; first by move: hb hn => /#.
+  rewrite hk; split; first smt().
+  split; first smt().
+  by apply BL_8n.is_init_ext64.
+auto => /> hpre.
+split; first smt().
+move=> br k0 r0 tr0; rewrite ult_of_intE; first by move: hb hn => /#.
+move=> hge hv hk0 hk1 hinit.
+by rewrite /__tblsel_post /= (_: nlimbs = W64.to_uint k0) 1:/#.
+qed.
+
+lemma _expmW_proof _r _b_r _a _b_a _b _b_b _ctx _b_ctx :
+  hoare [M(P)._expmW :
+    arg = (_r, _b_r, _a, _b_a, _b, _b_b, _ctx, _b_ctx) /\ _expmW_pre _r _b_r _a _b_a _b _b_b _ctx _b_ctx
+    ==> _expmW_post _r _b_r _a _b_a _b _b_b _ctx _b_ctx res /\ valid res.`3].
+proof.
+hint +safety.
+have hn := gt0_nlimbs; have hb := nlimbs_bnd.
+have hne := gt0_nlimbsexp; have hbe := nlimbsexp_bnd.
+proc.
+wp.
+while (valid trace__expmW /\ 0 <= W64.to_uint j <= nlimbsexp
+       /\ BA_128n.is_init b_tbl 0 (128 * nlimbs)).
+- wp.
+  while (valid trace__expmW /\ BA_128n.is_init b_tbl 0 (128 * nlimbs)).
+  + wp; ecall (fun_mulU_h param_15 ((BA_8n.init_arr (W8.of_int 255))) param_16 ((BA_8n.init_arr (W8.of_int 255))) param_17 ((BA_32n_8.init_arr (W8.of_int 255)))).
+    wp.
+    while (valid trace__expmW).
+    * wp; ecall (fun_sqrU_h param_13 ((BA_8n.init_arr (W8.of_int 255))) param_14 ((BA_32n_8.init_arr (W8.of_int 255)))).
+      by auto => />.
+    wp; ecall (__tblsel_proof param_10 b_param_7 param_11 b_param_8 param_12).
+    by auto => />.
+  auto => /> &hr hv hj0 hj1 htbl hj.
+  have hjp : 0 < W64.to_uint j{hr} by move: hj; rewrite W64.to_uint_eq /= /#.
+  have hjd : W64.to_uint (j{hr} - W64.one) = W64.to_uint j{hr} - 1.
+  + by rewrite W64.to_uintB 1:W64.uleE /=; move: hjp => /#.
+  by rewrite hjd; move: hjp hj1 => /#.
+wp; ecall (BNB._mov__proof param_8 b_param_5 param_9 b_param_6).
+wp.
+while (valid trace__expmW /\ 2 <= i <= 16
+       /\ BA_128n.is_init b_tbl 0 (8 * (i * nlimbs))).
+- wp; ecall (fun_mulU_h param_5 b_param_3 param_6 b_param_4 param_7 ((BA_32n_8.init_arr (W8.of_int 255)))).
+  wp; ecall (BNB._mov__proof param_3 b_param_2 param_4 ((BA_8n.init_arr (W8.of_int 255)))).
+  auto => /> &hr hv hi0 hi1 htbl hi r0 hr0 hv0.
+  have hx := tbl_idx i{hr} 0 _ _; 1,2: smt().
+  have hx1 := tbl_idx (i{hr} - 1) 0 _ _; 1,2: smt().
+  have hs := tbl_set b_tbl{hr} i{hr} _ htbl; first smt().
+  have hg1 := tbl_get _ (i{hr} + 1) (i{hr} - 1) _ _ hs; 1,2: smt().
+  have hg2 := tbl_get _ (i{hr} + 1) i{hr} _ _ hs; 1,2: smt().
+  split; first by split.
+  move=> _ _ r1 hr1 hv1.
+  split; first by move: hx hx1 hn => /#.
+  split; first smt().
+  apply tbl_set; first smt().
+  by apply (BL_128n.is_init_sub _ _ _ _ _ hs); move: hx hn => /#.
+wp; ecall (BNB._mov__proof param_1 b_param_1 param_2 ((BA_8n.init_arr (W8.of_int 255)))).
+wp; ecall (BNB._mov__proof param b_param param_0 b_param_0).
+auto => /> ha hbb hc.
+have hone := ctx_one _b_ctx hc.
+split; first exact hone.
+move=> _ r0 hr0 hv0 r1 hr1 hv1.
+split.
+- split; first smt().
+  have /= h0 := tbl_set (BA_128n.init_arr W8.zero) 0 _ _; 1,2: by done.
+  have h1 : forall t, BA_128n.is_init t 0 (8 * nlimbs) =>
+    BA_128n.is_init (SB_128n__8n.set_sub t (8 * nlimbs) (BA_8n.init_arr (W8.of_int 255))) 0 (8 * (2 * nlimbs)).
+  + by move=> t ht; have /= := tbl_set t 1 _ _.
+  by apply h1.
+- move=> bt i1 tr1 hi16 hv2 hi2 hi16' htb.
+  have hone' : BA_8n.is_init (SB_32n_8__8n.get_sub (BA_32n_8.init_arr (W8.of_int 255)) (8 * (2 * nlimbs))) 0 (8 * nlimbs).
+  + by apply ctx_one.
+  split; first exact hone'.
+  move=> _ r2 hr2 hv3.
+  split; first smt().
+  have hu : W64.to_uint (W64.of_int nlimbsexp) = nlimbsexp.
+  + by rewrite W64.of_uintK modz_small //; move: hbe hne => /#.
+  rewrite hu; split; first smt().
+  by move: htb; rewrite (_: i1 = 16) 1:/# (_: 8 * (16 * nlimbs) = 128 * nlimbs) 1:/#.
+qed.
+
+lemma _expmW__proof _r _b_r _a _b_a _b _b_b _ctx _b_ctx :
+  hoare [M(P)._expmW_ :
+    arg = (_r, _b_r, _a, _b_a, _b, _b_b, _ctx, _b_ctx) /\ _expmW__pre _r _b_r _a _b_a _b _b_b _ctx _b_ctx
+    ==> _expmW__post _r _b_r _a _b_a _b _b_b _ctx _b_ctx res /\ valid res.`3].
+proof.
+hint +safety.
+proc.
+wp; ecall (_expmW_proof param b_param param_0 ((BA_8n.init_arr (W8.of_int 255))) param_1 ((BA_8e.init_arr (W8.of_int 255))) param_2 ((BA_32n_8.init_arr (W8.of_int 255)))).
+by auto => />.
+qed.
+
+lemma _expmWU__proof _a _b_a _b _b_b _ctx _b_ctx :
+  hoare [M(P)._expmWU_ :
+    arg = (_a, _b_a, _b, _b_b, _ctx, _b_ctx) /\ _expmWU__pre _a _b_a _b _b_b _ctx _b_ctx
+    ==> _expmWU__post _a _b_a _b _b_b _ctx _b_ctx res /\ valid res.`3].
+proof.
+hint +safety.
+proc.
+wp; ecall (_expmW__proof param_1 ((BA_8n.init_arr (W8.of_int 255))) param_2 ((BA_8n.init_arr (W8.of_int 255))) param_3 ((BA_8e.init_arr (W8.of_int 255))) param_4 ((BA_32n_8.init_arr (W8.of_int 255)))).
+wp; ecall (BNB._mov__proof param b_param param_0 ((BA_8n.init_arr (W8.of_int 255)))).
+by auto => />.
+qed.
+
+(* the constant-time exponentiation of the profile: the Montgomery ladder
+   or the fixed window *)
+lemma _expm__proof _r _b_r _a _b_a _b _b_b _ctx _b_ctx :
+  hoare [M(P)._expm_ :
+    arg = (_r, _b_r, _a, _b_a, _b, _b_b, _ctx, _b_ctx) /\ _expm__pre _r _b_r _a _b_a _b _b_b _ctx _b_ctx
+    ==> _expm__post _r _b_r _a _b_a _b _b_b _ctx _b_ctx res /\ valid res.`3].
+proof.
+hint +safety.
+proc.
+seq ^if : (valid trace__expm_).
+- by auto => />.
+if.
+- wp; ecall (_expmML__proof param b_param param_0 ((BA_8n.init_arr (W8.of_int 255))) param_1 ((BA_8e.init_arr (W8.of_int 255))) param_2 ((BA_32n_8.init_arr (W8.of_int 255)))).
+  by auto => />.
+- wp; ecall (_expmW__proof param_3 b_param_0 param_4 ((BA_8n.init_arr (W8.of_int 255))) param_5 ((BA_8e.init_arr (W8.of_int 255))) param_6 ((BA_32n_8.init_arr (W8.of_int 255)))).
+  by auto => />.
 qed.
 
 lemma _expmU__proof _a _b_a _b _b_b _ctx _b_ctx :
@@ -225,10 +418,13 @@ lemma _expmU__proof _a _b_a _b _b_b _ctx _b_ctx :
 proof.
 hint +safety.
 proc.
-wp; ecall (_expm_proof param_3 ((BA_8n.init_arr (W8.of_int 255))) param_4 ((BA_8n.init_arr (W8.of_int 255))) param_5 ((BA_8e.init_arr (W8.of_int 255))) param_6 ((BA_32n_8.init_arr (W8.of_int 255)))).
-wp; ecall (BNB._mov__proof param_1 ((BA_8n.init_arr (W8.of_int 255))) param_2 b_param_0).
-wp; ecall (BNB._mov__proof param b_param param_0 ((BA_8n.init_arr (W8.of_int 255)))).
-by auto => /> *; smt(ctx_one gt0_nlimbs).
+seq ^if : (valid trace__expmU_).
+- by auto => />.
+if.
+- wp; ecall (_expmMLU__proof param ((BA_8n.init_arr (W8.of_int 255))) param_0 ((BA_8e.init_arr (W8.of_int 255))) param_1 ((BA_32n_8.init_arr (W8.of_int 255)))).
+  by auto => />.
+- wp; ecall (_expmWU__proof param_2 ((BA_8n.init_arr (W8.of_int 255))) param_3 ((BA_8e.init_arr (W8.of_int 255))) param_4 ((BA_32n_8.init_arr (W8.of_int 255)))).
+  by auto => />.
 qed.
 
 end section.

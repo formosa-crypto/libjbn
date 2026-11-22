@@ -83,9 +83,12 @@ for P in moduli:
     Rr = 1 if PM else R                     # the representation: x * Rr mod P
     out.append(" ".join("%x" % w for w in limbs(P) + ctx(P)))
     out.append("%d %d" % (CASES, 1 if prime else 0))
-    for _ in range(CASES):
+    for k in range(CASES):
         a, b = random.randrange(P), random.randrange(P)
         e = random.randrange(R)
+        if k < 4:
+            # exponents at the edges: 0, 1, all ones, the top window alone
+            e = [0, 1, R - 1, 15 << (64 * N - 4)][k]
         x = a * Ri % P                       # the value a represents
         res = [(a + b) % P, (a - b) % P, a * b * Ri % P, a * a * Ri % P,
                a * Rr % P, a * Ri % P, pow(x, e, P) * Rr % P,

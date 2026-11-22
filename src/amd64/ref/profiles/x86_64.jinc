@@ -12,8 +12,23 @@
                    up to 16 limbs, and faster above (8% at 32 limbs, 16% at
                    64); sizes above 64 limbs were not timed (unrolled, a
                    96-limb field takes about 5 minutes to compile).
-   A size scope may shadow JBN_UNROLL_MAX (`param int JBN_UNROLL_MAX = 0;`
-   inside it, for instance, for the smallest code at that size).
+   JBN_SQR_UNROLL_MAX: the squaring of a size scope is the unrolled one
+                   (the product-scanning squaring of bn_mul) up to this
+                   size, also where the multiplication and the reduction
+                   loop. 64, as JBN_UNROLL_MAX: the two were not timed
+                   apart without MULX.
+   JBN_EXP_WINDOW: the constant-time exponentiation of a field (_expm_ of
+                   bn_exp@exp.jinc): 0 for the Montgomery ladder, which
+                   needs no table; otherwise the fixed window of 4 bits,
+                   with a table of 16*nlimbs words on the stack.
+                   4: on an Intel Core i7-14700K the window takes 0.61 to
+                   0.72 of the time of the ladder over bn_mul and
+                   bn_mul_loop, from 4 to 64 limbs.
+   A size scope may shadow JBN_UNROLL_MAX, JBN_SQR_UNROLL_MAX and
+   JBN_EXP_WINDOW (`param int JBN_UNROLL_MAX = 0;` and
+   `param int JBN_SQR_UNROLL_MAX = 0;` inside it, for instance, for the
+   smallest code at that size; `param int JBN_EXP_WINDOW = 0;` for the
+   smallest stack).
 */
 
 from Libjbn require "jbn_features.jinc"
@@ -21,3 +36,5 @@ from Libjbn require "jbn_features.jinc"
 param int JBN_FEATURES = 0;
 param int JBN_REG_MAX = 0;
 param int JBN_UNROLL_MAX = 64;
+param int JBN_SQR_UNROLL_MAX = 64;
+param int JBN_EXP_WINDOW = 4;

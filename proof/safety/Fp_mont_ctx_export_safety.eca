@@ -49,10 +49,15 @@ declare axiom _expm_noct__h _r _b_r _a _b_a _b _b_b _ctx _b_ctx :
     arg = (_r, _b_r, _a, _b_a, _b, _b_b, _ctx, _b_ctx) /\ _expm_noct__pre _r _b_r _a _b_a _b _b_b _ctx _b_ctx
     ==> _expm_noct__post _r _b_r _a _b_a _b _b_b _ctx _b_ctx res /\ valid res.`3].
 
-declare axiom _expm__h _x0 _b_x0 _a _b_a _b _b_b _ctx _b_ctx :
+declare axiom _expmML__h _x0 _b_x0 _a _b_a _b _b_b _ctx _b_ctx :
+  hoare [P._expmML_ :
+    arg = (_x0, _b_x0, _a, _b_a, _b, _b_b, _ctx, _b_ctx) /\ _expmML__pre _x0 _b_x0 _a _b_a _b _b_b _ctx _b_ctx
+    ==> _expmML__post _x0 _b_x0 _a _b_a _b _b_b _ctx _b_ctx res /\ valid res.`3].
+
+declare axiom _expm__h _r _b_r _a _b_a _b _b_b _ctx _b_ctx :
   hoare [P._expm_ :
-    arg = (_x0, _b_x0, _a, _b_a, _b, _b_b, _ctx, _b_ctx) /\ _expm__pre _x0 _b_x0 _a _b_a _b _b_b _ctx _b_ctx
-    ==> _expm__post _x0 _b_x0 _a _b_a _b _b_b _ctx _b_ctx res /\ valid res.`3].
+    arg = (_r, _b_r, _a, _b_a, _b, _b_b, _ctx, _b_ctx) /\ _expm__pre _r _b_r _a _b_a _b _b_b _ctx _b_ctx
+    ==> _expm__post _r _b_r _a _b_a _b _b_b _ctx _b_ctx res /\ valid res.`3].
 
 declare axiom _invm__h _r _b_r _a _b_a _ctx _b_ctx :
   hoare [P._invm_ :
@@ -151,6 +156,21 @@ proc.
 rewrite /fpc_exp_pre /fpc_exp_post /_expm__pre /_expm__post.
 wp; ecall (BNB._store__proof param_7 param_8 ((BA_8n.init_arr (W8.of_int 255)))).
 wp; ecall (_expm__h param_3 b_param_1 param_4 ((BA_8n.init_arr (W8.of_int 255))) param_5 ((BA_8n.init_arr (W8.of_int 255))) param_6 ((BA_32n_8.init_arr (W8.of_int 255)))).
+wp; ecall (BNB._load__proof param_1 b_param_0 param_2).
+wp; ecall (BNB._load__proof param b_param param_0).
+by auto => /> *; smt(gt0_nlimbs).
+qed.
+
+lemma fpc_exp_ladder_proof _rp _ap _bp _ctx _b_ctx :
+  hoare [M(P).fpc_exp_ladder :
+    arg = (_rp, _ap, _bp, _ctx, _b_ctx) /\ fpc_exp_ladder_pre Glob.mem_v _rp _ap _bp _ctx _b_ctx
+    ==> fpc_exp_ladder_post _rp _ap _bp _ctx _b_ctx res /\ valid res].
+proof.
+hint +safety.
+proc.
+rewrite /fpc_exp_ladder_pre /fpc_exp_ladder_post /_expmML__pre /_expmML__post.
+wp; ecall (BNB._store__proof param_7 param_8 ((BA_8n.init_arr (W8.of_int 255)))).
+wp; ecall (_expmML__h param_3 b_param_1 param_4 ((BA_8n.init_arr (W8.of_int 255))) param_5 ((BA_8n.init_arr (W8.of_int 255))) param_6 ((BA_32n_8.init_arr (W8.of_int 255)))).
 wp; ecall (BNB._load__proof param_1 b_param_0 param_2).
 wp; ecall (BNB._load__proof param b_param param_0).
 by auto => /> *; smt(gt0_nlimbs).

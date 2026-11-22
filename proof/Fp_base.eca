@@ -157,6 +157,7 @@ clone Bn_exp as BNE
  proof gt0_nlimbs by exact gt0_nlimbs,
        gt0_nlimbsexp by exact gt0_nlimbs,
        nlimbsexp_bnd by exact nlimbs_bnd,
+       nlimbs_bnd by exact nlimbs_bnd,
        mmul_dom by exact fp_mmul_dom,
        mmulA by smt(red_assoc),
        mmulC by smt(redC),

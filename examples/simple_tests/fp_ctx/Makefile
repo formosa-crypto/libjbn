@@ -37,10 +37,16 @@ MULX_PROGS += $(addprefix test_fp_ctx_mulxr, $(XR_SIZES))
 PM_SIZES = 4 6
 PROGS += $(addprefix test_fp_ctx_pm, $(PM_SIZES))
 MULX_PROGS += $(addprefix test_fp_ctx_pmxr, $(PM_SIZES))
+# bn_mulx_loop with the squaring of bn_mulx (fp_ctx_mulx_sqru7.jazz: an
+# experiment, see its header and the bench variant mulx_sqru), in `run-mulx`
+MULX_PROGS += test_fp_ctx_mulx_sqru7
 
 all: $(PROGS) $(MULX_PROGS)
 
 # (the more specific patterns first: make 3.81 takes the first match)
+test_fp_ctx_mulx_sqru%: test_fp_ctx.c fp_ctx_mulx_sqru%.s
+	$(GCC) -DNLIMBS=$* -o $@ $^
+
 test_fp_ctx_pmxr%: test_fp_ctx.c fp_ctx_pmxr%.s
 	$(GCC) -DNLIMBS=$* -o $@ $^
 
@@ -88,6 +94,7 @@ run-mulx: $(MULX_PROGS) $(addprefix vectors, $(addsuffix .txt, $(SIZES) $(XR_SIZ
 	for n in $(SIZES); do ./test_fp_ctx_selx$$n < vectors$$n.txt || exit 1; done
 	for n in $(XR_SIZES); do ./test_fp_ctx_mulxr$$n < vectors$$n.txt || exit 1; done
 	for n in $(PM_SIZES); do ./test_fp_ctx_pmxr$$n < vectors_pm$$n.txt || exit 1; done
+	./test_fp_ctx_mulx_sqru7 < vectors7.txt
 
 # The same operations run by the interpreter of jasminc (gen_exec_test.py):
 # on any host, MULX/ADCX/ADOX included (e.g. on Apple Silicon, where Rosetta
@@ -123,37 +130,53 @@ exec: gen_exec_test.py $(LIBJBN_SRC)
 # over bn_mulxr (pm_mulxr, up to 6 limbs, to be compared with mulxr). The
 # variants over bn_mulx, bn_mulx_loop and bn_mulxr need BMI2 and ADX, so
 # they do not run under Rosetta. The instances
-# (tmpbench_<variant>_<size>.*) are generated from fp_ctx7.jazz.
+# (tmpbench_<variant>_<size>.*) are generated from fp_ctx7.jazz, with the
+# profile of their module (x86_64 or x86_64_adx).
 # fpc_mul and fpc_sqr are timed on the same arguments at each call, so that
 # consecutive calls may overlap (throughput); with BENCH_CHAINED=1, each
 # call takes the result of the previous one (latency, as in fpc_exp), and
-# the lines end with "(chained)".
+# the lines end with "(chained)". The two constant-time exponentiations are
+# timed on the same operands: fpc_exp (the one of the profile: the fixed
+# window) and fpc_exp_ladder.
+# The variants above wire a module directly. Two more are what the selector
+# bn_mulsel takes at each size, from a profile: sel (x86_64, generated from
+# fp_ctx_sel7.jazz) and selx (x86_64_adx, from fp_ctx_selx7.jazz, which
+# needs BMI2 and ADX); each should equal the best direct variant of its
+# instruction set.
+# One more variant, not in the default list: mulx_sqru, bn_mulx_loop with
+# the unrolled squaring of bn_mulx (generated from fp_ctx_mulx_sqru7.jazz;
+# see its header), to be compared with mulx and mulx_unr, e.g.
+#   make bench BENCH_VARIANTS="mulx_unr mulx mulx_sqru" BENCH_SIZES="24 32 40 48"
 BENCH_SIZES    ?= 4 5 6 8 16 32 64
-BENCH_VARIANTS ?= unr loop mulx_unr mulx mulxr pm_unr pm_mulxr
+BENCH_VARIANTS ?= unr loop mulx_unr mulx mulxr pm_unr pm_mulxr sel selx
 BENCH_CHAINED  ?=
 
-bench: bench_fp_ctx.c fp_ctx7.jazz $(LIBJBN_SRC)
+bench: bench_fp_ctx.c fp_ctx7.jazz fp_ctx_sel7.jazz fp_ctx_selx7.jazz fp_ctx_mulx_sqru7.jazz $(LIBJBN_SRC)
 	@for n in $(BENCH_SIZES); do for v in $(BENCH_VARIANTS); do \
-	  k=fp_mont; \
+	  k=fp_mont; p=x86_64; t=fp_ctx7.jazz; m=bn_mul; s=fp_mul_ps; \
 	  case $$v in \
+	    sel)       t=fp_ctx_sel7.jazz;; \
+	    selx)      t=fp_ctx_selx7.jazz;; \
+	    mulx_sqru) t=fp_ctx_mulx_sqru7.jazz;; \
 	    unr)      m=bn_mul;       s=fp_mul_ps;; \
 	    loop)     m=bn_mul_loop;  s=fp_mul_os;; \
-	    mulx_unr) m=bn_mulx;      s=fp_mul_os;; \
-	    mulx)     m=bn_mulx_loop; s=fp_mul_os;; \
-	    mulxr)    m=bn_mulxr;     s=fp_mul_os; [ $$n -le 6 ] || continue;; \
+	    mulx_unr) m=bn_mulx;      s=fp_mul_os; p=x86_64_adx;; \
+	    mulx)     m=bn_mulx_loop; s=fp_mul_os; p=x86_64_adx;; \
+	    mulxr)    m=bn_mulxr;     s=fp_mul_os; p=x86_64_adx; [ $$n -le 6 ] || continue;; \
 	    pm_unr)   m=bn_mul;       s=fp_mul_ps; k=fp_pm;; \
-	    pm_mulxr) m=bn_mulxr;     s=fp_mul_os; k=fp_pm; [ $$n -le 6 ] || continue;; \
+	    pm_mulxr) m=bn_mulxr;     s=fp_mul_os; k=fp_pm; p=x86_64_adx; [ $$n -le 6 ] || continue;; \
 	    *) echo "unknown variant $$v"; exit 1;; \
 	  esac; \
 	  f=tmpbench_$${v}_$$n; \
 	  sed -e "s/param int nlimbs = 7;/param int nlimbs = $$n;/" \
 	      -e "s/bn_mul@n.jinc/$$m@n.jinc/" -e "s/fp_mul_ps@fp.jinc/$$s@fp.jinc/" \
 	      -e "s/fp_mont@fp.jinc/$$k@fp.jinc/" \
-	      fp_ctx7.jazz > $$f.jazz; \
+	      -e "s|profiles/x86_64.jinc|profiles/$$p.jinc|" \
+	      $$t > $$f.jazz; \
 	  $(JASMINC) $(JFLAGS) -o $$f.s $$f.jazz 2> $$f.log || { cat $$f.log; exit 1; }; \
 	  pm=; [ $$k = fp_pm ] && pm=-DPM; \
 	  $(GCC) -O2 -DNLIMBS=$$n -DVARIANT=\"$$v\" $$pm $(if $(BENCH_CHAINED),-DCHAINED) -o $$f bench_fp_ctx.c $$f.s || exit 1; \
-	  ./$$f || echo "$$v n=$$n: did not run (the variants over bn_mulx, bn_mulx_loop and bn_mulxr need a CPU with BMI2 and ADX)"; \
+	  ./$$f || echo "$$v n=$$n: did not run (selx and the variants over bn_mulx, bn_mulx_loop and bn_mulxr need a CPU with BMI2 and ADX)"; \
 	done; done
 
 # GMP's exponentiations at the same sizes and on the same operands, as a

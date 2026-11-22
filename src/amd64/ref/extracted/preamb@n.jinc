@@ -15,3 +15,5 @@ param int nlimbsexp = DUMMY_NLIMBSEXP;
 param int JBN_FEATURES = DUMMY_FEATURES;
 param int JBN_REG_MAX = DUMMY_REG_MAX;
 param int JBN_UNROLL_MAX = DUMMY_UNROLL_MAX;
+param int JBN_SQR_UNROLL_MAX = DUMMY_SQR_UNROLL_MAX;
+param int JBN_EXP_WINDOW = DUMMY_EXP_WINDOW;   // jbn_exp_window (bn_exp)

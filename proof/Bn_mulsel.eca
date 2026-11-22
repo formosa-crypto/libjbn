@@ -26,6 +26,7 @@ axiom nlimbs_bnd: 4 * nlimbs < W64.modulus.
 op jbn_features: int.
 op jbn_reg_max: int.
 op jbn_unroll_max: int.
+op jbn_sqr_unroll_max: int.
 
 clone export JBigNumber.BigN
  with op nlimbs <- nlimbs
@@ -129,14 +130,14 @@ module M = {
       if ((nlimbs <= jbn_reg_max)) {
         r <@ BNMULXR_M._os_sqrn_ (r, a);
       } else {
-        if ((nlimbs <= jbn_unroll_max)) {
+        if ((nlimbs <= jbn_sqr_unroll_max)) {
           r <@ BNMULX_M._os_sqrn_ (r, a);
         } else {
           r <@ BNMULXL_M._os_sqrn_ (r, a);
         }
       }
     } else {
-      if ((nlimbs <= jbn_unroll_max)) {
+      if ((nlimbs <= jbn_sqr_unroll_max)) {
         r <@ BNMUL_M._ps_sqrn_ (r, a);
       } else {
         r <@ BNMULL_M._os_sqrn_ (r, a);

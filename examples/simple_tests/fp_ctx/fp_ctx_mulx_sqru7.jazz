@@ -1,0 +1,58 @@
+/* libjbn instance with run-time moduli of 7 limbs, whose multiplication and
+   Montgomery reduction are the looped MULX/ADCX/ADOX rows of bn_mulx_loop,
+   and whose squaring is the unrolled one of bn_mulx (the looped module
+   squares by multiplying): two instances of the same size, MUL and SQR,
+   bound to the field below, in the place of fp_mul_os. Needs a CPU with
+   BMI2 and ADX.
+
+   This is what bn_mulsel selects under the profile x86_64_adx from 17 to
+   40 limbs (JBN_SQR_UNROLL_MAX), wired by hand so that it can be timed at
+   any size: the unrolled squaring is quadratic in size (19 KB at 32
+   limbs, 29 KB at 40, 42 KB at 48, 75 KB at 64), and only pays while it
+   fits the instruction cache with the rest (README, "The unrolled
+   squaring in a looped instance"). `make bench` times this wiring as the
+   variant mulx_sqru (not in its default list), to be compared with mulx
+   (all looped) and mulx_unr (all unrolled):
+     make bench BENCH_VARIANTS="mulx_unr mulx mulx_sqru" BENCH_SIZES="24 32 40 48"
+   The field code FPM is shared by every modulus, whose context
+   (fp_ctx@n.jinc) is computed by fpc_ctx_init and passed to the other
+   fpc_* entry points. */
+
+from Libjbn require "profiles/x86_64_adx.jinc"
+
+namespace UTIL { from Libjbn require "bn_util.jinc" }
+
+namespace H {
+  param int nlimbs = 7;
+
+  namespace BN  { from Libjbn require "bn_base@n.jinc" }
+  namespace RND { from Libjbn require "bn_rnd@n.jinc" }
+  namespace MUL { from Libjbn require "bn_mulx_loop@n.jinc" }   // multiplication, reduction
+  namespace SQR { from Libjbn require "bn_mulx@n.jinc" }        // squaring
+
+  namespace FPM {
+    /* the bindings of fp_mul_os@fp.jinc, with the squaring of SQR */
+    #[safety = { requires = is_arr_init(a, 0, 8*nlimbs) && is_arr_init(b, 0, 8*nlimbs), ensures = is_arr_init(r, 0, 16*nlimbs) }]
+    inline fn fun_muln
+    ( reg mut ptr u64[2*nlimbs] r
+    , reg const ptr u64[nlimbs] a b
+    ) -> reg ptr u64[2*nlimbs] {
+      r = MUL::_os_muln_(r, a, b);
+      return r;
+    }
+
+    #[safety = { requires = is_arr_init(a, 0, 8*nlimbs), ensures = is_arr_init(r, 0, 16*nlimbs) }]
+    inline fn fun_sqrn
+    ( reg mut ptr u64[2*nlimbs] r
+    , reg const ptr u64[nlimbs] a
+    ) -> reg ptr u64[2*nlimbs] {
+      r = SQR::_os_sqrn_(r, a);
+      return r;
+    }
+
+    from Libjbn require "fp_mont@fp.jinc"
+  }
+}
+
+/* C entry points */
+from Libjbn require "fp_mont_ctx_export@2n.jinc"

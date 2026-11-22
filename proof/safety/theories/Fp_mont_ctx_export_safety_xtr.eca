@@ -46,7 +46,12 @@ module type MParam = {
                                  b_b:BA_8n.t, ctx:BA_32n_8.t,
                                  b_ctx:BA_32n_8.t) : BA_8n.t *
                                                       BA_8n.t * trace
-  proc _expm_ (x0:BA_8n.t, b_x0:BA_8n.t, a:BA_8n.t,
+  proc _expmML_ (x0:BA_8n.t, b_x0:BA_8n.t, a:BA_8n.t,
+                              b_a:BA_8n.t, b:BA_8n.t, b_b:BA_8n.t,
+                              ctx:BA_32n_8.t, b_ctx:BA_32n_8.t) : BA_8n.t *
+                                                                    BA_8n.t *
+                                                                    trace
+  proc _expm_ (r:BA_8n.t, b_r:BA_8n.t, a:BA_8n.t,
                             b_a:BA_8n.t, b:BA_8n.t, b_b:BA_8n.t,
                             ctx:BA_32n_8.t, b_ctx:BA_32n_8.t) : BA_8n.t *
                                                                   BA_8n.t *
@@ -739,6 +744,141 @@ module M(P: MParam) = {
     trace_fpc_exp <- (trace_fpc_exp ++ tmp__trace);
     return (trace_fpc_exp);
   }
+  proc fpc_exp_ladder (rp:W64.t, ap:W64.t, bp:W64.t, ctx:BA_32n_8.t,
+                       b_ctx:BA_32n_8.t) : trace = {
+    var aux:BA_8n.t;
+    var aux_0:BA_8n.t;
+    var aux_1:BA_8n.t;
+    var aux_2:BA_8n.t;
+    var aux_3:BA_8n.t;
+    var aux_4:BA_8n.t;
+    var b__a:BA_8n.t;
+    var b__b:BA_8n.t;
+    var b__r:BA_8n.t;
+    var _rp:W64.t;
+    var _ctx:BA_32n_8.t;
+    var b_a:BA_8n.t;
+    var a:BA_8n.t;
+    var _a:BA_8n.t;
+    var b_param:BA_8n.t;
+    var param:BA_8n.t;
+    var param_0:W64.t;
+    var result:BA_8n.t;
+    var b_result:BA_8n.t;
+    var b_b:BA_8n.t;
+    var b:BA_8n.t;
+    var _b:BA_8n.t;
+    var b_param_0:BA_8n.t;
+    var param_1:BA_8n.t;
+    var param_2:W64.t;
+    var result_0:BA_8n.t;
+    var b_result_0:BA_8n.t;
+    var b_r:BA_8n.t;
+    var r:BA_8n.t;
+    var _r:BA_8n.t;
+    var b_param_1:BA_8n.t;
+    var param_3:BA_8n.t;
+    var param_4:BA_8n.t;
+    var param_5:BA_8n.t;
+    var param_6:BA_32n_8.t;
+    var result_1:BA_8n.t;
+    var b_result_1:BA_8n.t;
+    var param_7:W64.t;
+    var param_8:BA_8n.t;
+    var trace_fpc_exp_ladder:trace;
+    _a <- witness;
+    _b <- witness;
+    _ctx <- witness;
+    _r <- witness;
+    a <- witness;
+    b <- witness;
+    b__a <- witness;
+    b__b <- witness;
+    b__r <- witness;
+    b_a <- witness;
+    b_b <- witness;
+    b_param <- witness;
+    b_param_0 <- witness;
+    b_param_1 <- witness;
+    b_r <- witness;
+    b_result <- witness;
+    b_result_0 <- witness;
+    b_result_1 <- witness;
+    param <- witness;
+    param_1 <- witness;
+    param_3 <- witness;
+    param_4 <- witness;
+    param_5 <- witness;
+    param_6 <- witness;
+    param_8 <- witness;
+    r <- witness;
+    result <- witness;
+    result_0 <- witness;
+    result_1 <- witness;
+    trace_fpc_exp_ladder <- [];
+    trace_fpc_exp_ladder <-
+    (trace_fpc_exp_ladder ++
+    [(Assert,
+     ((((is_valid ptr_modulus Glob.mem_v (W64.to_uint ap) (8 * nlimbs)) /\
+       (is_valid ptr_modulus Glob.mem_v (W64.to_uint bp) (8 * nlimbs))) /\
+      (is_valid ptr_modulus Glob.mem_v (W64.to_uint rp) (8 * nlimbs))) /\
+     (BA_32n_8.is_init b_ctx 0 (8 * ((4 * nlimbs) + 1)))))]);
+    b__a <- (BA_8n.init_arr (W8.of_int 0));
+    b__b <- (BA_8n.init_arr (W8.of_int 0));
+    b__r <- (BA_8n.init_arr (W8.of_int 0));
+    _rp <- rp;
+    _ctx <- ctx;
+    b_a <- b__a;
+    a <- _a;
+    b_param <- b_a;
+    param <- a;
+    param_0 <- ap;
+    (aux, aux_0, tmp__trace) <@ BNB.M._load_ (param, b_param, param_0);
+    result <- aux;
+    b_result <- aux_0;
+    trace_fpc_exp_ladder <- (trace_fpc_exp_ladder ++ tmp__trace);
+    trace_fpc_exp_ladder <-
+    (trace_fpc_exp_ladder ++ [(Assert, (BA_8n.is_init b_result 0 (8 * nlimbs)))]);
+    a <- result;
+    b_b <- b__b;
+    b <- _b;
+    b_param_0 <- b_b;
+    param_1 <- b;
+    param_2 <- bp;
+    (aux_1, aux_2, tmp__trace) <@ BNB.M._load_ (param_1, b_param_0,
+    param_2);
+    result_0 <- aux_1;
+    b_result_0 <- aux_2;
+    trace_fpc_exp_ladder <- (trace_fpc_exp_ladder ++ tmp__trace);
+    trace_fpc_exp_ladder <-
+    (trace_fpc_exp_ladder ++ [(Assert, (BA_8n.is_init b_result_0 0 (8 * nlimbs)))]);
+    b <- result_0;
+    b_r <- b__r;
+    r <- _r;
+    ctx <- _ctx;
+    b_param_1 <- b_r;
+    param_3 <- r;
+    param_4 <- a;
+    param_5 <- b;
+    param_6 <- ctx;
+    (aux_3, aux_4, tmp__trace) <@ P._expmML_ (param_3, b_param_1,
+    param_4, (BA_8n.init_arr (W8.of_int 255)), param_5,
+    (BA_8n.init_arr (W8.of_int 255)), param_6,
+    (BA_32n_8.init_arr (W8.of_int 255)));
+    result_1 <- aux_3;
+    b_result_1 <- aux_4;
+    trace_fpc_exp_ladder <- (trace_fpc_exp_ladder ++ tmp__trace);
+    trace_fpc_exp_ladder <-
+    (trace_fpc_exp_ladder ++ [(Assert, (BA_8n.is_init b_result_1 0 (8 * nlimbs)))]);
+    r <- result_1;
+    rp <- _rp;
+    param_7 <- rp;
+    param_8 <- r;
+    tmp__trace <@ BNB.M._store_ (param_7, param_8,
+    (BA_8n.init_arr (W8.of_int 255)));
+    trace_fpc_exp_ladder <- (trace_fpc_exp_ladder ++ tmp__trace);
+    return (trace_fpc_exp_ladder);
+  }
   proc fpc_exp_noct (rp:W64.t, ap:W64.t, bp:W64.t, ctx:BA_32n_8.t,
                      b_ctx:BA_32n_8.t) : trace = {
     var aux:BA_8n.t;
@@ -1200,6 +1340,18 @@ op fpc_exp_pre (_mem_v : global_mem_v_t) (_rp : W64.t) (_ap : W64.t) (_bp : W64.
 op fpc_exp_post (_rp : W64.t) (_ap : W64.t) (_bp : W64.t) (_ctx : BA_32n_8.t) (_b_ctx : BA_32n_8.t) (_res : trace) =
   true.
 
+op fpc_exp_ladder_pre (_mem_v : global_mem_v_t) (_rp : W64.t) (_ap : W64.t) (_bp : W64.t) (_ctx : BA_32n_8.t) (_b_ctx : BA_32n_8.t) =
+  (true /\
+   (true /\
+   (true /\
+   ((((is_valid ptr_modulus _mem_v (W64.to_uint _ap) (8 * nlimbs)) /\
+     (is_valid ptr_modulus _mem_v (W64.to_uint _bp) (8 * nlimbs))) /\
+    (is_valid ptr_modulus _mem_v (W64.to_uint _rp) (8 * nlimbs))) /\
+   (BA_32n_8.is_init _b_ctx 0 (8 * ((4 * nlimbs) + 1))))))).
+
+op fpc_exp_ladder_post (_rp : W64.t) (_ap : W64.t) (_bp : W64.t) (_ctx : BA_32n_8.t) (_b_ctx : BA_32n_8.t) (_res : trace) =
+  true.
+
 op fpc_exp_noct_pre (_mem_v : global_mem_v_t) (_rp : W64.t) (_ap : W64.t) (_bp : W64.t) (_ctx : BA_32n_8.t) (_b_ctx : BA_32n_8.t) =
   (true /\
    (true /\
@@ -1285,12 +1437,20 @@ op _expm_noct__pre (_r : BA_8n.t) (_b_r : BA_8n.t) (_a : BA_8n.t) (_b_a : BA_8n.
 op _expm_noct__post (_r : BA_8n.t) (_b_r : BA_8n.t) (_a : BA_8n.t) (_b_a : BA_8n.t) (_b : BA_8n.t) (_b_b : BA_8n.t) (_ctx : BA_32n_8.t) (_b_ctx : BA_32n_8.t) (_res : BA_8n.t * BA_8n.t * trace) =
   (BA_8n.is_init _res.`2 0 (8 * nlimbs)).
 
-op _expm__pre (_x0 : BA_8n.t) (_b_x0 : BA_8n.t) (_a : BA_8n.t) (_b_a : BA_8n.t) (_b : BA_8n.t) (_b_b : BA_8n.t) (_ctx : BA_32n_8.t) (_b_ctx : BA_32n_8.t) =
+op _expmML__pre (_x0 : BA_8n.t) (_b_x0 : BA_8n.t) (_a : BA_8n.t) (_b_a : BA_8n.t) (_b : BA_8n.t) (_b_b : BA_8n.t) (_ctx : BA_32n_8.t) (_b_ctx : BA_32n_8.t) =
   (((BA_8n.is_init _b_a 0 (8 * nlimbs)) /\
     (BA_8n.is_init _b_b 0 (8 * nlimbs))) /\
    (BA_32n_8.is_init _b_ctx 0 (8 * ((4 * nlimbs) + 1)))).
 
-op _expm__post (_x0 : BA_8n.t) (_b_x0 : BA_8n.t) (_a : BA_8n.t) (_b_a : BA_8n.t) (_b : BA_8n.t) (_b_b : BA_8n.t) (_ctx : BA_32n_8.t) (_b_ctx : BA_32n_8.t) (_res : BA_8n.t * BA_8n.t * trace) =
+op _expmML__post (_x0 : BA_8n.t) (_b_x0 : BA_8n.t) (_a : BA_8n.t) (_b_a : BA_8n.t) (_b : BA_8n.t) (_b_b : BA_8n.t) (_ctx : BA_32n_8.t) (_b_ctx : BA_32n_8.t) (_res : BA_8n.t * BA_8n.t * trace) =
+  (BA_8n.is_init _res.`2 0 (8 * nlimbs)).
+
+op _expm__pre (_r : BA_8n.t) (_b_r : BA_8n.t) (_a : BA_8n.t) (_b_a : BA_8n.t) (_b : BA_8n.t) (_b_b : BA_8n.t) (_ctx : BA_32n_8.t) (_b_ctx : BA_32n_8.t) =
+  (((BA_8n.is_init _b_a 0 (8 * nlimbs)) /\
+    (BA_8n.is_init _b_b 0 (8 * nlimbs))) /\
+   (BA_32n_8.is_init _b_ctx 0 (8 * ((4 * nlimbs) + 1)))).
+
+op _expm__post (_r : BA_8n.t) (_b_r : BA_8n.t) (_a : BA_8n.t) (_b_a : BA_8n.t) (_b : BA_8n.t) (_b_b : BA_8n.t) (_ctx : BA_32n_8.t) (_b_ctx : BA_32n_8.t) (_res : BA_8n.t * BA_8n.t * trace) =
   (BA_8n.is_init _res.`2 0 (8 * nlimbs)).
 
 op _invm__pre (_r : BA_8n.t) (_b_r : BA_8n.t) (_a : BA_8n.t) (_b_a : BA_8n.t) (_ctx : BA_32n_8.t) (_b_ctx : BA_32n_8.t) =

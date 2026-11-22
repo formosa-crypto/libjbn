@@ -1,5 +1,6 @@
-/* Timing of fpc_mul, fpc_sqr and fpc_exp for one field instance (best of a
-   few runs, wall-clock time): see the `bench` target of the Makefile, which
+/* Timing of fpc_mul, fpc_sqr, fpc_exp (the fixed window of 4 bits) and
+   fpc_exp_ladder (the ladder, on the same operands) for one field instance
+   (best of a few runs, wall-clock time): see the `bench` target of the Makefile, which
    builds this program for each size and each multiplication module
    (bn_mul and bn_mulx, unrolled; bn_mul_loop and bn_mulx_loop, looping over
    the rows; bn_mulxr, with the accumulator in registers), and for the
@@ -10,8 +11,8 @@
    limbs; R mod P = 38), instead of a random one, which fp_pm does not
    take; and -DCHAINED to time fpc_mul and fpc_sqr as chains, each call
    taking the result of the previous one (latency), instead of calls on
-   the same arguments, which may overlap (throughput). fpc_exp is a chain
-   either way. */
+   the same arguments, which may overlap (throughput). The exponentiations
+   are chains either way. */
 #include <stdint.h>
 #include <stdio.h>
 #include <time.h>
@@ -28,6 +29,7 @@ extern void fpc_ctx_init(uint64_t *ctx, const uint64_t *p);
 extern void fpc_mul(uint64_t *r, const uint64_t *a, const uint64_t *b, const uint64_t *ctx);
 extern void fpc_sqr(uint64_t *r, const uint64_t *a, const uint64_t *ctx);
 extern void fpc_exp(uint64_t *r, const uint64_t *a, const uint64_t *b, const uint64_t *ctx);
+extern void fpc_exp_ladder(uint64_t *r, const uint64_t *a, const uint64_t *b, const uint64_t *ctx);
 
 static double now(void) {
   struct timespec t;
@@ -41,7 +43,7 @@ static uint64_t rng(void) { s ^= s << 13; s ^= s >> 7; s ^= s << 17; return s; }
 
 int main(void) {
   uint64_t P[NLIMBS], ctx[CTXLEN], a[NLIMBS], b[NLIMBS], e[NLIMBS], r[NLIMBS];
-  double best_m = 1e30, best_s = 1e30, best_e = 1e30, t;
+  double best_m = 1e30, best_s = 1e30, best_e = 1e30, best_l = 1e30, t;
   long reps, ereps, i;
   int k;
 #ifdef CHAINED
@@ -91,13 +93,15 @@ int main(void) {
   for (k = 0; k < 3; k++) {
     t = now(); for (i = 0; i < ereps; i++) fpc_exp(r, a, e, ctx);
     t = (now() - t) / ereps; if (t < best_e) best_e = t;
+    t = now(); for (i = 0; i < ereps; i++) fpc_exp_ladder(r, a, e, ctx);
+    t = (now() - t) / ereps; if (t < best_l) best_l = t;
   }
 #ifdef CHAINED
 #define MODE "  (chained)"
 #else
 #define MODE ""
 #endif
-  printf("%-8s n=%-3d fpc_mul %9.1f ns  fpc_sqr %9.1f ns  fpc_exp %12.1f us%s\n",
-         VARIANT, NLIMBS, best_m, best_s, best_e / 1e3, MODE);
+  printf("%-8s n=%-3d fpc_mul %9.1f ns  fpc_sqr %9.1f ns  fpc_exp %12.1f us  fpc_exp_ladder %12.1f us%s\n",
+         VARIANT, NLIMBS, best_m, best_s, best_e / 1e3, best_l / 1e3, MODE);
   return 0;
 }

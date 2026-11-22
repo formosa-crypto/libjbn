@@ -9,6 +9,10 @@
 
 param int nlimbs = 32;
 
+/* the profile: here for JBN_EXP_WINDOW, the constant-time exponentiation
+   of the field (the multiplication module is wired directly, below) */
+from Libjbn require "profiles/x86_64.jinc"
+
 namespace UTIL { from Libjbn require "bn_util.jinc" }
 
 namespace BN  { from Libjbn require "bn_base@n.jinc" }

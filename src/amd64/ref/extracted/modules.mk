@@ -39,7 +39,7 @@ BNKAR_bn_karatsuba_NS  = KAR::
 BNKAR_bn_karatsuba_FNS = _kar_muln_
 
 BNE_bn_exp_NS  = H::EXP::
-BNE_bn_exp_FNS = _expm_noct_ _expmU_noct_ _expm_ _expmU_ _expmLR_noct_
+BNE_bn_exp_FNS = _expm_noct_ _expmU_noct_ _expm_ _expmU_ _expmLR_noct_ _expmW_ _expmWU_
 
 FP_fp_base_NS  = H::FP::
 FP_fp_base_FNS = _chk_bnds_ _addm_ _addmU_ _subm_ _submU_ _mulm_ _mulmU_ _sqrm_ _sqrmU_ _invm_ _invmU_

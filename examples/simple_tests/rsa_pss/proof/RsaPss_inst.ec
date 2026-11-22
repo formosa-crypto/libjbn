@@ -18,21 +18,26 @@ from Jasmin require import JModel_x86.
 import SLH64.
 
 require import RsaPssXtr.
-require import Array4 Array16 Array32 Array64 Array65 Array129.
+require import Array4 Array16 Array32 Array64 Array65 Array129 Array256.
 require Bn_exp Fp_mont.
 
 (* -------------------------------------------------------------------- *)
 (* the theories at the sizes of the example                              *)
 
-(* the field of p and q: 16 limbs, x86_64 *)
+(* the field of p and q: 16 limbs, x86_64; its exponentiation by dP and dQ
+   is the one of the profile (_expm_, with JBN_EXP_WINDOW = 4: the fixed
+   window, whose table has 16 * 16 words) *)
 clone Fp_mont as F16
  with op nlimbs <- 16,
       op jbn_features <- 0,
       op jbn_reg_max <- 0,
       op jbn_unroll_max <- 64,
+      op jbn_sqr_unroll_max <- 64,
       theory BigN.BN.A <= Array16,
       theory BigN.BN2.A <= Array32,
-      theory FPC.CTX <= Array65
+      theory FPC.CTX <= Array65,
+      theory FPB.BNE.TBL <= Array256,
+      op FPB.BNE.jbn_exp_window <- 4
  proof gt0_nlimbs by done, nlimbs_bnd by done.
 
 (* the field of n: 32 limbs, x86_64 *)
@@ -41,6 +46,7 @@ clone Fp_mont as F32
       op jbn_features <- 0,
       op jbn_reg_max <- 0,
       op jbn_unroll_max <- 64,
+      op jbn_sqr_unroll_max <- 64,
       theory BigN.BN.A <= Array32,
       theory BigN.BN2.A <= Array64,
       theory FPC.CTX <= Array129
@@ -63,6 +69,7 @@ clone Bn_exp as E32
  proof gt0_nlimbs by done,
        gt0_nlimbsexp by done,
        nlimbsexp_bnd by done,
+       nlimbs_bnd by done,
        mmul_dom by exact F32.FPB.fp_mmul_dom,
        mmulA by smt(F32.FPB.red_assoc),
        mmulC by smt(F32.FPB.redC),

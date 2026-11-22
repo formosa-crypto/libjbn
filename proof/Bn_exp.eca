@@ -15,6 +15,11 @@ op nlimbsexp: int.                      (* limbs of the exponents *)
 axiom gt0_nlimbsexp: 0 < nlimbsexp.
 (* the limb index of the exponent is a signed word *)
 axiom nlimbsexp_bnd: 64 * nlimbsexp < W64.modulus.
+(* the word indices of the table lookup (__tblsel) do not wrap *)
+axiom nlimbs_bnd: 64 * nlimbs < W64.modulus.
+(* the profile: which constant-time exponentiation _expm_ is (0: the
+   Montgomery ladder; otherwise the fixed window); any value *)
+op jbn_exp_window: int.
 
 clone export JBigNumber.BigN
  with op nlimbs <- nlimbs
@@ -47,6 +52,68 @@ clone Fp_ctx as FPC
       theory BigN <- BigN
       proof gt0_nlimbs by exact gt0_nlimbs.
 import FPC.CTX.
+
+(* The table of the windowed exponentiation (_expmW): 16 numbers. [tblE t i]
+   is its entry i, [tbl_wr t i p] the table with p written at entry i. *)
+clone import PolyArray as TBL with op size <- 16 * nlimbs.
+
+op tblE (tbl: W64.t TBL.t) (i: int) : BN.t =
+  BN.A.init (fun k => tbl.[i * nlimbs + k]).
+
+op tbl_wr (tbl: W64.t TBL.t) (i: int) (p: BN.t) : W64.t TBL.t =
+  TBL.init (fun k => if i * nlimbs <= k < i * nlimbs + nlimbs
+                     then p.[k - i * nlimbs] else tbl.[k]).
+
+lemma tbl_idx i k: 0 <= i < 16 => 0 <= k < nlimbs =>
+  0 <= i * nlimbs + k < 16 * nlimbs.
+proof.
+move=> [Hi0 Hi1] [Hk0 Hk1]; have Hn := gt0_nlimbs.
+have H0: 0 <= i * nlimbs by apply StdOrder.IntOrder.mulr_ge0 => /#.
+have H1: i * nlimbs <= 15 * nlimbs by apply StdOrder.IntOrder.ler_wpmul2r => /#.
+smt().
+qed.
+
+lemma tblE_get tbl i k: 0 <= k < nlimbs => (tblE tbl i).[k] = tbl.[i * nlimbs + k].
+proof. by move=> Hk; rewrite /tblE BN.A.initiE. qed.
+
+(* the entries of a table after writing entry i *)
+lemma tblE_wr tbl i j p: 0 <= i < 16 => 0 <= j < 16 =>
+  tblE (tbl_wr tbl i p) j = if j = i then p else tblE tbl j.
+proof.
+move=> Hi Hj; have Hn := gt0_nlimbs.
+apply BN.A.ext_eq => k Hk.
+rewrite tblE_get // /tbl_wr TBL.initiE 1:tbl_idx //=.
+case: (j = i) => [->|Hji] /=.
+- by rewrite (_: i * nlimbs <= i * nlimbs + k < i * nlimbs + nlimbs) 1:/# /= (_: i * nlimbs + k - i * nlimbs = k) 1:/#.
+- have Hd: j * nlimbs + nlimbs <= i * nlimbs \/ i * nlimbs + nlimbs <= j * nlimbs.
+  + case: (j < i) => Hlt; [left | right].
+    * have ->: j * nlimbs + nlimbs = (j + 1) * nlimbs by ring.
+      by apply StdOrder.IntOrder.ler_wpmul2r => /#.
+    * have ->: i * nlimbs + nlimbs = (i + 1) * nlimbs by ring.
+      by apply StdOrder.IntOrder.ler_wpmul2r => /#.
+  by rewrite (_: !(i * nlimbs <= j * nlimbs + k < i * nlimbs + nlimbs)) 1:/# /= tblE_get.
+qed.
+
+(* the forms of the extracted code *)
+lemma tblEE (tbl: W64.t TBL.t) i:
+  BN.A.init (fun k => tbl.[i * nlimbs + k]) = tblE tbl i.
+proof. by rewrite /tblE. qed.
+
+lemma tbl_wrE (tbl: W64.t TBL.t) i (p: BN.t):
+  TBL.init (fun k => if i * nlimbs <= k < i * nlimbs + nlimbs
+                     then p.[k - i * nlimbs] else tbl.[k])
+  = tbl_wr tbl i p.
+proof. by rewrite /tbl_wr. qed.
+
+(* the same for the entries 0 and 1, whose offsets are simplified *)
+lemma tbl_wrE0 (tbl: W64.t TBL.t) (p: BN.t):
+  TBL.init (fun k => if 0 <= k < nlimbs then p.[k] else tbl.[k]) = tbl_wr tbl 0 p.
+proof. by rewrite /tbl_wr. qed.
+
+lemma tbl_wrE1 (tbl: W64.t TBL.t) (p: BN.t):
+  TBL.init (fun k => if nlimbs <= k < nlimbs + nlimbs then p.[k - nlimbs] else tbl.[k])
+  = tbl_wr tbl 1 p.
+proof. by rewrite /tbl_wr. qed.
 
 (* The monoid: for a context c with [mok c], the representatives x with
    [mdom c x], their product [mmul c x y], and the unit, the ONE part of c.
@@ -411,6 +478,126 @@ move=> Hk; rewrite -BNexp.bn_div_kup 1:/#; apply divz_ge0.
 - by smt(BNexp.bnk_cmp).
 qed.
 
+(* Windows of 4 bits, in the left-to-right scanning of a limb e: with k
+   windows still to scan, t holds e mod 2^(4k), shifted to the top. The
+   next window is the top 4 bits of t (idx), and t is shifted by 4. *)
+lemma mod_pow2_win e m: 0 <= m =>
+  e %% 2 ^ (m + 4) = e %% 2 ^ m + (e %/ 2 ^ m %% 16) * 2 ^ m.
+proof.
+move=> Hm.
+have H2: 0 < 2 ^ m by rewrite StdOrder.IntOrder.expr_gt0.
+have Hp: 2 ^ (m + 4) = 2 ^ m * 16 by rewrite exprD_nneg.
+have Hd: 2 ^ m %| 2 ^ (m + 4) by rewrite Hp dvdz_mulr dvdzz.
+rewrite {1}(divz_eq (e %% 2 ^ (m + 4)) (2 ^ m)) modz_dvd //.
+rewrite Hp -JUtils.divz_mod_mul // 1:/# (mulzC 16).
+by ring.
+qed.
+
+lemma win_idx e k: 0 < k <= 16 => 0 <= e =>
+  (e %% 2 ^ (4 * k) * 2 ^ (64 - 4 * k)) %/ 2 ^ 60 = e %/ 2 ^ (4 * (k - 1)) %% 16.
+proof.
+move=> Hk He; pose m := 4 * (k - 1).
+have Hm: 0 <= m by smt().
+have H2: 0 < 2 ^ m by rewrite StdOrder.IntOrder.expr_gt0.
+have H3: 0 < 2 ^ (60 - m) by rewrite StdOrder.IntOrder.expr_gt0.
+have H60: 2 ^ 60 = 2 ^ m * 2 ^ (60 - m).
++ by rewrite -exprD_nneg 1,2:/# (_: m + (60 - m) = 60) 1:/#.
+rewrite (_: 4 * k = m + 4) 1:/# (_: 64 - (m + 4) = 60 - m) 1:/# H60 divzMpr //.
+have Hp: 2 ^ (m + 4) = 16 * 2 ^ m by rewrite exprD_nneg // mulzC.
+by rewrite Hp JUtils.divz_mod_mul 1:/#.
+qed.
+
+lemma win_t e k: 0 < k <= 16 => 0 <= e =>
+  (e %% 2 ^ (4 * k) * 2 ^ (64 - 4 * k) * 2 ^ 4) %% W64.modulus
+  = e %% 2 ^ (4 * (k - 1)) * 2 ^ (64 - 4 * (k - 1)).
+proof.
+move=> Hk He; pose m := 4 * (k - 1).
+have Hm: 0 <= m by smt().
+have H2: 0 < 2 ^ m by rewrite StdOrder.IntOrder.expr_gt0.
+have H3: 0 < 2 ^ (64 - m) by rewrite StdOrder.IntOrder.expr_gt0.
+have H64: 2 ^ m * 2 ^ (64 - m) = 2 ^ 64.
++ by rewrite -exprD_nneg 1,2:/# (_: m + (64 - m) = 64) 1:/#.
+have Hs: 2 ^ (64 - m) = 2 ^ (60 - m) * 2 ^ 4.
++ by rewrite -exprD_nneg 1,2:/# (_: 60 - m + 4 = 64 - m) 1:/#.
+have Hl := modz_cmp e (2 ^ m) H2.
+have Hlt: e %% 2 ^ m * 2 ^ (64 - m) < 2 ^ 64.
++ by rewrite -H64 StdOrder.IntOrder.ltr_pmul2r //; smt().
+have Hge: 0 <= e %% 2 ^ m * 2 ^ (64 - m) by smt(StdOrder.IntOrder.mulr_ge0).
+rewrite (_: 4 * k = m + 4) 1:/# (_: 64 - (m + 4) = 60 - m) 1:/# mod_pow2_win //.
+rewrite (_: (e %% 2 ^ m + e %/ 2 ^ m %% 16 * 2 ^ m) * 2 ^ (60 - m) * 2 ^ 4
+          = e %% 2 ^ m * 2 ^ (64 - m) + (e %/ 2 ^ m %% 16) * 2 ^ 64).
++ by rewrite -H64 Hs; ring.
+by rewrite (_: W64.modulus = 2 ^ 64) // modzMDr modz_small //; smt().
+qed.
+
+lemma win_exp H e k: 0 < k <= 16 => 0 <= e =>
+  H * 2 ^ (64 - 4 * (k - 1)) + e %/ 2 ^ (4 * (k - 1))
+  = 16 * (H * 2 ^ (64 - 4 * k) + e %/ 2 ^ (4 * k)) + e %/ 2 ^ (4 * (k - 1)) %% 16.
+proof.
+move=> Hk He; pose m := 4 * (k - 1).
+have Hm: 0 <= m by smt().
+have H2: 0 < 2 ^ m by rewrite StdOrder.IntOrder.expr_gt0.
+have Hs: 2 ^ (64 - m) = 16 * 2 ^ (60 - m).
++ by rewrite (_: 64 - m = 4 + (60 - m)) 1:/# exprD_nneg 1,2:/#.
+have Hd: e %/ 2 ^ (m + 4) = e %/ 2 ^ m %/ 16.
++ by rewrite exprD_nneg // divzMr //; smt().
+rewrite (_: 4 * k = m + 4) 1:/# (_: 64 - (m + 4) = 60 - m) 1:/# Hs Hd.
+by rewrite {1}(divz_eq (e %/ 2 ^ m) 16); ring.
+qed.
+
+(* the window and the shift of t, as words *)
+lemma win_step (t: W64.t) e k: 0 < k <= 16 => 0 <= e =>
+  to_uint t = e %% 2 ^ (4 * k) * 2 ^ (64 - 4 * k) =>
+  to_uint (t `>>` W8.of_int 60) = e %/ 2 ^ (4 * (k - 1)) %% 16
+  /\ to_uint (t `<<` W8.of_int 4) = e %% 2 ^ (4 * (k - 1)) * 2 ^ (64 - 4 * (k - 1)).
+proof.
+move=> Hk He Ht; split.
+- by rewrite W64.shr_div_le // Ht win_idx.
+- by rewrite W64.shl_shlw // W64.to_uint_shl // Ht win_t.
+qed.
+
+(* four squarings and the multiplication by the entry of the window *)
+lemma mexp_win c x E d: mok c => mdom c x => 0 <= E => 0 <= d =>
+  mmul c (mexp c x (2 ^ 4 * E)) (mexp c x d) = mexp c x (16 * E + d).
+proof.
+by move=> Hc Hx HE Hd; rewrite -mexpD // 1:/# (_: 2 ^ 4 = 16).
+qed.
+
+(* s squarings *)
+lemma mexp_sqrs c x E s: mok c => mdom c x => 0 <= E => 0 <= s =>
+  mmul c (mexp c x (2 ^ s * E)) (mexp c x (2 ^ s * E)) = mexp c x (2 ^ (s + 1) * E).
+proof.
+move=> Hc Hx HE Hs.
+have H2: 0 <= 2 ^ s by apply StdOrder.IntOrder.expr_ge0.
+rewrite mexp_sqr //; first by apply StdOrder.IntOrder.mulr_ge0.
+by congr; rewrite exprS //; ring.
+qed.
+
+(* The scanned prefix of the exponent: H is the value of the limbs above
+   the one being scanned, e that limb, with k windows still to scan. *)
+op wexp (H e k: int) : int = H * 2 ^ (64 - 4 * k) + e %/ 2 ^ (4 * k).
+
+lemma wexp16 H e: 0 <= e < W64.modulus => wexp H e 16 = H.
+proof. by move=> He; rewrite /wexp /= divz_small. qed.
+
+
+lemma wexp0 H e: wexp H e 0 = e + H * W64.modulus.
+proof. by rewrite /wexp /=; ring. qed.
+
+lemma wexp_ge0 H e k: 0 <= H => 0 <= e => 0 <= wexp H e k.
+proof.
+move=> HH He; rewrite /wexp.
+have H1: 0 <= H * 2 ^ (64 - 4 * k).
++ by apply StdOrder.IntOrder.mulr_ge0 => //; apply StdOrder.IntOrder.expr_ge0.
+have H2: 0 <= e %/ 2 ^ (4 * k).
++ by apply divz_ge0 => //; apply StdOrder.IntOrder.expr_gt0.
+smt().
+qed.
+
+lemma wexp_step H e k: 0 < k <= 16 => 0 <= e =>
+  wexp H e (k - 1) = 16 * wexp H e k + e %/ 2 ^ (4 * (k - 1)) %% 16.
+proof. by move=> Hk He; rewrite /wexp win_exp. qed.
+
 (* BEGIN generated by scripts/xtr_sync.py from src/amd64/ref/extracted/BNE_bn_exp.ec
    (bn_exp@exp.jinc); do not edit: run `make -C proof update` *)
 module type MParam = {
@@ -673,9 +860,9 @@ module M(P: MParam) = {
     a <@ _expm_noct_ (a, tmp, b, ctx);
     return a;
   }
-  proc _expm (x0:BN.t, x1:BN.t,
-                      b:BNexp.t, ctx:W64.t FPC.CTX.t) : BN.t *
-                                                                BN.t = {
+  proc _expmML (x0:BN.t, x1:BN.t,
+                        b:BNexp.t, ctx:W64.t FPC.CTX.t) : BN.t *
+                                                                  BN.t = {
     var inc:int;
     var _b:BNexp.t;
     var _ctx:W64.t FPC.CTX.t;
@@ -752,8 +939,8 @@ module M(P: MParam) = {
     (x0, x1) <@ BNB_M._cswap_mask_ (x0, x1, mask);
     return (x0, x1);
   }
-  proc _expm_ (x0:BN.t, a:BN.t,
-                       b:BNexp.t, ctx:W64.t FPC.CTX.t) : BN.t = {
+  proc _expmML_ (x0:BN.t, a:BN.t,
+                         b:BNexp.t, ctx:W64.t FPC.CTX.t) : BN.t = {
     var _x1:BN.t;
     var x1:BN.t;
     var exp0:BN.t;
@@ -767,12 +954,12 @@ module M(P: MParam) = {
     exp0 <- (BN.A.init (fun i => ctx.[((2 * nlimbs) + i)]));
     x0 <@ BNB_M._mov_ (x0, exp0);
     b <- b;
-    (x0,  _0) <@ _expm (x0, x1, b, ctx);
+    (x0,  _0) <@ _expmML (x0, x1, b, ctx);
     x0 <- x0;
     return x0;
   }
-  proc _expmU_ (a:BN.t, b:BNexp.t,
-                        ctx:W64.t FPC.CTX.t) : BN.t = {
+  proc _expmMLU_ (a:BN.t, b:BNexp.t,
+                          ctx:W64.t FPC.CTX.t) : BN.t = {
     var _x1:BN.t;
     var x1:BN.t;
     var exp0:BN.t;
@@ -786,8 +973,183 @@ module M(P: MParam) = {
     exp0 <- (BN.A.init (fun i => ctx.[((2 * nlimbs) + i)]));
     a <@ BNB_M._mov_ (a, exp0);
     b <- b;
-    (a,  _0) <@ _expm (a, x1, b, ctx);
+    (a,  _0) <@ _expmML (a, x1, b, ctx);
     a <- a;
+    return a;
+  }
+  proc __tblsel (r:BN.t, tbl:W64.t TBL.t, idx:W64.t) : 
+  BN.t = {
+    var k:W64.t;
+    var t:W64.t;
+    var i:int;
+    var zf:bool;
+    k <- (W64.of_int 0);
+    while ((k \ult (W64.of_int nlimbs))) {
+      t <- tbl.[(W64.to_uint k)];
+      i <- 1;
+      while ((i < 16)) {
+        zf <- (idx = (W64.of_int i));
+        t <- (zf ? tbl.[(W64.to_uint (k + (W64.of_int (i * nlimbs))))] : t);
+        i <- (i + 1);
+      }
+      r.[(W64.to_uint k)] <- t;
+      k <- (k + (W64.of_int 1));
+    }
+    return r;
+  }
+  proc _expmW (r:BN.t, a:BN.t,
+                       b:BNexp.t, ctx:W64.t FPC.CTX.t) : BN.t = {
+    var _r:BN.t;
+    var _a:BN.t;
+    var _b:BNexp.t;
+    var _ctx:W64.t FPC.CTX.t;
+    var one:BN.t;
+    var tbl:W64.t TBL.t;
+    var p:BN.t;
+    var i:int;
+    var q:BN.t;
+    var j:W64.t;
+    var _j:W64.t;
+    var t:W64.t;
+    var _t:W64.t;
+    var k:W64.t;
+    var _k:W64.t;
+    var idx:W64.t;
+    var sel:BN.t;
+    var psel:BN.t;
+    var ptbl:W64.t TBL.t;
+    var s:int;
+    _a <- witness;
+    _b <- witness;
+    _ctx <- witness;
+    _r <- witness;
+    one <- witness;
+    p <- witness;
+    psel <- witness;
+    ptbl <- witness;
+    q <- witness;
+    sel <- witness;
+    tbl <- witness;
+    _r <- r;
+    _a <- a;
+    _b <- b;
+    _ctx <- ctx;
+    one <- (BN.A.init (fun i_0 => ctx.[((2 * nlimbs) + i_0)]));
+    p <- (BN.A.init (fun i_0 => tbl.[(0 + i_0)]));
+    p <@ BNB_M._mov_ (p, one);
+    tbl <-
+    (TBL.init
+    (fun i_0 => (if (0 <= i_0 < (0 + nlimbs)) then p.[(i_0 - 0)] else tbl.[i_0]))
+    );
+    a <- _a;
+    p <- (BN.A.init (fun i_0 => tbl.[(nlimbs + i_0)]));
+    p <@ BNB_M._mov_ (p, a);
+    tbl <-
+    (TBL.init
+    (fun i_0 => (if (nlimbs <= i_0 < (nlimbs + nlimbs)) then p.[(i_0 - nlimbs)] else 
+                tbl.[i_0]))
+    );
+    i <- 2;
+    while ((i < 16)) {
+      a <- _a;
+      p <- (BN.A.init (fun i_0 => tbl.[((i * nlimbs) + i_0)]));
+      p <@ BNB_M._mov_ (p, a);
+      tbl <-
+      (TBL.init
+      (fun i_0 => (if ((i * nlimbs) <= i_0 < ((i * nlimbs) + nlimbs)) then p.[(i_0 -
+                                                                  (i * nlimbs))] else 
+                  tbl.[i_0]))
+      );
+      q <- (BN.A.init (fun i_0 => tbl.[(((i - 1) * nlimbs) + i_0)]));
+      p <- (BN.A.init (fun i_0 => tbl.[((i * nlimbs) + i_0)]));
+      ctx <- _ctx;
+      p <@ P.fun_mulU (p, q, ctx);
+      tbl <-
+      (TBL.init
+      (fun i_0 => (if ((i * nlimbs) <= i_0 < ((i * nlimbs) + nlimbs)) then p.[(i_0 -
+                                                                  (i * nlimbs))] else 
+                  tbl.[i_0]))
+      );
+      i <- (i + 1);
+    }
+    r <- _r;
+    ctx <- _ctx;
+    one <- (BN.A.init (fun i_0 => ctx.[((2 * nlimbs) + i_0)]));
+    r <@ BNB_M._mov_ (r, one);
+    j <- (W64.of_int nlimbsexp);
+    while ((j <> (W64.of_int 0))) {
+      j <- (j - (W64.of_int 1));
+      _j <- j;
+      b <- _b;
+      t <- b.[(W64.to_uint j)];
+      _t <- t;
+      k <- (W64.of_int 16);
+      while ((k <> (W64.of_int 0))) {
+        _k <- k;
+        t <- _t;
+        idx <- t;
+        idx <- (idx `>>` (W8.of_int 60));
+        t <- (t `<<` (W8.of_int 4));
+        _t <- t;
+        psel <- sel;
+        ptbl <- tbl;
+        psel <@ __tblsel (psel, ptbl, idx);
+        sel <- psel;
+        s <- 0;
+        while ((s < 4)) {
+          ctx <- _ctx;
+          r <@ P.fun_sqrU (r, ctx);
+          s <- (s + 1);
+        }
+        psel <- sel;
+        ctx <- _ctx;
+        r <@ P.fun_mulU (r, psel, ctx);
+        k <- _k;
+        k <- (k - (W64.of_int 1));
+      }
+      j <- _j;
+    }
+    return r;
+  }
+  proc _expmW_ (r:BN.t, a:BN.t,
+                        b:BNexp.t, ctx:W64.t FPC.CTX.t) : BN.t = {
+    
+    r <- r;
+    a <- a;
+    b <- b;
+    r <@ _expmW (r, a, b, ctx);
+    r <- r;
+    return r;
+  }
+  proc _expmWU_ (a:BN.t, b:BNexp.t,
+                         ctx:W64.t FPC.CTX.t) : BN.t = {
+    var _tmp:BN.t;
+    var tmp:BN.t;
+    _tmp <- witness;
+    tmp <- witness;
+    tmp <- _tmp;
+    tmp <@ BNB_M._mov_ (tmp, a);
+    a <@ _expmW_ (a, tmp, b, ctx);
+    return a;
+  }
+  proc _expm_ (r:BN.t, a:BN.t,
+                       b:BNexp.t, ctx:W64.t FPC.CTX.t) : BN.t = {
+    
+    if ((jbn_exp_window = 0)) {
+      r <@ _expmML_ (r, a, b, ctx);
+    } else {
+      r <@ _expmW_ (r, a, b, ctx);
+    }
+    return r;
+  }
+  proc _expmU_ (a:BN.t, b:BNexp.t,
+                        ctx:W64.t FPC.CTX.t) : BN.t = {
+    
+    if ((jbn_exp_window = 0)) {
+      a <@ _expmMLU_ (a, b, ctx);
+    } else {
+      a <@ _expmWU_ (a, b, ctx);
+    }
     return a;
   }
 }.
@@ -956,8 +1318,8 @@ lemma _expmU_noct__ll: islossless M(P)._expmU_noct_.
 proof. by proc; call _expm_noct__ll; call BNB._mov__ll; auto. qed.
 
 (* the Montgomery ladder (constant time), from x0 = 1 and x1 = a *)
-hoare _expm_h c0 (a0: BN.t) e0:
- M(P)._expm
+hoare _expmML_h c0 (a0: BN.t) e0:
+ M(P)._expmML
  : ctx = c0 /\ b = e0 /\ mok c0 /\ mdom c0 (bn a0)
    /\ bn x0 = mone c0 /\ bn x1 = bn a0
    ==> BN.bn res.`1 = mexp c0 (bn a0) (BNexp.bn e0).
@@ -1055,7 +1417,7 @@ split.
   by move=> _; case: (m0 = W64.zero) Hx => /=.
 qed.
 
-lemma _expm_ll: islossless M(P)._expm.
+lemma _expmML_ll: islossless M(P)._expmML.
 proof.
 proc.
 call BNB._cswap_mask__ll; wp.
@@ -1072,11 +1434,11 @@ while (true) (j - inc).
 by auto => /#.
 qed.
 
-lemma _expm__ll: islossless M(P)._expm_.
-proof. by proc; wp; call _expm_ll; wp; call BNB._mov__ll; wp; call BNB._mov__ll; auto. qed.
+lemma _expmML__ll: islossless M(P)._expmML_.
+proof. by proc; wp; call _expmML_ll; wp; call BNB._mov__ll; wp; call BNB._mov__ll; auto. qed.
 
-lemma _expmU__ll: islossless M(P)._expmU_.
-proof. by proc; wp; call _expm_ll; wp; call BNB._mov__ll; wp; call BNB._mov__ll; auto. qed.
+lemma _expmMLU__ll: islossless M(P)._expmMLU_.
+proof. by proc; wp; call _expmML_ll; wp; call BNB._mov__ll; wp; call BNB._mov__ll; auto. qed.
 
 (* left-to-right square-and-multiply (variable time) *)
 
@@ -1474,25 +1836,25 @@ ecall (BNB._mov__h a).
 by wp; skip => /> Hc HA r1 ->.
 qed.
 
-hoare _expm__h _c _a _b:
- M(P)._expm_
+hoare _expmML__h _c _a _b:
+ M(P)._expmML_
  : ctx = _c /\ a = _a /\ b = _b /\ mok _c /\ mdom _c (bn _a)
    ==> bn res = mexp _c (bn _a) (BNexp.bn _b).
 proof.
 proc.
-wp; ecall (_expm_h _c _a _b).
+wp; ecall (_expmML_h _c _a _b).
 wp; ecall (BNB._mov__h exp0).
 wp; ecall (BNB._mov__h a).
 by wp; skip => /> Hc HA r1 -> r0 ->.
 qed.
 
-hoare _expmU__h _c _a _b:
- M(P)._expmU_
+hoare _expmMLU__h _c _a _b:
+ M(P)._expmMLU_
  : ctx = _c /\ a = _a /\ b = _b /\ mok _c /\ mdom _c (bn _a)
    ==> bn res = mexp _c (bn _a) (BNexp.bn _b).
 proof.
 proc.
-wp; ecall (_expm_h _c _a _b).
+wp; ecall (_expmML_h _c _a _b).
 wp; ecall (BNB._mov__h exp0).
 wp; ecall (BNB._mov__h a).
 by wp; skip => /> Hc HA r1 -> r0 ->.
@@ -1507,6 +1869,240 @@ proc.
 wp; ecall (_expmLR_noct_h _c (bn _a) _b).
 wp; ecall (BNB._mov__h exp0).
 by wp; skip => /> Hc HA r1 _.
+qed.
+
+(* the windowed exponentiation (constant time) *)
+
+(* the lookup: entry idx of the table (every entry is read) *)
+hoare __tblsel_h (t0: W64.t TBL.t) (i0: W64.t):
+ M(P).__tblsel
+ : tbl = t0 /\ idx = i0 /\ to_uint i0 < 16
+   ==> res = tblE t0 (to_uint i0).
+proof.
+have Hn := gt0_nlimbs; have Hb := nlimbs_bnd.
+have Hnn: to_uint (W64.of_int nlimbs) = nlimbs.
++ by rewrite W64.of_uintK modz_small //; move: Hb Hn => /#.
+proc.
+while (0 <= to_uint k <= nlimbs /\ tbl = t0 /\ idx = i0 /\ to_uint i0 < 16
+       /\ forall q, 0 <= q < to_uint k => r.[q] = t0.[to_uint i0 * nlimbs + q]).
+- wp.
+  while (1 <= i <= 16 /\ 0 <= to_uint k < nlimbs /\ tbl = t0 /\ idx = i0 /\ to_uint i0 < 16
+         /\ t = t0.[(if to_uint i0 < i then to_uint i0 else 0) * nlimbs + to_uint k]).
+  + wp; skip => /> &hr Hi0 Hi1 Hk0 Hk1 Hidx Hi.
+    have Hix := tbl_idx i{hr} (to_uint k{hr}) _ _; 1,2: smt().
+    have Hix0 := tbl_idx i{hr} 0 _ _; 1,2: smt().
+    have Hm: to_uint (W64.of_int (i{hr} * nlimbs)) = i{hr} * nlimbs.
+    * by rewrite W64.of_uintK modz_small //; move: Hix0 Hb Hn => /#.
+    have Hu: to_uint (k{hr} + W64.of_int (i{hr} * nlimbs)) = to_uint k{hr} + i{hr} * nlimbs.
+    * by rewrite W64.to_uintD_small Hm //; move: Hix Hb Hn => /#.
+    have Hz: (i0 = W64.of_int i{hr}) = (to_uint i0 = i{hr}).
+    * by rewrite W64.to_uint_eq W64.of_uintK modz_small //; move: Hi0 Hi Hb Hn => /#.
+    rewrite Hz Hu; split; first smt().
+    by case: (to_uint i0 = i{hr}) => [->|Hne] /=; smt().
+  wp; skip => /> &hr Hk0 Hk1 Hidx Hr.
+  rewrite W64.ultE Hnn => Hlt.
+  split.
+  + split; first done.
+    by have ->: (if to_uint i0 < 1 then to_uint i0 else 0) = 0 by smt(W64.to_uint_cmp).
+  move=> i1 Hge Hi0 Hi1 _.
+  have Hk: to_uint (k{hr} + W64.one) = to_uint k{hr} + 1.
+  + by rewrite W64.to_uintD_small /=; move: Hlt Hb Hn => /#.
+  rewrite Hk; split; first smt().
+  move=> q Hq0 Hq1; rewrite BN.A.get_setE 1:/#.
+  have ->: (if to_uint i0 < i1 then to_uint i0 else 0) = to_uint i0 by smt().
+  by case: (q = to_uint k{hr}) => [->|Hne] //=; apply Hr => /#.
+wp; skip => /> &hr Hidx.
+split; first smt().
+move=> k0 r0; rewrite W64.ultE Hnn => Hge Hk0 Hk1 Hr.
+apply BN.A.ext_eq => q Hq.
+by rewrite tblE_get // Hr /#.
+qed.
+
+(* fixed window of 4 bits: a^e, from the table of a^0 .. a^15 *)
+hoare _expmW_h c0 (a0: BN.t) e0:
+ M(P)._expmW
+ : ctx = c0 /\ a = a0 /\ b = e0 /\ mok c0 /\ mdom c0 (bn a0)
+   ==> bn res = mexp c0 (bn a0) (BNexp.bn e0).
+proof.
+have Hn := gt0_nlimbs; have Hne := gt0_nlimbsexp; have Hbe := nlimbsexp_bnd.
+have Hnn: to_uint (W64.of_int nlimbsexp) = nlimbsexp.
++ by rewrite W64.of_uintK modz_small //; move: Hbe Hne => /#.
+proc.
+while (0 <= to_uint j <= nlimbsexp /\ _b = e0 /\ _ctx = c0 /\ mok c0 /\ mdom c0 (bn a0)
+       /\ (forall q, 0 <= q < 16 => bn (tblE tbl q) = mexp c0 (bn a0) q)
+       /\ bn r = mexp c0 (bn a0) (BNexp.bnkup (to_uint j) e0)).
+- wp.
+  while (0 <= to_uint _j < nlimbsexp /\ _b = e0 /\ _ctx = c0 /\ mok c0 /\ mdom c0 (bn a0)
+         /\ (forall q, 0 <= q < 16 => bn (tblE tbl q) = mexp c0 (bn a0) q)
+         /\ 0 <= to_uint k <= 16
+         /\ to_uint _t = to_uint e0.[to_uint _j] %% 2 ^ (4 * to_uint k) * 2 ^ (64 - 4 * to_uint k)
+         /\ bn r = mexp c0 (bn a0) (wexp (BNexp.bnkup (to_uint _j + 1) e0) (to_uint e0.[to_uint _j]) (to_uint k))).
+  + wp; ecall (fun_mulU_h c0 (bn r) (bn psel)).
+    wp.
+    while (0 <= s <= 4 /\ _ctx = c0 /\ mok c0 /\ mdom c0 (bn a0)
+           /\ 0 <= to_uint _j < nlimbsexp
+           /\ bn r = mexp c0 (bn a0) (2 ^ s * wexp (BNexp.bnkup (to_uint _j + 1) e0) (to_uint e0.[to_uint _j]) (to_uint _k))).
+    * wp; ecall (fun_sqrU_h c0 (bn r)); wp; skip => /> &hr Hs0 Hs1 Hc HA Hj0 Hj1 Hr Hs.
+      move: Hr; pose E := wexp _ _ _; move=> Hr.
+      have HE: 0 <= E by apply wexp_ge0; [apply bnkup_ge0 => /# | smt(W64.to_uint_cmp)].
+      have HE2: 0 <= 2 ^ s{hr} * E by apply StdOrder.IntOrder.mulr_ge0 => //; apply StdOrder.IntOrder.expr_ge0.
+      split; first by rewrite Hr; apply mexp_dom.
+      move=> _ r1 ->; split; first smt().
+      by rewrite Hr mexp_sqrs.
+    wp; ecall (__tblsel_h tbl idx).
+    wp; skip => /> &hr Hj0 Hj1 Hc HA HT Hk0 Hk1 Ht Hr Hk.
+    have Hkp: 0 < to_uint k{hr} by move: Hk; rewrite W64.to_uint_eq /= /#.
+    have Hkd := to_uint_dec k{hr} Hkp.
+    have He := W64.to_uint_cmp e0.[to_uint _j{hr}].
+    have [Hi Hs] := win_step _t{hr} (to_uint e0.[to_uint _j{hr}]) (to_uint k{hr}) _ _ Ht; 1,2: smt().
+    have HH: 0 <= BNexp.bnkup (to_uint _j{hr} + 1) e0 by apply bnkup_ge0 => /#.
+    have HE := wexp_ge0 (BNexp.bnkup (to_uint _j{hr} + 1) e0) (to_uint e0.[to_uint _j{hr}]) (to_uint k{hr}) HH _; first smt().
+    have Hd: 0 <= to_uint (_t{hr} `>>` W8.of_int 60) < 16 by rewrite Hi; smt(modz_ge0 ltz_pmod).
+    split; first smt().
+    move=> _ r0 s0 Hs4 Hs0 Hs1 Hr0.
+    have Hs04: s0 = 4 by smt().
+    move: Hr0; rewrite Hs04 => Hr0.
+    split.
+    + split; first by rewrite Hr0; apply mexp_dom => //; smt(StdOrder.IntOrder.expr_ge0).
+      by rewrite HT 1:/#; apply mexp_dom => /#.
+    move=> _ _ r1 ->.
+    rewrite Hkd; split; first smt().
+    split; first exact Hs.
+    rewrite Hr0 HT 1:/# mexp_win //; first smt().
+    by rewrite wexp_step 1,2:/# Hi.
+  wp; skip => /> &hr Hj0 Hj1 Hc HA HT Hr Hj.
+  have Hjp: 0 < to_uint j{hr} by move: Hj; rewrite W64.to_uint_eq /= /#.
+  have Hjd := to_uint_dec j{hr} Hjp.
+  have He := W64.to_uint_cmp e0.[to_uint j{hr} - 1].
+  rewrite !Hjd (_: to_uint j{hr} - 1 + 1 = to_uint j{hr}) 1:/#.
+  split.
+  + split; first smt().
+    split; first by rewrite modz_small //; move: He => /= /#.
+    by rewrite wexp16.
+  move=> t1 r1 _ _ _ ->.
+  split; first smt().
+  rewrite wexp0; congr.
+  by have -> := BNexp.bnkupP (to_uint j{hr}) e0 _; first smt().
+(* the table *)
+wp; ecall (BNB._mov__h one).
+wp.
+while (2 <= i <= 16 /\ _a = a0 /\ _b = e0 /\ _ctx = c0 /\ mok c0 /\ mdom c0 (bn a0)
+       /\ (forall q, 0 <= q < i => bn (tblE tbl q) = mexp c0 (bn a0) q)).
+- wp; ecall (fun_mulU_h c0 (bn p) (bn q)).
+  wp; ecall (BNB._mov__h a).
+  wp; skip => /> &hr Hi0 Hi1 Hc HA HT Hi.
+  rewrite !tbl_wrE !tblEE.
+  have E1: tblE (tbl_wr tbl{hr} i{hr} a0) i{hr} = a0 by rewrite tblE_wr /#.
+  have E2: tblE (tbl_wr tbl{hr} i{hr} a0) (i{hr} - 1) = tblE tbl{hr} (i{hr} - 1) by rewrite tblE_wr /#.
+  rewrite E1 E2.
+  split; first by rewrite HT 1:/#; split => //; apply mexp_dom => /#.
+  move=> _ _ r1 Hr1; split; first smt().
+  move=> q Hq0 Hq1; rewrite tblE_wr 1,2:/#.
+  case: (q = i{hr}) => [->|Hq] /=.
+  + by rewrite Hr1 HT 1:/# -mexpS 1:/#; congr; ring.
+  + by rewrite tblE_wr 1,2:/# Hq /= HT /#.
+wp; ecall (BNB._mov__h a).
+wp; ecall (BNB._mov__h one).
+wp; skip => /> Hc HA.
+split.
+- move=> q Hq0 Hq1.
+  rewrite tbl_wrE0 tbl_wrE1 tblE_wr 1,2:/#.
+  case: (q = 1) => [->|Hq] /=; first by rewrite mexp1.
+  by rewrite tblE_wr 1,2:/# (_: q = 0) 1:/# /= mexp0 /mone /FPC.ctxONE.
+- move=> i1 tbl1 Hi16 Hi2 Hi16' HT.
+  rewrite Hnn; split; first smt().
+  split; first by move=> q Hq0 Hq1; apply HT => /#.
+  by rewrite BNexp.bnkup_nlimbs mexp0 /mone /FPC.ctxONE.
+qed.
+
+lemma __tblsel_ll: islossless M(P).__tblsel.
+proof.
+have Hn := gt0_nlimbs; have Hb := nlimbs_bnd.
+have Hnn: to_uint (W64.of_int nlimbs) = nlimbs.
++ by rewrite W64.of_uintK modz_small //; move: Hb Hn => /#.
+proc.
+while (0 <= to_uint k <= nlimbs) (nlimbs - to_uint k).
+- move=> z; wp.
+  while (true) (16 - i).
+  + by move=> z'; wp; skip => /#.
+  wp; skip => /> &hr Hk0 Hk1; rewrite W64.ultE Hnn => Hlt.
+  have Hk: to_uint (k{hr} + W64.one) = to_uint k{hr} + 1.
+  + by rewrite W64.to_uintD_small /=; move: Hlt Hb Hn => /#.
+  by rewrite Hk /#.
+wp; skip => />; split; first smt().
+by move=> k0; rewrite W64.ultE Hnn /#.
+qed.
+
+lemma _expmW_ll: islossless M(P)._expmW.
+proof.
+proc.
+while (true) (to_uint j).
+- move=> z; wp.
+  while (true) (to_uint k).
+  + move=> z'; wp; call fun_mulU_ll; wp.
+    while (true) (4 - s).
+    * by move=> z''; wp; call fun_sqrU_ll; wp; skip => /#.
+    wp; call __tblsel_ll; wp; skip => /> &hr Hk.
+    have Hkp: 0 < to_uint k{hr} by move: Hk; rewrite W64.to_uint_eq /=; smt(W64.to_uint_cmp).
+    have Hkd := to_uint_dec k{hr} Hkp.
+    by rewrite Hkd /#.
+  wp; skip => /> &hr Hj.
+  have Hjp: 0 < to_uint j{hr} by move: Hj; rewrite W64.to_uint_eq /=; smt(W64.to_uint_cmp).
+  have Hjd := to_uint_dec j{hr} Hjp.
+  move=> k0; rewrite Hjd; split; last smt().
+  by move=> Hk0; rewrite W64.to_uint_eq /=; smt(W64.to_uint_cmp).
+wp; call BNB._mov__ll; wp.
+while (true) (16 - i).
+- by move=> z; wp; call fun_mulU_ll; wp; call BNB._mov__ll; wp; skip => /#.
+wp; call BNB._mov__ll; wp; call BNB._mov__ll; wp; skip => /> i0; split; first smt().
+by move=> _ j0 Hj0; rewrite W64.to_uint_eq /=; smt(W64.to_uint_cmp).
+qed.
+
+lemma _expmW__ll: islossless M(P)._expmW_.
+proof. by proc; wp; call _expmW_ll; auto. qed.
+
+lemma _expmWU__ll: islossless M(P)._expmWU_.
+proof. by proc; call _expmW__ll; call BNB._mov__ll; auto. qed.
+
+hoare _expmW__h _c _a _b:
+ M(P)._expmW_
+ : ctx = _c /\ a = _a /\ b = _b /\ mok _c /\ mdom _c (bn _a)
+   ==> bn res = mexp _c (bn _a) (BNexp.bn _b).
+proof. by proc; wp; ecall (_expmW_h _c _a _b); auto. qed.
+
+hoare _expmWU__h _c _a _b:
+ M(P)._expmWU_
+ : ctx = _c /\ a = _a /\ b = _b /\ mok _c /\ mdom _c (bn _a)
+   ==> bn res = mexp _c (bn _a) (BNexp.bn _b).
+proof.
+proc.
+ecall (_expmW__h _c tmp _b).
+ecall (BNB._mov__h a).
+by wp; skip => /> Hc HA r1 ->.
+qed.
+
+(* the constant-time exponentiation of the profile: the Montgomery ladder
+   or the fixed window, which have the same contract *)
+lemma _expm__ll: islossless M(P)._expm_.
+proof. by proc; if; [call _expmML__ll | call _expmW__ll]. qed.
+
+lemma _expmU__ll: islossless M(P)._expmU_.
+proof. by proc; if; [call _expmMLU__ll | call _expmWU__ll]. qed.
+
+hoare _expm__h _c _a _b:
+ M(P)._expm_
+ : ctx = _c /\ a = _a /\ b = _b /\ mok _c /\ mdom _c (bn _a)
+   ==> bn res = mexp _c (bn _a) (BNexp.bn _b).
+proof.
+by proc; if; [call (_expmML__h _c _a _b) | call (_expmW__h _c _a _b)].
+qed.
+
+hoare _expmU__h _c _a _b:
+ M(P)._expmU_
+ : ctx = _c /\ a = _a /\ b = _b /\ mok _c /\ mdom _c (bn _a)
+   ==> bn res = mexp _c (bn _a) (BNexp.bn _b).
+proof.
+by proc; if; [call (_expmMLU__h _c _a _b) | call (_expmWU__h _c _a _b)].
 qed.
 
 end section.

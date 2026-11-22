@@ -13,7 +13,7 @@ from Jasmin require import Jcheck JSafety JByte_array JMemory.
 require import RsaPssXtr_safety.
 require import ByteArrayInit JbnSafetyLib.
 require Bn_mulsel_safety Fp_mont_safety Bn_exp_safety.
-require import BArray32 BArray128 BArray136 BArray256 SBArray256_128 BArray264 BArray512 SBArray512_256 BArray520 SBArray520_128 SBArray520_256 BArray1032 SBArray1032_256 SBArray1032_512.
+require import BArray32 BArray128 BArray136 BArray256 SBArray256_128 BArray264 BArray512 SBArray512_256 BArray520 SBArray520_128 SBArray520_256 BArray1032 SBArray1032_256 SBArray1032_512 BArray2048 SBArray2048_128.
 
 clone Fp_mont_safety as F32 with
   op nlimbs <- 32,
@@ -32,7 +32,10 @@ clone Fp_mont_safety as F16 with
   theory BA_32n_8 <- BArray520,
   theory SB_16n__8n <- SBArray256_128,
   theory SB_32n_8__16n <- SBArray520_256,
-  theory SB_32n_8__8n <- SBArray520_128
+  theory SB_32n_8__8n <- SBArray520_128,
+  theory BA_128n <- BArray2048,
+  theory SB_128n__8n <- SBArray2048_128,
+  op jbn_exp_window <- 4
   proof gt0_nlimbs by done, nlimbs_bnd by done.
 
 clone Bn_mulsel_safety as S32 with
@@ -40,6 +43,7 @@ clone Bn_mulsel_safety as S32 with
   op jbn_features <- 0,
   op jbn_reg_max <- 0,
   op jbn_unroll_max <- 64,
+  op jbn_sqr_unroll_max <- 64,
   theory BA_8n <- BArray256,
   theory BA_8n_8 <- BArray264,
   theory BA_16n <- BArray512,
@@ -51,6 +55,7 @@ clone Bn_mulsel_safety as S16 with
   op jbn_features <- 0,
   op jbn_reg_max <- 0,
   op jbn_unroll_max <- 64,
+  op jbn_sqr_unroll_max <- 64,
   theory BA_8n <- BArray128,
   theory BA_8n_8 <- BArray136,
   theory BA_16n <- BArray256,
@@ -456,9 +461,9 @@ proof.
 by proc; inline *; sim.
 qed.
 
-lemma h__H__FPM__EXP___expm__safety _x0 _b_x0 _a _b_a _b _b_b _ctx _b_ctx : h__H__FPM__EXP___expm__spec _x0 _b_x0 _a _b_a _b _b_b _ctx _b_ctx.
+lemma h__H__FPM__EXP___expm__safety _r _b_r _a _b_a _b _b_b _ctx _b_ctx : h__H__FPM__EXP___expm__spec _r _b_r _a _b_a _b _b_b _ctx _b_ctx.
 proof.
-have h := F16.FPB.BNE._expm__proof PE16 PE16_fun_mulU_h PE16_fun_sqrU_h _x0 _b_x0 _a _b_a _b _b_b _ctx _b_ctx.
+have h := F16.FPB.BNE._expm__proof PE16 PE16_fun_mulU_h PE16_fun_sqrU_h _r _b_r _a _b_a _b _b_b _ctx _b_ctx.
 rewrite /h__H__FPM__EXP___expm__spec.
 by conseq eq_h__H__FPM__EXP___expm_ h => /> /#.
 qed.
