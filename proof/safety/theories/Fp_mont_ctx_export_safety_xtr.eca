@@ -46,16 +46,16 @@ module type MParam = {
                                  b_b:BA_8n.t, ctx:BA_32n_8.t,
                                  b_ctx:BA_32n_8.t) : BA_8n.t *
                                                       BA_8n.t * trace
-  proc _expm_ (x0:BA_8n.t, b_x0:BA_8n.t, a:BA_8n.t,
+  proc _expmML_ (x0:BA_8n.t, b_x0:BA_8n.t, a:BA_8n.t,
+                              b_a:BA_8n.t, b:BA_8n.t, b_b:BA_8n.t,
+                              ctx:BA_32n_8.t, b_ctx:BA_32n_8.t) : BA_8n.t *
+                                                                    BA_8n.t *
+                                                                    trace
+  proc _expm_ (r:BA_8n.t, b_r:BA_8n.t, a:BA_8n.t,
                             b_a:BA_8n.t, b:BA_8n.t, b_b:BA_8n.t,
                             ctx:BA_32n_8.t, b_ctx:BA_32n_8.t) : BA_8n.t *
                                                                   BA_8n.t *
                                                                   trace
-  proc _expmW_ (r:BA_8n.t, b_r:BA_8n.t, a:BA_8n.t,
-                             b_a:BA_8n.t, b:BA_8n.t, b_b:BA_8n.t,
-                             ctx:BA_32n_8.t, b_ctx:BA_32n_8.t) : BA_8n.t *
-                                                                   BA_8n.t *
-                                                                   trace
   proc _invm_ (r:BA_8n.t, b_r:BA_8n.t, a:BA_8n.t,
                        b_a:BA_8n.t, ctx:BA_32n_8.t, b_ctx:BA_32n_8.t) : 
   BA_8n.t * BA_8n.t * trace
@@ -726,7 +726,7 @@ module M(P: MParam) = {
     param_4 <- a;
     param_5 <- b;
     param_6 <- ctx;
-    (aux_3, aux_4, tmp__trace) <@ P._expmW_ (param_3, b_param_1,
+    (aux_3, aux_4, tmp__trace) <@ P._expm_ (param_3, b_param_1,
     param_4, (BA_8n.init_arr (W8.of_int 255)), param_5,
     (BA_8n.init_arr (W8.of_int 255)), param_6,
     (BA_32n_8.init_arr (W8.of_int 255)));
@@ -861,7 +861,7 @@ module M(P: MParam) = {
     param_4 <- a;
     param_5 <- b;
     param_6 <- ctx;
-    (aux_3, aux_4, tmp__trace) <@ P._expm_ (param_3, b_param_1,
+    (aux_3, aux_4, tmp__trace) <@ P._expmML_ (param_3, b_param_1,
     param_4, (BA_8n.init_arr (W8.of_int 255)), param_5,
     (BA_8n.init_arr (W8.of_int 255)), param_6,
     (BA_32n_8.init_arr (W8.of_int 255)));
@@ -1437,20 +1437,20 @@ op _expm_noct__pre (_r : BA_8n.t) (_b_r : BA_8n.t) (_a : BA_8n.t) (_b_a : BA_8n.
 op _expm_noct__post (_r : BA_8n.t) (_b_r : BA_8n.t) (_a : BA_8n.t) (_b_a : BA_8n.t) (_b : BA_8n.t) (_b_b : BA_8n.t) (_ctx : BA_32n_8.t) (_b_ctx : BA_32n_8.t) (_res : BA_8n.t * BA_8n.t * trace) =
   (BA_8n.is_init _res.`2 0 (8 * nlimbs)).
 
-op _expm__pre (_x0 : BA_8n.t) (_b_x0 : BA_8n.t) (_a : BA_8n.t) (_b_a : BA_8n.t) (_b : BA_8n.t) (_b_b : BA_8n.t) (_ctx : BA_32n_8.t) (_b_ctx : BA_32n_8.t) =
+op _expmML__pre (_x0 : BA_8n.t) (_b_x0 : BA_8n.t) (_a : BA_8n.t) (_b_a : BA_8n.t) (_b : BA_8n.t) (_b_b : BA_8n.t) (_ctx : BA_32n_8.t) (_b_ctx : BA_32n_8.t) =
   (((BA_8n.is_init _b_a 0 (8 * nlimbs)) /\
     (BA_8n.is_init _b_b 0 (8 * nlimbs))) /\
    (BA_32n_8.is_init _b_ctx 0 (8 * ((4 * nlimbs) + 1)))).
 
-op _expm__post (_x0 : BA_8n.t) (_b_x0 : BA_8n.t) (_a : BA_8n.t) (_b_a : BA_8n.t) (_b : BA_8n.t) (_b_b : BA_8n.t) (_ctx : BA_32n_8.t) (_b_ctx : BA_32n_8.t) (_res : BA_8n.t * BA_8n.t * trace) =
+op _expmML__post (_x0 : BA_8n.t) (_b_x0 : BA_8n.t) (_a : BA_8n.t) (_b_a : BA_8n.t) (_b : BA_8n.t) (_b_b : BA_8n.t) (_ctx : BA_32n_8.t) (_b_ctx : BA_32n_8.t) (_res : BA_8n.t * BA_8n.t * trace) =
   (BA_8n.is_init _res.`2 0 (8 * nlimbs)).
 
-op _expmW__pre (_r : BA_8n.t) (_b_r : BA_8n.t) (_a : BA_8n.t) (_b_a : BA_8n.t) (_b : BA_8n.t) (_b_b : BA_8n.t) (_ctx : BA_32n_8.t) (_b_ctx : BA_32n_8.t) =
+op _expm__pre (_r : BA_8n.t) (_b_r : BA_8n.t) (_a : BA_8n.t) (_b_a : BA_8n.t) (_b : BA_8n.t) (_b_b : BA_8n.t) (_ctx : BA_32n_8.t) (_b_ctx : BA_32n_8.t) =
   (((BA_8n.is_init _b_a 0 (8 * nlimbs)) /\
     (BA_8n.is_init _b_b 0 (8 * nlimbs))) /\
    (BA_32n_8.is_init _b_ctx 0 (8 * ((4 * nlimbs) + 1)))).
 
-op _expmW__post (_r : BA_8n.t) (_b_r : BA_8n.t) (_a : BA_8n.t) (_b_a : BA_8n.t) (_b : BA_8n.t) (_b_b : BA_8n.t) (_ctx : BA_32n_8.t) (_b_ctx : BA_32n_8.t) (_res : BA_8n.t * BA_8n.t * trace) =
+op _expm__post (_r : BA_8n.t) (_b_r : BA_8n.t) (_a : BA_8n.t) (_b_a : BA_8n.t) (_b : BA_8n.t) (_b_b : BA_8n.t) (_ctx : BA_32n_8.t) (_b_ctx : BA_32n_8.t) (_res : BA_8n.t * BA_8n.t * trace) =
   (BA_8n.is_init _res.`2 0 (8 * nlimbs)).
 
 op _invm__pre (_r : BA_8n.t) (_b_r : BA_8n.t) (_a : BA_8n.t) (_b_a : BA_8n.t) (_ctx : BA_32n_8.t) (_b_ctx : BA_32n_8.t) =

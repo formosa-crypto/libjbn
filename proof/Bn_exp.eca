@@ -17,6 +17,9 @@ axiom gt0_nlimbsexp: 0 < nlimbsexp.
 axiom nlimbsexp_bnd: 64 * nlimbsexp < W64.modulus.
 (* the word indices of the table lookup (__tblsel) do not wrap *)
 axiom nlimbs_bnd: 64 * nlimbs < W64.modulus.
+(* the profile: which constant-time exponentiation _expm_ is (0: the
+   Montgomery ladder; otherwise the fixed window); any value *)
+op jbn_exp_window: int.
 
 clone export JBigNumber.BigN
  with op nlimbs <- nlimbs
@@ -857,9 +860,9 @@ module M(P: MParam) = {
     a <@ _expm_noct_ (a, tmp, b, ctx);
     return a;
   }
-  proc _expm (x0:BN.t, x1:BN.t,
-                      b:BNexp.t, ctx:W64.t FPC.CTX.t) : BN.t *
-                                                                BN.t = {
+  proc _expmML (x0:BN.t, x1:BN.t,
+                        b:BNexp.t, ctx:W64.t FPC.CTX.t) : BN.t *
+                                                                  BN.t = {
     var inc:int;
     var _b:BNexp.t;
     var _ctx:W64.t FPC.CTX.t;
@@ -936,8 +939,8 @@ module M(P: MParam) = {
     (x0, x1) <@ BNB_M._cswap_mask_ (x0, x1, mask);
     return (x0, x1);
   }
-  proc _expm_ (x0:BN.t, a:BN.t,
-                       b:BNexp.t, ctx:W64.t FPC.CTX.t) : BN.t = {
+  proc _expmML_ (x0:BN.t, a:BN.t,
+                         b:BNexp.t, ctx:W64.t FPC.CTX.t) : BN.t = {
     var _x1:BN.t;
     var x1:BN.t;
     var exp0:BN.t;
@@ -951,12 +954,12 @@ module M(P: MParam) = {
     exp0 <- (BN.A.init (fun i => ctx.[((2 * nlimbs) + i)]));
     x0 <@ BNB_M._mov_ (x0, exp0);
     b <- b;
-    (x0,  _0) <@ _expm (x0, x1, b, ctx);
+    (x0,  _0) <@ _expmML (x0, x1, b, ctx);
     x0 <- x0;
     return x0;
   }
-  proc _expmU_ (a:BN.t, b:BNexp.t,
-                        ctx:W64.t FPC.CTX.t) : BN.t = {
+  proc _expmMLU_ (a:BN.t, b:BNexp.t,
+                          ctx:W64.t FPC.CTX.t) : BN.t = {
     var _x1:BN.t;
     var x1:BN.t;
     var exp0:BN.t;
@@ -970,7 +973,7 @@ module M(P: MParam) = {
     exp0 <- (BN.A.init (fun i => ctx.[((2 * nlimbs) + i)]));
     a <@ BNB_M._mov_ (a, exp0);
     b <- b;
-    (a,  _0) <@ _expm (a, x1, b, ctx);
+    (a,  _0) <@ _expmML (a, x1, b, ctx);
     a <- a;
     return a;
   }
@@ -1127,6 +1130,26 @@ module M(P: MParam) = {
     tmp <- _tmp;
     tmp <@ BNB_M._mov_ (tmp, a);
     a <@ _expmW_ (a, tmp, b, ctx);
+    return a;
+  }
+  proc _expm_ (r:BN.t, a:BN.t,
+                       b:BNexp.t, ctx:W64.t FPC.CTX.t) : BN.t = {
+    
+    if ((jbn_exp_window = 0)) {
+      r <@ _expmML_ (r, a, b, ctx);
+    } else {
+      r <@ _expmW_ (r, a, b, ctx);
+    }
+    return r;
+  }
+  proc _expmU_ (a:BN.t, b:BNexp.t,
+                        ctx:W64.t FPC.CTX.t) : BN.t = {
+    
+    if ((jbn_exp_window = 0)) {
+      a <@ _expmMLU_ (a, b, ctx);
+    } else {
+      a <@ _expmWU_ (a, b, ctx);
+    }
     return a;
   }
 }.
@@ -1295,8 +1318,8 @@ lemma _expmU_noct__ll: islossless M(P)._expmU_noct_.
 proof. by proc; call _expm_noct__ll; call BNB._mov__ll; auto. qed.
 
 (* the Montgomery ladder (constant time), from x0 = 1 and x1 = a *)
-hoare _expm_h c0 (a0: BN.t) e0:
- M(P)._expm
+hoare _expmML_h c0 (a0: BN.t) e0:
+ M(P)._expmML
  : ctx = c0 /\ b = e0 /\ mok c0 /\ mdom c0 (bn a0)
    /\ bn x0 = mone c0 /\ bn x1 = bn a0
    ==> BN.bn res.`1 = mexp c0 (bn a0) (BNexp.bn e0).
@@ -1394,7 +1417,7 @@ split.
   by move=> _; case: (m0 = W64.zero) Hx => /=.
 qed.
 
-lemma _expm_ll: islossless M(P)._expm.
+lemma _expmML_ll: islossless M(P)._expmML.
 proof.
 proc.
 call BNB._cswap_mask__ll; wp.
@@ -1411,11 +1434,11 @@ while (true) (j - inc).
 by auto => /#.
 qed.
 
-lemma _expm__ll: islossless M(P)._expm_.
-proof. by proc; wp; call _expm_ll; wp; call BNB._mov__ll; wp; call BNB._mov__ll; auto. qed.
+lemma _expmML__ll: islossless M(P)._expmML_.
+proof. by proc; wp; call _expmML_ll; wp; call BNB._mov__ll; wp; call BNB._mov__ll; auto. qed.
 
-lemma _expmU__ll: islossless M(P)._expmU_.
-proof. by proc; wp; call _expm_ll; wp; call BNB._mov__ll; wp; call BNB._mov__ll; auto. qed.
+lemma _expmMLU__ll: islossless M(P)._expmMLU_.
+proof. by proc; wp; call _expmML_ll; wp; call BNB._mov__ll; wp; call BNB._mov__ll; auto. qed.
 
 (* left-to-right square-and-multiply (variable time) *)
 
@@ -1813,25 +1836,25 @@ ecall (BNB._mov__h a).
 by wp; skip => /> Hc HA r1 ->.
 qed.
 
-hoare _expm__h _c _a _b:
- M(P)._expm_
+hoare _expmML__h _c _a _b:
+ M(P)._expmML_
  : ctx = _c /\ a = _a /\ b = _b /\ mok _c /\ mdom _c (bn _a)
    ==> bn res = mexp _c (bn _a) (BNexp.bn _b).
 proof.
 proc.
-wp; ecall (_expm_h _c _a _b).
+wp; ecall (_expmML_h _c _a _b).
 wp; ecall (BNB._mov__h exp0).
 wp; ecall (BNB._mov__h a).
 by wp; skip => /> Hc HA r1 -> r0 ->.
 qed.
 
-hoare _expmU__h _c _a _b:
- M(P)._expmU_
+hoare _expmMLU__h _c _a _b:
+ M(P)._expmMLU_
  : ctx = _c /\ a = _a /\ b = _b /\ mok _c /\ mdom _c (bn _a)
    ==> bn res = mexp _c (bn _a) (BNexp.bn _b).
 proof.
 proc.
-wp; ecall (_expm_h _c _a _b).
+wp; ecall (_expmML_h _c _a _b).
 wp; ecall (BNB._mov__h exp0).
 wp; ecall (BNB._mov__h a).
 by wp; skip => /> Hc HA r1 -> r0 ->.
@@ -2056,6 +2079,30 @@ proc.
 ecall (_expmW__h _c tmp _b).
 ecall (BNB._mov__h a).
 by wp; skip => /> Hc HA r1 ->.
+qed.
+
+(* the constant-time exponentiation of the profile: the Montgomery ladder
+   or the fixed window, which have the same contract *)
+lemma _expm__ll: islossless M(P)._expm_.
+proof. by proc; if; [call _expmML__ll | call _expmW__ll]. qed.
+
+lemma _expmU__ll: islossless M(P)._expmU_.
+proof. by proc; if; [call _expmMLU__ll | call _expmWU__ll]. qed.
+
+hoare _expm__h _c _a _b:
+ M(P)._expm_
+ : ctx = _c /\ a = _a /\ b = _b /\ mok _c /\ mdom _c (bn _a)
+   ==> bn res = mexp _c (bn _a) (BNexp.bn _b).
+proof.
+by proc; if; [call (_expmML__h _c _a _b) | call (_expmW__h _c _a _b)].
+qed.
+
+hoare _expmU__h _c _a _b:
+ M(P)._expmU_
+ : ctx = _c /\ a = _a /\ b = _b /\ mok _c /\ mdom _c (bn _a)
+   ==> bn res = mexp _c (bn _a) (BNexp.bn _b).
+proof.
+by proc; if; [call (_expmMLU__h _c _a _b) | call (_expmWU__h _c _a _b)].
 qed.
 
 end section.

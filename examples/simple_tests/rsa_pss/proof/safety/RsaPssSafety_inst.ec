@@ -34,7 +34,8 @@ clone Fp_mont_safety as F16 with
   theory SB_32n_8__16n <- SBArray520_256,
   theory SB_32n_8__8n <- SBArray520_128,
   theory BA_128n <- BArray2048,
-  theory SB_128n__8n <- SBArray2048_128
+  theory SB_128n__8n <- SBArray2048_128,
+  op jbn_exp_window <- 4
   proof gt0_nlimbs by done, nlimbs_bnd by done.
 
 clone Bn_mulsel_safety as S32 with
@@ -453,16 +454,16 @@ proof.
 by conseq (F16.FPB.P_EXP_sqrU_h (<: F16.M(B16).P_FPB) (F16.P_FPB_muln_h B16 B16___mont_redM_h B16_fun_muln_h B16_fun_sqrn_h) (F16.P_FPB_sqrn_h B16 B16___mont_redM_h B16_fun_muln_h B16_fun_sqrn_h) (F16.P_FPB_red_h B16 B16___mont_redM_h B16_fun_muln_h B16_fun_sqrn_h) _a _b_a _ctx _b_ctx).
 qed.
 
-equiv eq_h__H__FPM__EXP___expmW_: M.h__H__FPM__EXP___expmW_ ~ F16.FPB.BNE.M(PE16)._expmW_ : ={arg, Glob.mem, Glob.mem_v} ==> ={res}.
+equiv eq_h__H__FPM__EXP___expm_: M.h__H__FPM__EXP___expm_ ~ F16.FPB.BNE.M(PE16)._expm_ : ={arg, Glob.mem, Glob.mem_v} ==> ={res}.
 proof.
 by proc; inline *; sim.
 qed.
 
-lemma h__H__FPM__EXP___expmW__safety _r _b_r _a _b_a _b _b_b _ctx _b_ctx : h__H__FPM__EXP___expmW__spec _r _b_r _a _b_a _b _b_b _ctx _b_ctx.
+lemma h__H__FPM__EXP___expm__safety _r _b_r _a _b_a _b _b_b _ctx _b_ctx : h__H__FPM__EXP___expm__spec _r _b_r _a _b_a _b _b_b _ctx _b_ctx.
 proof.
-have h := F16.FPB.BNE._expmW__proof PE16 PE16_fun_mulU_h PE16_fun_sqrU_h _r _b_r _a _b_a _b _b_b _ctx _b_ctx.
-rewrite /h__H__FPM__EXP___expmW__spec.
-by conseq eq_h__H__FPM__EXP___expmW_ h => /> /#.
+have h := F16.FPB.BNE._expm__proof PE16 PE16_fun_mulU_h PE16_fun_sqrU_h _r _b_r _a _b_a _b _b_b _ctx _b_ctx.
+rewrite /h__H__FPM__EXP___expm__spec.
+by conseq eq_h__H__FPM__EXP___expm_ h => /> /#.
 qed.
 
 module BE32 = {

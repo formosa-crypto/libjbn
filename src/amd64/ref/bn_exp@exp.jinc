@@ -9,6 +9,8 @@
               with another exponent size may be added by the wiring)
    Expects:   param int nlimbs;
               param int nlimbsexp;         // number of limbs of the exponent
+              param int JBN_EXP_WINDOW;    // a profile: which constant-time
+                                           // exponentiation _expm_ is
               param int CTXLEN CTX_ONE;    // the context: its size, and the
                                            // offset of the representation of 1
                                            // (fp_ctx@n.jinc)
@@ -17,10 +19,13 @@
               fn fun_sqrU (reg mut ptr u64[nlimbs], reg const ptr u64[CTXLEN])
                           -> reg ptr u64[nlimbs]
               UTIL::  BN::                 // bn_util, bn_base (same size)
-   Provides:  _expm_noct_ _expmU_noct_ _expm_ _expmU_ (and LR variants),
-              _expmW_ _expmWU_ (constant time as _expm_, with a window of 4
-              bits and a table of 16*nlimbs words on the stack); all take
-              the context ctx as their last argument
+   Provides:  _expm_ _expmU_ (constant time: the one of the two below that
+              the profile selects),
+              _expmML_ _expmMLU_ (constant time: the Montgomery ladder),
+              _expmW_ _expmWU_ (constant time: a window of 4 bits, with a
+              table of 16*nlimbs words on the stack),
+              _expm_noct_ _expmU_noct_ (and LR variants; variable time);
+              all take the context ctx as their last argument
 */
 
 // ////////////////////////////////////
@@ -258,7 +263,7 @@ inline fn _expmU_noct_
    swapped by the previous bit (_mask), so that the swap back of a bit and
    the swap of the next one are a single swap, by the xor of the two bits;
    a last swap, after the loop, undoes the one of the last bit. */
-fn _expm
+fn _expmML
 ( reg mut ptr u64[nlimbs] x0 x1
 , reg const ptr u64[nlimbsexp] b
 , reg const ptr u64[CTXLEN] ctx
@@ -305,7 +310,7 @@ fn _expm
 }
 
 #[safety = { requires = is_arr_init(a, 0, 8*nlimbs) && is_arr_init(b, 0, 8*nlimbsexp) && is_arr_init(ctx, 0, 8*CTXLEN), ensures = is_arr_init(x0, 0, 8*nlimbs) }]
-inline fn _expm_
+inline fn _expmML_
 ( reg mut ptr u64[nlimbs] x0
 , reg const ptr u64[nlimbs] a
 , reg const ptr u64[nlimbsexp] b
@@ -318,12 +323,12 @@ inline fn _expm_
   exp0 = ctx[CTX_ONE:nlimbs];
   x0 = BN::_mov_(x0, exp0);
   b = b;
-  x0, _ = _expm(x0, x1, b, ctx);
+  x0, _ = _expmML(x0, x1, b, ctx);
   x0 = x0;
   return x0;
 }
 
-inline fn _expmU_
+inline fn _expmMLU_
 ( reg mut ptr u64[nlimbs] a
 , reg const ptr u64[nlimbsexp] b
 , reg const ptr u64[CTXLEN] ctx
@@ -335,7 +340,7 @@ inline fn _expmU_
   exp0 = ctx[CTX_ONE:nlimbs];
   a = BN::_mov_(a, exp0);
   b = b;
-  a, _ = _expm(a, x1, b, ctx);
+  a, _ = _expmML(a, x1, b, ctx);
   a = a;
   return a;
 }
@@ -375,7 +380,7 @@ inline fn __tblsel
    each window of the exponent (most significant first), four squarings and
    a multiplication by the entry of the window, selected by __tblsel. A
    squaring per bit of the exponent and a multiplication per window, where
-   the ladder _expm does a squaring and a multiplication per bit; the table
+   the ladder _expmML does a squaring and a multiplication per bit; the table
    takes 16*nlimbs words of stack and 14 multiplications. The loops over
    the limbs of the exponent and over their windows are not unrolled. */
 #[safety = { requires = is_arr_init(a, 0, 8*nlimbs) && is_arr_init(b, 0, 8*nlimbsexp) && is_arr_init(ctx, 0, 8*CTXLEN), ensures = is_arr_init(r, 0, 8*nlimbs) }]
@@ -486,5 +491,39 @@ inline fn _expmWU_
   tmp = _tmp;
   tmp = BN::_mov_(tmp, a);
   a = _expmW_(a, tmp, b, ctx);
+  return a;
+}
+
+// ////////////////////////////////////
+
+/* Modular exponentiation (constant time): the Montgomery ladder or the
+   fixed window, as the profile selects (JBN_EXP_WINDOW: 0 for the ladder,
+   which needs no table; otherwise the window of 4 bits). The test is on a
+   parameter: the compiler emits the selected one only. */
+#[safety = { requires = is_arr_init(a, 0, 8*nlimbs) && is_arr_init(b, 0, 8*nlimbsexp) && is_arr_init(ctx, 0, 8*CTXLEN), ensures = is_arr_init(r, 0, 8*nlimbs) }]
+inline fn _expm_
+( reg mut ptr u64[nlimbs] r
+, reg const ptr u64[nlimbs] a
+, reg const ptr u64[nlimbsexp] b
+, reg const ptr u64[CTXLEN] ctx
+) -> reg ptr u64[nlimbs] {
+  if (JBN_EXP_WINDOW == 0) {
+    r = _expmML_(r, a, b, ctx);
+  } else {
+    r = _expmW_(r, a, b, ctx);
+  }
+  return r;
+}
+
+inline fn _expmU_
+( reg mut ptr u64[nlimbs] a
+, reg const ptr u64[nlimbsexp] b
+, reg const ptr u64[CTXLEN] ctx
+) -> reg ptr u64[nlimbs] {
+  if (JBN_EXP_WINDOW == 0) {
+    a = _expmMLU_(a, b, ctx);
+  } else {
+    a = _expmWU_(a, b, ctx);
+  }
   return a;
 }

@@ -58,7 +58,7 @@ proved once for all parameters, and carried over to a program by `sim`.
 | Path | Contents |
 |---|---|
 | `src/amd64/ref/*@*.jinc` | The library modules, i.e. templates (see [Library modules](#1-library-modules) and [File names](#file-names)). |
-| `src/amd64/ref/profiles/` | Profiles: the CPU features and the unrolling threshold of a target (see [Profiles](#profiles-and-the-selection-of-the-multiplication)). |
+| `src/amd64/ref/profiles/` | Profiles: the CPU features, the unrolling threshold and the constant-time exponentiation of a target (see [Profiles](#profiles-and-the-selection-of-the-multiplication)). |
 | `src/amd64/ref/params/` | Contexts of concrete moduli (`sike/`, `nistp/`, `rfc3526/`), one file per modulus: `glob_ctx` (see [Field contexts](#field-contexts)), plus application constants (generators, curve coefficients). |
 | `src/amd64/ref/extracted/` | Abstract instantiation and extraction used by the proofs (see [Extraction](#3-extraction-for-the-proofs)): two dummy points (`dummyA/`, `dummyB/`), the module lists (`modules.mk`), the harnesses of the export templates for the safety extraction (`exports/`). |
 | `proof/` | EasyCrypt development: value semantics (`JBigNumber.ec`) and one abstract theory per module (`*.eca`). |
@@ -90,7 +90,7 @@ expects to find in scope and the names it provides.
 | `bn_mulsel@n` | the selector: `_muln_`, `_sqrn_` and `__mont_redM` of one of the five modules above, chosen at compile time from the profile and the size (see [Profiles](#profiles-and-the-selection-of-the-multiplication)); instantiates the five itself | `MUL`, in the place of `bn_mul` | `nlimbs`, `BN::`, `UTIL::`, a profile |
 | `jbn_features` | the feature bits (`JBN_FEATURE_BMI2`, `JBN_FEATURE_ADX`, `JBN_FEATURES_MULX`) | top level, required by a profile | — |
 | `bn_karatsuba@2n` | one Karatsuba level on top of a given multiplication | `KAR` (in the 2n scope) | `nlimbs` (2n), `H::nlimbs` (n), `fun_kmuln`, `BN::`, `H::BN::`, `UTIL::` |
-| `bn_exp@exp` | modular exponentiation: constant time (the Montgomery ladder `_expm_`; `_expmW_`, a fixed window of 4 bits, with a table of 16 `nlimbs` words on the stack) and not | `EXP` (inside a field) | `nlimbs`, `nlimbsexp`, `CTXLEN`, `CTX_ONE`, `fun_mulU`, `fun_sqrU` (both take the context), `BN::`, `UTIL::` |
+| `bn_exp@exp` | modular exponentiation: constant time (`_expm_`, which is, by the profile, the Montgomery ladder `_expmML_` or `_expmW_`, a fixed window of 4 bits with a table of 16 `nlimbs` words on the stack) and not | `EXP` (inside a field) | `nlimbs`, `nlimbsexp`, `CTXLEN`, `CTX_ONE`, `fun_mulU`, `fun_sqrU` (both take the context), `BN::`, `UTIL::`, a profile (`JBN_EXP_WINDOW`) |
 | `fp_ctx@n` | layout of a field context (`CTX_P`, `CTX_MP`, `CTX_ONE`, `CTX_R2`, `CTX_U0`, `CTXLEN`) | required by `fp_base` | `nlimbs` |
 | `fp_base@fp` | prime-field operations, generic in the reduction; each takes the context of its modulus | a field (e.g. `FPM`), shared by all moduli of the size | `nlimbs`, `fun_muln`, `fun_sqrn`, `fun_red`, `BN::`, `RND::`, `UTIL::` |
 | `fp_mont@fp` | Montgomery-form field (`_redM_`, `_fromM_`, `_toM_`, `_ctx_init_`) plus all of `fp_base` | a field (e.g. `FPM`) | as `fp_base` (except `fun_red`), plus `MUL::` |
@@ -98,7 +98,7 @@ expects to find in scope and the names it provides.
 | `fp_mul_ps@fp` | binds `fun_muln`/`fun_sqrn` to product-scanning multiplication | inside a field | `nlimbs`, `MUL::` |
 | `fp_mul_os@fp` | binds `fun_muln`/`fun_sqrn` to the operand-scanning multiplication of `bn_mul_loop`/`bn_mulx_loop`/`bn_mulx`/`bn_mulxr` | inside a field | `nlimbs`, `MUL::` |
 | `fp_mul_sel@fp` | binds `fun_muln`/`fun_sqrn` to those of `bn_mulsel` | inside a field | `nlimbs`, `MUL::` |
-| `*_export@2n` | `export fn` wrappers forming the C interface: `fp_mont_export` (static modulus `H::FPM::glob_ctx`), `fp_mont_ctx_export` (context argument, `fpc_*`); their constant-time exponentiation `fp_exp`/`fpc_exp` is the fixed window, and `fp_exp_ladder`/`fpc_exp_ladder` the ladder | top level | see the file headers |
+| `*_export@2n` | `export fn` wrappers forming the C interface: `fp_mont_export` (static modulus `H::FPM::glob_ctx`), `fp_mont_ctx_export` (context argument, `fpc_*`); their constant-time exponentiation `fp_exp`/`fpc_exp` is the one of the profile (the fixed window), and `fp_exp_ladder`/`fpc_exp_ladder` the ladder | top level | see the file headers |
 
 ### File names
 
@@ -229,10 +229,10 @@ parameters set by a **profile**:
 | BMI2 and ADX | `bn_mulxr` | `bn_mulx` | `bn_mulx_loop` |
 | otherwise | — | `bn_mul` (product scanning) | `bn_mul_loop` |
 
-| Profile (`src/amd64/ref/profiles/`) | `JBN_FEATURES` | `JBN_REG_MAX` | `JBN_UNROLL_MAX` | for |
-|---|---|---|---|---|
-| `x86_64.jinc` | none | 0 | 64 | any x86-64 CPU (and Rosetta) |
-| `x86_64_adx.jinc` | BMI2, ADX | 5 | 16 | Intel Broadwell and later, AMD Zen and later |
+| Profile (`src/amd64/ref/profiles/`) | `JBN_FEATURES` | `JBN_REG_MAX` | `JBN_UNROLL_MAX` | `JBN_EXP_WINDOW` | for |
+|---|---|---|---|---|---|
+| `x86_64.jinc` | none | 0 | 64 | 4 | any x86-64 CPU (and Rosetta) |
+| `x86_64_adx.jinc` | BMI2, ADX | 5 | 16 | 4 | Intel Broadwell and later, AMD Zen and later |
 
 The thresholds come from the timings of the next section, on one CPU (an
 Intel Core i7-14700K): with `mulx` the unrolled code is faster up to 16
@@ -275,7 +275,8 @@ namespace H {
   be shadowed, functions cannot): 0 forces the looped code at that size
   (e.g. for code size), a large value the unrolled code. A program can
   still wire one of the four modules directly as its `MUL` (with
-  `fp_mul_ps` or `fp_mul_os`), as most examples of section 6 do.
+  `fp_mul_ps` or `fp_mul_os`), as most examples of section 6 do; it
+  still requires a profile, for the exponentiation (below).
 * **Cost.** The tests are on parameters: the compiler emits the selected
   module only, and the other three are type-checked but cost nothing (the
   32-limb selector with an unselected unrolled module compiles in 0.2 s).
@@ -289,6 +290,28 @@ namespace H {
 
 The selector's procedures are inline (`_muln_`, `_sqrn_`, `__mont_redM`):
 one call, to the non-inline function of the selected module.
+
+**The constant-time exponentiation** is selected in the same way, by a
+fourth parameter of the profile. `bn_exp` has two, the Montgomery ladder
+`_expmML_` and the fixed window `_expmW_`, and `_expm_` is the one that
+`JBN_EXP_WINDOW` selects: 0 for the ladder, which needs no table;
+otherwise the window of 4 bits, with a table of 16 `nlimbs` words on the
+stack. `_expm_` is what the exports (`fpc_exp`, `fp_exp`) and the examples
+call.
+
+* Both profiles take the window: it is faster for every module and size
+  timed ([Fixed window](#unrolled-or-looped-multiplication-and-reduction),
+  0.58 to 0.78 of the time of the ladder). The choice is between time and
+  stack, not between sizes: there is no threshold.
+* A size scope may shadow it (`param int JBN_EXP_WINDOW = 0;`, for the
+  smallest stack), as `fp_ctx_sel16.jazz` does. The compiler emits the
+  selected routine only; both remain available under their names.
+* `bn_exp` is instantiated by every field, so **a program with a field
+  requires a profile** (or defines `JBN_EXP_WINDOW` itself), also when it
+  wires its multiplication module directly; only this parameter of the
+  profile is then used.
+* The two have the same contract, so `_expm_` has it for every profile
+  (sections 4 and 5).
 
 ### Unrolled or looped multiplication and reduction
 
@@ -493,7 +516,7 @@ What is *not* settled:
   squaring.
 * **Conditional operations (a later change).** The timings of this
   section and of the next two were taken before two changes to the code
-  around the multiplications: the ladder `_expm_` swaps once per bit
+  around the multiplications: the ladder `_expmML_` swaps once per bit
   instead of twice (by the xor of the bit with the previous one), and
   `BN::_cminusP_`, which ends the reduction of the four modules above,
   takes two passes over the array instead of three. `bn_mulxr` and the
@@ -528,7 +551,7 @@ What is *not* settled:
   `GMP_FLAGS`). `mpz_powm_sec` is its side-channel silent exponentiation:
   a fixed window, in Montgomery form, with a squaring per bit of the
   exponent and a multiplication per window (of the size below), where the
-  ladder `_expm_` does a squaring and a multiplication per bit;
+  ladder `_expmML_` does a squaring and a multiplication per bit;
   `mpz_powm` is the one that is not constant time. Same CPU, GMP 6.3.0,
   one run each, in µs. Two builds of GMP: the package of the distribution
   (a generic x86-64 configuration, for which GMP selects its K8 code,
@@ -591,12 +614,14 @@ What is *not* settled:
   size: a table of the powers a^0 to a^15 (14 multiplications, 16 `nlimbs`
   words of stack), then, for each window of the exponent, four squarings
   and a multiplication by the entry of the window. After the timings
-  below it became the constant-time exponentiation of the exports
+  below, the constant-time exponentiation `_expm_` became a selection of
+  the profile, between the ladder (`_expmML_`) and the window
+  ([Profiles](#profiles-and-the-selection-of-the-multiplication)), and
+  both profiles take the window: it is the exponentiation of the exports
   (`fpc_exp`, `fp_exp`), of the RSA example (`rsa_dec`) and of
-  `schnorr-zk`. The ladder `_expm_` is kept, and exported as
-  `fpc_exp_ladder` and `fp_exp_ladder`. So, in the tables and items of
-  this section before this one, and in the next two sections, `fpc_exp`
-  is the ladder.
+  `schnorr-zk`. The ladder is also exported, as `fpc_exp_ladder` and
+  `fp_exp_ladder`. So, in the tables and items of this section before
+  this one, and in the next two sections, `fpc_exp` is the ladder.
   * The entry is selected in constant time (`__tblsel`): every entry is
     read, whatever the window. A word of the result is built in a
     register, by a compare and a conditional move per entry, so that the
@@ -607,7 +632,7 @@ What is *not* settled:
     ladder the same type.
   * The loops over the limbs of the exponent and over their windows run
     at run time: `_expmW` takes 2.3 to 2.5 KB at every size (0.2 KB of
-    which is the lookup), where the ladder `_expm`, unrolled over the
+    which is the lookup), where the ladder `_expmML`, unrolled over the
     limbs of the exponent, takes 1.0 KB at 4 limbs, 4.0 at 16 and 16.0 at
     64 (the instances of `make bench`, `bn_mul` at 4 limbs and
     `bn_mul_loop` at 16 and 64).
@@ -724,7 +749,7 @@ pointers), so that `bn_mulxr`'s reduction did not fit from 3 limbs on.
 The callers now keep nothing in registers across the calls of a field
 multiplication: `_mulm_`, `_mulmU_`, `_sqrm_`, `_sqrmU_` (`fp_base`) save
 the context and the result pointer across `fun_muln`/`fun_sqrn`, and the
-exponentiations (`bn_exp`: `_expm`, `_expmW`, `_expm_noct`, the LR ones) save their
+exponentiations (`bn_exp`: `_expmML`, `_expmW`, `_expm_noct`, the LR ones) save their
 state, in `stack` variables as the exports already did. That is a few
 stack accesses per field operation, for every module. On the i7-14700K,
 against the tables of [Unrolled or
@@ -918,6 +943,8 @@ public modulus.
 Example (`examples/simple_tests/sike/bn_sike434.jazz`):
 
 ```
+from Libjbn require "profiles/x86_64.jinc"      // JBN_EXP_WINDOW (fp_exp)
+
 namespace UTIL { from Libjbn require "bn_util.jinc" }
 
 namespace H {                                   // working size
@@ -973,7 +1000,8 @@ All of this lives in `src/amd64/ref/extracted/`:
   parameters, selected by `-I Dummy=dummyA` or `-I Dummy=dummyB`: `nlimbs`
   11 or 7 (contexts then have 45 or 29 words), `nlimbsexp` 13 or 6, and the
   profile `JBN_FEATURES` 19 or 51, `JBN_REG_MAX` 23 or 18, `JBN_UNROLL_MAX`
-  17 or 12. The extraction of this section uses A; the safety extraction
+  17 or 12, `JBN_EXP_WINDOW` 37 or 41. The extraction of this section uses
+  A; the safety extraction
   uses both (section 5). `make check` in `src/amd64/ref` typechecks the
   harness at both points;
 * `preamb@n.jinc`, required inside `H`: passes the values of the point on
@@ -1033,7 +1061,7 @@ exponentiation used by `_invm_` calls the field's own `_mulmU_`; in
 | `Bn_mulsel.eca` | `nlimbs`, the profile `jbn_features`, `jbn_reg_max`, `jbn_unroll_max` (any values; clones the five theories above) | `bn_mulsel`: `_muln_`, `_sqrn_`, `__mont_redM`, proved for the five branches |
 | `Bn_rnd.eca` | `nlimbs`; the system call `#randombytes` (`Syscall`) | `bn_rnd`: `_rnd_` is a uniform sample; `_rsample_` a uniform sample below the bound (`_rsample__eq`), and `__bnd_mask` covers the numbers below it |
 | `Fp_ctx.eca` | `nlimbs` | `fp_ctx` (layout of a context: `ctxP`, `ctxMP`, `ctxONE`, `ctxR2`, `ctxU0`; `ctx_mod p c`, `ctx_mont p c`) |
-| `Bn_exp.eca` | `nlimbs`, `nlimbsexp` (with `64 * nlimbs < W64.modulus` and `64 * nlimbsexp < W64.modulus`), an abstract monoid over contexts (`mok`, `mdom`, `mmul`; the unit is the context's ONE); module parameter `fun_mulU`, `fun_sqrU` | `bn_exp` |
+| `Bn_exp.eca` | `nlimbs`, `nlimbsexp` (with `64 * nlimbs < W64.modulus` and `64 * nlimbsexp < W64.modulus`), the profile `jbn_exp_window` (any value), an abstract monoid over contexts (`mok`, `mdom`, `mmul`; the unit is the context's ONE); module parameter `fun_mulU`, `fun_sqrU` | `bn_exp` |
 | `Fp_base.eca` | `nlimbs` (with `64 * nlimbs < W64.modulus`), an abstract reduction `red p x = x * redK p mod p` (`redK`, `red_ctx`); module parameter `fun_muln`, `fun_sqrn`, `fun_red` | `fp_base` (its exponentiation is `Bn_exp` in the monoid of representatives) |
 | `Fp_mont.eca` | `nlimbs` (with `64 * nlimbs < W64.modulus`), the profile `jbn_features`, `jbn_unroll_max`; module parameter `fun_muln`, `fun_sqrn` | `fp_mont` (`Fp_base` with `redK p = R^-1 mod p`; its reduction is that of `Bn_mulsel`) |
 | `Fp_pm.eca` | `nlimbs` (with `64 * nlimbs < W64.modulus`); module parameter `fun_muln`, `fun_sqrn` | `fp_pm` (`Fp_base` with `redK p = 1`, the reduction modulo p; `ctx_pm p c`: a context of p with `R mod p` in `U0`, below 2^32, `R < 3p` and ONE = 1) |
@@ -1082,7 +1110,8 @@ the dummy instance* of its Jasmin module (section 3). For `Bn_util.ec`,
   `bn_mul` becomes `BNB_M._cminusP_`);
 * replaces the dummy sizes by the parameters (`W64.t Array11.t` becomes
   `BN.t`, `Array22` becomes `BN2`, `11` becomes `nlimbs`, …), and the
-  dummy profile by `jbn_features` (19) and `jbn_unroll_max` (17);
+  dummy profile by `jbn_features` (19), `jbn_unroll_max` (17) and
+  `jbn_exp_window` (37);
 * maps the modules instantiated in sub-namespaces of the selector
   (`h__MUL__UNR__`, …) to their own theories (`BNMUL_M`, …);
 * turns the calls to the function-parameter stubs into calls to the
@@ -1125,7 +1154,7 @@ From `proof/`:
    (`theory BigN.BN.A <= Array16`, `theory BigN.BN2.A <= Array32`,
    `theory FPC.CTX <= Array65`, and `theory FPB.BNE.TBL <= Array256`, the
    table of the windowed exponentiation of `rsa_dec`) and the profile ops
-   onto the values of the
+   (`op FPB.BNE.jbn_exp_window <- 4` among them) onto the values of the
    program's profile; a module binds each field's multiplication to the
    selector of the same clone (`B16`, `B32`);
 3. prove that each extracted procedure the program calls is the theory's
@@ -1250,7 +1279,7 @@ every module of `libjbn_abs.jazz` (lists in
 `src/amd64/ref/extracted/modules.mk`) and every export template (a harness
 per template, `extracted/exports/<template>.jazz`, lists in
 `exports/exports.mk`) at two dummy points: `-I Dummy=dummyA` (`nlimbs` 11,
-`nlimbsexp` 13, profile 19/23/17) and `dummyB` (7, 6, 51/18/12). The
+`nlimbsexp` 13, profile 19/23/17/37) and `dummyB` (7, 6, 51/18/12/41). The
 extractions are committed (`proof/safety/extracted/{A,B}/`, 4 MB), so the
 proofs check without that extractor; `make check-extraction` re-extracts and
 fails if they changed.
@@ -1300,7 +1329,7 @@ array sizes).
 ### Proofs
 
 `proof/safety/<Name>.eca` (a `clone include` of the generated theory) proves
-each specification (`f_proof`): 261 lemmas in 21 files. They use:
+each specification (`f_proof`): 263 lemmas in 21 files. They use:
 
 * the simplification hints of the database `safety`
   (`common/ByteArrayInit.ec`, from formosa-libjade, cloned per byte-array
@@ -1390,8 +1419,8 @@ make clean
 | Example | What it tests |
 |---|---|
 | `simple_tests/sike` | Montgomery field arithmetic for the SIKE primes (434, 503, 610, 751 bits) |
-| `simple_tests/rsa_pss` | 2048-bit RSA from a key pair (`rsa_keys.jinc`: pk = (n, e), sk = (p, q, dP, dQ, qInv); layout in `rsa2048_params.jinc`): expanded keys with the contexts of n, p and q (PK = (ctx_n, e), SK = (ctx_p, ctx_q, dP, dQ, qInv)), computed once by `rsa_init`; RSAVP1 and RSASP1 by the CRT on them (`rsa2048@libjbn.jinc`; profile `x86_64`, the selector; the exponentiations by dP and dQ are the fixed window `_expmW_`); `make run` checks the expanded keys and both primitives against values computed in Python, and their round trips; `proof/`: their correctness in EasyCrypt from the contracts of the library (`make` there; see [Using the theories for a concrete instance](#using-the-theories-for-a-concrete-instance)); `proof/safety/`: their safety (`make safety` in `proof/`; see [Using the safety theories](#using-the-safety-theories-for-a-concrete-instance)) |
-| `simple_tests/fp_ctx` | moduli given at run time (7 and 16 limbs): `fpc_ctx_init` and every `fpc_*` operation, against Python (`make run`); each size is also built with `bn_mul_loop` (`fp_ctx_loop*.jazz`, in `make run`) and with `bn_mulx_loop` and `bn_mulx` (`fp_ctx_mulx_loop*.jazz`, `fp_ctx_mulx*.jazz`; `make run-mulx`, which needs BMI2 and ADX); and with the selector `bn_mulsel`, once per module (`fp_ctx_sel*.jazz`, profile `x86_64`, in `make run`; `fp_ctx_selx*.jazz`, profile `x86_64_adx`, in `make run-mulx`; the 16-limb ones shadow the threshold); with `bn_mulxr` at 4, 5 and 6 limbs (`fp_ctx_mulxr*.jazz`, in `make run-mulx`); pseudo-Mersenne fields (`fp_pm`, 2^255-19 among the moduli) at 4 and 6 limbs, over `bn_mul` (`fp_ctx_pm*.jazz`, in `make run`) and over `bn_mulxr` (`fp_ctx_pmxr*.jazz`, in `make run-mulx`), with `vectors_pm*.txt` (`gen_vectors.py N SEED pm`); `make exec` runs the same checks in the interpreter of `jasminc`, on any host (`gen_exec_test.py`, below); `make bench` times the five modules, and `fp_pm` over `bn_mul` and over `bn_mulxr` (variants `pm_unr`, `pm_mulxr`; modulus 2^(64n-1)-19), with the two constant-time exponentiations on the same operands (the fixed window `fpc_exp` and the ladder `fpc_exp_ladder`); `fpc_mul` and `fpc_sqr` are timed on the same arguments at each call (throughput), or, with `BENCH_CHAINED=1`, each call on the result of the previous one (latency, as in `fpc_exp`); `make bench-gmp` times the exponentiations of GMP at the same sizes and on the same operands (`bench_gmp.c`: a native program on any host, with the GMP of the host or the one of `GMP_FLAGS`) |
+| `simple_tests/rsa_pss` | 2048-bit RSA from a key pair (`rsa_keys.jinc`: pk = (n, e), sk = (p, q, dP, dQ, qInv); layout in `rsa2048_params.jinc`): expanded keys with the contexts of n, p and q (PK = (ctx_n, e), SK = (ctx_p, ctx_q, dP, dQ, qInv)), computed once by `rsa_init`; RSAVP1 and RSASP1 by the CRT on them (`rsa2048@libjbn.jinc`; profile `x86_64`, the selector; the exponentiations by dP and dQ are `_expm_`, the fixed window by the profile); `make run` checks the expanded keys and both primitives against values computed in Python, and their round trips; `proof/`: their correctness in EasyCrypt from the contracts of the library (`make` there; see [Using the theories for a concrete instance](#using-the-theories-for-a-concrete-instance)); `proof/safety/`: their safety (`make safety` in `proof/`; see [Using the safety theories](#using-the-safety-theories-for-a-concrete-instance)) |
+| `simple_tests/fp_ctx` | moduli given at run time (7 and 16 limbs): `fpc_ctx_init` and every `fpc_*` operation, against Python (`make run`); each size is also built with `bn_mul_loop` (`fp_ctx_loop*.jazz`, in `make run`) and with `bn_mulx_loop` and `bn_mulx` (`fp_ctx_mulx_loop*.jazz`, `fp_ctx_mulx*.jazz`; `make run-mulx`, which needs BMI2 and ADX); and with the selector `bn_mulsel`, once per module (`fp_ctx_sel*.jazz`, profile `x86_64`, in `make run`; `fp_ctx_selx*.jazz`, profile `x86_64_adx`, in `make run-mulx`; the 16-limb ones shadow the threshold); with `bn_mulxr` at 4, 5 and 6 limbs (`fp_ctx_mulxr*.jazz`, in `make run-mulx`); pseudo-Mersenne fields (`fp_pm`, 2^255-19 among the moduli) at 4 and 6 limbs, over `bn_mul` (`fp_ctx_pm*.jazz`, in `make run`) and over `bn_mulxr` (`fp_ctx_pmxr*.jazz`, in `make run-mulx`), with `vectors_pm*.txt` (`gen_vectors.py N SEED pm`); `make exec` runs the same checks in the interpreter of `jasminc`, on any host (`gen_exec_test.py`, below); `make bench` times the five modules, and `fp_pm` over `bn_mul` and over `bn_mulxr` (variants `pm_unr`, `pm_mulxr`; modulus 2^(64n-1)-19), with the two constant-time exponentiations on the same operands (`fpc_exp`, the one of the profile, here the fixed window, and the ladder `fpc_exp_ladder`); `fpc_mul` and `fpc_sqr` are timed on the same arguments at each call (throughput), or, with `BENCH_CHAINED=1`, each call on the result of the previous one (latency, as in `fpc_exp`); `make bench-gmp` times the exponentiations of GMP at the same sizes and on the same operands (`bench_gmp.c`: a native program on any host, with the GMP of the host or the one of `GMP_FLAGS`) |
 | `simple_tests/mults` | 32-limb multiplication: `ps`, `os`, `osreg` and Karatsuba variants; the `os` multiplication and squaring of `bn_mul_loop`, `bn_mulx_loop` and `bn_mulx` (`testmul_os_loop.c`, against a C reference); `make bench` (with `bn_mulxr`: variant `mulxr`) and `make bench-kar` time the multiplications and squarings alone |
 | `schnorr-zk` | a Schnorr zero-knowledge protocol over the RFC 3526 2048-bit group |
 
@@ -1412,8 +1441,8 @@ modules in the interpreter of `jasminc` (`exec`), which runs the source
 program at compile time, MULX/ADCX/ADOX included; since the compiler is
 verified, this checks the emitted code. `gen_exec_test.py` writes a
 program that loads inputs, calls a module's multiplication and squaring
-and the field operations over it (Montgomery, or `--pm`; the selector
-with `--profile`), and returns the OR of the differences with the values
+and the field operations over it (Montgomery, or `--pm`; with the
+profile of `--profile`, by default the one of the module), and returns the OR of the differences with the values
 computed in Python (0 when correct) and the number of words checked.
 `EXEC_TESTS` lists the modules and sizes; it takes about 5 minutes, mostly
 the exponentiations.
@@ -1502,9 +1531,11 @@ the wiring of a Montgomery field instance (used by `test/misc` and
     accumulator counts carries); for the operand-scanning procedures only
     losslessness is proved.
   * `Bn_exp.eca` proves the four exponentiations (right-to-left
-    `_expm_noct_`, the Montgomery ladder `_expm_`, the fixed window
+    `_expm_noct_`, the Montgomery ladder `_expmML_`, the fixed window
     `_expmW_`, left-to-right `_expmLR_noct_`) in an abstract monoid, with
-    one contract (`bn res = mexp c a e`). The ladder swaps once per bit,
+    one contract (`bn res = mexp c a e`), which `_expm_`, the ladder or
+    the window by the profile, has for any value of `jbn_exp_window`. The
+    ladder swaps once per bit,
     by the xor of the bit with the previous one: its invariant keeps the
     pair swapped by the parity of the scanned prefix of the exponent
     (`linv`). The fixed window keeps a table whose entry i is a^i

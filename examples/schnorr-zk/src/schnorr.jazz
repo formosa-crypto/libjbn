@@ -105,7 +105,7 @@ inline fn __verify
  t2 = t2;
  t1 = _t1;
  ctx = FPM::P::glob_ctx;
- t1 = FPM::EXP::_expmW_(t1, t2, challenge, ctx); // statM ^ chall
+ t1 = FPM::EXP::_expm_(t1, t2, challenge, ctx); // statM ^ chall
 
  t1 = t1;
  commitment = _commitment;

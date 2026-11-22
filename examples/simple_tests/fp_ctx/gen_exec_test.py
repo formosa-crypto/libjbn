@@ -8,7 +8,7 @@ them). Since the compiler is verified, this checks the code that is
 emitted. `test` checks the multiplication and squaring of the MUL module
 and, with --field, the context and the field operations (fp_mont over
 that module: _ctx_init_, _mulm_, _sqrm_, _addm_, _subm_, _toM_, _fromM_ and
-the four exponentiations), against values computed here; it returns the
+the five exponentiations), against values computed here; it returns the
 OR of the XORs of every word against its expected value (0: all correct)
 and the number of words checked. `make exec` runs it for the modules and
 sizes of the Makefile.
@@ -35,7 +35,8 @@ ap.add_argument("--field", action="store_true")
 ap.add_argument("--seed", type=int, default=1)
 ap.add_argument("--cases", type=int, default=4)
 ap.add_argument("--exp", type=int, default=1, help="exponentiations per modulus")
-ap.add_argument("--profile", help="a profile of src/amd64/ref/profiles (for bn_mulsel)")
+ap.add_argument("--profile", help="a profile of src/amd64/ref/profiles (default: "
+                "x86_64_adx.jinc for a MULX module, x86_64.jinc otherwise)")
 ap.add_argument("--pm", action="store_true", help="the field is fp_pm (pseudo-Mersenne)")
 args = ap.parse_args()
 
@@ -71,8 +72,10 @@ def check(arr, words):
         emit("  t = %s[%d]; u = 0x%x; t ^= u; acc |= t; cnt += 1;" % (arr, i, w))
 
 
-if args.profile:
-    emit('from Libjbn require "profiles/%s"' % args.profile)
+# a profile: for the selector bn_mulsel, and, with a field, for the
+# constant-time exponentiation _expm_ of bn_exp (JBN_EXP_WINDOW)
+profile = args.profile or ("x86_64_adx.jinc" if "mulx" in args.module else "x86_64.jinc")
+emit('from Libjbn require "profiles/%s"' % profile)
 emit("""namespace UTIL { from Libjbn require "bn_util.jinc" }
 namespace H {
   param int nlimbs = %d;
@@ -174,7 +177,10 @@ if args.field:
                 e = [random.randrange(R), random.randrange(W), 0][k % 3] if k >= args.exp else random.randrange(R)
                 load("_e", limbs(e))
                 want = limbs(pow(a * Ri % P, e, P) * Rr % P)
+                # the selected one (the window, by the profiles), then the two
                 emit("  a = _a; e = _e; r = _r; c = _c; r = H::FPM::EXP::_expm_(r, a, e, c); _r = r;")
+                check("_r", want)
+                emit("  a = _a; e = _e; r = _r; c = _c; r = H::FPM::EXP::_expmML_(r, a, e, c); _r = r;")
                 check("_r", want)
                 emit("  a = _a; e = _e; r = _r; c = _c; r = H::FPM::EXP::_expmW_(r, a, e, c); _r = r;")
                 check("_r", want)

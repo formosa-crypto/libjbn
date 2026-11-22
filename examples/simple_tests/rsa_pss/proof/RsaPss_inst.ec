@@ -25,7 +25,8 @@ require Bn_exp Fp_mont.
 (* the theories at the sizes of the example                              *)
 
 (* the field of p and q: 16 limbs, x86_64; its exponentiation by dP and dQ
-   is the windowed one (_expmW_), whose table has 16 * 16 words *)
+   is the one of the profile (_expm_, with JBN_EXP_WINDOW = 4: the fixed
+   window, whose table has 16 * 16 words) *)
 clone Fp_mont as F16
  with op nlimbs <- 16,
       op jbn_features <- 0,
@@ -34,7 +35,8 @@ clone Fp_mont as F16
       theory BigN.BN.A <= Array16,
       theory BigN.BN2.A <= Array32,
       theory FPC.CTX <= Array65,
-      theory FPB.BNE.TBL <= Array256
+      theory FPB.BNE.TBL <= Array256,
+      op FPB.BNE.jbn_exp_window <- 4
  proof gt0_nlimbs by done, nlimbs_bnd by done.
 
 (* the field of n: 32 limbs, x86_64 *)
@@ -150,7 +152,7 @@ equiv eq16_submU: M.h__H__FPM___submU_ ~ FM16._submU_ : ={arg, Glob.mem} ==> ={r
 proof. by proc; inline *; sim. qed.
 equiv eq16_mulmU: M.h__H__FPM___mulmU_ ~ FM16._mulmU_ : ={arg, Glob.mem} ==> ={res, Glob.mem}.
 proof. by proc; inline *; sim. qed.
-equiv eq16_expmW: M.h__H__FPM__EXP___expmW_ ~ EXP16._expmW_ : ={arg, Glob.mem} ==> ={res, Glob.mem}.
+equiv eq16_expm: M.h__H__FPM__EXP___expm_ ~ EXP16._expm_ : ={arg, Glob.mem} ==> ={res, Glob.mem}.
 proof. by proc; inline *; sim. qed.
 equiv eq16_ctx_init: M.h__H__FPM___ctx_init_ ~ FM16._ctx_init_ : ={arg, Glob.mem} ==> ={res, Glob.mem}.
 proof. by proc; inline *; sim. qed.
@@ -265,8 +267,8 @@ conseq eq16_mulmU (F16._mulmU__h B16 B16_muln_ll B16_sqrn_ll B16_muln_h B16_sqrn
 - by move=> &1 &2 [-> _].
 qed.
 
-hoare expmW16_h _c _a _b:
- M.h__H__FPM__EXP___expmW_
+hoare expm16_h _c _a _b:
+ M.h__H__FPM__EXP___expm_
  : ctx = _c /\ a = _a /\ b = _b
    /\ F16.FPB.ctx_fp (F16.BigN.BN.bn (F16.FPC.ctxP _c)) _c
    /\ 0 <= F16.BigN.BN.bn _a < F16.BigN.BN.bn (F16.FPC.ctxP _c)
@@ -279,7 +281,7 @@ have EMl := F16.FPB.P_EXP_mulU_ll (<: F16.M(B16).P_FPB) P16_muln_ll P16_sqrn_ll 
 have ESl := F16.FPB.P_EXP_sqrU_ll (<: F16.M(B16).P_FPB) P16_muln_ll P16_sqrn_ll P16_red_ll PMh PSh PRh.
 have EMh := F16.FPB.P_EXP_mulU_h (<: F16.M(B16).P_FPB) P16_muln_ll P16_sqrn_ll P16_red_ll PMh PSh PRh.
 have ESh := F16.FPB.P_EXP_sqrU_h (<: F16.M(B16).P_FPB) P16_muln_ll P16_sqrn_ll P16_red_ll PMh PSh PRh.
-conseq eq16_expmW (F16.FPB.BNE._expmW__h (<: F16.FPB.M(F16.M(B16).P_FPB).P_EXP) EMl ESl EMh ESh _c _a _b).
+conseq eq16_expm (F16.FPB.BNE._expm__h (<: F16.FPB.M(F16.M(B16).P_FPB).P_EXP) EMl ESl EMh ESh _c _a _b).
 - by move=> &1 H; exists Glob.mem{1} arg{1}.
 - by move=> &1 &2 [-> _].
 qed.

@@ -6,8 +6,9 @@
               H::FPM::glob_ctx              // the context of the modulus
                                             // (e.g. a params/**/*@n.jinc file
                                             // required inside FPM)
-   fp_exp is the fixed-window exponentiation (a table of 16*n words on the
-   stack), fp_exp_ladder the Montgomery ladder; both are constant time.
+   fp_exp is the constant-time exponentiation that the profile selects
+   (JBN_EXP_WINDOW: the fixed window, with a table of 16*n words on the
+   stack, or the Montgomery ladder); fp_exp_ladder is the ladder.
 */
 
 #[safety = { requires = is_mem_init(ap, 8*H::nlimbs) && is_mem_init(bp, 8*H::nlimbs) && is_mem_init(rp, 8*H::nlimbs) }]
@@ -121,7 +122,8 @@ export fn fp_expLR_noct(reg u64 rp ap bp)
   H::BN::_store_(rp, r);
 }
 
-/* constant time: fixed window of 4 bits */
+/* constant time: the exponentiation of the profile (the fixed window of 4
+   bits, unless JBN_EXP_WINDOW is 0) */
 #[safety = { requires = is_mem_init(ap, 8*H::nlimbs) && is_mem_init(bp, 8*H::nlimbs) && is_mem_init(rp, 8*H::nlimbs) }]
 export fn fp_exp(reg u64 rp ap bp)
 {
@@ -138,7 +140,7 @@ export fn fp_exp(reg u64 rp ap bp)
   r = _r;
   ctx = H::FPM::glob_ctx;
 
-  r = H::FPM::EXP::_expmW_(r, a, b, ctx);
+  r = H::FPM::EXP::_expm_(r, a, b, ctx);
   rp = _rp;
   H::BN::_store_(rp, r);
 }
@@ -160,7 +162,7 @@ export fn fp_exp_ladder(reg u64 rp ap bp)
   r = _r;
   ctx = H::FPM::glob_ctx;
 
-  r = H::FPM::EXP::_expm_(r, a, b, ctx);
+  r = H::FPM::EXP::_expmML_(r, a, b, ctx);
   rp = _rp;
   H::BN::_store_(rp, r);
 }

@@ -77,7 +77,7 @@ lemma h__RSA___crt_exp_safety _r _b_r _c _b_c _dX _b_dX _ctxX _b_ctxX : h__RSA__
 proof.
 hint +safety.
 rewrite /h__RSA___crt_exp_spec; proc.
-wp; ecall (h__H__FPM__EXP___expmW__safety param_6 b_param_0 param_7 ((BArray128.init_arr (W8.of_int 255))) param_8 ((BArray128.init_arr (W8.of_int 255))) param_9 ((BArray520.init_arr (W8.of_int 255)))).
+wp; ecall (h__H__FPM__EXP___expm__safety param_6 b_param_0 param_7 ((BArray128.init_arr (W8.of_int 255))) param_8 ((BArray128.init_arr (W8.of_int 255))) param_9 ((BArray520.init_arr (W8.of_int 255)))).
 wp; ecall (h__H__FPM___toM__safety param_4 ((BArray128.init_arr (W8.of_int 255))) param_5 ((BArray520.init_arr (W8.of_int 255)))).
 wp; ecall (h__H__FPM___toM__safety param_2 ((BArray128.init_arr (W8.of_int 255))) param_3 ((BArray520.init_arr (W8.of_int 255)))).
 wp; ecall (h__H__FPM___redM__safety param b_param param_0 ((BArray256.init_arr (W8.of_int 255))) param_1 ((BArray520.init_arr (W8.of_int 255)))).

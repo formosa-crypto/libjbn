@@ -10,6 +10,7 @@ require Bn_util_safety Bn_base_safety Fp_base_safety.
 op nlimbs : int.
 axiom gt0_nlimbs : 0 < nlimbs.
 axiom nlimbs_bnd : 64 * nlimbs < W64.modulus.
+op jbn_exp_window : int.
 
 clone ByteArray as BA_8n with op size <= (8 * nlimbs).
 clone ByteArray as BA_16n with op size <= (16 * nlimbs).
@@ -31,6 +32,7 @@ clone Bn_base_safety as BNB with
 
 clone Fp_base_safety as FPB with
   op nlimbs <- nlimbs,
+  op jbn_exp_window <- jbn_exp_window,
   theory BA_8n <- BA_8n,
   theory BA_16n <- BA_16n,
   theory BA_32n_8 <- BA_32n_8,

@@ -15,6 +15,7 @@
               fn fun_red  (reg mut ptr u64[nlimbs], reg const ptr u64[2*nlimbs],
                            reg const ptr u64[CTXLEN]) -> reg ptr u64[nlimbs]
               UTIL::  BN::  RND::          // same size
+              JBN_EXP_WINDOW               // a profile (for EXP, below)
    Provides:  _chk_bnds_ _rnd_ _addm(U)_ _subm(U)_ _mulm(U)_ _sqrm(U)_ _invm(U)_
               and the context layout (fp_ctx@n.jinc: CTXLEN, CTX_P, ...).
               Every operation takes the field context ctx (the constants of

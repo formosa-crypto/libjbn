@@ -123,33 +123,36 @@ exec: gen_exec_test.py $(LIBJBN_SRC)
 # over bn_mulxr (pm_mulxr, up to 6 limbs, to be compared with mulxr). The
 # variants over bn_mulx, bn_mulx_loop and bn_mulxr need BMI2 and ADX, so
 # they do not run under Rosetta. The instances
-# (tmpbench_<variant>_<size>.*) are generated from fp_ctx7.jazz.
+# (tmpbench_<variant>_<size>.*) are generated from fp_ctx7.jazz, with the
+# profile of their module (x86_64 or x86_64_adx).
 # fpc_mul and fpc_sqr are timed on the same arguments at each call, so that
 # consecutive calls may overlap (throughput); with BENCH_CHAINED=1, each
 # call takes the result of the previous one (latency, as in fpc_exp), and
 # the lines end with "(chained)". The two constant-time exponentiations are
-# timed on the same operands: fpc_exp (the fixed window) and fpc_exp_ladder.
+# timed on the same operands: fpc_exp (the one of the profile: the fixed
+# window) and fpc_exp_ladder.
 BENCH_SIZES    ?= 4 5 6 8 16 32 64
 BENCH_VARIANTS ?= unr loop mulx_unr mulx mulxr pm_unr pm_mulxr
 BENCH_CHAINED  ?=
 
 bench: bench_fp_ctx.c fp_ctx7.jazz $(LIBJBN_SRC)
 	@for n in $(BENCH_SIZES); do for v in $(BENCH_VARIANTS); do \
-	  k=fp_mont; \
+	  k=fp_mont; p=x86_64; \
 	  case $$v in \
 	    unr)      m=bn_mul;       s=fp_mul_ps;; \
 	    loop)     m=bn_mul_loop;  s=fp_mul_os;; \
-	    mulx_unr) m=bn_mulx;      s=fp_mul_os;; \
-	    mulx)     m=bn_mulx_loop; s=fp_mul_os;; \
-	    mulxr)    m=bn_mulxr;     s=fp_mul_os; [ $$n -le 6 ] || continue;; \
+	    mulx_unr) m=bn_mulx;      s=fp_mul_os; p=x86_64_adx;; \
+	    mulx)     m=bn_mulx_loop; s=fp_mul_os; p=x86_64_adx;; \
+	    mulxr)    m=bn_mulxr;     s=fp_mul_os; p=x86_64_adx; [ $$n -le 6 ] || continue;; \
 	    pm_unr)   m=bn_mul;       s=fp_mul_ps; k=fp_pm;; \
-	    pm_mulxr) m=bn_mulxr;     s=fp_mul_os; k=fp_pm; [ $$n -le 6 ] || continue;; \
+	    pm_mulxr) m=bn_mulxr;     s=fp_mul_os; k=fp_pm; p=x86_64_adx; [ $$n -le 6 ] || continue;; \
 	    *) echo "unknown variant $$v"; exit 1;; \
 	  esac; \
 	  f=tmpbench_$${v}_$$n; \
 	  sed -e "s/param int nlimbs = 7;/param int nlimbs = $$n;/" \
 	      -e "s/bn_mul@n.jinc/$$m@n.jinc/" -e "s/fp_mul_ps@fp.jinc/$$s@fp.jinc/" \
 	      -e "s/fp_mont@fp.jinc/$$k@fp.jinc/" \
+	      -e "s|profiles/x86_64.jinc|profiles/$$p.jinc|" \
 	      fp_ctx7.jazz > $$f.jazz; \
 	  $(JASMINC) $(JFLAGS) -o $$f.s $$f.jazz 2> $$f.log || { cat $$f.log; exit 1; }; \
 	  pm=; [ $$k = fp_pm ] && pm=-DPM; \

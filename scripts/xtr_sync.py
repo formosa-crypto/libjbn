@@ -74,6 +74,7 @@ DUMMY_LITERALS = {
     '17': 'jbn_unroll_max',
     '19': 'jbn_features',
     '23': 'jbn_reg_max',
+    '37': 'jbn_exp_window',
 }
 # derived sizes that must not survive in an abstract module (unmapped)
 SUSPICIOUS_LITERALS = ('44', '88', '96', '104', '176')
@@ -170,7 +171,7 @@ THEORIES = {
                 'Array45': ('W64.t FPC.CTX.t', 'FPC.CTX', 'FPC.CTX'),
                 # the table of the windowed exponentiation: 16*nlimbs words
                 'Array176': ('W64.t TBL.t', 'TBL', 'TBL')},
-        clone_ops=['op nlimbsexp <- 13'],
+        clone_ops=['op nlimbsexp <- 13', 'op jbn_exp_window <- 37'],
     ),
     'bn_rnd': dict(
         source='bn_rnd@n.jinc',

@@ -7569,13 +7569,13 @@ module M = {
     b_r <- (BArray56.init_arr (W8.of_int 255));
     return (r, b_r, trace_h__FPM__EXP___expm_noct_);
   }
-  proc h__FPM__EXP___expm (x0:BArray56.t, b_x0:BArray56.t, x1:BArray56.t,
-                           b_x1:BArray56.t, b:BArray56.t, b_b:BArray56.t,
-                           ctx:BArray232.t, b_ctx:BArray232.t) : BArray56.t *
-                                                                 BArray56.t *
-                                                                 BArray56.t *
-                                                                 BArray56.t *
-                                                                 trace = {
+  proc h__FPM__EXP___expmML (x0:BArray56.t, b_x0:BArray56.t, x1:BArray56.t,
+                             b_x1:BArray56.t, b:BArray56.t, b_b:BArray56.t,
+                             ctx:BArray232.t, b_ctx:BArray232.t) : BArray56.t *
+                                                                   BArray56.t *
+                                                                   BArray56.t *
+                                                                   BArray56.t *
+                                                                   trace = {
     var aux:BArray56.t;
     var aux_0:BArray56.t;
     var aux_1:BArray56.t;
@@ -7641,7 +7641,7 @@ module M = {
     var  _4:bool;
     var  _5:bool;
     var  _6:bool;
-    var trace_h__FPM__EXP___expm:trace;
+    var trace_h__FPM__EXP___expmML:trace;
     _b <- witness;
     _ctx <- witness;
     _x0 <- witness;
@@ -7667,23 +7667,24 @@ module M = {
     result_3 <- witness;
     result_4 <- witness;
     result_5 <- witness;
-    trace_h__FPM__EXP___expm <- [];
-    trace_h__FPM__EXP___expm <-
-    (trace_h__FPM__EXP___expm ++ [(Assert, (BArray56.is_init b_x0 0 56))]);
-    trace_h__FPM__EXP___expm <-
-    (trace_h__FPM__EXP___expm ++ [(Assert, (BArray56.is_init b_x1 0 56))]);
-    trace_h__FPM__EXP___expm <-
-    (trace_h__FPM__EXP___expm ++ [(Assert, (BArray56.is_init b_b 0 56))]);
-    trace_h__FPM__EXP___expm <-
-    (trace_h__FPM__EXP___expm ++ [(Assert, (BArray232.is_init b_ctx 0 232))]);
+    trace_h__FPM__EXP___expmML <- [];
+    trace_h__FPM__EXP___expmML <-
+    (trace_h__FPM__EXP___expmML ++ [(Assert, (BArray56.is_init b_x0 0 56))]);
+    trace_h__FPM__EXP___expmML <-
+    (trace_h__FPM__EXP___expmML ++ [(Assert, (BArray56.is_init b_x1 0 56))]);
+    trace_h__FPM__EXP___expmML <-
+    (trace_h__FPM__EXP___expmML ++ [(Assert, (BArray56.is_init b_b 0 56))]);
+    trace_h__FPM__EXP___expmML <-
+    (trace_h__FPM__EXP___expmML ++
+    [(Assert, (BArray232.is_init b_ctx 0 232))]);
     _b <- b;
     _ctx <- ctx;
     _mask <- (W64.of_int 0);
     j <- (7 - 1);
     while (((-1) < j)) {
       b <- _b;
-      trace_h__FPM__EXP___expm <-
-      (trace_h__FPM__EXP___expm ++
+      trace_h__FPM__EXP___expmML <-
+      (trace_h__FPM__EXP___expmML ++
       [(Assert, ((0 <= (j * 8)) /\ (((j * 8) + 8) <= 56)))]);
       t <- (BArray56.get64 b j);
       _k <- (W64.of_int 64);
@@ -7691,7 +7692,8 @@ module M = {
       _t <- t;
       param <- cf;
       (result, tmp__trace) <@ uTIL____cf_mask (param);
-      trace_h__FPM__EXP___expm <- (trace_h__FPM__EXP___expm ++ tmp__trace);
+      trace_h__FPM__EXP___expmML <-
+      (trace_h__FPM__EXP___expmML ++ tmp__trace);
       mask <- result;
       swap_0 <- _mask;
       swap_0 <- (swap_0 `^` mask);
@@ -7706,12 +7708,13 @@ module M = {
       b_result <- aux_8;
       result_1 <- aux_9;
       b_result_0 <- aux_10;
-      trace_h__FPM__EXP___expm <- (trace_h__FPM__EXP___expm ++ tmp__trace);
-      trace_h__FPM__EXP___expm <-
-      (trace_h__FPM__EXP___expm ++
+      trace_h__FPM__EXP___expmML <-
+      (trace_h__FPM__EXP___expmML ++ tmp__trace);
+      trace_h__FPM__EXP___expmML <-
+      (trace_h__FPM__EXP___expmML ++
       [(Assert, (BArray56.is_init b_result 0 56))]);
-      trace_h__FPM__EXP___expm <-
-      (trace_h__FPM__EXP___expm ++
+      trace_h__FPM__EXP___expmML <-
+      (trace_h__FPM__EXP___expmML ++
       [(Assert, (BArray56.is_init b_result_0 0 56))]);
       x0 <- result_0;
       x1 <- result_1;
@@ -7726,9 +7729,10 @@ module M = {
       (BArray232.init_arr (W8.of_int 255)));
       result_2 <- aux_11;
       b_result_1 <- aux_12;
-      trace_h__FPM__EXP___expm <- (trace_h__FPM__EXP___expm ++ tmp__trace);
-      trace_h__FPM__EXP___expm <-
-      (trace_h__FPM__EXP___expm ++
+      trace_h__FPM__EXP___expmML <-
+      (trace_h__FPM__EXP___expmML ++ tmp__trace);
+      trace_h__FPM__EXP___expmML <-
+      (trace_h__FPM__EXP___expmML ++
       [(Assert, (BArray56.is_init b_result_1 0 56))]);
       x1 <- result_2;
       _x1 <- x1;
@@ -7741,9 +7745,10 @@ module M = {
       (BArray232.init_arr (W8.of_int 255)));
       result_3 <- aux_13;
       b_result_2 <- aux_14;
-      trace_h__FPM__EXP___expm <- (trace_h__FPM__EXP___expm ++ tmp__trace);
-      trace_h__FPM__EXP___expm <-
-      (trace_h__FPM__EXP___expm ++
+      trace_h__FPM__EXP___expmML <-
+      (trace_h__FPM__EXP___expmML ++ tmp__trace);
+      trace_h__FPM__EXP___expmML <-
+      (trace_h__FPM__EXP___expmML ++
       [(Assert, (BArray56.is_init b_result_2 0 56))]);
       x0 <- result_3;
       x1 <- _x1;
@@ -7754,7 +7759,8 @@ module M = {
         _t <- t;
         param <- cf;
         (result, tmp__trace) <@ uTIL____cf_mask (param);
-        trace_h__FPM__EXP___expm <- (trace_h__FPM__EXP___expm ++ tmp__trace);
+        trace_h__FPM__EXP___expmML <-
+        (trace_h__FPM__EXP___expmML ++ tmp__trace);
         mask <- result;
         swap_0 <- _mask;
         swap_0 <- (swap_0 `^` mask);
@@ -7769,12 +7775,13 @@ module M = {
         b_result <- aux_0;
         result_1 <- aux_1;
         b_result_0 <- aux_2;
-        trace_h__FPM__EXP___expm <- (trace_h__FPM__EXP___expm ++ tmp__trace);
-        trace_h__FPM__EXP___expm <-
-        (trace_h__FPM__EXP___expm ++
+        trace_h__FPM__EXP___expmML <-
+        (trace_h__FPM__EXP___expmML ++ tmp__trace);
+        trace_h__FPM__EXP___expmML <-
+        (trace_h__FPM__EXP___expmML ++
         [(Assert, (BArray56.is_init b_result 0 56))]);
-        trace_h__FPM__EXP___expm <-
-        (trace_h__FPM__EXP___expm ++
+        trace_h__FPM__EXP___expmML <-
+        (trace_h__FPM__EXP___expmML ++
         [(Assert, (BArray56.is_init b_result_0 0 56))]);
         x0 <- result_0;
         x1 <- result_1;
@@ -7789,9 +7796,10 @@ module M = {
         (BArray232.init_arr (W8.of_int 255)));
         result_2 <- aux_3;
         b_result_1 <- aux_4;
-        trace_h__FPM__EXP___expm <- (trace_h__FPM__EXP___expm ++ tmp__trace);
-        trace_h__FPM__EXP___expm <-
-        (trace_h__FPM__EXP___expm ++
+        trace_h__FPM__EXP___expmML <-
+        (trace_h__FPM__EXP___expmML ++ tmp__trace);
+        trace_h__FPM__EXP___expmML <-
+        (trace_h__FPM__EXP___expmML ++
         [(Assert, (BArray56.is_init b_result_1 0 56))]);
         x1 <- result_2;
         _x1 <- x1;
@@ -7804,9 +7812,10 @@ module M = {
         (BArray232.init_arr (W8.of_int 255)));
         result_3 <- aux_5;
         b_result_2 <- aux_6;
-        trace_h__FPM__EXP___expm <- (trace_h__FPM__EXP___expm ++ tmp__trace);
-        trace_h__FPM__EXP___expm <-
-        (trace_h__FPM__EXP___expm ++
+        trace_h__FPM__EXP___expmML <-
+        (trace_h__FPM__EXP___expmML ++ tmp__trace);
+        trace_h__FPM__EXP___expmML <-
+        (trace_h__FPM__EXP___expmML ++
         [(Assert, (BArray56.is_init b_result_2 0 56))]);
         x0 <- result_3;
         x1 <- _x1;
@@ -7826,24 +7835,24 @@ module M = {
     b_result_3 <- aux_16;
     result_5 <- aux_17;
     b_result_4 <- aux_18;
-    trace_h__FPM__EXP___expm <- (trace_h__FPM__EXP___expm ++ tmp__trace);
-    trace_h__FPM__EXP___expm <-
-    (trace_h__FPM__EXP___expm ++
+    trace_h__FPM__EXP___expmML <- (trace_h__FPM__EXP___expmML ++ tmp__trace);
+    trace_h__FPM__EXP___expmML <-
+    (trace_h__FPM__EXP___expmML ++
     [(Assert, (BArray56.is_init b_result_3 0 56))]);
-    trace_h__FPM__EXP___expm <-
-    (trace_h__FPM__EXP___expm ++
+    trace_h__FPM__EXP___expmML <-
+    (trace_h__FPM__EXP___expmML ++
     [(Assert, (BArray56.is_init b_result_4 0 56))]);
     x0 <- result_4;
     x1 <- result_5;
     b_x0 <- (BArray56.init_arr (W8.of_int 255));
     b_x1 <- (BArray56.init_arr (W8.of_int 255));
-    return (x0, b_x0, x1, b_x1, trace_h__FPM__EXP___expm);
+    return (x0, b_x0, x1, b_x1, trace_h__FPM__EXP___expmML);
   }
-  proc h__FPM__EXP___expm_ (x0:BArray56.t, b_x0:BArray56.t, a:BArray56.t,
-                            b_a:BArray56.t, b:BArray56.t, b_b:BArray56.t,
-                            ctx:BArray232.t, b_ctx:BArray232.t) : BArray56.t *
-                                                                  BArray56.t *
-                                                                  trace = {
+  proc h__FPM__EXP___expmML_ (x0:BArray56.t, b_x0:BArray56.t, a:BArray56.t,
+                              b_a:BArray56.t, b:BArray56.t, b_b:BArray56.t,
+                              ctx:BArray232.t, b_ctx:BArray232.t) : BArray56.t *
+                                                                    BArray56.t *
+                                                                    trace = {
     var aux:BArray56.t;
     var aux_0:BArray56.t;
     var aux_1:BArray56.t;
@@ -7877,7 +7886,7 @@ module M = {
     var b_result_1:BArray56.t;
     var result_2:BArray56.t;
     var b_result_2:BArray56.t;
-    var trace_h__FPM__EXP___expm_:trace;
+    var trace_h__FPM__EXP___expmML_:trace;
     _x1 <- witness;
     b__x1 <- witness;
     b_exp0 <- witness;
@@ -7903,9 +7912,9 @@ module M = {
     result_1 <- witness;
     result_2 <- witness;
     x1 <- witness;
-    trace_h__FPM__EXP___expm_ <- [];
-    trace_h__FPM__EXP___expm_ <-
-    (trace_h__FPM__EXP___expm_ ++
+    trace_h__FPM__EXP___expmML_ <- [];
+    trace_h__FPM__EXP___expmML_ <-
+    (trace_h__FPM__EXP___expmML_ ++
     [(Assert,
      (((BArray56.is_init b_a 0 56) /\ (BArray56.is_init b_b 0 56)) /\
      (BArray232.is_init b_ctx 0 232)))]);
@@ -7919,13 +7928,14 @@ module M = {
     (BArray56.init_arr (W8.of_int 255)));
     result <- aux;
     b_result <- aux_0;
-    trace_h__FPM__EXP___expm_ <- (trace_h__FPM__EXP___expm_ ++ tmp__trace);
-    trace_h__FPM__EXP___expm_ <-
-    (trace_h__FPM__EXP___expm_ ++
+    trace_h__FPM__EXP___expmML_ <-
+    (trace_h__FPM__EXP___expmML_ ++ tmp__trace);
+    trace_h__FPM__EXP___expmML_ <-
+    (trace_h__FPM__EXP___expmML_ ++
     [(Assert, (BArray56.is_init b_result 0 56))]);
     x1 <- result;
-    trace_h__FPM__EXP___expm_ <-
-    (trace_h__FPM__EXP___expm_ ++
+    trace_h__FPM__EXP___expmML_ <-
+    (trace_h__FPM__EXP___expmML_ ++
     [(Assert, ((0 <= (14 * 8)) /\ (((14 * 8) + 56) <= 232)))]);
     b_exp0 <- (SBArray232_56.get_sub64 b_ctx 14);
     exp0 <- (SBArray232_56.get_sub64 ctx 14);
@@ -7937,9 +7947,10 @@ module M = {
     b_param_1);
     result_0 <- aux_1;
     b_result_0 <- aux_2;
-    trace_h__FPM__EXP___expm_ <- (trace_h__FPM__EXP___expm_ ++ tmp__trace);
-    trace_h__FPM__EXP___expm_ <-
-    (trace_h__FPM__EXP___expm_ ++
+    trace_h__FPM__EXP___expmML_ <-
+    (trace_h__FPM__EXP___expmML_ ++ tmp__trace);
+    trace_h__FPM__EXP___expmML_ <-
+    (trace_h__FPM__EXP___expmML_ ++
     [(Assert, (BArray56.is_init b_result_0 0 56))]);
     x0 <- result_0;
     b <- b;
@@ -7947,8 +7958,8 @@ module M = {
     param_4 <- x1;
     param_5 <- b;
     param_6 <- ctx;
-    (aux_3, aux_4, aux_5, aux_6, tmp__trace) <@ h__FPM__EXP___expm (param_3,
-    (BArray56.init_arr (W8.of_int 255)), param_4,
+    (aux_3, aux_4, aux_5, aux_6, tmp__trace) <@ h__FPM__EXP___expmML (
+    param_3, (BArray56.init_arr (W8.of_int 255)), param_4,
     (BArray56.init_arr (W8.of_int 255)), param_5,
     (BArray56.init_arr (W8.of_int 255)), param_6,
     (BArray232.init_arr (W8.of_int 255)));
@@ -7956,17 +7967,18 @@ module M = {
     b_result_1 <- aux_4;
     result_2 <- aux_5;
     b_result_2 <- aux_6;
-    trace_h__FPM__EXP___expm_ <- (trace_h__FPM__EXP___expm_ ++ tmp__trace);
-    trace_h__FPM__EXP___expm_ <-
-    (trace_h__FPM__EXP___expm_ ++
+    trace_h__FPM__EXP___expmML_ <-
+    (trace_h__FPM__EXP___expmML_ ++ tmp__trace);
+    trace_h__FPM__EXP___expmML_ <-
+    (trace_h__FPM__EXP___expmML_ ++
     [(Assert, (BArray56.is_init b_result_1 0 56))]);
-    trace_h__FPM__EXP___expm_ <-
-    (trace_h__FPM__EXP___expm_ ++
+    trace_h__FPM__EXP___expmML_ <-
+    (trace_h__FPM__EXP___expmML_ ++
     [(Assert, (BArray56.is_init b_result_2 0 56))]);
     x0 <- result_1;
     x0 <- x0;
     b_x0 <- (BArray56.init_arr (W8.of_int 255));
-    return (x0, b_x0, trace_h__FPM__EXP___expm_);
+    return (x0, b_x0, trace_h__FPM__EXP___expmML_);
   }
   proc h__FPM__EXP____tblsel (r:BArray56.t, b_r:BArray56.t, tbl:BArray896.t,
                               b_tbl:BArray896.t, idx:W64.t) : BArray56.t *
@@ -8449,6 +8461,88 @@ module M = {
     r <- r;
     b_r <- (BArray56.init_arr (W8.of_int 255));
     return (r, b_r, trace_h__FPM__EXP___expmW_);
+  }
+  proc h__FPM__EXP___expm_ (r:BArray56.t, b_r:BArray56.t, a:BArray56.t,
+                            b_a:BArray56.t, b:BArray56.t, b_b:BArray56.t,
+                            ctx:BArray232.t, b_ctx:BArray232.t) : BArray56.t *
+                                                                  BArray56.t *
+                                                                  trace = {
+    var aux:BArray56.t;
+    var aux_0:BArray56.t;
+    var aux_1:BArray56.t;
+    var aux_2:BArray56.t;
+    var b_param:BArray56.t;
+    var param:BArray56.t;
+    var param_0:BArray56.t;
+    var param_1:BArray56.t;
+    var param_2:BArray232.t;
+    var result:BArray56.t;
+    var b_result:BArray56.t;
+    var b_param_0:BArray56.t;
+    var param_3:BArray56.t;
+    var param_4:BArray56.t;
+    var param_5:BArray56.t;
+    var param_6:BArray232.t;
+    var result_0:BArray56.t;
+    var b_result_0:BArray56.t;
+    var trace_h__FPM__EXP___expm_:trace;
+    b_param <- witness;
+    b_param_0 <- witness;
+    b_result <- witness;
+    b_result_0 <- witness;
+    param <- witness;
+    param_0 <- witness;
+    param_1 <- witness;
+    param_2 <- witness;
+    param_3 <- witness;
+    param_4 <- witness;
+    param_5 <- witness;
+    param_6 <- witness;
+    result <- witness;
+    result_0 <- witness;
+    trace_h__FPM__EXP___expm_ <- [];
+    trace_h__FPM__EXP___expm_ <-
+    (trace_h__FPM__EXP___expm_ ++
+    [(Assert,
+     (((BArray56.is_init b_a 0 56) /\ (BArray56.is_init b_b 0 56)) /\
+     (BArray232.is_init b_ctx 0 232)))]);
+    if ((41 = 0)) {
+      b_param <- b_r;
+      param <- r;
+      param_0 <- a;
+      param_1 <- b;
+      param_2 <- ctx;
+      (aux_1, aux_2, tmp__trace) <@ h__FPM__EXP___expmML_ (param, b_param,
+      param_0, (BArray56.init_arr (W8.of_int 255)), param_1,
+      (BArray56.init_arr (W8.of_int 255)), param_2,
+      (BArray232.init_arr (W8.of_int 255)));
+      result <- aux_1;
+      b_result <- aux_2;
+      trace_h__FPM__EXP___expm_ <- (trace_h__FPM__EXP___expm_ ++ tmp__trace);
+      trace_h__FPM__EXP___expm_ <-
+      (trace_h__FPM__EXP___expm_ ++
+      [(Assert, (BArray56.is_init b_result 0 56))]);
+      r <- result;
+    } else {
+      b_param_0 <- b_r;
+      param_3 <- r;
+      param_4 <- a;
+      param_5 <- b;
+      param_6 <- ctx;
+      (aux, aux_0, tmp__trace) <@ h__FPM__EXP___expmW_ (param_3, b_param_0,
+      param_4, (BArray56.init_arr (W8.of_int 255)), param_5,
+      (BArray56.init_arr (W8.of_int 255)), param_6,
+      (BArray232.init_arr (W8.of_int 255)));
+      result_0 <- aux;
+      b_result_0 <- aux_0;
+      trace_h__FPM__EXP___expm_ <- (trace_h__FPM__EXP___expm_ ++ tmp__trace);
+      trace_h__FPM__EXP___expm_ <-
+      (trace_h__FPM__EXP___expm_ ++
+      [(Assert, (BArray56.is_init b_result_0 0 56))]);
+      r <- result_0;
+    }
+    b_r <- (BArray56.init_arr (W8.of_int 255));
+    return (r, b_r, trace_h__FPM__EXP___expm_);
   }
   proc h__FPM____Pm2 (r:BArray56.t, b_r:BArray56.t, ctx:BArray232.t,
                       b_ctx:BArray232.t) : BArray56.t * BArray56.t * trace = {
@@ -9429,7 +9523,7 @@ module M = {
     param_4 <- a;
     param_5 <- b;
     param_6 <- ctx;
-    (aux_3, aux_4, tmp__trace) <@ h__FPM__EXP___expmW_ (param_3, b_param_1,
+    (aux_3, aux_4, tmp__trace) <@ h__FPM__EXP___expm_ (param_3, b_param_1,
     param_4, (BArray56.init_arr (W8.of_int 255)), param_5,
     (BArray56.init_arr (W8.of_int 255)), param_6,
     (BArray232.init_arr (W8.of_int 255)));
@@ -9561,7 +9655,7 @@ module M = {
     param_4 <- a;
     param_5 <- b;
     param_6 <- ctx;
-    (aux_3, aux_4, tmp__trace) <@ h__FPM__EXP___expm_ (param_3, b_param_1,
+    (aux_3, aux_4, tmp__trace) <@ h__FPM__EXP___expmML_ (param_3, b_param_1,
     param_4, (BArray56.init_arr (W8.of_int 255)), param_5,
     (BArray56.init_arr (W8.of_int 255)), param_6,
     (BArray232.init_arr (W8.of_int 255)));
@@ -10617,8 +10711,8 @@ op h__FPM__EXP___expm_noct__spec _r _b_r _a _b_a _b _b_b _ctx _b_ctx =
    (BArray232.is_init _b_ctx 0 (8 * 29)))) ==>
    ((BArray56.is_init res.`2 0 (8 * 7)) /\ (valid res.`3))].
 
-op h__FPM__EXP___expm_spec _x0 _b_x0 _x1 _b_x1 _b _b_b _ctx _b_ctx =
-   hoare [M.h__FPM__EXP___expm :
+op h__FPM__EXP___expmML_spec _x0 _b_x0 _x1 _b_x1 _b _b_b _ctx _b_ctx =
+   hoare [M.h__FPM__EXP___expmML :
    (((_b_ctx = b_ctx) /\
     ((_ctx = ctx) /\
     ((_b_b = b_b) /\
@@ -10630,8 +10724,8 @@ op h__FPM__EXP___expm_spec _x0 _b_x0 _x1 _b_x1 _b _b_b _ctx _b_ctx =
    (((BArray56.is_init res.`4 0 56) /\ (BArray56.is_init res.`2 0 56)) /\
    (valid res.`5))].
 
-op h__FPM__EXP___expm__spec _x0 _b_x0 _a _b_a _b _b_b _ctx _b_ctx =
-   hoare [M.h__FPM__EXP___expm_ :
+op h__FPM__EXP___expmML__spec _x0 _b_x0 _a _b_a _b _b_b _ctx _b_ctx =
+   hoare [M.h__FPM__EXP___expmML_ :
    (((_b_ctx = b_ctx) /\
     ((_ctx = ctx) /\
     ((_b_b = b_b) /\
@@ -10660,6 +10754,16 @@ op h__FPM__EXP___expmW_spec _r _b_r _a _b_a _b _b_b _ctx _b_ctx =
 
 op h__FPM__EXP___expmW__spec _r _b_r _a _b_a _b _b_b _ctx _b_ctx =
    hoare [M.h__FPM__EXP___expmW_ :
+   (((_b_ctx = b_ctx) /\
+    ((_ctx = ctx) /\
+    ((_b_b = b_b) /\
+    ((_b = b) /\ ((_b_a = b_a) /\ ((_a = a) /\ ((_b_r = b_r) /\ (_r = r)))))))) /\
+   (((BArray56.is_init _b_a 0 (8 * 7)) /\ (BArray56.is_init _b_b 0 (8 * 7))) /\
+   (BArray232.is_init _b_ctx 0 (8 * 29)))) ==>
+   ((BArray56.is_init res.`2 0 (8 * 7)) /\ (valid res.`3))].
+
+op h__FPM__EXP___expm__spec _r _b_r _a _b_a _b _b_b _ctx _b_ctx =
+   hoare [M.h__FPM__EXP___expm_ :
    (((_b_ctx = b_ctx) /\
     ((_ctx = ctx) /\
     ((_b_b = b_b) /\
