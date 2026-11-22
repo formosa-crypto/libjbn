@@ -584,7 +584,8 @@ What is *not* settled:
     present multiplications (a ladder step split as `fpc_mul` and
     `fpc_sqr`), `fpc_exp` would take about 0.6 of its time, that is 0.8 of
     `mpz_powm_sec` built for the CPU up to 16 limbs and 0.9 to 0.95 at 32
-    and 64, before the cost of a constant-time table lookup.
+    and 64, before the cost of a constant-time table lookup (measured
+    since: next item).
 * **Fixed window (a later change).** `_expmW_` (`bn_exp`; `fpc_expw` in
   `fp_mont_ctx_export`) is the exponentiation of that projection, with a
   window of 4 bits at every size: a table of the powers a^0 to a^15 (14
@@ -605,13 +606,59 @@ What is *not* settled:
     limbs of the exponent, takes 1.0 KB at 4 limbs, 4.0 at 16 and 16.0 at
     64 (the instances of `make bench`, `bn_mul` at 4 limbs and
     `bn_mul_loop` at 16 and 64).
-  * Not timed on the i7-14700K yet: `make bench` prints `fpc_expw` next
-    to `fpc_exp`, on the same operands. Under Rosetta, which is no guide
-    (above), and so without MULX (`bn_mul`, `bn_mul_loop`, `fp_pm` over
-    `bn_mul`), it takes 0.66 to 0.70 of the time of the ladder at 4 limbs,
-    0.64 to 0.66 at 8, 0.63 to 0.64 at 16 and 0.62 to 0.63 at 32 and 64;
-    one entry is apart, `fp_pm` at 64 limbs (0.39), whose ladder takes
-    there twice the time of its products.
+  * Timings: same CPU, `taskset -c 2 make -C examples/simple_tests/fp_ctx
+    bench`, which times `fpc_expw` next to `fpc_exp`, on the same
+    operands; one run. The time of `fpc_expw` over that of `fpc_exp`:
+
+    | `nlimbs` | `bn_mul` | `bn_mul_loop` | `bn_mulx` | `bn_mulx_loop` | `bn_mulxr` | `fp_pm` over `bn_mul` | `fp_pm` over `bn_mulxr` |
+    |---:|---:|---:|---:|---:|---:|---:|---:|
+    | 4 | 0.70 | 0.71 | 0.74 | 0.74 | 0.73 | 0.75 | 0.78 |
+    | 5 | 0.69 | 0.71 | 0.69 | 0.70 | 0.69 | 0.75 | 0.74 |
+    | 6 | 0.68 | 0.69 | 0.67 | 0.68 | 0.67 | 0.68 | 0.71 |
+    | 8 | 0.64 | 0.67 | 0.65 | 0.66 | – | 0.69 | – |
+    | 16 | 0.62 | 0.65 | 0.62 | 0.65 | – | 0.60 | – |
+    | 32 | 0.62 | 0.63 | 0.59 | 0.63 | – | 0.58 | – |
+    | 64 | 0.61 | 0.63 | 0.58 | 0.61 | – | 0.61 | – |
+
+    The fastest Montgomery module, in µs, against the `mpz_powm_sec` of
+    the previous item (another run):
+
+    | `nlimbs` | module | `fpc_exp` | `fpc_expw` | `fpc_expw` over `mpz_powm_sec` built for the CPU | over the package's |
+    |---:|---|---:|---:|---:|---:|
+    | 4 | `bn_mulx` | 9.5 | 7.0 | 0.91 | 0.75 |
+    | 5 | `bn_mulx` | 16.6 | 11.5 | 0.88 | 0.73 |
+    | 6 | `bn_mulx` | 25.5 | 17.2 | 0.89 | 0.68 |
+    | 8 | `bn_mulx` | 53.5 | 34.7 | 0.90 | 0.70 |
+    | 16 | `bn_mulx` | 355.9 | 219.0 | 0.86 | 0.67 |
+    | 32 | `bn_mulx_loop` | 2 772.1 | 1 758.4 | 0.99 | 0.73 |
+    | 64 | `bn_mulx_loop` | 21 957.4 | 13 459.5 | 0.95 | 0.69 |
+
+    * The window is faster than the ladder for every module and size: it
+      takes 0.58 to 0.65 of its time from 16 limbs on, 0.64 to 0.69 at 8
+      and 0.67 to 0.78 from 4 to 6.
+    * With it the fastest Montgomery module is ahead of `mpz_powm_sec`
+      built for the CPU at every size (the ladder took 1.23 to 1.56 times
+      its time): 0.86 to 0.91 of its time up to 16 limbs, 0.99 at 32 and
+      0.95 at 64, where `bn_mulx_loop` squares by multiplying and four
+      products of five are now squarings. `fp_pm` over `bn_mulxr` takes
+      0.81, 0.75 and 0.73 of it at 4, 5 and 6 limbs. What is timed still
+      differs, as above; `fpc_expw` builds its table at each call, as GMP
+      does.
+    * The projection (0.6 of the ladder) holds from 16 limbs on, not
+      below. The count of products (four `fpc_sqr` and an `fpc_mul` per
+      window, 14 `fpc_mul` for the table, at the times of this run) gives
+      `fpc_expw` of `bn_mulx` and `bn_mulx_loop` within 3% from 16 limbs
+      on, but 5.5 µs for `bn_mulx` at 4 limbs, where 7.0 are measured: 24
+      ns more per window, while the ladder is 3.5 ns per bit above its
+      own count.
+    * A likely reason, not measured in this run: the five products of a
+      window are one chain, each waiting for the previous one, whereas
+      the multiplication and the squaring of a ladder step do not depend
+      on each other and overlap. The count uses calls that are
+      independent; chained, a product of `bn_mulx` took 4.7 to 4.8 ns
+      more at 4 limbs (next section, an earlier run), which for five
+      products is the 24 ns. That leaves little for the lookup.
+      `BENCH_CHAINED=1` would tell.
   * A window of 4 bits is the one of GMP up to 8 limbs. With its 5 bits
     at 16 and 32 limbs and 6 at 64, there would be 3% fewer products at 16
     and 32 limbs and 6% fewer at 64, and larger tables to read: not done.
