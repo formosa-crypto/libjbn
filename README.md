@@ -522,6 +522,69 @@ What is *not* settled:
     (before: 10.4 against 11.0, 18.1 against 18.0, 28.4 against 27.4).
     `JBN_REG_MAX` was chosen from the earlier figures (next section) and
     has not been reconsidered.
+* **Against GMP.** `make bench-gmp`, in the same directory, times the
+  exponentiations of GMP at the same sizes and on the same operands
+  (`bench_gmp.c`; it takes the GMP of the host, or another build through
+  `GMP_FLAGS`). `mpz_powm_sec` is its side-channel silent exponentiation:
+  a fixed window, in Montgomery form, with a squaring per bit of the
+  exponent and a multiplication per window (of the size below), where the
+  ladder `_expm_` does a squaring and a multiplication per bit;
+  `mpz_powm` is the one that is not constant time. Same CPU, GMP 6.3.0,
+  one run each, in µs. Two builds of GMP: the package of the distribution
+  (a generic x86-64 configuration, for which GMP selects its K8 code,
+  without MULX) and a build for the CPU (`./configure --disable-shared`:
+  MULX/ADCX/ADOX). `fpc_exp` is the one of the previous item, after the
+  change of the conditional operations:
+
+  | `nlimbs` | window | `mpz_powm_sec`: package | built for the CPU | `mpz_powm`, built for the CPU | `fpc_exp`, fastest Montgomery module |
+  |---:|---:|---:|---:|---:|---:|
+  | 4 | 4 | 9.3 | 7.7 | 6.4 | 9.6 (`bn_mulx`) |
+  | 5 | 4 | 15.7 | 13.1 | 10.2 | 16.2 (`bn_mulx`) |
+  | 6 | 4 | 25.3 | 19.3 | 15.9 | 25.6 (`bn_mulx`) |
+  | 8 | 4 | 49.4 | 38.6 | 37.3 | 53.3 (`bn_mulx`) |
+  | 16 | 5 | 327.0 | 253.8 | 231.5 | 354.2 (`bn_mulx`) |
+  | 32 | 5 | 2 424.6 | 1 774.5 | 1 595.8 | 2 769.9 (`bn_mulx_loop`) |
+  | 64 | 6 | 19 412.4 | 14 184.6 | 12 189.8 | 21 882.6 (`bn_mulx_loop`) |
+
+  The time of `fpc_exp` over that of `mpz_powm_sec` built for the CPU:
+
+  | `nlimbs` | `bn_mul` | `bn_mul_loop` | `bn_mulx` | `bn_mulx_loop` | `bn_mulxr` | `fp_pm` over `bn_mul` | `fp_pm` over `bn_mulxr` |
+  |---:|---:|---:|---:|---:|---:|---:|---:|
+  | 4 | 1.70 | 1.62 | 1.25 | 1.32 | 1.26 | 1.22 | 1.03 |
+  | 5 | 1.79 | 1.74 | 1.24 | 1.37 | 1.31 | 1.19 | 1.01 |
+  | 6 | 1.99 | 1.99 | 1.33 | 1.41 | 1.40 | 1.22 | 1.02 |
+  | 8 | 2.25 | 2.11 | 1.38 | 1.54 | – | 1.20 | – |
+  | 16 | 2.28 | 2.27 | 1.40 | 1.60 | – | 1.20 | – |
+  | 32 | 2.44 | 2.62 | 2.56 | 1.56 | – | 1.21 | – |
+  | 64 | 2.38 | 2.72 | 2.63 | 1.54 | – | 1.19 | – |
+
+  * The fastest Montgomery module takes 1.24 to 1.56 times the time of
+    `mpz_powm_sec` built for the CPU, and 1.01 to 1.14 times that of the
+    package. The build for the CPU takes 17% to 27% less time than the
+    package (its product alone, `mpn_sec_mul`, 385 ns against 539 at 32
+    limbs), so the GMP that is compared matters as much as the module.
+  * The difference is the algorithm. With these windows GMP does 1.56 to
+    1.69 times fewer modular products (329 against 512 at 4 limbs, 2 482
+    against 4 096 at 32). A product of GMP takes more on average: 25%
+    more at 4 limbs (23.4 ns against 18.8) and 6% to 10% more at 32 and
+    64 (715 ns against 676 at 32 limbs). The advantage of libjbn shrinks
+    with the size because most products of GMP are squarings, and from 16
+    limbs on its squaring alone takes 0.56 to 0.59 of its multiplication
+    (`mpn_sec_sqr` 222.8 ns, `mpn_sec_mul` 385.2 at 32 limbs), while
+    `bn_mulx_loop` squares by multiplying.
+  * Without MULX (`bn_mul`, `bn_mul_loop`) the ladder takes 1.6 to 2.7
+    times as long. `fp_pm` over `bn_mulxr`, for its moduli, is level with
+    GMP at 4 to 6 limbs (within 3%).
+  * What is timed differs slightly: an exponentiation of GMP includes the
+    conversions to and from Montgomery form and its table of powers,
+    computed at each call; `fpc_exp` takes its operand in Montgomery form
+    (the two conversions are 2 products more, of 512 at 4 limbs) and the
+    context of the modulus, computed beforehand.
+  * A projection, not a measurement: with the windows of GMP and the
+    present multiplications (a ladder step split as `fpc_mul` and
+    `fpc_sqr`), `fpc_exp` would take about 0.6 of its time, that is 0.8 of
+    `mpz_powm_sec` built for the CPU up to 16 limbs and 0.9 to 0.95 at 32
+    and 64, before the cost of a constant-time table lookup.
 * **Proofs.** The four modules are proved, with one contract
   (`Bn_mul.eca`, `Bn_mul_loop.eca`, `Bn_mulx.eca`, `Bn_mulx_loop.eca`;
   section 4), and so is `bn_mulxr` (`Bn_mulxr.eca`, next section).
@@ -1223,7 +1286,7 @@ make clean
 |---|---|
 | `simple_tests/sike` | Montgomery field arithmetic for the SIKE primes (434, 503, 610, 751 bits) |
 | `simple_tests/rsa_pss` | 2048-bit RSA from a key pair (`rsa_keys.jinc`: pk = (n, e), sk = (p, q, dP, dQ, qInv); layout in `rsa2048_params.jinc`): expanded keys with the contexts of n, p and q (PK = (ctx_n, e), SK = (ctx_p, ctx_q, dP, dQ, qInv)), computed once by `rsa_init`; RSAVP1 and RSASP1 by the CRT on them (`rsa2048@libjbn.jinc`; profile `x86_64`, the selector); `make run` checks the expanded keys and both primitives against values computed in Python, and their round trips; `proof/`: their correctness in EasyCrypt from the contracts of the library (`make` there; see [Using the theories for a concrete instance](#using-the-theories-for-a-concrete-instance)); `proof/safety/`: their safety (`make safety` in `proof/`; see [Using the safety theories](#using-the-safety-theories-for-a-concrete-instance)) |
-| `simple_tests/fp_ctx` | moduli given at run time (7 and 16 limbs): `fpc_ctx_init` and every `fpc_*` operation, against Python (`make run`); each size is also built with `bn_mul_loop` (`fp_ctx_loop*.jazz`, in `make run`) and with `bn_mulx_loop` and `bn_mulx` (`fp_ctx_mulx_loop*.jazz`, `fp_ctx_mulx*.jazz`; `make run-mulx`, which needs BMI2 and ADX); and with the selector `bn_mulsel`, once per module (`fp_ctx_sel*.jazz`, profile `x86_64`, in `make run`; `fp_ctx_selx*.jazz`, profile `x86_64_adx`, in `make run-mulx`; the 16-limb ones shadow the threshold); with `bn_mulxr` at 4, 5 and 6 limbs (`fp_ctx_mulxr*.jazz`, in `make run-mulx`); pseudo-Mersenne fields (`fp_pm`, 2^255-19 among the moduli) at 4 and 6 limbs, over `bn_mul` (`fp_ctx_pm*.jazz`, in `make run`) and over `bn_mulxr` (`fp_ctx_pmxr*.jazz`, in `make run-mulx`), with `vectors_pm*.txt` (`gen_vectors.py N SEED pm`); `make exec` runs the same checks in the interpreter of `jasminc`, on any host (`gen_exec_test.py`, below); `make bench` times the five modules, and `fp_pm` over `bn_mul` and over `bn_mulxr` (variants `pm_unr`, `pm_mulxr`; modulus 2^(64n-1)-19); `fpc_mul` and `fpc_sqr` are timed on the same arguments at each call (throughput), or, with `BENCH_CHAINED=1`, each call on the result of the previous one (latency, as in `fpc_exp`) |
+| `simple_tests/fp_ctx` | moduli given at run time (7 and 16 limbs): `fpc_ctx_init` and every `fpc_*` operation, against Python (`make run`); each size is also built with `bn_mul_loop` (`fp_ctx_loop*.jazz`, in `make run`) and with `bn_mulx_loop` and `bn_mulx` (`fp_ctx_mulx_loop*.jazz`, `fp_ctx_mulx*.jazz`; `make run-mulx`, which needs BMI2 and ADX); and with the selector `bn_mulsel`, once per module (`fp_ctx_sel*.jazz`, profile `x86_64`, in `make run`; `fp_ctx_selx*.jazz`, profile `x86_64_adx`, in `make run-mulx`; the 16-limb ones shadow the threshold); with `bn_mulxr` at 4, 5 and 6 limbs (`fp_ctx_mulxr*.jazz`, in `make run-mulx`); pseudo-Mersenne fields (`fp_pm`, 2^255-19 among the moduli) at 4 and 6 limbs, over `bn_mul` (`fp_ctx_pm*.jazz`, in `make run`) and over `bn_mulxr` (`fp_ctx_pmxr*.jazz`, in `make run-mulx`), with `vectors_pm*.txt` (`gen_vectors.py N SEED pm`); `make exec` runs the same checks in the interpreter of `jasminc`, on any host (`gen_exec_test.py`, below); `make bench` times the five modules, and `fp_pm` over `bn_mul` and over `bn_mulxr` (variants `pm_unr`, `pm_mulxr`; modulus 2^(64n-1)-19); `fpc_mul` and `fpc_sqr` are timed on the same arguments at each call (throughput), or, with `BENCH_CHAINED=1`, each call on the result of the previous one (latency, as in `fpc_exp`); `make bench-gmp` times the exponentiations of GMP at the same sizes and on the same operands (`bench_gmp.c`: a native program on any host, with the GMP of the host or the one of `GMP_FLAGS`) |
 | `simple_tests/mults` | 32-limb multiplication: `ps`, `os`, `osreg` and Karatsuba variants; the `os` multiplication and squaring of `bn_mul_loop`, `bn_mulx_loop` and `bn_mulx` (`testmul_os_loop.c`, against a C reference); `make bench` (with `bn_mulxr`: variant `mulxr`) and `make bench-kar` time the multiplications and squarings alone |
 | `schnorr-zk` | a Schnorr zero-knowledge protocol over the RFC 3526 2048-bit group |
 
