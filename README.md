@@ -213,7 +213,7 @@ Five modules provide the multiplication, squaring and Montgomery reduction
 `bn_mulx_loop` with `mulx`/`adcx`/`adox`, each either unrolled or looping
 over its rows, and `bn_mulxr`, `bn_mulx` with its accumulator in registers,
 for small sizes. Which one is fastest depends on the CPU and on the size.
-`bn_mulsel@n.jinc` chooses among them at compile time, from three
+`bn_mulsel@n.jinc` chooses among them at compile time, from four
 parameters set by a **profile**:
 
 * `JBN_FEATURES`: the CPU features that may be used, as a sum of the bits
@@ -221,18 +221,27 @@ parameters set by a **profile**:
   `mulx` rows need both (`JBN_FEATURES_MULX`);
 * `JBN_REG_MAX`: with BMI2 and ADX, `bn_mulxr` is used up to this size
   (at most 6, see [Registers](#small-sizes-the-accumulator-in-registers-bn_mulxr));
-* `JBN_UNROLL_MAX`: the code of a size scope is unrolled when `nlimbs <=
-  JBN_UNROLL_MAX`, and loops over its rows above.
+* `JBN_UNROLL_MAX`: the multiplication and the reduction of a size scope
+  are unrolled when `nlimbs <= JBN_UNROLL_MAX`, and loop over their rows
+  above;
+* `JBN_SQR_UNROLL_MAX`: the same for the squaring, which has a threshold
+  of its own. The looped modules square by multiplying, so that the
+  unrolled squaring is worth taking above `JBN_UNROLL_MAX`, for as long
+  as it fits the instruction cache with the looped multiplication and
+  reduction.
 
 |  | `nlimbs <= JBN_REG_MAX` | `nlimbs <= JBN_UNROLL_MAX` | above |
 |---|---|---|---|
 | BMI2 and ADX | `bn_mulxr` | `bn_mulx` | `bn_mulx_loop` |
 | otherwise | — | `bn_mul` (product scanning) | `bn_mul_loop` |
 
-| Profile (`src/amd64/ref/profiles/`) | `JBN_FEATURES` | `JBN_REG_MAX` | `JBN_UNROLL_MAX` | `JBN_EXP_WINDOW` | for |
-|---|---|---|---|---|---|
-| `x86_64.jinc` | none | 0 | 64 | 4 | any x86-64 CPU (and Rosetta) |
-| `x86_64_adx.jinc` | BMI2, ADX | 5 | 16 | 4 | Intel Broadwell and later, AMD Zen and later |
+(For the squaring, the same table with `JBN_SQR_UNROLL_MAX` in the place
+of `JBN_UNROLL_MAX`.)
+
+| Profile (`src/amd64/ref/profiles/`) | `JBN_FEATURES` | `JBN_REG_MAX` | `JBN_UNROLL_MAX` | `JBN_SQR_UNROLL_MAX` | `JBN_EXP_WINDOW` | for |
+|---|---|---|---|---|---|---|
+| `x86_64.jinc` | none | 0 | 64 | 64 | 4 | any x86-64 CPU (and Rosetta) |
+| `x86_64_adx.jinc` | BMI2, ADX | 5 | 16 | 40 | 4 | Intel Broadwell and later, AMD Zen and later |
 
 The thresholds come from the timings of the next section, on one CPU (an
 Intel Core i7-14700K): with `mulx` the unrolled code is faster up to 16
@@ -242,8 +251,13 @@ limbs (either way), and the unrolled code is faster at 32 and 64 limbs (8%
 and 16%), the largest size timed. `JBN_REG_MAX` comes from the timings of
 [Small sizes](#small-sizes-the-accumulator-in-registers-bn_mulxr):
 `bn_mulxr` is faster than `bn_mulx` at 4 and 5 limbs, and at 6 only when
-the field multiplications are independent of each other. The header of
-each profile gives the figures.
+the field multiplications are independent of each other.
+`JBN_SQR_UNROLL_MAX` comes from the experiment of the next section: with
+`mulx`, under the looped multiplication and reduction, the unrolled
+squaring makes an exponentiation 14% to 17% faster at 24, 32 and 40 limbs
+and 4% slower at 48, where it no longer fits the instruction cache.
+Without `mulx` the two thresholds are equal: they were not timed apart.
+The header of each profile gives the figures.
 
 A program requires one profile at its top level, before the instances,
 and uses the selector as its `MUL` and `fp_mul_sel` in its fields:
@@ -255,7 +269,8 @@ namespace UTIL { from Libjbn require "bn_util.jinc" }
 
 namespace H {
   param int nlimbs = 16;
-  // param int JBN_UNROLL_MAX = 0;      // (optional) smallest code at this size
+  // param int JBN_UNROLL_MAX = 0;      // (optional) smallest code at this size:
+  // param int JBN_SQR_UNROLL_MAX = 0;  // both thresholds
   namespace BN  { from Libjbn require "bn_base@n.jinc" }
   namespace RND { from Libjbn require "bn_rnd@n.jinc" }
   namespace MUL { from Libjbn require "bn_mulsel@n.jinc" }
@@ -266,14 +281,19 @@ namespace H {
 }
 ```
 
-* **One decision per size scope.** The multiplication, squaring and
-  reduction of a size scope come from the same module: they share the
-  instruction cache (at 32 limbs the unrolled `mulx` multiplication alone
-  is within 7% of the looped one, but `fpc_mul`, with the reduction, is
-  81% slower).
-* **Overriding.** A size scope may shadow `JBN_UNROLL_MAX` (parameters can
-  be shadowed, functions cannot): 0 forces the looped code at that size
-  (e.g. for code size), a large value the unrolled code. A program can
+* **One decision for the multiplication and the reduction, one for the
+  squaring.** The multiplication and the reduction of a size scope come
+  from the same module: they share the instruction cache (at 32 limbs the
+  unrolled `mulx` multiplication alone is within 7% of the looped one,
+  but `fpc_mul`, with the reduction, is 81% slower). The squaring is
+  chosen apart: unrolled, it still fits the cache next to the looped
+  multiplication and reduction up to 40 limbs (29 KB), and the looped
+  modules have none of their own.
+* **Overriding.** A size scope may shadow `JBN_UNROLL_MAX` and
+  `JBN_SQR_UNROLL_MAX` (parameters can be shadowed, functions cannot): 0
+  for both forces the looped code at that size (e.g. for code size; with
+  the first alone, the squaring stays unrolled up to the second), a large
+  value the unrolled code. A program can
   still wire one of the four modules directly as its `MUL` (with
   `fp_mul_ps` or `fp_mul_os`), as most examples of section 6 do; it
   still requires a profile, for the exponentiation (below).
@@ -710,6 +730,32 @@ What is *not* settled:
     `2^w * nlimbs` words has a size that the extraction scripts do not
     abstract (sections 3 and 5: a size is an affine expression of one
     parameter).
+* **The unrolled squaring in a looped instance (an experiment).** The
+  looped modules square by multiplying. `fp_ctx_mulx_sqru7.jazz` wires
+  the multiplication and the reduction of `bn_mulx_loop` with the
+  squaring of `bn_mulx` (the bench variant `mulx_sqru`; "mixed" below).
+  Same CPU, one run; `fpc_exp` is the window:
+
+  | `nlimbs` | unrolled squaring (KB) | `fpc_sqr` (ns): `bn_mulx_loop` | mixed | `fpc_exp` (µs): `bn_mulx` | `bn_mulx_loop` | mixed | mixed over `bn_mulx_loop` |
+  |---:|---:|---:|---:|---:|---:|---:|---:|
+  | 24 | 10.6 | 403.2 | 319.6 | 746.9 | 801.5 | 664.6 | 0.83 |
+  | 32 | 18.9 | 679.7 | 545.8 | 2 686.9 | 1 753.2 | 1 494.7 | 0.85 |
+  | 40 | 29.4 | 1 046.6 | 842.9 | 5 281.2 | 3 380.4 | 2 903.1 | 0.86 |
+  | 48 | 42.2 | 1 507.5 | 1 561.1 | 9 158.7 | 5 772.4 | 6 002.6 | 1.04 |
+
+  * It pays while the squaring fits the 32 KB instruction cache: from 24
+    to 40 limbs `fpc_sqr` is 19% to 21% faster and `fpc_exp` 14% to 17%
+    (the ladder, 9% to 10%). At 48 limbs, where the squaring has 42 KB,
+    both are 4% slower. `fpc_mul` is the same (within 0.6%).
+  * At 32 limbs it is what was projected from the squaring alone (about
+    1 500 µs), and 0.84 of the time of `mpz_powm_sec` built for the CPU
+    (0.99 with the looped squaring).
+  * At 24 limbs the unrolled `bn_mulx` multiplies 11% slower than the
+    looped module and squares 18% faster: all unrolled, it is 7% faster
+    than all looped on the window and 15% slower on the ladder, and the
+    mixed wiring is 11% faster than it on the window.
+  * The selector now does it, by a threshold of the squaring of its own:
+    `JBN_SQR_UNROLL_MAX`, 40 in `x86_64_adx.jinc`.
 * **Proofs.** The four modules are proved, with one contract
   (`Bn_mul.eca`, `Bn_mul_loop.eca`, `Bn_mulx.eca`, `Bn_mulx_loop.eca`;
   section 4), and so is `bn_mulxr` (`Bn_mulxr.eca`, next section).
@@ -1000,7 +1046,8 @@ All of this lives in `src/amd64/ref/extracted/`:
   parameters, selected by `-I Dummy=dummyA` or `-I Dummy=dummyB`: `nlimbs`
   11 or 7 (contexts then have 45 or 29 words), `nlimbsexp` 13 or 6, and the
   profile `JBN_FEATURES` 19 or 51, `JBN_REG_MAX` 23 or 18, `JBN_UNROLL_MAX`
-  17 or 12, `JBN_EXP_WINDOW` 37 or 41. The extraction of this section uses
+  17 or 12, `JBN_SQR_UNROLL_MAX` 29 or 31, `JBN_EXP_WINDOW` 37 or 41. The
+  extraction of this section uses
   A; the safety extraction
   uses both (section 5). `make check` in `src/amd64/ref` typechecks the
   harness at both points;
@@ -1058,12 +1105,12 @@ exponentiation used by `_invm_` calls the field's own `_mulmU_`; in
 | `Bn_mul.eca` | `nlimbs` (clones `BigN`, `Bn_util` and `Bn_base`) | `bn_mul` |
 | `Bn_mul_loop.eca`, `Bn_mulx.eca`, `Bn_mulx_loop.eca` | `nlimbs` (the looped ones with `4 * nlimbs < W64.modulus`, as `Bn_mul`: the row index is a word) | `bn_mul_loop`, `bn_mulx`, `bn_mulx_loop`: the contracts of `Bn_mul` (`_os_muln_`, `_os_sqrn_`, `__mont_redM`) |
 | `Bn_mulxr.eca` | `nlimbs` | `bn_mulxr`: the contracts of `Bn_mul` |
-| `Bn_mulsel.eca` | `nlimbs`, the profile `jbn_features`, `jbn_reg_max`, `jbn_unroll_max` (any values; clones the five theories above) | `bn_mulsel`: `_muln_`, `_sqrn_`, `__mont_redM`, proved for the five branches |
+| `Bn_mulsel.eca` | `nlimbs`, the profile `jbn_features`, `jbn_reg_max`, `jbn_unroll_max`, `jbn_sqr_unroll_max` (any values; clones the five theories above) | `bn_mulsel`: `_muln_`, `_sqrn_`, `__mont_redM`, proved for the five branches |
 | `Bn_rnd.eca` | `nlimbs`; the system call `#randombytes` (`Syscall`) | `bn_rnd`: `_rnd_` is a uniform sample; `_rsample_` a uniform sample below the bound (`_rsample__eq`), and `__bnd_mask` covers the numbers below it |
 | `Fp_ctx.eca` | `nlimbs` | `fp_ctx` (layout of a context: `ctxP`, `ctxMP`, `ctxONE`, `ctxR2`, `ctxU0`; `ctx_mod p c`, `ctx_mont p c`) |
 | `Bn_exp.eca` | `nlimbs`, `nlimbsexp` (with `64 * nlimbs < W64.modulus` and `64 * nlimbsexp < W64.modulus`), the profile `jbn_exp_window` (any value), an abstract monoid over contexts (`mok`, `mdom`, `mmul`; the unit is the context's ONE); module parameter `fun_mulU`, `fun_sqrU` | `bn_exp` |
 | `Fp_base.eca` | `nlimbs` (with `64 * nlimbs < W64.modulus`), an abstract reduction `red p x = x * redK p mod p` (`redK`, `red_ctx`); module parameter `fun_muln`, `fun_sqrn`, `fun_red` | `fp_base` (its exponentiation is `Bn_exp` in the monoid of representatives) |
-| `Fp_mont.eca` | `nlimbs` (with `64 * nlimbs < W64.modulus`), the profile `jbn_features`, `jbn_unroll_max`; module parameter `fun_muln`, `fun_sqrn` | `fp_mont` (`Fp_base` with `redK p = R^-1 mod p`; its reduction is that of `Bn_mulsel`) |
+| `Fp_mont.eca` | `nlimbs` (with `64 * nlimbs < W64.modulus`), the profile of `Bn_mulsel` (`jbn_features`, `jbn_reg_max`, `jbn_unroll_max`, `jbn_sqr_unroll_max`); module parameter `fun_muln`, `fun_sqrn` | `fp_mont` (`Fp_base` with `redK p = R^-1 mod p`; its reduction is that of `Bn_mulsel`) |
 | `Fp_pm.eca` | `nlimbs` (with `64 * nlimbs < W64.modulus`); module parameter `fun_muln`, `fun_sqrn` | `fp_pm` (`Fp_base` with `redK p = 1`, the reduction modulo p; `ctx_pm p c`: a context of p with `R mod p` in `U0`, below 2^32, `R < 3p` and ONE = 1) |
 
 The field theories take no modulus: every contract quantifies over a ghost
@@ -1110,7 +1157,8 @@ the dummy instance* of its Jasmin module (section 3). For `Bn_util.ec`,
   `bn_mul` becomes `BNB_M._cminusP_`);
 * replaces the dummy sizes by the parameters (`W64.t Array11.t` becomes
   `BN.t`, `Array22` becomes `BN2`, `11` becomes `nlimbs`, …), and the
-  dummy profile by `jbn_features` (19), `jbn_unroll_max` (17) and
+  dummy profile by `jbn_features` (19), `jbn_unroll_max` (17),
+  `jbn_sqr_unroll_max` (29) and
   `jbn_exp_window` (37);
 * maps the modules instantiated in sub-namespaces of the selector
   (`h__MUL__UNR__`, …) to their own theories (`BNMUL_M`, …);
@@ -1279,7 +1327,8 @@ every module of `libjbn_abs.jazz` (lists in
 `src/amd64/ref/extracted/modules.mk`) and every export template (a harness
 per template, `extracted/exports/<template>.jazz`, lists in
 `exports/exports.mk`) at two dummy points: `-I Dummy=dummyA` (`nlimbs` 11,
-`nlimbsexp` 13, profile 19/23/17/37) and `dummyB` (7, 6, 51/18/12/41). The
+`nlimbsexp` 13, profile 19/23/17/29/37) and `dummyB` (7, 6,
+51/18/12/31/41). The
 extractions are committed (`proof/safety/extracted/{A,B}/`, 4 MB), so the
 proofs check without that extractor; `make check-extraction` re-extracts and
 fails if they changed.
@@ -1420,7 +1469,7 @@ make clean
 |---|---|
 | `simple_tests/sike` | Montgomery field arithmetic for the SIKE primes (434, 503, 610, 751 bits) |
 | `simple_tests/rsa_pss` | 2048-bit RSA from a key pair (`rsa_keys.jinc`: pk = (n, e), sk = (p, q, dP, dQ, qInv); layout in `rsa2048_params.jinc`): expanded keys with the contexts of n, p and q (PK = (ctx_n, e), SK = (ctx_p, ctx_q, dP, dQ, qInv)), computed once by `rsa_init`; RSAVP1 and RSASP1 by the CRT on them (`rsa2048@libjbn.jinc`; profile `x86_64`, the selector; the exponentiations by dP and dQ are `_expm_`, the fixed window by the profile); `make run` checks the expanded keys and both primitives against values computed in Python, and their round trips; `proof/`: their correctness in EasyCrypt from the contracts of the library (`make` there; see [Using the theories for a concrete instance](#using-the-theories-for-a-concrete-instance)); `proof/safety/`: their safety (`make safety` in `proof/`; see [Using the safety theories](#using-the-safety-theories-for-a-concrete-instance)) |
-| `simple_tests/fp_ctx` | moduli given at run time (7 and 16 limbs): `fpc_ctx_init` and every `fpc_*` operation, against Python (`make run`); each size is also built with `bn_mul_loop` (`fp_ctx_loop*.jazz`, in `make run`) and with `bn_mulx_loop` and `bn_mulx` (`fp_ctx_mulx_loop*.jazz`, `fp_ctx_mulx*.jazz`; `make run-mulx`, which needs BMI2 and ADX); and with the selector `bn_mulsel`, once per module (`fp_ctx_sel*.jazz`, profile `x86_64`, in `make run`; `fp_ctx_selx*.jazz`, profile `x86_64_adx`, in `make run-mulx`; the 16-limb ones shadow the threshold); with `bn_mulxr` at 4, 5 and 6 limbs (`fp_ctx_mulxr*.jazz`, in `make run-mulx`); with `bn_mulx_loop` and the unrolled squaring of `bn_mulx` (`fp_ctx_mulx_sqru7.jazz`, an experiment, in `make run-mulx`; the bench variant `mulx_sqru`, not in the default list); pseudo-Mersenne fields (`fp_pm`, 2^255-19 among the moduli) at 4 and 6 limbs, over `bn_mul` (`fp_ctx_pm*.jazz`, in `make run`) and over `bn_mulxr` (`fp_ctx_pmxr*.jazz`, in `make run-mulx`), with `vectors_pm*.txt` (`gen_vectors.py N SEED pm`); `make exec` runs the same checks in the interpreter of `jasminc`, on any host (`gen_exec_test.py`, below); `make bench` times the five modules, and `fp_pm` over `bn_mul` and over `bn_mulxr` (variants `pm_unr`, `pm_mulxr`; modulus 2^(64n-1)-19), with the two constant-time exponentiations on the same operands (`fpc_exp`, the one of the profile, here the fixed window, and the ladder `fpc_exp_ladder`); `fpc_mul` and `fpc_sqr` are timed on the same arguments at each call (throughput), or, with `BENCH_CHAINED=1`, each call on the result of the previous one (latency, as in `fpc_exp`); `make bench-gmp` times the exponentiations of GMP at the same sizes and on the same operands (`bench_gmp.c`: a native program on any host, with the GMP of the host or the one of `GMP_FLAGS`) |
+| `simple_tests/fp_ctx` | moduli given at run time (7 and 16 limbs): `fpc_ctx_init` and every `fpc_*` operation, against Python (`make run`); each size is also built with `bn_mul_loop` (`fp_ctx_loop*.jazz`, in `make run`) and with `bn_mulx_loop` and `bn_mulx` (`fp_ctx_mulx_loop*.jazz`, `fp_ctx_mulx*.jazz`; `make run-mulx`, which needs BMI2 and ADX); and with the selector `bn_mulsel`, once per module (`fp_ctx_sel*.jazz`, profile `x86_64`, in `make run`; `fp_ctx_selx*.jazz`, profile `x86_64_adx`, in `make run-mulx`; the 16-limb ones shadow the thresholds: `fp_ctx_sel16.jazz` both, for the looped code, `fp_ctx_selx16.jazz` the one of the multiplication, for the looped multiplication with the unrolled squaring); with `bn_mulxr` at 4, 5 and 6 limbs (`fp_ctx_mulxr*.jazz`, in `make run-mulx`); with `bn_mulx_loop` and the unrolled squaring of `bn_mulx` (`fp_ctx_mulx_sqru7.jazz`, an experiment, in `make run-mulx`; the bench variant `mulx_sqru`, not in the default list); pseudo-Mersenne fields (`fp_pm`, 2^255-19 among the moduli) at 4 and 6 limbs, over `bn_mul` (`fp_ctx_pm*.jazz`, in `make run`) and over `bn_mulxr` (`fp_ctx_pmxr*.jazz`, in `make run-mulx`), with `vectors_pm*.txt` (`gen_vectors.py N SEED pm`); `make exec` runs the same checks in the interpreter of `jasminc`, on any host (`gen_exec_test.py`, below); `make bench` times the five modules, and `fp_pm` over `bn_mul` and over `bn_mulxr` (variants `pm_unr`, `pm_mulxr`; modulus 2^(64n-1)-19), with the two constant-time exponentiations on the same operands (`fpc_exp`, the one of the profile, here the fixed window, and the ladder `fpc_exp_ladder`); `fpc_mul` and `fpc_sqr` are timed on the same arguments at each call (throughput), or, with `BENCH_CHAINED=1`, each call on the result of the previous one (latency, as in `fpc_exp`); `make bench-gmp` times the exponentiations of GMP at the same sizes and on the same operands (`bench_gmp.c`: a native program on any host, with the GMP of the host or the one of `GMP_FLAGS`) |
 | `simple_tests/mults` | 32-limb multiplication: `ps`, `os`, `osreg` and Karatsuba variants; the `os` multiplication and squaring of `bn_mul_loop`, `bn_mulx_loop` and `bn_mulx` (`testmul_os_loop.c`, against a C reference); `make bench` (with `bn_mulxr`: variant `mulxr`) and `make bench-kar` time the multiplications and squarings alone |
 | `schnorr-zk` | a Schnorr zero-knowledge protocol over the RFC 3526 2048-bit group |
 

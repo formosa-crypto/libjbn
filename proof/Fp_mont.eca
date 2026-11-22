@@ -26,6 +26,7 @@ proof. rewrite (_: W64.modulus = 18446744073709551616) //; smt(nlimbs_bndN gt0_n
 op jbn_features: int.
 op jbn_reg_max: int.
 op jbn_unroll_max: int.
+op jbn_sqr_unroll_max: int.
 
 clone export JBigNumber.BigN
  with op nlimbs <- nlimbs
@@ -52,6 +53,7 @@ clone Bn_mulsel as BNMUL
       op jbn_features <- jbn_features,
       op jbn_reg_max <- jbn_reg_max,
       op jbn_unroll_max <- jbn_unroll_max,
+      op jbn_sqr_unroll_max <- jbn_sqr_unroll_max,
       theory BigN <- BigN,
       theory BNUTIL <- BNUTIL,
       theory BNB <- BNB

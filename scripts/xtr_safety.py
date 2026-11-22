@@ -60,6 +60,7 @@ PARAMS = OrderedDict([
     ('jbn_features', 'DUMMY_FEATURES'),
     ('jbn_reg_max', 'DUMMY_REG_MAX'),
     ('jbn_unroll_max', 'DUMMY_UNROLL_MAX'),
+    ('jbn_sqr_unroll_max', 'DUMMY_SQR_UNROLL_MAX'),
     ('jbn_exp_window', 'DUMMY_EXP_WINDOW'),
 ])
 # parameters a size may be an affine function of, and the bound on the

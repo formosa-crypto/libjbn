@@ -7,8 +7,9 @@
    resolved by Jasmin's outward namespace lookup.
 
    The choice depends on the CPU features of the profile (JBN_FEATURES) and
-   on the size, against the thresholds of the profile (JBN_REG_MAX and
-   JBN_UNROLL_MAX, which a size scope may shadow):
+   on the size, against the thresholds of the profile (JBN_REG_MAX,
+   JBN_UNROLL_MAX and JBN_SQR_UNROLL_MAX, which a size scope may shadow).
+   The multiplication and the Montgomery reduction:
 
      BMI2 and ADX   nlimbs <= JBN_REG_MAX      bn_mulxr (accumulator in
                                                registers)
@@ -18,19 +19,23 @@
                     otherwise                  bn_mul_loop
 
    (JBN_REG_MAX is at most 6: above, the reduction of bn_mulxr does not fit
-   the registers.)
+   the registers.) The squaring is chosen in the same way, with
+   JBN_SQR_UNROLL_MAX in the place of JBN_UNROLL_MAX: the looped modules
+   square by multiplying, so that the unrolled squaring is worth taking
+   above JBN_UNROLL_MAX, for as long as it fits the instruction cache with
+   the looped multiplication and reduction (README, "Profiles and the
+   selection of the multiplication").
 
-   It is made once for the three operations of a size scope, which share
-   the instruction cache (README, "Profiles and the selection of the
-   multiplication"). The tests are on parameters: the compiler emits the
-   selected module only, and the others cost nothing. The five modules are
-   instantiated below, in sub-namespaces of this one.
+   The tests are on parameters: the compiler emits the selected routines
+   only, and the others cost nothing. The five modules are instantiated
+   below, in sub-namespaces of this one.
 
    Instance:  MUL (in a size scope), in the place of bn_mul@n.jinc;
               with fp_mul_sel@fp.jinc in the field
    Expects:   param int nlimbs;
               BN:: UTIL::                  // bn_base (same size), bn_util
               JBN_FEATURES JBN_FEATURES_MULX JBN_REG_MAX JBN_UNROLL_MAX
+              JBN_SQR_UNROLL_MAX
                                            // a profile
    Provides:  _muln_ _sqrn_                // inline: one call, to the module
               __mont_redM                  // selected (as in bn_mul)
@@ -71,7 +76,7 @@ inline fn _muln_
   return r;
 }
 
-/* r = a * a */
+/* r = a * a (unrolled up to JBN_SQR_UNROLL_MAX, whatever the multiplication) */
 #[safety = { requires = is_arr_init(a, 0, 8*nlimbs), ensures = is_arr_init(r, 0, 16*nlimbs) }]
 inline fn _sqrn_
 ( reg mut ptr u64[2*nlimbs] r
@@ -81,13 +86,13 @@ inline fn _sqrn_
   if ((JBN_FEATURES & JBN_FEATURES_MULX) == JBN_FEATURES_MULX) {
     if (nlimbs <= JBN_REG_MAX) {
       r = XREG::_os_sqrn_(r, a);
-    } else if (nlimbs <= JBN_UNROLL_MAX) {
+    } else if (nlimbs <= JBN_SQR_UNROLL_MAX) {
       r = XUNR::_os_sqrn_(r, a);
     } else {
       r = XLOOP::_os_sqrn_(r, a);
     }
   } else {
-    if (nlimbs <= JBN_UNROLL_MAX) {
+    if (nlimbs <= JBN_SQR_UNROLL_MAX) {
       r = UNR::_ps_sqrn_(r, a);
     } else {
       r = LOOP::_os_sqrn_(r, a);

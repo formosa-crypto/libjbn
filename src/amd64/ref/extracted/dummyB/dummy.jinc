@@ -13,4 +13,5 @@ param int DUMMY_NLIMBSEXP = 6;
 param int DUMMY_FEATURES = 51;
 param int DUMMY_REG_MAX = 18;
 param int DUMMY_UNROLL_MAX = 12;
+param int DUMMY_SQR_UNROLL_MAX = 31;
 param int DUMMY_EXP_WINDOW = 41;

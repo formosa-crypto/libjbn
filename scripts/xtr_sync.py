@@ -74,6 +74,7 @@ DUMMY_LITERALS = {
     '17': 'jbn_unroll_max',
     '19': 'jbn_features',
     '23': 'jbn_reg_max',
+    '29': 'jbn_sqr_unroll_max',
     '37': 'jbn_exp_window',
 }
 # derived sizes that must not survive in an abstract module (unmapped)
@@ -157,7 +158,7 @@ THEORIES = {
         arrays={'Array11': ('BN.t', 'BN.A', 'BigN.BN.A'),
                 'Array22': ('BN2.t', 'BN2.A', 'BigN.BN2.A')},
         clone_ops=['op jbn_features <- 19', 'op jbn_reg_max <- 23',
-                   'op jbn_unroll_max <- 17'],
+                   'op jbn_unroll_max <- 17', 'op jbn_sqr_unroll_max <- 29'],
     ),
     'bn_exp': dict(
         source='bn_exp@exp.jinc',
@@ -206,7 +207,7 @@ THEORIES = {
         calls={'uTIL__': 'BNUTIL_M.', 'h__BN__': 'BNB_M.', 'h__MUL__': 'BNMUL_M.'},
         params=['fun_muln', 'fun_sqrn'],
         clone_ops=['op jbn_features <- 19', 'op jbn_reg_max <- 23',
-                   'op jbn_unroll_max <- 17'],
+                   'op jbn_unroll_max <- 17', 'op jbn_sqr_unroll_max <- 29'],
         includes=dict(theory='fp_base', module='FPB.M(P_FPB)', nested='P_FPB',
                       bind=[('fun_muln', 'P.fun_muln'), ('fun_sqrn', 'P.fun_sqrn'),
                             ('fun_red', 'fun_red')]),

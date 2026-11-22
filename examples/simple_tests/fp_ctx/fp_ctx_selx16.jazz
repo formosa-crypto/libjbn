@@ -1,7 +1,10 @@
 /* libjbn instance with run-time moduli of 16 limbs, whose multiplication,
    squaring and Montgomery reduction are selected by bn_mulsel from the
    profile x86_64_adx, with the threshold of the
-   profile shadowed in the size scope: here bn_mulx_loop (16 > 8). The field
+   profile shadowed in the size scope: here bn_mulx_loop (16 > 8) for the
+   multiplication and the reduction, and the unrolled squaring of bn_mulx
+   (16 <= JBN_SQR_UNROLL_MAX), as the profile selects from 17 to 40 limbs.
+   The field
    code FPM is shared by every modulus, whose context (fp_ctx@n.jinc) is
    computed by fpc_ctx_init and passed to the other fpc_* entry points. */
 

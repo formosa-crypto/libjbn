@@ -4761,7 +4761,7 @@ module M = {
         [(Assert, (BArray112.is_init b_result 0 112))]);
         r <- result;
       } else {
-        if ((7 <= 12)) {
+        if ((7 <= 31)) {
           b_param_0 <- b_r;
           param_1 <- r;
           param_2 <- a;
@@ -4790,7 +4790,7 @@ module M = {
         }
       }
     } else {
-      if ((7 <= 12)) {
+      if ((7 <= 31)) {
         b_param_2 <- b_r;
         param_5 <- r;
         param_6 <- a;

@@ -32,6 +32,7 @@ clone Fp_mont as F16
       op jbn_features <- 0,
       op jbn_reg_max <- 0,
       op jbn_unroll_max <- 64,
+      op jbn_sqr_unroll_max <- 64,
       theory BigN.BN.A <= Array16,
       theory BigN.BN2.A <= Array32,
       theory FPC.CTX <= Array65,
@@ -45,6 +46,7 @@ clone Fp_mont as F32
       op jbn_features <- 0,
       op jbn_reg_max <- 0,
       op jbn_unroll_max <- 64,
+      op jbn_sqr_unroll_max <- 64,
       theory BigN.BN.A <= Array32,
       theory BigN.BN2.A <= Array64,
       theory FPC.CTX <= Array129

@@ -5,12 +5,14 @@
    bound to the field below, in the place of fp_mul_os. Needs a CPU with
    BMI2 and ADX.
 
-   An experiment (TODO, "a squaring of their own for the looped modules"):
-   the unrolled squaring is quadratic in size (19 KB at 32 limbs, 42 KB at
-   48, 75 KB at 64), so that it can only pay while it fits the instruction
-   cache with the rest. `make bench` times this wiring as the variant
-   mulx_sqru (not in its default list), to be compared with mulx (all
-   looped) and mulx_unr (all unrolled):
+   This is what bn_mulsel selects under the profile x86_64_adx from 17 to
+   40 limbs (JBN_SQR_UNROLL_MAX), wired by hand so that it can be timed at
+   any size: the unrolled squaring is quadratic in size (19 KB at 32
+   limbs, 29 KB at 40, 42 KB at 48, 75 KB at 64), and only pays while it
+   fits the instruction cache with the rest (README, "The unrolled
+   squaring in a looped instance"). `make bench` times this wiring as the
+   variant mulx_sqru (not in its default list), to be compared with mulx
+   (all looped) and mulx_unr (all unrolled):
      make bench BENCH_VARIANTS="mulx_unr mulx mulx_sqru" BENCH_SIZES="24 32 40 48"
    The field code FPM is shared by every modulus, whose context
    (fp_ctx@n.jinc) is computed by fpc_ctx_init and passed to the other
