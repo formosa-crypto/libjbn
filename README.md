@@ -491,6 +491,37 @@ What is *not* settled:
   So Karatsuba does not change the choice up to 32 limbs; at 64 limbs it
   is a gain on the multiplication only, and there is no Karatsuba
   squaring.
+* **Conditional operations (a later change).** The timings of this
+  section and of the next two were taken before two changes to the code
+  around the multiplications: the ladder `_expm_` swaps once per bit
+  instead of twice (by the xor of the bit with the previous one), and
+  `BN::_cminusP_`, which ends the reduction of the four modules above,
+  takes two passes over the array instead of three. `bn_mulxr` and the
+  reduction of `fp_pm` do not call `_cminusP_`: they gain the swap only.
+  Same CPU and command, one run before and one after; change of `fpc_exp`:
+
+  | `nlimbs` | `bn_mul` | `bn_mul_loop` | `bn_mulx` | `bn_mulx_loop` | `bn_mulxr` | `fp_pm` over `bn_mul` | `fp_pm` over `bn_mulxr` |
+  |---:|---:|---:|---:|---:|---:|---:|---:|
+  | 4 | -9% | -13% | -13% | -14% | -7% | -4% | -7% |
+  | 5 | -7% | -7% | -10% | -10% | -6% | -5% | -6% |
+  | 6 | -3% | -2% | -7% | -14% | -5% | +1% | -6% |
+  | 8 | -1% | -4% | -10% | -11% | – | -6% | – |
+  | 16 | -3% | -3% | -6% | -4% | – | -3% | – |
+  | 32 | -1% | -2% | 0% | -3% | – | -2% | – |
+  | 64 | -1% | -2% | 0% | 0% | – | -1% | – |
+
+  * `fpc_mul` and `fpc_sqr` of the four modules that call `_cminusP_` are
+    3% to 9% faster at 4 limbs, 1% to 5% at 8 (one entry is 2% slower)
+    and at most 2% from 16 on. Those of `bn_mulxr` and `fp_pm`, whose
+    code is the same, move by -1.4% to +2.4%: this is the variation
+    between the two runs, so that the lines of 32 and 64 limbs above,
+    and single entries elsewhere (`fp_pm` over `bn_mul` at 6 limbs), are
+    not resolved by one run each.
+  * On `fpc_exp`, `bn_mulxr` is no longer ahead of `bn_mulx`: 9.7 against
+    9.6 µs at 4 limbs, 17.1 against 16.2 at 5 and 27.1 against 25.6 at 6
+    (before: 10.4 against 11.0, 18.1 against 18.0, 28.4 against 27.4).
+    `JBN_REG_MAX` was chosen from the earlier figures (next section) and
+    has not been reconsidered.
 * **Proofs.** The four modules are proved, with one contract
   (`Bn_mul.eca`, `Bn_mul_loop.eca`, `Bn_mulx.eca`, `Bn_mulx_loop.eca`;
   section 4), and so is `bn_mulxr` (`Bn_mulxr.eca`, next section).
