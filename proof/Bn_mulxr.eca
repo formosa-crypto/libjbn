@@ -1480,7 +1480,12 @@ seq 3 : (BN.A.init (fun i => _P_mP.[i]) = __P
    split.
     have Hle: to_uint m * 18446744073709551616 ^ k0 <= (18446744073709551616 - 1) * 18446744073709551616 ^ k0.
      by apply StdOrder.IntOrder.ler_wpmul2r; [smt() | move: Hm1; smt()].
-    by rewrite exprSr 1:/#; move: HM0 HM1 Hm0 HY Hle; smt().
+    (* the product is not negative: given to the prover, and the products
+       are then generalised, so that what is left is linear *)
+    have Hge: 0 <= to_uint m * 18446744073709551616 ^ k0
+     by apply StdOrder.IntOrder.mulr_ge0; [exact Hm0 | exact (StdOrder.IntOrder.ltrW _ _ HY)].
+    rewrite exprSr 1://; move: HM0 HM1 Hge Hle.
+    by move: (18446744073709551616 ^ k0) (to_uint m * 18446744073709551616 ^ k0) => Wk mk /#.
    move: A1; rewrite EK (_: W64.modulus = 18446744073709551616) // => A1.
    rewrite (_: k0 + 1 + nlimbs = (k0 + nlimbs) + 1) 1:/# BN2.bnk_put 1:/#.
    rewrite (BN2.bnkS (k0 + nlimbs) _a) 1:/# /=.
