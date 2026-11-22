@@ -890,14 +890,40 @@ What is *not* settled:
     * Without MULX the field was not timed (variant `ksqr`, against
       `sel`): the profile `x86_64.jinc` unrolls the squaring up to 64
       limbs.
+  * With the selection by the binding (same CPU, a second run, after
+    `fp_mul_ksqr` and the half scopes took the threshold of the profile):
+    `ksqrx` and `ksqrx2` are now what the profile selects, with one and
+    with two levels of half scopes.
+
+    | `nlimbs` | `fpc_sqr` (ns): `selx` | `ksqrx` | `ksqrx2` | `fpc_exp` (µs): `selx` | `ksqrx` | `ksqrx2` | `ksqrx2` over `selx`: `fpc_sqr` | `fpc_exp` |
+    |---:|---:|---:|---:|---:|---:|---:|---:|---:|
+    | 24 | 319.1 | 319.2 | 319.4 | 666.1 | 664.1 | 664.0 | 1.00 | 1.00 |
+    | 32 | 546.6 | 545.7 | 546.1 | 1 493.8 | 1 496.6 | 1 494.1 | 1.00 | 1.00 |
+    | 40 | 841.7 | 841.5 | 840.9 | 2 886.5 | 2 914.7 | 2 903.1 | 1.00 | 1.01 |
+    | 48 | 1 496.0 | 1 196.0 | 1 195.8 | 5 750.0 | 4 950.0 | 4 965.7 | 0.80 | 0.86 |
+    | 64 | 2 597.0 | 2 046.9 | 2 050.6 | 13 603.1 | 11 266.8 | 11 258.5 | 0.79 | 0.83 |
+    | 96 | 5 821.9 | 5 351.8 | 4 411.2 | 45 663.4 | 42 250.3 | 36 483.4 | 0.76 | 0.80 |
+    | 128 | 10 308.1 | 9 216.9 | 7 680.9 | 108 111.6 | 98 983.1 | 84 341.2 | 0.75 | 0.78 |
+
+    * Up to 40 limbs the three are the same code, and the same time:
+      within 0.3% on `fpc_sqr` and 1% on `fpc_exp`. The half scopes cost
+      nothing where they are not taken.
+    * From 48 limbs on, two levels of half scopes give the best column of
+      the first run at every size (within 0.2% of it on `fpc_sqr`): one
+      level at 48 and 64 limbs, where `ksqrx` and `ksqrx2` are now equal,
+      and two at 96 and 128. Against the selector alone, `fpc_sqr` is 20%
+      to 25% faster and `fpc_exp` 14% to 22% (the ladder, 8% to 15%).
+    * With one level of half scopes, the half squaring at 96 and 128
+      limbs is the looped one: 8% and 11% on `fpc_sqr` (10% and 11% in
+      the first run, where `selx` was 1.7% slower at 96 limbs).
   * Tested against a C reference on operands whose halves are equal, one
     apart, zero or all ones, besides edge-case and random ones
     (`mults/testsqr_ksqr.c`: one and two levels over the squaring of
     `bn_mul`, from 2 to 64 limbs), and in a field: `fp_ctx_ksqr16.jazz`
     (in `make run`) and, on the same CPU, the two MULX instances of `make
-    run-mulx` (run before the binding selected by the profile; the three
-    wirings now shadow the threshold, so that 16 limbs still take
-    `bn_ksqr`). `make exec` runs the MULX wiring in the interpreter of
+    run-mulx` (the three wirings shadow the threshold, so that 16 limbs
+    take `bn_ksqr`; they passed before and after the binding selected by
+    the profile). `make exec` runs the MULX wiring in the interpreter of
     `jasminc` (the field at 4 limbs, the products up to 48 limbs, one and
     two levels). `jasmin-ct --infer` accepts `bn_kar_sqrn`, and `fpc_sqr`
     and `fpc_exp` over it.
