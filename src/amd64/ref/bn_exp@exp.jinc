@@ -251,14 +251,18 @@ inline fn _expmU_noct_
   return a;
 }
 
-/* Modular exponentiation (constant-time) */
+/* Modular exponentiation (constant-time)
+   Montgomery ladder, with one conditional swap per bit: the pair stays
+   swapped by the previous bit (_mask), so that the swap back of a bit and
+   the swap of the next one are a single swap, by the xor of the two bits;
+   a last swap, after the loop, undoes the one of the last bit. */
 fn _expm
 ( reg mut ptr u64[nlimbs] x0 x1
 , reg const ptr u64[nlimbsexp] b
 , reg const ptr u64[CTXLEN] ctx
 ) -> reg ptr u64[nlimbs], reg ptr u64[nlimbs] {
   inline int j;
-  reg u64 t mask;
+  reg u64 t mask swap;
   stack u64 _k _mask _t;
   reg bool cf zf;
   stack ptr u64[nlimbsexp] _b;
@@ -267,6 +271,7 @@ fn _expm
 
   _b = b;
   _ctx = ctx;
+  _mask = 0;
 
   for j = nlimbsexp-1 downto -1  {
     b = _b;
@@ -276,8 +281,10 @@ fn _expm
       _, cf, _, _, _, t = #SHL(t, 1);
       _t = t;
       mask = UTIL::__cf_mask(cf);
-      x0, x1 = BN::_cswap_mask_(x0, x1, mask);
+      swap = _mask;
+      swap ^= mask;
       _mask = mask;
+      x0, x1 = BN::_cswap_mask_(x0, x1, swap);
       _x0 = x0;
       ctx = _ctx;
       x1 = fun_mulU(x1, x0, ctx);
@@ -286,12 +293,12 @@ fn _expm
       ctx = _ctx;
       x0 = fun_sqrU(x0, ctx);
       x1 = _x1;
-      mask = _mask;
-      x0, x1 = BN::_cswap_mask_(x0, x1, mask);
       t = _t;
       _, _, _, zf, _k = #DEC(_k);
     } (!zf)
   }
+  mask = _mask;
+  x0, x1 = BN::_cswap_mask_(x0, x1, mask);
   return x0, x1;
 }
 

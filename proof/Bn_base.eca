@@ -703,17 +703,17 @@ module M = {
   }
   proc _caddU_ (x:BN.t, cf:bool, y:BN.t) : 
   BN.t = {
+    var mask:W64.t;
     var _tmp:BN.t;
     var tmp:BN.t;
-    var mask:W64.t;
     var  _0:bool;
     _tmp <- witness;
     tmp <- witness;
-    tmp <- _tmp;
-    tmp <@ _mov_ (tmp, y);
     mask <@ BNUTIL_M.__cf_mask (cf);
-    tmp <@ _and_mask_ (tmp, mask);
-    ( _0, x) <@ _addU_ (x, tmp);
+    tmp <- _tmp;
+    ( _0, tmp) <@ _add_ (tmp, x, y);
+    cf <@ BNUTIL_M.__mask_cf (mask);
+    x <@ _cmov_ (x, cf, tmp);
     return x;
   }
   proc _cminusP_ (x:BN.t, mP:BN.t, lastbit:W64.t) : 
@@ -730,8 +730,7 @@ module M = {
     _tmp <- witness;
     tmp <- witness;
     tmp <- _tmp;
-    tmp <@ _mov_ (tmp, x);
-    (_cf, tmp) <@ _addU_ (tmp, mP);
+    (_cf, tmp) <@ _add_ (tmp, x, mP);
     ( _0, lastbit) <- (adc_64 lastbit (W64.of_int 0) _cf);
     ( _1, _cf,  _2,  _3,  _4,  _5) <- (NEG_64 lastbit);
     x <@ _cmov_ (x, _cf, tmp);
@@ -1087,29 +1086,16 @@ qed.
 
 lemma _caddU__ll: islossless M._caddU_.
 proof.
-have ?:= gt0_nlimbs.
-proc; inline*.
-wp; while (true) (nlimbs - i1).
- by move=> z; auto => /> &m /#.
-wp; while (true) (nlimbs - i0).
- by move=> z; auto => /> &m /#.
-wp; while (true) (nlimbs - i).
- by move=> z; auto => /> &m /#.
-by auto => /> /#.
+proc.
+call _cmov__ll; call BNUTIL.__mask_cf_ll; call _add__ll.
+by wp; call BNUTIL.__cf_mask_ll; auto.
 qed.
 
 
 lemma _cminusP__ll: islossless M._cminusP_.
 proof.
-have ?:= gt0_nlimbs.
-proc; inline*.
-wp; while (true) (nlimbs - i0).
- by move=> z; auto => /> &m /#.
-wp; while (true) (nlimbs - i1).
- by move=> z; auto => /> &m /#.
-wp; while (true) (nlimbs - i).
- by move=> z; auto => /> &m /#.
-by auto => /> /#.
+proc.
+by call _cmov__ll; wp; call _add__ll; auto.
 qed.
 
 
@@ -1856,16 +1842,12 @@ hoare _caddU__h _x _y _cf:
               ==> res = if _cf then BN.bn_ofint (bn _x + bn _y) else _x.
 proof.
 proc.
-ecall (_addU__h x tmp).
-ecall (_and_mask__h tmp mask).
-ecall (BNUTIL.__cf_mask_h cf).
-ecall (_mov__h y).
-wp; skip => /> t H [c r] /= /bn_withcarry_ofint ->.
-case: (_cf) => C /=.
- have ->//: t = _y.
- by rewrite tP => k Hk; rewrite H // C b2i1 W64_of_int_m1 andw1.
-rewrite (bn_eq0 t) /=; last by rewrite bnK.
-by move=> k Hk; rewrite H // C b2i0 andw0.
+ecall (_cmov__h x tmp cf).
+ecall (BNUTIL.__mask_cf_h mask).
+ecall (_add__h x y).
+wp; ecall (BNUTIL.__cf_mask_h cf).
+wp; skip => /> [c r] /= /bn_withcarry_ofint ->.
+by case: (_cf) => _; rewrite ?b2i1 ?b2i0 ?W64_of_int_m1 ?W64.to_uint_onew.
 qed.
 
 
@@ -1880,8 +1862,7 @@ proof.
 proc.
 ecall (_cmov__h x tmp _cf).
 wp.
-ecall (_addU__h tmp mP).
-ecall (_mov__h x).
+ecall (_add__h x mP).
 wp; skip => /> Hlb [c r] /= Hr.
 rewrite /NEG_64 /= addcE /= -(bn_withcarry_ofint _ _ _ Hr).
 have ->: (_lastbit + W64.of_int (b2i c) <> W64.zero) = (to_uint _lastbit + b2i c <> 0).

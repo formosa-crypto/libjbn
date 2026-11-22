@@ -630,10 +630,10 @@ lemma _caddU__proof _x _b_x _cf _y _b_y : _caddU__spec _x _b_x _cf _y _b_y.
 proof.
 hint +safety.
 rewrite /_caddU__spec; proc.
-wp; ecall (_addU__proof param_4 ((BA_8n.init_arr (W8.of_int 255))) param_5 ((BA_8n.init_arr (W8.of_int 255)))).
-wp; ecall (_and_mask__proof param_2 ((BA_8n.init_arr (W8.of_int 255))) param_3).
-wp; ecall (BNUTIL.__cf_mask_proof param_1).
-wp; ecall (_mov__proof param b_param param_0 ((BA_8n.init_arr (W8.of_int 255)))).
+wp; ecall (_cmov__proof param_4 ((BA_8n.init_arr (W8.of_int 255))) param_5 param_6 ((BA_8n.init_arr (W8.of_int 255)))).
+wp; ecall (BNUTIL.__mask_cf_proof param_3).
+wp; ecall (_add__proof param_0 b_param param_1 ((BA_8n.init_arr (W8.of_int 255))) param_2 ((BA_8n.init_arr (W8.of_int 255)))).
+wp; ecall (BNUTIL.__cf_mask_proof param).
 by auto => />.
 qed.
 
@@ -641,9 +641,8 @@ lemma _cminusP__proof _x _b_x _mP _b_mP _lastbit : _cminusP__spec _x _b_x _mP _b
 proof.
 hint +safety.
 rewrite /_cminusP__spec; proc.
-wp; ecall (_cmov__proof param_3 ((BA_8n.init_arr (W8.of_int 255))) param_4 param_5 ((BA_8n.init_arr (W8.of_int 255)))).
-wp; ecall (_addU__proof param_1 ((BA_8n.init_arr (W8.of_int 255))) param_2 ((BA_8n.init_arr (W8.of_int 255)))).
-wp; ecall (_mov__proof param b_param param_0 ((BA_8n.init_arr (W8.of_int 255)))).
+wp; ecall (_cmov__proof param_2 ((BA_8n.init_arr (W8.of_int 255))) param_3 param_4 ((BA_8n.init_arr (W8.of_int 255)))).
+wp; ecall (_add__proof param b_param param_0 ((BA_8n.init_arr (W8.of_int 255))) param_1 ((BA_8n.init_arr (W8.of_int 255)))).
 by auto => />.
 qed.
 

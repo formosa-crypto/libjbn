@@ -269,26 +269,87 @@ have: e %/ 2 ^ (k - 1) %% 2 = 0 \/ e %/ 2 ^ (k - 1) %% 2 = 1 by smt(modz_ge0 ltz
 by move=> [Hb|Hb]; move: Hd; rewrite Hb /= => Hd; rewrite Hd /b2i /=; ring.
 qed.
 
-(* one step of the Montgomery ladder, for the bit b: with x0 = A^E and
-   x1 = A^(E+1), conditional swap, x1 := x1*x0, x0 := x0^2, swap back *)
-lemma ladder_step c A E (b: bool) x0 x1:
+(* The Montgomery ladder with one conditional swap per bit. For the scanned
+   prefix E of the exponent, the pair (x0, x1) holds A^E and A^(E+1),
+   swapped by the last bit scanned, s (the parity of E). For the next bit b:
+   swap by s xor b, x1 := x1*x0, x0 := x0^2; the pair then holds A^E' and
+   A^(E'+1), E' = 2E + b, swapped by b. *)
+lemma ladder_step c A E (s b: bool) x0 x1:
   mok c => mdom c A => 0 <= E =>
-  x0 = mexp c A E => x1 = mexp c A (E + 1) =>
-  let y0 = if b then x1 else x0 in
-  let y1 = if b then x0 else x1 in
-  (if b then mmul c y1 y0 else mmul c y0 y0)
-    = mexp c A (2 * E + b2i b)
-  /\ (if b then mmul c y0 y0 else mmul c y1 y0)
-    = mexp c A (2 * E + b2i b + 1).
+  x0 = mexp c A (E + b2i s) => x1 = mexp c A (E + b2i (!s)) =>
+  let y0 = if s <> b then x1 else x0 in
+  let y1 = if s <> b then x0 else x1 in
+  mmul c y0 y0 = mexp c A (2 * E + b2i b + b2i b)
+  /\ mmul c y1 y0 = mexp c A (2 * E + b2i b + b2i (!b)).
 proof.
 move=> Hc HA HE -> -> /=.
-case: b => _; rewrite /b2i /=.
+case: s; case: b => _ _; rewrite /b2i /=.
 - split.
-  + by rewrite -mexpD // 1:/# (_: E + (E + 1) = 2 * E + 1) 1:/#.
   + by rewrite mexp_sqr // 1:/# (_: 2 * (E + 1) = 2 * E + 1 + 1) 1:/#.
+  + by rewrite -mexpD // 1:/# (_: E + (E + 1) = 2 * E + 1) 1:/#.
 - split.
   + by rewrite mexp_sqr.
   + by rewrite -mexpD // 1:/# (_: E + 1 + E = 2 * E + 1) 1:/#.
+- split.
+  + by rewrite mexp_sqr // 1:/# (_: 2 * (E + 1) = 2 * E + 1 + 1) 1:/#.
+  + by rewrite -mexpD // 1:/# (_: E + (E + 1) = 2 * E + 1) 1:/#.
+- split.
+  + by rewrite mexp_sqr.
+  + by rewrite -mexpD // 1:/# (_: E + 1 + E = 2 * E + 1) 1:/#.
+qed.
+
+(* the masks of the swaps: 0 or -1 *)
+lemma mask_xor (s b: bool):
+  W64.of_int (- b2i s) `^` W64.of_int (- b2i b) = W64.of_int (- b2i (s <> b)).
+proof.
+by case: s; case: b => _ _; rewrite /b2i /= ?JBigNumber.W64_of_int_m1 ?xorwK ?xorw0 ?xor0w.
+qed.
+
+lemma mask_nz (s: bool): (W64.of_int (- b2i s) <> W64.zero) = s.
+proof.
+case: s => _; rewrite /b2i //=.
+by rewrite JBigNumber.W64_of_int_m1 W64.to_uint_eq W64.to_uint_onew.
+qed.
+
+(* the state of the ladder for the scanned prefix E: m is the mask of the
+   swap in force, x0 and x1 the values of the pair *)
+op [opaque] linv (c: W64.t FPC.CTX.t) (A E: int) (m: W64.t) (x0 x1: int) : bool =
+  m = W64.of_int (- b2i (E %% 2 = 1))
+  /\ x0 = mexp c A (E + b2i (E %% 2 = 1))
+  /\ x1 = mexp c A (E + b2i (! (E %% 2 = 1))).
+
+lemma linv0 c A: mok c => mdom c A => linv c A 0 W64.zero (mone c) A.
+proof. by move=> Hc HA; rewrite /linv /b2i /= mexp0 mexp1. qed.
+
+(* one bit: sw is the mask of the swap, y0 and y1 the pair after it *)
+lemma linv_step c A E (b: bool) m x0 x1:
+  mok c => mdom c A => 0 <= E =>
+  linv c A E m x0 x1 =>
+  let sw = m `^` W64.of_int (- b2i b) in
+  let y0 = if sw <> W64.zero then x1 else x0 in
+  let y1 = if sw <> W64.zero then x0 else x1 in
+  sw = W64.of_int (- b2i (sw <> W64.zero))
+  /\ mdom c y0 /\ mdom c y1
+  /\ linv c A (2 * E + b2i b) (W64.of_int (- b2i b)) (mmul c y0 y0) (mmul c y1 y0).
+proof.
+move=> Hc HA HE; rewrite /linv => -[-> [-> ->]] /=.
+rewrite mask_xor mask_nz /=.
+have Hp: ((2 * E + b2i b) %% 2 = 1) = b by rewrite /b2i; smt().
+have := ladder_step c A E (E %% 2 = 1) b (mexp c A (E + b2i (E %% 2 = 1)))
+          (mexp c A (E + b2i (E %% 2 <> 1))) Hc HA HE _ _; 1,2: done.
+move=> /= [L1 L2].
+rewrite Hp L1 L2 /=.
+by split; case: ((E %% 2 = 1) <> b) => _ /=; apply mexp_dom => //; rewrite /b2i; smt().
+qed.
+
+(* the last swap *)
+lemma linv_end c A E m x0 x1:
+  linv c A E m x0 x1 =>
+  m = W64.of_int (- b2i (m <> W64.zero))
+  /\ (if m <> W64.zero then x1 else x0) = mexp c A E.
+proof.
+rewrite /linv => -[-> [-> ->]]; rewrite mask_nz /=.
+by case: (E %% 2 = 1) => _; rewrite /b2i.
 qed.
 
 (* signed comparisons with 0, and decrements, of small words *)
@@ -618,6 +679,7 @@ module M(P: MParam) = {
     var inc:int;
     var _b:BNexp.t;
     var _ctx:W64.t FPC.CTX.t;
+    var _mask:W64.t;
     var j:int;
     var t:W64.t;
     var _k:W64.t;
@@ -625,7 +687,7 @@ module M(P: MParam) = {
     var cf:bool;
     var _t:W64.t;
     var mask:W64.t;
-    var _mask:W64.t;
+    var swap_0:W64.t;
     var _x0:BN.t;
     var _x1:BN.t;
     var  _0:bool;
@@ -641,6 +703,7 @@ module M(P: MParam) = {
     _x1 <- witness;
     _b <- b;
     _ctx <- ctx;
+    _mask <- (W64.of_int 0);
     inc <- (- 1);
     j <- (nlimbsexp - 1);
     while ((inc < j)) {
@@ -650,8 +713,10 @@ module M(P: MParam) = {
       ( _0, cf,  _1,  _2,  _3, t) <- (SHL_64 t (W8.of_int 1));
       _t <- t;
       mask <@ BNUTIL_M.__cf_mask (cf);
-      (x0, x1) <@ BNB_M._cswap_mask_ (x0, x1, mask);
+      swap_0 <- _mask;
+      swap_0 <- (swap_0 `^` mask);
       _mask <- mask;
+      (x0, x1) <@ BNB_M._cswap_mask_ (x0, x1, swap_0);
       _x0 <- x0;
       ctx <- _ctx;
       x1 <@ P.fun_mulU (x1, x0, ctx);
@@ -660,16 +725,16 @@ module M(P: MParam) = {
       ctx <- _ctx;
       x0 <@ P.fun_sqrU (x0, ctx);
       x1 <- _x1;
-      mask <- _mask;
-      (x0, x1) <@ BNB_M._cswap_mask_ (x0, x1, mask);
       t <- _t;
       ( _4,  _5,  _6, zf, _k) <- (DEC_64 _k);
       while ((! zf)) {
         ( _0, cf,  _1,  _2,  _3, t) <- (SHL_64 t (W8.of_int 1));
         _t <- t;
         mask <@ BNUTIL_M.__cf_mask (cf);
-        (x0, x1) <@ BNB_M._cswap_mask_ (x0, x1, mask);
+        swap_0 <- _mask;
+        swap_0 <- (swap_0 `^` mask);
         _mask <- mask;
+        (x0, x1) <@ BNB_M._cswap_mask_ (x0, x1, swap_0);
         _x0 <- x0;
         ctx <- _ctx;
         x1 <@ P.fun_mulU (x1, x0, ctx);
@@ -678,13 +743,13 @@ module M(P: MParam) = {
         ctx <- _ctx;
         x0 <@ P.fun_sqrU (x0, ctx);
         x1 <- _x1;
-        mask <- _mask;
-        (x0, x1) <@ BNB_M._cswap_mask_ (x0, x1, mask);
         t <- _t;
         ( _4,  _5,  _6, zf, _k) <- (DEC_64 _k);
       }
       j <- (j - 1);
     }
+    mask <- _mask;
+    (x0, x1) <@ BNB_M._cswap_mask_ (x0, x1, mask);
     return (x0, x1);
   }
   proc _expm_ (x0:BN.t, a:BN.t,
@@ -899,16 +964,17 @@ hoare _expm_h c0 (a0: BN.t) e0:
 proof.
 have Hn := gt0_nlimbsexp.
 proc.
-while (-1 <= j < nlimbsexp /\ inc = -1 /\ _b = e0 /\ _ctx = c0 /\ mok c0 /\ mdom c0 (bn a0) /\ bn x0 = mexp c0 (bn a0) (BNexp.bnkup (j + 1) e0) /\ bn x1 = mexp c0 (bn a0) (BNexp.bnkup (j + 1) e0 + 1)).
+ecall (BNB._cswap_mask__h x0 x1 (mask <> W64.zero)).
 wp.
-while (0 <= j < nlimbsexp /\ inc = -1 /\ _b = e0 /\ _ctx = c0 /\ mok c0 /\ mdom c0 (bn a0) /\ 0 <= to_uint _k < 64 /\ (zf <=> to_uint _k = 0) /\ to_uint t = to_uint e0.[j] %% 2 ^ (to_uint _k) * 2 ^ (64 - to_uint _k) /\ bn x0 = mexp c0 (bn a0) (BNexp.bnkup (j + 1) e0 * 2 ^ (64 - to_uint _k) + to_uint e0.[j] %/ 2 ^ (to_uint _k)) /\ bn x1 = mexp c0 (bn a0) (BNexp.bnkup (j + 1) e0 * 2 ^ (64 - to_uint _k) + to_uint e0.[j] %/ 2 ^ (to_uint _k) + 1)).
-wp; ecall (BNB._cswap_mask__h x0 x1 cf).
+while (-1 <= j < nlimbsexp /\ inc = -1 /\ _b = e0 /\ _ctx = c0 /\ mok c0 /\ mdom c0 (bn a0) /\ linv c0 (bn a0) (BNexp.bnkup (j + 1) e0) _mask (bn x0) (bn x1)).
+wp.
+while (0 <= j < nlimbsexp /\ inc = -1 /\ _b = e0 /\ _ctx = c0 /\ mok c0 /\ mdom c0 (bn a0) /\ 0 <= to_uint _k < 64 /\ (zf <=> to_uint _k = 0) /\ to_uint t = to_uint e0.[j] %% 2 ^ (to_uint _k) * 2 ^ (64 - to_uint _k) /\ linv c0 (bn a0) (BNexp.bnkup (j + 1) e0 * 2 ^ (64 - to_uint _k) + to_uint e0.[j] %/ 2 ^ (to_uint _k)) _mask (bn x0) (bn x1)).
 wp; ecall (fun_sqrU_h c0 (bn x0)).
 wp; ecall (fun_mulU_h c0 (bn x1) (bn x0)).
-wp; ecall (BNB._cswap_mask__h x0 x1 cf).
-ecall (BNUTIL.__cf_mask_h cf).
+wp; ecall (BNB._cswap_mask__h x0 x1 (swap_0 <> W64.zero)).
+wp; ecall (BNUTIL.__cf_mask_h cf).
 wp; skip => /> &hr.
-move=> Hj0 Hj1 Hc HA Hk0 Hk1 Ht HX0 HX1 Hk.
+move=> Hj0 Hj1 Hc HA Hk0 Hk1 Ht HL Hk.
 have [HC HT] := SHL1E t{hr}; move: HC HT => /= HC HT.
 have [HD1 HD2] := DEC1E _k{hr} Hk.
 have He := W64.to_uint_cmp e0.[j{hr}].
@@ -922,20 +988,24 @@ have HE0: 0 <= BNexp.bnkup (j{hr} + 1) e0 * 2 ^ (64 - to_uint _k{hr}) + to_uint 
   smt().
 have Hcf: (SHL_64 t{hr} W8.one).`2 = (to_uint e0.[j{hr}] %/ 2 ^ (to_uint _k{hr} - 1) %% 2 = 1).
 + by rewrite HC Ht ladder_cf; smt().
-have [L1 L2] := ladder_step c0 (bn a0) _ ((SHL_64 t{hr} W8.one).`2) (bn x0{hr}) (bn x1{hr}) Hc HA HE0 HX0 HX1.
 rewrite HD1 HT Ht ladder_t 1,2:/# ladder_exp 1,2:/# -Hcf.
-split; first smt(mexp_dom).
-move=> _ _ r1 Hr1 r2 Hr2.
-case: ((SHL_64 t{hr} W8.one).`2) L1 L2 Hr1 Hr2 => /= L1 L2 Hr1 Hr2.
-- rewrite Hr1 Hr2 L1 L2 /b2i /=; smt().
-- rewrite Hr1 Hr2 L1 L2 /b2i /=; smt().
-wp; ecall (BNB._cswap_mask__h x0 x1 cf).
+have /= := linv_step c0 (bn a0) _ ((SHL_64 t{hr} W8.one).`2) _ _ _ Hc HA HE0 HL.
+pose sw := _mask{hr} `^` W64.of_int (- b2i (SHL_64 t{hr} W8.one).`2).
+case: (sw = W64.zero) => Csw /= [Hsw [Hd0 [Hd1 HL']]].
+- split; first done.
+  move=> _; split; first done.
+  move=> _ _ r1 -> r2 ->.
+  by split; [smt() | split; [smt() | exact HL']].
+- split; first done.
+  move=> _; split; first done.
+  move=> _ _ r1 -> r2 ->.
+  by split; [smt() | split; [smt() | exact HL']].
 wp; ecall (fun_sqrU_h c0 (bn x0)).
 wp; ecall (fun_mulU_h c0 (bn x1) (bn x0)).
-wp; ecall (BNB._cswap_mask__h x0 x1 cf).
-ecall (BNUTIL.__cf_mask_h cf).
+wp; ecall (BNB._cswap_mask__h x0 x1 (swap_0 <> W64.zero)).
+wp; ecall (BNUTIL.__cf_mask_h cf).
 wp; skip => /> &hr.
-move=> Hj0 Hj1 Hc HA HX0 HX1 Hjj.
+move=> Hj0 Hj1 Hc HA HL Hjj.
 have He := W64.to_uint_cmp e0.[j{hr}].
 move: He; rewrite (_: W64.modulus = 2 ^ 64) // => He.
 have [HC HT] := SHL1E e0.[j{hr}]; move: HC HT => /= HC HT.
@@ -945,53 +1015,58 @@ have HH: 0 <= BNexp.bnkup (j{hr} + 1) e0.
 + rewrite -BNexp.bn_div_kup 1:/#; apply divz_ge0; [smt(StdOrder.IntOrder.expr_gt0) | smt(BNexp.bnk_cmp)].
 have Ht: to_uint e0.[j{hr}] = to_uint e0.[j{hr}] %% 2 ^ 64 * 2 ^ (64 - 64) by rewrite (_: 2 ^ 64 = W64.modulus) // W64.to_uint_mod.
 have Hq: to_uint e0.[j{hr}] %/ 2 ^ 64 = 0 by rewrite (_: 2 ^ 64 = W64.modulus) // divz_small //; apply JUtils.bound_abs; exact W64.to_uint_cmp.
-have HX0': bn x0{hr} = mexp c0 (bn a0) (BNexp.bnkup (j{hr} + 1) e0 * 2 ^ (64 - 64) + to_uint e0.[j{hr}] %/ 2 ^ 64) by rewrite HX0 Hq.
-have HX1': bn x1{hr} = mexp c0 (bn a0) (BNexp.bnkup (j{hr} + 1) e0 * 2 ^ (64 - 64) + to_uint e0.[j{hr}] %/ 2 ^ 64 + 1) by rewrite HX1 Hq.
-have HE0: 0 <= BNexp.bnkup (j{hr} + 1) e0 * 2 ^ (64 - 64) + to_uint e0.[j{hr}] %/ 2 ^ 64 by rewrite Hq /=.
 have Hcf: (SHL_64 e0.[j{hr}] W8.one).`2 = (to_uint e0.[j{hr}] %/ 2 ^ (64 - 1) %% 2 = 1).
 + by rewrite HC {1}Ht ladder_cf; smt().
 have HTt: to_uint (SHL_64 e0.[j{hr}] W8.one).`6 = to_uint e0.[j{hr}] %% 2 ^ (64 - 1) * 2 ^ (64 - (64 - 1)).
 + by rewrite HT {1}Ht ladder_t; smt().
-have [L1 L2] := ladder_step c0 (bn a0) _ ((SHL_64 e0.[j{hr}] W8.one).`2) (bn x0{hr}) (bn x1{hr}) Hc HA HE0 HX0' HX1'.
 have Hexp := ladder_exp (BNexp.bnkup (j{hr} + 1) e0) (to_uint e0.[j{hr}]) 64 _ _; 1,2: smt().
-rewrite HD1 /= HTt /=.
-move: Hexp; rewrite -Hcf /= => Hexp.
-move: L1 L2 => /= L1 L2.
-split; first smt(mexp_dom).
-move=> _ _ r1 Hr1 r2 Hr2.
-split.
-- split; first smt().
-  split; first smt().
-  rewrite Hexp.
-  case: ((SHL_64 e0.[j{hr}] W8.one).`2) L1 L2 Hr1 Hr2 => /= L1 L2 Hr1 Hr2.
-  + rewrite Hr1 Hr2 L1 L2 /b2i /=; smt().
-  + rewrite Hr1 Hr2 L1 L2 /b2i /=; smt().
-- move=> _k0 t0 x00 x10 zf0 _ _ Hk0 Hk1 Hk Ht0 HX00 HX10.
-  move: HX00 HX10; rewrite Hk /= => HX00 HX10.
-  split; first smt().
+move: Hexp; rewrite -Hcf Hq /= => Hexp.
+have Hexit: forall (k0 m0: W64.t) (y0 y1: int), to_uint k0 = 0 =>
+    linv c0 (bn a0) (BNexp.bnkup (j{hr} + 1) e0 * 2 ^ (64 - to_uint k0) + to_uint e0.[j{hr}] %/ 2 ^ to_uint k0) m0 y0 y1 =>
+    linv c0 (bn a0) (BNexp.bnkup j{hr} e0) m0 y0 y1.
++ move=> k0 m0 y0 y1 Hk0.
   have Hup := BNexp.bnkupP (j{hr} + 1) e0 _; first smt().
-  move: Hup; rewrite (_: j{hr} + 1 - 1 = j{hr}) 1:/# (_: W64.modulus = 2 ^ 64) // => Hup.
-  rewrite Hup HX00 HX10.
-  by split; congr; ring.
+  have ->//: BNexp.bnkup j{hr} e0 = BNexp.bnkup (j{hr} + 1) e0 * 2 ^ (64 - to_uint k0) + to_uint e0.[j{hr}] %/ 2 ^ to_uint k0.
+  move: Hup; rewrite Hk0 (_: j{hr} + 1 - 1 = j{hr}) 1:/# (_: W64.modulus = 2 ^ 64) //= => ->.
+  by ring.
+have /= := linv_step c0 (bn a0) _ ((SHL_64 e0.[j{hr}] W8.one).`2) _ _ _ Hc HA HH HL.
+rewrite HD1 /= HTt /= Hexp.
+pose sw := _mask{hr} `^` W64.of_int (- b2i (SHL_64 e0.[j{hr}] W8.one).`2).
+case: (sw = W64.zero) => Csw /= [Hsw [Hd0 [Hd1 HL']]].
+- split; first done.
+  move=> _; split; first done.
+  move=> _ _ r1 -> r2 ->.
+  split; first by rewrite HD2 HL' /#.
+  move=> _k0 _mask0 t0 x00 x10 zf0 _ _ _ _ Hk00 _ HL0.
+  by split; [smt() | exact (Hexit _k0 _mask0 _ _ Hk00 HL0)].
+- split; first done.
+  move=> _; split; first done.
+  move=> _ _ r1 -> r2 ->.
+  split; first by rewrite HD2 HL' /#.
+  move=> _k0 _mask0 t0 x00 x10 zf0 _ _ _ _ Hk00 _ HL0.
+  by split; [smt() | exact (Hexit _k0 _mask0 _ _ Hk00 HL0)].
 wp; skip => /> &hr Hc HA HX0 HX1.
 split.
 - split; first smt().
-  by rewrite BNexp.bnkup_nlimbs mexp0 /= HX0 HX1 mexp1.
-- move=> j0 x00 x10 Hj0 Hj1 Hj2 HX00 HX10.
-  by rewrite HX00 (_: j0 + 1 = 0) 1:/# BNexp.bnkup0.
+  by rewrite BNexp.bnkup_nlimbs HX0 HX1; exact linv0.
+- move=> m0 j0 x00 x10 Hj0 Hj1 Hj2.
+  rewrite (_: j0 + 1 = 0) 1:/# BNexp.bnkup0 => /linv_end [Hm Hx].
+  split; first exact Hm.
+  by move=> _; case: (m0 = W64.zero) Hx => /=.
 qed.
 
 lemma _expm_ll: islossless M(P)._expm.
 proof.
 proc.
+call BNB._cswap_mask__ll; wp.
 while (true) (j - inc).
 - move=> z; wp.
   while ((zf <=> to_uint _k = 0)) (to_uint _k).
-  + move=> z'; wp; call BNB._cswap_mask__ll; wp; call fun_sqrU_ll; wp; call fun_mulU_ll.
-    wp; call BNB._cswap_mask__ll; call BNUTIL.__cf_mask_ll; auto => /> &hr *.
+  + move=> z'; wp; call fun_sqrU_ll; wp; call fun_mulU_ll.
+    wp; call BNB._cswap_mask__ll; wp; call BNUTIL.__cf_mask_ll; auto => /> &hr *.
     have [H1 H2] := DEC1E _k{hr} _; smt().
-  wp; call BNB._cswap_mask__ll; wp; call fun_sqrU_ll; wp; call fun_mulU_ll.
-  wp; call BNB._cswap_mask__ll; call BNUTIL.__cf_mask_ll; auto => /> &hr *.
+  wp; call fun_sqrU_ll; wp; call fun_mulU_ll.
+  wp; call BNB._cswap_mask__ll; wp; call BNUTIL.__cf_mask_ll; auto => /> &hr *.
   (have [H1 H2] := DEC1E (W64.of_int 64) _; first by rewrite W64.of_uintK);
    move: H1 H2; rewrite W64.of_uintK /=; smt(W64.to_uint_cmp).
 by auto => /#.

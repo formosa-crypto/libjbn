@@ -45,6 +45,9 @@
   - `fp_pm` over `bn_mulx` (unrolled), from 7 limbs: not in the bench (only `pm_unr` there);
   - the lazy representation of curve25519 (values below 2^256, freeze on output) does not fit `fp_base`'s invariant;
   - secp256k1 (c = 2^32+977: a two-word second fold).
++ [Done] conditional operations of `bn_base` with fewer passes: the ladder `_expm` swaps once per bit (by the xor of the bit with the previous one) instead of twice; `_cminusP_` (the end of every reduction but that of `bn_mulxr`) and `_caddU_` (modular subtraction) take two passes over the array instead of three (`_add_` into a temporary, then `_cmov_`). Proofs adapted (`Bn_base.eca`, `Bn_exp.eca` and their safety proofs). Still to do:
+  - time it on x86 (`make bench` in `fp_ctx`, before and after): in the tables of the README the part of a ladder step that is not a multiplication is 1% to 3% of `fpc_exp`, which bounds the gain from 8 limbs on;
+  - a fixed-window exponentiation with a constant-time table lookup in the place of the ladder (about 1.25 multiplications per bit instead of 2): most of the gap to `mpz_powm_sec` in `bench/results-canon.md`;
 - `_ctx_init_` (128*nlimbs modular doublings) is slow: computing the contexts took 91% of RSAVP1 in the RSA example (7% of RSASP1), now [Done] kept in expanded keys (`rsa_init`, 260 us under Rosetta against 18 us for `rsa_enc`); R^2 mod P could come from 2R mod P by log2(64*nlimbs) Montgomery squarings (and R mod P = R - P when P has its top bit set);
 - `_ctx_init_` inlined on a part of a reg ptr argument at a non-zero offset is refused by the stack allocation of jasminc 2026.09.0 ("the region associated to variable ... is partial"; `_mov_` there, or `_ctx_init_` on a stack array, is accepted): the RSA example wraps it in local functions (`_ctx_init_N`, `_ctx_init_P`). Find which statement causes it; report it if it is a bug;
 - [In progress] karatsuba

@@ -1157,12 +1157,9 @@ module M = {
     var aux_16:BArray56.t;
     var aux_17:BArray56.t;
     var aux_18:BArray56.t;
-    var aux_19:BArray56.t;
-    var aux_20:BArray56.t;
-    var aux_21:BArray56.t;
-    var aux_22:BArray56.t;
     var _b:BArray48.t;
     var _ctx:BArray232.t;
+    var _mask:W64.t;
     var j:int;
     var t:W64.t;
     var _k:W64.t;
@@ -1171,6 +1168,7 @@ module M = {
     var param:bool;
     var result:W64.t;
     var mask:W64.t;
+    var swap_0:W64.t;
     var param_0:BArray56.t;
     var param_1:BArray56.t;
     var param_2:W64.t;
@@ -1178,7 +1176,6 @@ module M = {
     var b_result:BArray56.t;
     var result_1:BArray56.t;
     var b_result_0:BArray56.t;
-    var _mask:W64.t;
     var _x0:BArray56.t;
     var param_3:BArray56.t;
     var param_4:BArray56.t;
@@ -1190,6 +1187,7 @@ module M = {
     var param_7:BArray232.t;
     var result_3:BArray56.t;
     var b_result_2:BArray56.t;
+    var zf:bool;
     var param_8:BArray56.t;
     var param_9:BArray56.t;
     var param_10:W64.t;
@@ -1197,7 +1195,6 @@ module M = {
     var b_result_3:BArray56.t;
     var result_5:BArray56.t;
     var b_result_4:BArray56.t;
-    var zf:bool;
     var  _0:bool;
     var  _1:bool;
     var  _2:bool;
@@ -1242,6 +1239,7 @@ module M = {
     (trace_h__EXP___expm ++ [(Assert, (BArray232.is_init b_ctx 0 232))]);
     _b <- b;
     _ctx <- ctx;
+    _mask <- (W64.of_int 0);
     j <- (6 - 1);
     while (((-1) < j)) {
       b <- _b;
@@ -1256,16 +1254,19 @@ module M = {
       (result, tmp__trace) <@ uTIL____cf_mask (param);
       trace_h__EXP___expm <- (trace_h__EXP___expm ++ tmp__trace);
       mask <- result;
+      swap_0 <- _mask;
+      swap_0 <- (swap_0 `^` mask);
+      _mask <- mask;
       param_0 <- x0;
       param_1 <- x1;
-      param_2 <- mask;
-      (aux_11, aux_12, aux_13, aux_14, tmp__trace) <@ h__BN___cswap_mask_ (
+      param_2 <- swap_0;
+      (aux_7, aux_8, aux_9, aux_10, tmp__trace) <@ h__BN___cswap_mask_ (
       param_0, (BArray56.init_arr (W8.of_int 255)), param_1,
       (BArray56.init_arr (W8.of_int 255)), param_2);
-      result_0 <- aux_11;
-      b_result <- aux_12;
-      result_1 <- aux_13;
-      b_result_0 <- aux_14;
+      result_0 <- aux_7;
+      b_result <- aux_8;
+      result_1 <- aux_9;
+      b_result_0 <- aux_10;
       trace_h__EXP___expm <- (trace_h__EXP___expm ++ tmp__trace);
       trace_h__EXP___expm <-
       (trace_h__EXP___expm ++ [(Assert, (BArray56.is_init b_result 0 56))]);
@@ -1273,18 +1274,17 @@ module M = {
       (trace_h__EXP___expm ++ [(Assert, (BArray56.is_init b_result_0 0 56))]);
       x0 <- result_0;
       x1 <- result_1;
-      _mask <- mask;
       _x0 <- x0;
       ctx <- _ctx;
       param_3 <- x1;
       param_4 <- x0;
       param_5 <- ctx;
-      (aux_15, aux_16, tmp__trace) <@ h__EXP__fun_mulU (param_3,
+      (aux_11, aux_12, tmp__trace) <@ h__EXP__fun_mulU (param_3,
       (BArray56.init_arr (W8.of_int 255)), param_4,
       (BArray56.init_arr (W8.of_int 255)), param_5,
       (BArray232.init_arr (W8.of_int 255)));
-      result_2 <- aux_15;
-      b_result_1 <- aux_16;
+      result_2 <- aux_11;
+      b_result_1 <- aux_12;
       trace_h__EXP___expm <- (trace_h__EXP___expm ++ tmp__trace);
       trace_h__EXP___expm <-
       (trace_h__EXP___expm ++ [(Assert, (BArray56.is_init b_result_1 0 56))]);
@@ -1294,34 +1294,16 @@ module M = {
       ctx <- _ctx;
       param_6 <- x0;
       param_7 <- ctx;
-      (aux_17, aux_18, tmp__trace) <@ h__EXP__fun_sqrU (param_6,
+      (aux_13, aux_14, tmp__trace) <@ h__EXP__fun_sqrU (param_6,
       (BArray56.init_arr (W8.of_int 255)), param_7,
       (BArray232.init_arr (W8.of_int 255)));
-      result_3 <- aux_17;
-      b_result_2 <- aux_18;
+      result_3 <- aux_13;
+      b_result_2 <- aux_14;
       trace_h__EXP___expm <- (trace_h__EXP___expm ++ tmp__trace);
       trace_h__EXP___expm <-
       (trace_h__EXP___expm ++ [(Assert, (BArray56.is_init b_result_2 0 56))]);
       x0 <- result_3;
       x1 <- _x1;
-      mask <- _mask;
-      param_8 <- x0;
-      param_9 <- x1;
-      param_10 <- mask;
-      (aux_19, aux_20, aux_21, aux_22, tmp__trace) <@ h__BN___cswap_mask_ (
-      param_8, (BArray56.init_arr (W8.of_int 255)), param_9,
-      (BArray56.init_arr (W8.of_int 255)), param_10);
-      result_4 <- aux_19;
-      b_result_3 <- aux_20;
-      result_5 <- aux_21;
-      b_result_4 <- aux_22;
-      trace_h__EXP___expm <- (trace_h__EXP___expm ++ tmp__trace);
-      trace_h__EXP___expm <-
-      (trace_h__EXP___expm ++ [(Assert, (BArray56.is_init b_result_3 0 56))]);
-      trace_h__EXP___expm <-
-      (trace_h__EXP___expm ++ [(Assert, (BArray56.is_init b_result_4 0 56))]);
-      x0 <- result_4;
-      x1 <- result_5;
       t <- _t;
       ( _4,  _5,  _6, zf, _k) <- (DEC_64 _k);
       while ((! zf)) {
@@ -1331,9 +1313,12 @@ module M = {
         (result, tmp__trace) <@ uTIL____cf_mask (param);
         trace_h__EXP___expm <- (trace_h__EXP___expm ++ tmp__trace);
         mask <- result;
+        swap_0 <- _mask;
+        swap_0 <- (swap_0 `^` mask);
+        _mask <- mask;
         param_0 <- x0;
         param_1 <- x1;
-        param_2 <- mask;
+        param_2 <- swap_0;
         (aux, aux_0, aux_1, aux_2, tmp__trace) <@ h__BN___cswap_mask_ (
         param_0, (BArray56.init_arr (W8.of_int 255)), param_1,
         (BArray56.init_arr (W8.of_int 255)), param_2);
@@ -1349,7 +1334,6 @@ module M = {
         [(Assert, (BArray56.is_init b_result_0 0 56))]);
         x0 <- result_0;
         x1 <- result_1;
-        _mask <- mask;
         _x0 <- x0;
         ctx <- _ctx;
         param_3 <- x1;
@@ -1382,31 +1366,29 @@ module M = {
         [(Assert, (BArray56.is_init b_result_2 0 56))]);
         x0 <- result_3;
         x1 <- _x1;
-        mask <- _mask;
-        param_8 <- x0;
-        param_9 <- x1;
-        param_10 <- mask;
-        (aux_7, aux_8, aux_9, aux_10, tmp__trace) <@ h__BN___cswap_mask_ (
-        param_8, (BArray56.init_arr (W8.of_int 255)), param_9,
-        (BArray56.init_arr (W8.of_int 255)), param_10);
-        result_4 <- aux_7;
-        b_result_3 <- aux_8;
-        result_5 <- aux_9;
-        b_result_4 <- aux_10;
-        trace_h__EXP___expm <- (trace_h__EXP___expm ++ tmp__trace);
-        trace_h__EXP___expm <-
-        (trace_h__EXP___expm ++
-        [(Assert, (BArray56.is_init b_result_3 0 56))]);
-        trace_h__EXP___expm <-
-        (trace_h__EXP___expm ++
-        [(Assert, (BArray56.is_init b_result_4 0 56))]);
-        x0 <- result_4;
-        x1 <- result_5;
         t <- _t;
         ( _4,  _5,  _6, zf, _k) <- (DEC_64 _k);
       }
       j <- (j - 1);
     }
+    mask <- _mask;
+    param_8 <- x0;
+    param_9 <- x1;
+    param_10 <- mask;
+    (aux_15, aux_16, aux_17, aux_18, tmp__trace) <@ h__BN___cswap_mask_ (
+    param_8, (BArray56.init_arr (W8.of_int 255)), param_9,
+    (BArray56.init_arr (W8.of_int 255)), param_10);
+    result_4 <- aux_15;
+    b_result_3 <- aux_16;
+    result_5 <- aux_17;
+    b_result_4 <- aux_18;
+    trace_h__EXP___expm <- (trace_h__EXP___expm ++ tmp__trace);
+    trace_h__EXP___expm <-
+    (trace_h__EXP___expm ++ [(Assert, (BArray56.is_init b_result_3 0 56))]);
+    trace_h__EXP___expm <-
+    (trace_h__EXP___expm ++ [(Assert, (BArray56.is_init b_result_4 0 56))]);
+    x0 <- result_4;
+    x1 <- result_5;
     b_x0 <- (BArray56.init_arr (W8.of_int 255));
     b_x1 <- (BArray56.init_arr (W8.of_int 255));
     return (x0, b_x0, x1, b_x1, trace_h__EXP___expm);

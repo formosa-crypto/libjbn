@@ -193,13 +193,14 @@ lemma _expm_proof _x0 _b_x0 _x1 _b_x1 _b _b_b _ctx _b_ctx :
 proof.
 hint +safety.
 proc.
+wp; ecall (BNB._cswap_mask__proof param_8 ((BA_8n.init_arr (W8.of_int 255))) param_9 ((BA_8n.init_arr (W8.of_int 255))) param_10).
 wp.
 while (valid trace__expm /\ -1 <= j < nlimbsexp).
 - wp.
   while (valid trace__expm /\ 0 <= j < nlimbsexp).
-  + wp; ecall (BNB._cswap_mask__proof param_8 ((BA_8n.init_arr (W8.of_int 255))) param_9 ((BA_8n.init_arr (W8.of_int 255))) param_10). wp; ecall (fun_sqrU_h param_6 ((BA_8n.init_arr (W8.of_int 255))) param_7 ((BA_32n_8.init_arr (W8.of_int 255)))). wp; ecall (fun_mulU_h param_3 ((BA_8n.init_arr (W8.of_int 255))) param_4 ((BA_8n.init_arr (W8.of_int 255))) param_5 ((BA_32n_8.init_arr (W8.of_int 255)))). wp; ecall (BNB._cswap_mask__proof param_0 ((BA_8n.init_arr (W8.of_int 255))) param_1 ((BA_8n.init_arr (W8.of_int 255))) param_2). wp; ecall (BNUTIL.__cf_mask_proof param).
+  + wp; ecall (fun_sqrU_h param_6 ((BA_8n.init_arr (W8.of_int 255))) param_7 ((BA_32n_8.init_arr (W8.of_int 255)))). wp; ecall (fun_mulU_h param_3 ((BA_8n.init_arr (W8.of_int 255))) param_4 ((BA_8n.init_arr (W8.of_int 255))) param_5 ((BA_32n_8.init_arr (W8.of_int 255)))). wp; ecall (BNB._cswap_mask__proof param_0 ((BA_8n.init_arr (W8.of_int 255))) param_1 ((BA_8n.init_arr (W8.of_int 255))) param_2). wp; ecall (BNUTIL.__cf_mask_proof param).
     by auto => />.
-  wp; ecall (BNB._cswap_mask__proof param_8 ((BA_8n.init_arr (W8.of_int 255))) param_9 ((BA_8n.init_arr (W8.of_int 255))) param_10). wp; ecall (fun_sqrU_h param_6 ((BA_8n.init_arr (W8.of_int 255))) param_7 ((BA_32n_8.init_arr (W8.of_int 255)))). wp; ecall (fun_mulU_h param_3 ((BA_8n.init_arr (W8.of_int 255))) param_4 ((BA_8n.init_arr (W8.of_int 255))) param_5 ((BA_32n_8.init_arr (W8.of_int 255)))). wp; ecall (BNB._cswap_mask__proof param_0 ((BA_8n.init_arr (W8.of_int 255))) param_1 ((BA_8n.init_arr (W8.of_int 255))) param_2). wp; ecall (BNUTIL.__cf_mask_proof param).
+  wp; ecall (fun_sqrU_h param_6 ((BA_8n.init_arr (W8.of_int 255))) param_7 ((BA_32n_8.init_arr (W8.of_int 255)))). wp; ecall (fun_mulU_h param_3 ((BA_8n.init_arr (W8.of_int 255))) param_4 ((BA_8n.init_arr (W8.of_int 255))) param_5 ((BA_32n_8.init_arr (W8.of_int 255)))). wp; ecall (BNB._cswap_mask__proof param_0 ((BA_8n.init_arr (W8.of_int 255))) param_1 ((BA_8n.init_arr (W8.of_int 255))) param_2). wp; ecall (BNUTIL.__cf_mask_proof param).
   by auto => /> &hr *; smt().
 by auto => />; smt(gt0_nlimbsexp).
 qed.

@@ -12,6 +12,15 @@ BArray360 SBArray360_88.
 
 module M = {
   var tmp__trace : trace
+  proc uTIL____mask_cf (mask:W64.t) : bool * trace = {
+    var t:W64.t;
+    var cf:bool;
+    var trace_uTIL____mask_cf:trace;
+    trace_uTIL____mask_cf <- [];
+    t <- (W64.of_int 0);
+    (cf, t) <- (sbb_64 t mask false);
+    return (cf, trace_uTIL____mask_cf);
+  }
   proc uTIL____cf_mask (cf:bool) : W64.t * trace = {
     var mask:W64.t;
     var  _0:bool;
@@ -224,86 +233,6 @@ module M = {
     a <- a;
     b_a <- (BArray88.init_arr (W8.of_int 255));
     return (a, b_a, trace_h__BN___cmov_);
-  }
-  proc h__BN____and_mask (a:BArray88.t, b_a:BArray88.t, mask:W64.t) : 
-  BArray88.t * BArray88.t * trace = {
-    var i:int;
-    var trace_h__BN____and_mask:trace;
-    trace_h__BN____and_mask <- [];
-    trace_h__BN____and_mask <-
-    (trace_h__BN____and_mask ++ [(Assert, (BArray88.is_init b_a 0 88))]);
-    i <- 0;
-    while ((i < 11)) {
-      trace_h__BN____and_mask <-
-      (trace_h__BN____and_mask ++
-      [(Assert, ((0 <= (i * 8)) /\ (((i * 8) + 8) <= 88)))]);
-      trace_h__BN____and_mask <-
-      (trace_h__BN____and_mask ++
-      [(Assert, ((0 <= (i * 8)) /\ (((i * 8) + 8) <= 88)))]);
-      a <- (BArray88.set64 a i ((BArray88.get64 a i) `&` mask));
-      i <- (i + 1);
-    }
-    b_a <- (BArray88.init_arr (W8.of_int 255));
-    return (a, b_a, trace_h__BN____and_mask);
-  }
-  proc h__BN___and_mask (a:BArray88.t, b_a:BArray88.t, mask:W64.t) : 
-  BArray88.t * BArray88.t * trace = {
-    var aux:BArray88.t;
-    var aux_0:BArray88.t;
-    var param:BArray88.t;
-    var param_0:W64.t;
-    var result:BArray88.t;
-    var b_result:BArray88.t;
-    var trace_h__BN___and_mask:trace;
-    b_result <- witness;
-    param <- witness;
-    result <- witness;
-    trace_h__BN___and_mask <- [];
-    trace_h__BN___and_mask <-
-    (trace_h__BN___and_mask ++ [(Assert, (BArray88.is_init b_a 0 88))]);
-    param <- a;
-    param_0 <- mask;
-    (aux, aux_0, tmp__trace) <@ h__BN____and_mask (param,
-    (BArray88.init_arr (W8.of_int 255)), param_0);
-    result <- aux;
-    b_result <- aux_0;
-    trace_h__BN___and_mask <- (trace_h__BN___and_mask ++ tmp__trace);
-    trace_h__BN___and_mask <-
-    (trace_h__BN___and_mask ++ [(Assert, (BArray88.is_init b_result 0 88))]);
-    a <- result;
-    b_a <- (BArray88.init_arr (W8.of_int 255));
-    return (a, b_a, trace_h__BN___and_mask);
-  }
-  proc h__BN___and_mask_ (a:BArray88.t, b_a:BArray88.t, mask:W64.t) : 
-  BArray88.t * BArray88.t * trace = {
-    var aux:BArray88.t;
-    var aux_0:BArray88.t;
-    var param:BArray88.t;
-    var param_0:W64.t;
-    var result:BArray88.t;
-    var b_result:BArray88.t;
-    var trace_h__BN___and_mask_:trace;
-    b_result <- witness;
-    param <- witness;
-    result <- witness;
-    trace_h__BN___and_mask_ <- [];
-    trace_h__BN___and_mask_ <-
-    (trace_h__BN___and_mask_ ++ [(Assert, (BArray88.is_init b_a 0 88))]);
-    a <- a;
-    mask <- mask;
-    param <- a;
-    param_0 <- mask;
-    (aux, aux_0, tmp__trace) <@ h__BN___and_mask (param,
-    (BArray88.init_arr (W8.of_int 255)), param_0);
-    result <- aux;
-    b_result <- aux_0;
-    trace_h__BN___and_mask_ <- (trace_h__BN___and_mask_ ++ tmp__trace);
-    trace_h__BN___and_mask_ <-
-    (trace_h__BN___and_mask_ ++ [(Assert, (BArray88.is_init b_result 0 88))]);
-    a <- result;
-    a <- a;
-    b_a <- (BArray88.init_arr (W8.of_int 255));
-    return (a, b_a, trace_h__BN___and_mask_);
   }
   proc h__BN____addc1U (a:BArray88.t, b_a:BArray88.t, b:BArray88.t,
                         b_b:BArray88.t, cf:bool) : bool * BArray88.t *
@@ -1087,48 +1016,44 @@ module M = {
   }
   proc h__BN___caddU_ (x:BArray88.t, b_x:BArray88.t, cf:bool, y:BArray88.t,
                        b_y:BArray88.t) : BArray88.t * BArray88.t * trace = {
-    var aux:BArray88.t;
     var aux_0:BArray88.t;
     var aux_1:BArray88.t;
     var aux_2:BArray88.t;
-    var aux_4:BArray88.t;
-    var aux_5:BArray88.t;
-    var aux_3:bool;
+    var aux_3:BArray88.t;
+    var aux:bool;
     var b__tmp:BArray88.t;
+    var param:bool;
+    var result:W64.t;
+    var mask:W64.t;
     var b_tmp:BArray88.t;
     var tmp:BArray88.t;
     var _tmp:BArray88.t;
     var b_param:BArray88.t;
-    var param:BArray88.t;
     var param_0:BArray88.t;
-    var result:BArray88.t;
-    var b_result:BArray88.t;
-    var param_1:bool;
-    var result_0:W64.t;
-    var mask:W64.t;
+    var param_1:BArray88.t;
     var param_2:BArray88.t;
-    var param_3:W64.t;
+    var result_0:bool;
     var result_1:BArray88.t;
-    var b_result_0:BArray88.t;
-    var param_4:BArray88.t;
-    var param_5:BArray88.t;
+    var b_result:BArray88.t;
+    var param_3:W64.t;
     var result_2:bool;
+    var param_4:BArray88.t;
+    var param_5:bool;
+    var param_6:BArray88.t;
     var result_3:BArray88.t;
-    var b_result_1:BArray88.t;
+    var b_result_0:BArray88.t;
     var trace_h__BN___caddU_:trace;
     _tmp <- witness;
     b__tmp <- witness;
     b_param <- witness;
     b_result <- witness;
     b_result_0 <- witness;
-    b_result_1 <- witness;
     b_tmp <- witness;
-    param <- witness;
     param_0 <- witness;
+    param_1 <- witness;
     param_2 <- witness;
     param_4 <- witness;
-    param_5 <- witness;
-    result <- witness;
+    param_6 <- witness;
     result_1 <- witness;
     result_3 <- witness;
     tmp <- witness;
@@ -1138,44 +1063,41 @@ module M = {
     trace_h__BN___caddU_ <-
     (trace_h__BN___caddU_ ++ [(Assert, (BArray88.is_init b_y 0 88))]);
     b__tmp <- (BArray88.init_arr (W8.of_int 0));
+    param <- cf;
+    (result, tmp__trace) <@ uTIL____cf_mask (param);
+    trace_h__BN___caddU_ <- (trace_h__BN___caddU_ ++ tmp__trace);
+    mask <- result;
     b_tmp <- b__tmp;
     tmp <- _tmp;
     b_param <- b_tmp;
-    param <- tmp;
-    param_0 <- y;
-    (aux, aux_0, tmp__trace) <@ h__BN___mov_ (param, b_param, param_0,
+    param_0 <- tmp;
+    param_1 <- x;
+    param_2 <- y;
+    (aux, aux_0, aux_1, tmp__trace) <@ h__BN___add_ (param_0, b_param,
+    param_1, (BArray88.init_arr (W8.of_int 255)), param_2,
     (BArray88.init_arr (W8.of_int 255)));
-    result <- aux;
-    b_result <- aux_0;
+    result_0 <- aux;
+    result_1 <- aux_0;
+    b_result <- aux_1;
     trace_h__BN___caddU_ <- (trace_h__BN___caddU_ ++ tmp__trace);
     trace_h__BN___caddU_ <-
     (trace_h__BN___caddU_ ++ [(Assert, (BArray88.is_init b_result 0 88))]);
-    tmp <- result;
-    param_1 <- cf;
-    (result_0, tmp__trace) <@ uTIL____cf_mask (param_1);
-    trace_h__BN___caddU_ <- (trace_h__BN___caddU_ ++ tmp__trace);
-    mask <- result_0;
-    param_2 <- tmp;
+    tmp <- result_1;
     param_3 <- mask;
-    (aux_1, aux_2, tmp__trace) <@ h__BN___and_mask_ (param_2,
-    (BArray88.init_arr (W8.of_int 255)), param_3);
-    result_1 <- aux_1;
-    b_result_0 <- aux_2;
+    (result_2, tmp__trace) <@ uTIL____mask_cf (param_3);
+    trace_h__BN___caddU_ <- (trace_h__BN___caddU_ ++ tmp__trace);
+    cf <- result_2;
+    param_4 <- x;
+    param_5 <- cf;
+    param_6 <- tmp;
+    (aux_2, aux_3, tmp__trace) <@ h__BN___cmov_ (param_4,
+    (BArray88.init_arr (W8.of_int 255)), param_5, param_6,
+    (BArray88.init_arr (W8.of_int 255)));
+    result_3 <- aux_2;
+    b_result_0 <- aux_3;
     trace_h__BN___caddU_ <- (trace_h__BN___caddU_ ++ tmp__trace);
     trace_h__BN___caddU_ <-
     (trace_h__BN___caddU_ ++ [(Assert, (BArray88.is_init b_result_0 0 88))]);
-    tmp <- result_1;
-    param_4 <- x;
-    param_5 <- tmp;
-    (aux_3, aux_4, aux_5, tmp__trace) <@ h__BN___addU_ (param_4,
-    (BArray88.init_arr (W8.of_int 255)), param_5,
-    (BArray88.init_arr (W8.of_int 255)));
-    result_2 <- aux_3;
-    result_3 <- aux_4;
-    b_result_1 <- aux_5;
-    trace_h__BN___caddU_ <- (trace_h__BN___caddU_ ++ tmp__trace);
-    trace_h__BN___caddU_ <-
-    (trace_h__BN___caddU_ ++ [(Assert, (BArray88.is_init b_result_1 0 88))]);
     x <- result_3;
     b_x <- (BArray88.init_arr (W8.of_int 255));
     return (x, b_x, trace_h__BN___caddU_);
@@ -1183,13 +1105,11 @@ module M = {
   proc h__BN___cminusP_ (x:BArray88.t, b_x:BArray88.t, mP:BArray88.t,
                          b_mP:BArray88.t, lastbit:W64.t) : BArray88.t *
                                                            BArray88.t * trace = {
-    var aux:BArray88.t;
     var aux_0:BArray88.t;
+    var aux_1:BArray88.t;
     var aux_2:BArray88.t;
     var aux_3:BArray88.t;
-    var aux_4:BArray88.t;
-    var aux_5:BArray88.t;
-    var aux_1:bool;
+    var aux:bool;
     var b__tmp:BArray88.t;
     var b_tmp:BArray88.t;
     var tmp:BArray88.t;
@@ -1197,19 +1117,16 @@ module M = {
     var b_param:BArray88.t;
     var param:BArray88.t;
     var param_0:BArray88.t;
-    var result:BArray88.t;
-    var b_result:BArray88.t;
     var param_1:BArray88.t;
+    var result:bool;
+    var result_0:BArray88.t;
+    var b_result:BArray88.t;
+    var _cf:bool;
     var param_2:BArray88.t;
-    var result_0:bool;
+    var param_3:bool;
+    var param_4:BArray88.t;
     var result_1:BArray88.t;
     var b_result_0:BArray88.t;
-    var _cf:bool;
-    var param_3:BArray88.t;
-    var param_4:bool;
-    var param_5:BArray88.t;
-    var result_2:BArray88.t;
-    var b_result_1:BArray88.t;
     var  _0:bool;
     var  _1:bool;
     var  _2:bool;
@@ -1222,17 +1139,14 @@ module M = {
     b_param <- witness;
     b_result <- witness;
     b_result_0 <- witness;
-    b_result_1 <- witness;
     b_tmp <- witness;
     param <- witness;
     param_0 <- witness;
     param_1 <- witness;
     param_2 <- witness;
-    param_3 <- witness;
-    param_5 <- witness;
-    result <- witness;
+    param_4 <- witness;
+    result_0 <- witness;
     result_1 <- witness;
-    result_2 <- witness;
     tmp <- witness;
     trace_h__BN___cminusP_ <- [];
     trace_h__BN___cminusP_ <-
@@ -1245,43 +1159,33 @@ module M = {
     b_param <- b_tmp;
     param <- tmp;
     param_0 <- x;
-    (aux, aux_0, tmp__trace) <@ h__BN___mov_ (param, b_param, param_0,
+    param_1 <- mP;
+    (aux, aux_0, aux_1, tmp__trace) <@ h__BN___add_ (param, b_param, 
+    param_0, (BArray88.init_arr (W8.of_int 255)), param_1,
     (BArray88.init_arr (W8.of_int 255)));
     result <- aux;
-    b_result <- aux_0;
+    result_0 <- aux_0;
+    b_result <- aux_1;
     trace_h__BN___cminusP_ <- (trace_h__BN___cminusP_ ++ tmp__trace);
     trace_h__BN___cminusP_ <-
     (trace_h__BN___cminusP_ ++ [(Assert, (BArray88.is_init b_result 0 88))]);
-    tmp <- result;
-    param_1 <- tmp;
-    param_2 <- mP;
-    (aux_1, aux_2, aux_3, tmp__trace) <@ h__BN___addU_ (param_1,
-    (BArray88.init_arr (W8.of_int 255)), param_2,
+    _cf <- result;
+    tmp <- result_0;
+    ( _0, lastbit) <- (adc_64 lastbit (W64.of_int 0) _cf);
+    ( _1, _cf,  _2,  _3,  _4,  _5) <- (NEG_64 lastbit);
+    param_2 <- x;
+    param_3 <- _cf;
+    param_4 <- tmp;
+    (aux_2, aux_3, tmp__trace) <@ h__BN___cmov_ (param_2,
+    (BArray88.init_arr (W8.of_int 255)), param_3, param_4,
     (BArray88.init_arr (W8.of_int 255)));
-    result_0 <- aux_1;
     result_1 <- aux_2;
     b_result_0 <- aux_3;
     trace_h__BN___cminusP_ <- (trace_h__BN___cminusP_ ++ tmp__trace);
     trace_h__BN___cminusP_ <-
     (trace_h__BN___cminusP_ ++
     [(Assert, (BArray88.is_init b_result_0 0 88))]);
-    _cf <- result_0;
-    tmp <- result_1;
-    ( _0, lastbit) <- (adc_64 lastbit (W64.of_int 0) _cf);
-    ( _1, _cf,  _2,  _3,  _4,  _5) <- (NEG_64 lastbit);
-    param_3 <- x;
-    param_4 <- _cf;
-    param_5 <- tmp;
-    (aux_4, aux_5, tmp__trace) <@ h__BN___cmov_ (param_3,
-    (BArray88.init_arr (W8.of_int 255)), param_4, param_5,
-    (BArray88.init_arr (W8.of_int 255)));
-    result_2 <- aux_4;
-    b_result_1 <- aux_5;
-    trace_h__BN___cminusP_ <- (trace_h__BN___cminusP_ ++ tmp__trace);
-    trace_h__BN___cminusP_ <-
-    (trace_h__BN___cminusP_ ++
-    [(Assert, (BArray88.is_init b_result_1 0 88))]);
-    x <- result_2;
+    x <- result_1;
     b_x <- (BArray88.init_arr (W8.of_int 255));
     return (x, b_x, trace_h__BN___cminusP_);
   }
@@ -2638,6 +2542,10 @@ module M = {
 
 (* The post and trace are valid. *)
 
+op uTIL____mask_cf_spec _mask =
+   hoare [M.uTIL____mask_cf :
+   ((_mask = mask) /\ true) ==> (true /\ (valid res.`2))].
+
 op uTIL____cf_mask_spec _cf =
    hoare [M.uTIL____cf_mask :
    ((_cf = cf) /\ true) ==> (true /\ (valid res.`2))].
@@ -2683,24 +2591,6 @@ op h__BN___cmov__spec _a _b_a _cond _b _b_b =
    (((_b_b = b_b) /\
     ((_b = b) /\ ((_cond = cond) /\ ((_b_a = b_a) /\ (_a = a))))) /\
    ((BArray88.is_init _b_b 0 88) /\ (BArray88.is_init _b_a 0 88))) ==>
-   ((BArray88.is_init res.`2 0 88) /\ (valid res.`3))].
-
-op h__BN____and_mask_spec _a _b_a _mask =
-   hoare [M.h__BN____and_mask :
-   (((_mask = mask) /\ ((_b_a = b_a) /\ (_a = a))) /\
-   (BArray88.is_init _b_a 0 88)) ==>
-   ((BArray88.is_init res.`2 0 88) /\ (valid res.`3))].
-
-op h__BN___and_mask_spec _a _b_a _mask =
-   hoare [M.h__BN___and_mask :
-   (((_mask = mask) /\ ((_b_a = b_a) /\ (_a = a))) /\
-   (BArray88.is_init _b_a 0 88)) ==>
-   ((BArray88.is_init res.`2 0 88) /\ (valid res.`3))].
-
-op h__BN___and_mask__spec _a _b_a _mask =
-   hoare [M.h__BN___and_mask_ :
-   (((_mask = mask) /\ ((_b_a = b_a) /\ (_a = a))) /\
-   (BArray88.is_init _b_a 0 88)) ==>
    ((BArray88.is_init res.`2 0 88) /\ (valid res.`3))].
 
 op h__BN____addc1U_spec _a _b_a _b _b_b _cf =

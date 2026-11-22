@@ -973,11 +973,12 @@ inline fn _caddU_
   stack u64[nlimbs] _tmp;
   reg ptr u64[nlimbs] tmp;
 
-  tmp = _tmp;
-  tmp = _mov_(tmp,y);
+  // x+y in tmp, then selected (two passes; cf does not survive the addition)
   mask = UTIL::__cf_mask(cf);
-  tmp = _and_mask_(tmp, mask);
-  _, x = _addU_(x, tmp);
+  tmp = _tmp;
+  _, tmp = _add_(tmp, x, y);
+  cf = UTIL::__mask_cf(mask);
+  x = _cmov_(x, cf, tmp);
 
   return x;
 }
@@ -996,9 +997,9 @@ inline fn _cminusP_
   stack u64[nlimbs] _tmp;
   reg ptr u64[nlimbs] tmp;
 
+  // x+mP in tmp, then selected (two passes)
   tmp = _tmp;
-  tmp = _mov_(tmp, x);
-  _cf, tmp = _addU_(tmp, mP);
+  _cf, tmp = _add_(tmp, x, mP);
 
   _, lastbit += 0 + _cf;
   _, _cf, _, _, _, _ = #NEG(lastbit);

@@ -910,12 +910,9 @@ module M(P: MParam) = {
     var aux_16:BA_8n.t;
     var aux_17:BA_8n.t;
     var aux_18:BA_8n.t;
-    var aux_19:BA_8n.t;
-    var aux_20:BA_8n.t;
-    var aux_21:BA_8n.t;
-    var aux_22:BA_8n.t;
     var _b:BA_8e.t;
     var _ctx:BA_32n_8.t;
+    var _mask:W64.t;
     var j:int;
     var t:W64.t;
     var _k:W64.t;
@@ -924,6 +921,7 @@ module M(P: MParam) = {
     var param:bool;
     var result:W64.t;
     var mask:W64.t;
+    var swap_0:W64.t;
     var param_0:BA_8n.t;
     var param_1:BA_8n.t;
     var param_2:W64.t;
@@ -931,7 +929,6 @@ module M(P: MParam) = {
     var b_result:BA_8n.t;
     var result_1:BA_8n.t;
     var b_result_0:BA_8n.t;
-    var _mask:W64.t;
     var _x0:BA_8n.t;
     var param_3:BA_8n.t;
     var param_4:BA_8n.t;
@@ -943,6 +940,7 @@ module M(P: MParam) = {
     var param_7:BA_32n_8.t;
     var result_3:BA_8n.t;
     var b_result_2:BA_8n.t;
+    var zf:bool;
     var param_8:BA_8n.t;
     var param_9:BA_8n.t;
     var param_10:W64.t;
@@ -950,7 +948,6 @@ module M(P: MParam) = {
     var b_result_3:BA_8n.t;
     var result_5:BA_8n.t;
     var b_result_4:BA_8n.t;
-    var zf:bool;
     var  _0:bool;
     var  _1:bool;
     var  _2:bool;
@@ -995,6 +992,7 @@ module M(P: MParam) = {
     (trace__expm ++ [(Assert, (BA_32n_8.is_init b_ctx 0 (8 * ((4 * nlimbs) + 1))))]);
     _b <- b;
     _ctx <- ctx;
+    _mask <- (W64.of_int 0);
     j <- (nlimbsexp - 1);
     while (((-1) < j)) {
       b <- _b;
@@ -1009,16 +1007,19 @@ module M(P: MParam) = {
       (result, tmp__trace) <@ BNUTIL.M.__cf_mask (param);
       trace__expm <- (trace__expm ++ tmp__trace);
       mask <- result;
+      swap_0 <- _mask;
+      swap_0 <- (swap_0 `^` mask);
+      _mask <- mask;
       param_0 <- x0;
       param_1 <- x1;
-      param_2 <- mask;
-      (aux_11, aux_12, aux_13, aux_14, tmp__trace) <@ BNB.M._cswap_mask_ (
+      param_2 <- swap_0;
+      (aux_7, aux_8, aux_9, aux_10, tmp__trace) <@ BNB.M._cswap_mask_ (
       param_0, (BA_8n.init_arr (W8.of_int 255)), param_1,
       (BA_8n.init_arr (W8.of_int 255)), param_2);
-      result_0 <- aux_11;
-      b_result <- aux_12;
-      result_1 <- aux_13;
-      b_result_0 <- aux_14;
+      result_0 <- aux_7;
+      b_result <- aux_8;
+      result_1 <- aux_9;
+      b_result_0 <- aux_10;
       trace__expm <- (trace__expm ++ tmp__trace);
       trace__expm <-
       (trace__expm ++ [(Assert, (BA_8n.is_init b_result 0 (8 * nlimbs)))]);
@@ -1026,18 +1027,17 @@ module M(P: MParam) = {
       (trace__expm ++ [(Assert, (BA_8n.is_init b_result_0 0 (8 * nlimbs)))]);
       x0 <- result_0;
       x1 <- result_1;
-      _mask <- mask;
       _x0 <- x0;
       ctx <- _ctx;
       param_3 <- x1;
       param_4 <- x0;
       param_5 <- ctx;
-      (aux_15, aux_16, tmp__trace) <@ P.fun_mulU (param_3,
+      (aux_11, aux_12, tmp__trace) <@ P.fun_mulU (param_3,
       (BA_8n.init_arr (W8.of_int 255)), param_4,
       (BA_8n.init_arr (W8.of_int 255)), param_5,
       (BA_32n_8.init_arr (W8.of_int 255)));
-      result_2 <- aux_15;
-      b_result_1 <- aux_16;
+      result_2 <- aux_11;
+      b_result_1 <- aux_12;
       trace__expm <- (trace__expm ++ tmp__trace);
       trace__expm <-
       (trace__expm ++ [(Assert, (BA_8n.is_init b_result_1 0 (8 * nlimbs)))]);
@@ -1047,34 +1047,16 @@ module M(P: MParam) = {
       ctx <- _ctx;
       param_6 <- x0;
       param_7 <- ctx;
-      (aux_17, aux_18, tmp__trace) <@ P.fun_sqrU (param_6,
+      (aux_13, aux_14, tmp__trace) <@ P.fun_sqrU (param_6,
       (BA_8n.init_arr (W8.of_int 255)), param_7,
       (BA_32n_8.init_arr (W8.of_int 255)));
-      result_3 <- aux_17;
-      b_result_2 <- aux_18;
+      result_3 <- aux_13;
+      b_result_2 <- aux_14;
       trace__expm <- (trace__expm ++ tmp__trace);
       trace__expm <-
       (trace__expm ++ [(Assert, (BA_8n.is_init b_result_2 0 (8 * nlimbs)))]);
       x0 <- result_3;
       x1 <- _x1;
-      mask <- _mask;
-      param_8 <- x0;
-      param_9 <- x1;
-      param_10 <- mask;
-      (aux_19, aux_20, aux_21, aux_22, tmp__trace) <@ BNB.M._cswap_mask_ (
-      param_8, (BA_8n.init_arr (W8.of_int 255)), param_9,
-      (BA_8n.init_arr (W8.of_int 255)), param_10);
-      result_4 <- aux_19;
-      b_result_3 <- aux_20;
-      result_5 <- aux_21;
-      b_result_4 <- aux_22;
-      trace__expm <- (trace__expm ++ tmp__trace);
-      trace__expm <-
-      (trace__expm ++ [(Assert, (BA_8n.is_init b_result_3 0 (8 * nlimbs)))]);
-      trace__expm <-
-      (trace__expm ++ [(Assert, (BA_8n.is_init b_result_4 0 (8 * nlimbs)))]);
-      x0 <- result_4;
-      x1 <- result_5;
       t <- _t;
       ( _4,  _5,  _6, zf, _k) <- (DEC_64 _k);
       while ((! zf)) {
@@ -1084,9 +1066,12 @@ module M(P: MParam) = {
         (result, tmp__trace) <@ BNUTIL.M.__cf_mask (param);
         trace__expm <- (trace__expm ++ tmp__trace);
         mask <- result;
+        swap_0 <- _mask;
+        swap_0 <- (swap_0 `^` mask);
+        _mask <- mask;
         param_0 <- x0;
         param_1 <- x1;
-        param_2 <- mask;
+        param_2 <- swap_0;
         (aux, aux_0, aux_1, aux_2, tmp__trace) <@ BNB.M._cswap_mask_ (
         param_0, (BA_8n.init_arr (W8.of_int 255)), param_1,
         (BA_8n.init_arr (W8.of_int 255)), param_2);
@@ -1102,7 +1087,6 @@ module M(P: MParam) = {
         [(Assert, (BA_8n.is_init b_result_0 0 (8 * nlimbs)))]);
         x0 <- result_0;
         x1 <- result_1;
-        _mask <- mask;
         _x0 <- x0;
         ctx <- _ctx;
         param_3 <- x1;
@@ -1135,31 +1119,29 @@ module M(P: MParam) = {
         [(Assert, (BA_8n.is_init b_result_2 0 (8 * nlimbs)))]);
         x0 <- result_3;
         x1 <- _x1;
-        mask <- _mask;
-        param_8 <- x0;
-        param_9 <- x1;
-        param_10 <- mask;
-        (aux_7, aux_8, aux_9, aux_10, tmp__trace) <@ BNB.M._cswap_mask_ (
-        param_8, (BA_8n.init_arr (W8.of_int 255)), param_9,
-        (BA_8n.init_arr (W8.of_int 255)), param_10);
-        result_4 <- aux_7;
-        b_result_3 <- aux_8;
-        result_5 <- aux_9;
-        b_result_4 <- aux_10;
-        trace__expm <- (trace__expm ++ tmp__trace);
-        trace__expm <-
-        (trace__expm ++
-        [(Assert, (BA_8n.is_init b_result_3 0 (8 * nlimbs)))]);
-        trace__expm <-
-        (trace__expm ++
-        [(Assert, (BA_8n.is_init b_result_4 0 (8 * nlimbs)))]);
-        x0 <- result_4;
-        x1 <- result_5;
         t <- _t;
         ( _4,  _5,  _6, zf, _k) <- (DEC_64 _k);
       }
       j <- (j - 1);
     }
+    mask <- _mask;
+    param_8 <- x0;
+    param_9 <- x1;
+    param_10 <- mask;
+    (aux_15, aux_16, aux_17, aux_18, tmp__trace) <@ BNB.M._cswap_mask_ (
+    param_8, (BA_8n.init_arr (W8.of_int 255)), param_9,
+    (BA_8n.init_arr (W8.of_int 255)), param_10);
+    result_4 <- aux_15;
+    b_result_3 <- aux_16;
+    result_5 <- aux_17;
+    b_result_4 <- aux_18;
+    trace__expm <- (trace__expm ++ tmp__trace);
+    trace__expm <-
+    (trace__expm ++ [(Assert, (BA_8n.is_init b_result_3 0 (8 * nlimbs)))]);
+    trace__expm <-
+    (trace__expm ++ [(Assert, (BA_8n.is_init b_result_4 0 (8 * nlimbs)))]);
+    x0 <- result_4;
+    x1 <- result_5;
     b_x0 <- (BA_8n.init_arr (W8.of_int 255));
     b_x1 <- (BA_8n.init_arr (W8.of_int 255));
     return (x0, b_x0, x1, b_x1, trace__expm);

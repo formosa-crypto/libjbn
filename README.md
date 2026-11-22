@@ -1304,7 +1304,10 @@ the wiring of a Montgomery field instance (used by `test/misc` and
     losslessness is proved.
   * `Bn_exp.eca` proves the three exponentiations (right-to-left
     `_expm_noct_`, the Montgomery ladder `_expm_`, left-to-right
-    `_expmLR_noct_`) in an abstract monoid.
+    `_expmLR_noct_`) in an abstract monoid. The ladder swaps once per bit,
+    by the xor of the bit with the previous one: its invariant keeps the
+    pair swapped by the parity of the scanned prefix of the exponent
+    (`linv`).
   * `Fp_base.eca` proves the field operations for an abstract reduction,
     and `Fp_mont.eca` instantiates it with the Montgomery reduction of the
     selector and proves `_redM_`, `_toM_`, `_fromM_` and `_ctx_init_`
