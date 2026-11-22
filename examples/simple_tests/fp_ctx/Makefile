@@ -37,10 +37,16 @@ MULX_PROGS += $(addprefix test_fp_ctx_mulxr, $(XR_SIZES))
 PM_SIZES = 4 6
 PROGS += $(addprefix test_fp_ctx_pm, $(PM_SIZES))
 MULX_PROGS += $(addprefix test_fp_ctx_pmxr, $(PM_SIZES))
+# bn_mulx_loop with the squaring of bn_mulx (fp_ctx_mulx_sqru7.jazz: an
+# experiment, see its header and the bench variant mulx_sqru), in `run-mulx`
+MULX_PROGS += test_fp_ctx_mulx_sqru7
 
 all: $(PROGS) $(MULX_PROGS)
 
 # (the more specific patterns first: make 3.81 takes the first match)
+test_fp_ctx_mulx_sqru%: test_fp_ctx.c fp_ctx_mulx_sqru%.s
+	$(GCC) -DNLIMBS=$* -o $@ $^
+
 test_fp_ctx_pmxr%: test_fp_ctx.c fp_ctx_pmxr%.s
 	$(GCC) -DNLIMBS=$* -o $@ $^
 
@@ -88,6 +94,7 @@ run-mulx: $(MULX_PROGS) $(addprefix vectors, $(addsuffix .txt, $(SIZES) $(XR_SIZ
 	for n in $(SIZES); do ./test_fp_ctx_selx$$n < vectors$$n.txt || exit 1; done
 	for n in $(XR_SIZES); do ./test_fp_ctx_mulxr$$n < vectors$$n.txt || exit 1; done
 	for n in $(PM_SIZES); do ./test_fp_ctx_pmxr$$n < vectors_pm$$n.txt || exit 1; done
+	./test_fp_ctx_mulx_sqru7 < vectors7.txt
 
 # The same operations run by the interpreter of jasminc (gen_exec_test.py):
 # on any host, MULX/ADCX/ADOX included (e.g. on Apple Silicon, where Rosetta
@@ -131,14 +138,19 @@ exec: gen_exec_test.py $(LIBJBN_SRC)
 # the lines end with "(chained)". The two constant-time exponentiations are
 # timed on the same operands: fpc_exp (the one of the profile: the fixed
 # window) and fpc_exp_ladder.
+# One more variant, not in the default list: mulx_sqru, bn_mulx_loop with
+# the unrolled squaring of bn_mulx (generated from fp_ctx_mulx_sqru7.jazz;
+# see its header), to be compared with mulx and mulx_unr, e.g.
+#   make bench BENCH_VARIANTS="mulx_unr mulx mulx_sqru" BENCH_SIZES="24 32 40 48"
 BENCH_SIZES    ?= 4 5 6 8 16 32 64
 BENCH_VARIANTS ?= unr loop mulx_unr mulx mulxr pm_unr pm_mulxr
 BENCH_CHAINED  ?=
 
-bench: bench_fp_ctx.c fp_ctx7.jazz $(LIBJBN_SRC)
+bench: bench_fp_ctx.c fp_ctx7.jazz fp_ctx_mulx_sqru7.jazz $(LIBJBN_SRC)
 	@for n in $(BENCH_SIZES); do for v in $(BENCH_VARIANTS); do \
-	  k=fp_mont; p=x86_64; \
+	  k=fp_mont; p=x86_64; t=fp_ctx7.jazz; m=bn_mul; s=fp_mul_ps; \
 	  case $$v in \
+	    mulx_sqru) t=fp_ctx_mulx_sqru7.jazz;; \
 	    unr)      m=bn_mul;       s=fp_mul_ps;; \
 	    loop)     m=bn_mul_loop;  s=fp_mul_os;; \
 	    mulx_unr) m=bn_mulx;      s=fp_mul_os; p=x86_64_adx;; \
@@ -153,7 +165,7 @@ bench: bench_fp_ctx.c fp_ctx7.jazz $(LIBJBN_SRC)
 	      -e "s/bn_mul@n.jinc/$$m@n.jinc/" -e "s/fp_mul_ps@fp.jinc/$$s@fp.jinc/" \
 	      -e "s/fp_mont@fp.jinc/$$k@fp.jinc/" \
 	      -e "s|profiles/x86_64.jinc|profiles/$$p.jinc|" \
-	      fp_ctx7.jazz > $$f.jazz; \
+	      $$t > $$f.jazz; \
 	  $(JASMINC) $(JFLAGS) -o $$f.s $$f.jazz 2> $$f.log || { cat $$f.log; exit 1; }; \
 	  pm=; [ $$k = fp_pm ] && pm=-DPM; \
 	  $(GCC) -O2 -DNLIMBS=$$n -DVARIANT=\"$$v\" $$pm $(if $(BENCH_CHAINED),-DCHAINED) -o $$f bench_fp_ctx.c $$f.s || exit 1; \
