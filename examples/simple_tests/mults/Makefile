@@ -20,6 +20,9 @@ PROGS = testmul_ps_32 testmul_os_32 testmul_kar_32_ps_16 testmul_kar_32_ps_8 tes
 PROGS += testmul_os_loop_32 testmul_os_mulx_loop_32
 # unrolled MULX/ADCX/ADOX rows, with a squaring of their own (bn_mulx)
 PROGS += testmul_os_mulx_32
+# squaring over the half size (bn_ksqr), one and two levels, over the
+# product-scanning squaring of bn_mul
+PROGS += testsqr_ksqr_32 testsqr_ksqr2_32
 
 all: $(PROGS)
 
@@ -39,6 +42,12 @@ testmul_os_mulx_loop_32: testmul_os_loop.c muln32_mulx_loop.s
 	$(GCC) -DNLIMBS=32 -o $@ $^
 
 testmul_os_mulx_32: testmul_os_loop.c muln32_mulx.s
+	$(GCC) -DNLIMBS=32 -o $@ $^
+
+testsqr_ksqr_32: testsqr_ksqr.c sqrn32_ksqr.s
+	$(GCC) -DNLIMBS=32 -o $@ $^
+
+testsqr_ksqr2_32: testsqr_ksqr.c sqrn32_ksqr2.s
 	$(GCC) -DNLIMBS=32 -o $@ $^
 
 testmul_kar_32_ps_16: testmul_kar_32_ps_16.c kar_32_ps_16.s
@@ -131,6 +140,40 @@ bench-kar: bench_mul.c kar_32_os_16.jazz kar_32_os_8.jazz $(LIBJBN_SRC)
 	  $(JASMINC) $(JFLAGS) -o $$f.s $$f.jazz 2> $$f.log || { cat $$f.log; exit 1; }; \
 	  $(GCC) -O2 -DNLIMBS=$$n -DFN=bn_kar_muln -DVARIANT=\"kar$$l/$$b\" -o $$f bench_mul.c $$f.s || exit 1; \
 	  ./$$f || echo "kar$$l/$$b n=$$n: did not run (os and the mulx bases need a CPU with BMI2 and ADX)"; \
+	done; done; done
+
+# The squaring over the half size (bn_ksqr, one or two levels: ksqr1,
+# ksqr2), over the unrolled squarings above as the squaring of its last
+# level: `ps` (bn_mul, product scanning) and `mulx_unr` (bn_mulx, which
+# needs BMI2 and ADX). Each line also times the row-looped multiplication
+# of the same size and instructions (bn_mul_loop, bn_mulx_loop), which is
+# the squaring of the looped modules: `sqr` is to be compared with the
+# `mul` of its line, and with the `sqr` of `bench` at the same size (the
+# unrolled squaring). The instances are generated from sqrn32_ksqr.jazz
+# and sqrn32_ksqr2.jazz; a size that the levels do not divide is skipped.
+BENCH_KSQR_SIZES ?= 32 48 64 96 128
+BENCH_KSQR_BASES ?= ps mulx_unr
+
+bench-ksqr: bench_mul.c sqrn32_ksqr.jazz sqrn32_ksqr2.jazz $(LIBJBN_SRC)
+	@for n in $(BENCH_KSQR_SIZES); do for b in $(BENCH_KSQR_BASES); do for l in 1 2; do \
+	  case $$b in \
+	    ps)       m=bn_mul;  fn=_ps_sqrn_; ml=bn_mul_loop;; \
+	    mulx_unr) m=bn_mulx; fn=_os_sqrn_; ml=bn_mulx_loop;; \
+	    *) echo "unknown base $$b"; exit 1;; \
+	  esac; \
+	  case $$l in \
+	    1) t=sqrn32_ksqr.jazz;  d=2;; \
+	    2) t=sqrn32_ksqr2.jazz; d=4;; \
+	  esac; \
+	  [ $$((n % d)) -eq 0 ] || continue; \
+	  f=tmpbench_ksqr$${l}_$${b}_$$n; \
+	  sed -e "s/param int nlimbsL = [0-9]*;/param int nlimbsL = $$((n/d));/" \
+	      -e "s/bn_mul@n.jinc/$$m@n.jinc/" -e "s/_ps_sqrn_/$$fn/" \
+	      -e "s/bn_mul_loop@n.jinc/$$ml@n.jinc/" \
+	      $$t > $$f.jazz; \
+	  $(JASMINC) $(JFLAGS) -o $$f.s $$f.jazz 2> $$f.log || { cat $$f.log; exit 1; }; \
+	  $(GCC) -O2 -DNLIMBS=$$n -DFN=bn_os_muln -DFN_SQR=bn_kar_sqrn -DVARIANT=\"ksqr$$l/$$b\" -o $$f bench_mul.c $$f.s || exit 1; \
+	  ./$$f || echo "ksqr$$l/$$b n=$$n: did not run (the mulx base needs a CPU with BMI2 and ADX)"; \
 	done; done; done
 
 clean:

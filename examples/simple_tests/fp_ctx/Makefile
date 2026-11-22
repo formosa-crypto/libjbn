@@ -40,11 +40,26 @@ MULX_PROGS += $(addprefix test_fp_ctx_pmxr, $(PM_SIZES))
 # bn_mulx_loop with the squaring of bn_mulx (fp_ctx_mulx_sqru7.jazz: an
 # experiment, see its header and the bench variant mulx_sqru), in `run-mulx`
 MULX_PROGS += test_fp_ctx_mulx_sqru7
+# the squaring over the half size (bn_ksqr), bound to the field in the place
+# of the squaring of the selector: fp_ctx_ksqr16 (profile x86_64, in `run`),
+# fp_ctx_ksqrx16 and, with two levels, fp_ctx_ksqrx2_16 (x86_64_adx, in
+# `run-mulx`); see their headers and the bench variants ksqr, ksqrx, ksqrx2
+PROGS += test_fp_ctx_ksqr16
+MULX_PROGS += test_fp_ctx_ksqrx16 test_fp_ctx_ksqrx2_16
 
 all: $(PROGS) $(MULX_PROGS)
 
 # (the more specific patterns first: make 3.81 takes the first match)
 test_fp_ctx_mulx_sqru%: test_fp_ctx.c fp_ctx_mulx_sqru%.s
+	$(GCC) -DNLIMBS=$* -o $@ $^
+
+test_fp_ctx_ksqrx2_%: test_fp_ctx.c fp_ctx_ksqrx2_%.s
+	$(GCC) -DNLIMBS=$* -o $@ $^
+
+test_fp_ctx_ksqrx%: test_fp_ctx.c fp_ctx_ksqrx%.s
+	$(GCC) -DNLIMBS=$* -o $@ $^
+
+test_fp_ctx_ksqr%: test_fp_ctx.c fp_ctx_ksqr%.s
 	$(GCC) -DNLIMBS=$* -o $@ $^
 
 test_fp_ctx_pmxr%: test_fp_ctx.c fp_ctx_pmxr%.s
@@ -87,6 +102,7 @@ run: $(PROGS) $(addprefix vectors, $(addsuffix .txt, $(SIZES))) $(PM_VECTORS)
 	for n in $(SIZES); do ./test_fp_ctx_loop$$n < vectors$$n.txt || exit 1; done
 	for n in $(SIZES); do ./test_fp_ctx_sel$$n < vectors$$n.txt || exit 1; done
 	for n in $(PM_SIZES); do ./test_fp_ctx_pm$$n < vectors_pm$$n.txt || exit 1; done
+	./test_fp_ctx_ksqr16 < vectors16.txt
 
 run-mulx: $(MULX_PROGS) $(addprefix vectors, $(addsuffix .txt, $(SIZES) $(XR_SIZES))) $(PM_VECTORS)
 	for n in $(SIZES); do ./test_fp_ctx_mulx_loop$$n < vectors$$n.txt || exit 1; done
@@ -95,6 +111,8 @@ run-mulx: $(MULX_PROGS) $(addprefix vectors, $(addsuffix .txt, $(SIZES) $(XR_SIZ
 	for n in $(XR_SIZES); do ./test_fp_ctx_mulxr$$n < vectors$$n.txt || exit 1; done
 	for n in $(PM_SIZES); do ./test_fp_ctx_pmxr$$n < vectors_pm$$n.txt || exit 1; done
 	./test_fp_ctx_mulx_sqru7 < vectors7.txt
+	./test_fp_ctx_ksqrx16 < vectors16.txt
+	./test_fp_ctx_ksqrx2_16 < vectors16.txt
 
 # The same operations run by the interpreter of jasminc (gen_exec_test.py):
 # on any host, MULX/ADCX/ADOX included (e.g. on Apple Silicon, where Rosetta
@@ -102,21 +120,35 @@ run-mulx: $(MULX_PROGS) $(addprefix vectors, $(addsuffix .txt, $(SIZES) $(XR_SIZ
 # correct) and the number of words checked.
 #   module:binding:size:f    f = 1 with the (Montgomery) field, pm with the
 #                            pseudo-Mersenne field, 0 for the products only
+#   module:binding:size:f:levels:profile
+#                            the same with the squaring over the half size
+#                            (bn_ksqr, 1 or 2 levels, over the selector
+#                            bn_mulsel and the binding fp_mul_ksqr), under a
+#                            profile of src/amd64/ref/profiles
+# (the last entries: the field at 4 limbs, since at 8 it takes the
+# interpreter 5 minutes; at 48 limbs the multiplication is the looped one
+# and the half squaring the unrolled one, as where bn_ksqr is meant to be
+# used)
 EXEC_TESTS ?= $(foreach n,1 2 3 4 5 6,bn_mulxr:fp_mul_os:$(n):1) \
               bn_mulxr:fp_mul_os:7:0 bn_mulxr:fp_mul_os:8:0 \
               bn_mulx:fp_mul_os:4:1 bn_mulx_loop:fp_mul_os:4:1 \
               bn_mul_loop:fp_mul_os:4:1 bn_mul:fp_mul_ps:4:1 \
-              bn_mulxr:fp_mul_os:4:pm bn_mulxr:fp_mul_os:6:pm bn_mul:fp_mul_ps:4:pm
+              bn_mulxr:fp_mul_os:4:pm bn_mulxr:fp_mul_os:6:pm bn_mul:fp_mul_ps:4:pm \
+              bn_mulsel:fp_mul_ksqr:4:1:1:x86_64_adx \
+              bn_mulsel:fp_mul_ksqr:16:0:1:x86_64_adx \
+              bn_mulsel:fp_mul_ksqr:16:0:2:x86_64_adx \
+              bn_mulsel:fp_mul_ksqr:48:0:1:x86_64_adx
 JASMINC_EXEC ?= jasminc -I Libjbn=$(SRCDIR)
 
 exec: gen_exec_test.py $(LIBJBN_SRC)
 	@for t in $(EXEC_TESTS); do \
 	  set -- $$(echo $$t | tr ':' ' '); \
 	  f=""; [ "$$4" = 1 ] && f=--field; [ "$$4" = pm ] && f="--field --pm"; \
-	  j=tmpexec_$$1_$$3_$$4.jazz; \
-	  python3 gen_exec_test.py $$3 $$1@n.jinc $$2@fp.jinc $$f --seed $$3 > $$j || exit 1; \
+	  k=""; [ -n "$$5" ] && k="--ksqr $$5 --profile $$6.jinc"; \
+	  j=tmpexec_$$1_$$3_$$4$${5:+_ksqr$$5}.jazz; \
+	  python3 gen_exec_test.py $$3 $$1@n.jinc $$2@fp.jinc $$f $$k --seed $$3 > $$j || exit 1; \
 	  res=$$($(JASMINC_EXEC) -o /dev/null $$j 2>&1 | awk '/Evaluation/{getline a; getline b; print a, b}'); \
-	  echo "$$1 n=$$3 $${f:-(products)}: $$res"; \
+	  echo "$$1 n=$$3 $${f:-(products)}$${5:+, bn_ksqr ($$5 level(s), $$6)}: $$res"; \
 	  case "$$res" in "0X0 "*) ;; *) echo "FAILED"; exit 1;; esac; \
 	done
 
@@ -147,17 +179,29 @@ exec: gen_exec_test.py $(LIBJBN_SRC)
 # the unrolled squaring of bn_mulx (generated from fp_ctx_mulx_sqru7.jazz;
 # see its header), to be compared with mulx and mulx_unr, e.g.
 #   make bench BENCH_VARIANTS="mulx_unr mulx mulx_sqru" BENCH_SIZES="24 32 40 48"
+# Three more, not in the default list either: the selector with the
+# squaring over the half size of bn_ksqr, whose half squarings are the ones
+# the selector takes at the half size: ksqr (x86_64, generated from
+# fp_ctx_ksqr16.jazz), ksqrx (x86_64_adx, from fp_ctx_ksqrx16.jazz) and,
+# with two levels, ksqrx2 (x86_64_adx, from fp_ctx_ksqrx2_16.jazz); a size
+# that the levels do not divide is skipped. To be compared with sel and
+# selx (the squaring that the profile selects), e.g.
+#   make bench BENCH_VARIANTS="mulx mulx_sqru selx ksqrx ksqrx2" BENCH_SIZES="24 32 40 48 64"
 BENCH_SIZES    ?= 4 5 6 8 16 32 64
 BENCH_VARIANTS ?= unr loop mulx_unr mulx mulxr pm_unr pm_mulxr sel selx
 BENCH_CHAINED  ?=
 
-bench: bench_fp_ctx.c fp_ctx7.jazz fp_ctx_sel7.jazz fp_ctx_selx7.jazz fp_ctx_mulx_sqru7.jazz $(LIBJBN_SRC)
+bench: bench_fp_ctx.c fp_ctx7.jazz fp_ctx_sel7.jazz fp_ctx_selx7.jazz fp_ctx_mulx_sqru7.jazz \
+       fp_ctx_ksqr16.jazz fp_ctx_ksqrx16.jazz fp_ctx_ksqrx2_16.jazz $(LIBJBN_SRC)
 	@for n in $(BENCH_SIZES); do for v in $(BENCH_VARIANTS); do \
-	  k=fp_mont; p=x86_64; t=fp_ctx7.jazz; m=bn_mul; s=fp_mul_ps; \
+	  k=fp_mont; p=x86_64; t=fp_ctx7.jazz; m=bn_mul; s=fp_mul_ps; d=1; \
 	  case $$v in \
 	    sel)       t=fp_ctx_sel7.jazz;; \
 	    selx)      t=fp_ctx_selx7.jazz;; \
 	    mulx_sqru) t=fp_ctx_mulx_sqru7.jazz;; \
+	    ksqr)      t=fp_ctx_ksqr16.jazz;    d=2;; \
+	    ksqrx)     t=fp_ctx_ksqrx16.jazz;   d=2;; \
+	    ksqrx2)    t=fp_ctx_ksqrx2_16.jazz; d=4;; \
 	    unr)      m=bn_mul;       s=fp_mul_ps;; \
 	    loop)     m=bn_mul_loop;  s=fp_mul_os;; \
 	    mulx_unr) m=bn_mulx;      s=fp_mul_os; p=x86_64_adx;; \
@@ -167,16 +211,25 @@ bench: bench_fp_ctx.c fp_ctx7.jazz fp_ctx_sel7.jazz fp_ctx_selx7.jazz fp_ctx_mul
 	    pm_mulxr) m=bn_mulxr;     s=fp_mul_os; k=fp_pm; p=x86_64_adx; [ $$n -le 6 ] || continue;; \
 	    *) echo "unknown variant $$v"; exit 1;; \
 	  esac; \
+	  [ $$((n % d)) -eq 0 ] || continue; \
 	  f=tmpbench_$${v}_$$n; \
+	  if [ $$d -gt 1 ]; then \
+	    sed -e "s/param int nlimbs = 16;/param int nlimbs = SIZE1;/" \
+	        -e "s/param int nlimbs = 8;/param int nlimbs = SIZE2;/" \
+	        -e "s/param int nlimbs = 4;/param int nlimbs = SIZE4;/" \
+	        -e "s/= SIZE1;/= $$n;/" -e "s/= SIZE2;/= $$((n/2));/" -e "s/= SIZE4;/= $$((n/4));/" \
+	        $$t > $$f.jazz; \
+	  else \
 	  sed -e "s/param int nlimbs = 7;/param int nlimbs = $$n;/" \
 	      -e "s/bn_mul@n.jinc/$$m@n.jinc/" -e "s/fp_mul_ps@fp.jinc/$$s@fp.jinc/" \
 	      -e "s/fp_mont@fp.jinc/$$k@fp.jinc/" \
 	      -e "s|profiles/x86_64.jinc|profiles/$$p.jinc|" \
 	      $$t > $$f.jazz; \
+	  fi; \
 	  $(JASMINC) $(JFLAGS) -o $$f.s $$f.jazz 2> $$f.log || { cat $$f.log; exit 1; }; \
 	  pm=; [ $$k = fp_pm ] && pm=-DPM; \
 	  $(GCC) -O2 -DNLIMBS=$$n -DVARIANT=\"$$v\" $$pm $(if $(BENCH_CHAINED),-DCHAINED) -o $$f bench_fp_ctx.c $$f.s || exit 1; \
-	  ./$$f || echo "$$v n=$$n: did not run (selx and the variants over bn_mulx, bn_mulx_loop and bn_mulxr need a CPU with BMI2 and ADX)"; \
+	  ./$$f || echo "$$v n=$$n: did not run (selx, ksqrx, ksqrx2 and the variants over bn_mulx, bn_mulx_loop and bn_mulxr need a CPU with BMI2 and ADX)"; \
 	done; done
 
 # GMP's exponentiations at the same sizes and on the same operands, as a

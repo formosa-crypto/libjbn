@@ -1,0 +1,132 @@
+/* libjbn -- bn_ksqr: squaring over the half size (one Karatsuba level).
+
+   Library module, i.e. template (see README, sections 1 and 2): it is meant
+   to be `require`d inside a namespace, which becomes the instance; the tag
+   in the file name (@2n) gives the kind of namespace. Names below are
+   resolved by Jasmin's outward namespace lookup.
+
+   For a = lo + B * hi (B = 2^(64*H::nlimbs)),
+       a^2 = lo^2 + B * (lo^2 + hi^2 - (lo - hi)^2) + B^2 * hi^2
+   that is, three squarings of the half size and passes that are linear in
+   the size: no multiplication, and no sign to keep (the difference is
+   squared). It is meant for the sizes whose unrolled squaring no longer fits
+   the instruction cache, over an unrolled squaring of the half size (README,
+   "A squaring over the half size"): the looped modules square by
+   multiplying.
+
+   Two-size module, as bn_karatsuba@2n.jinc: it lives in the size scope of
+   its operand (2n limbs); the half size n is the child scope H.
+   Instance:  KSQR (in the 2n scope)
+   Expects:   param int nlimbs;            // 2n (operand size, even)
+              H::nlimbs                    // n
+              fn fun_ksqrn (reg mut ptr u64[nlimbs], reg const ptr u64[H::nlimbs])
+                           -> reg ptr u64[nlimbs]      // the half squaring
+              UTIL::  BN:: (2n)  H::BN:: (n)
+   Provides:  _kar_sqrn _kar_sqrn_  (2n -> 4n limbs)
+*/
+
+/* r = |a - b| */
+#[safety = { requires = is_arr_init(a, 0, 8*H::nlimbs) && is_arr_init(b, 0, 8*H::nlimbs), ensures = is_arr_init(r, 0, 8*H::nlimbs) }]
+inline fn __sub_abs
+( reg mut ptr u64[H::nlimbs] r
+, reg const ptr u64[H::nlimbs] a b
+) -> reg ptr u64[H::nlimbs]
+{
+  reg bool cf;
+  reg u64 sign; // 0/-1
+  cf, r = H::BN::_sub_(r, a, b); // r = a-b
+  sign = UTIL::__cf_mask(cf);
+  r = H::BN::_cnegU_(r, sign);
+  return r;
+}
+
+/* r = a * a.
+   With lo^2 in r[0:nlimbs], hi^2 in r[nlimbs:nlimbs] and d^2 in tmp
+   (d = |lo - hi|), three subtractions of nlimbs words:
+       tmp -= lo^2 ; tmp -= hi^2        tmp = -(2*lo*hi) mod B^2
+       r[H::nlimbs:nlimbs] -= tmp       the middle window += 2*lo*hi
+   whose borrows b1, b2, b3 are counted in c = b1 + b2 - b3, the word that
+   is still to be added to the top quarter of r. It is 0, 1 or 2: it is
+   not negative, since b1 = b2 = 0 only when lo*hi = 0, where tmp = 0 and
+   b3 = 0; and the top quarter does not overflow, since a^2 < B^4. */
+#[safety = { requires = is_arr_init(a, 0, 8*nlimbs), ensures = is_arr_init(r, 0, 16*nlimbs) }]
+fn _kar_sqrn
+( reg mut ptr u64[2*nlimbs] r
+, reg const ptr u64[nlimbs] a
+) -> reg ptr u64[2*nlimbs]
+{
+  stack u64[nlimbs] _tmp;
+  stack ptr u64[2*nlimbs] _r;
+  stack ptr u64[nlimbs] _a;
+  reg ptr u64[H::nlimbs] alo ahi d rhihi;
+  reg ptr u64[nlimbs] tmp rlo rhi rmid;
+  reg u64 c;
+  reg bool cf;
+
+  /* d = |lo - hi|, in the low quarter of r */
+  d = r[0:H::nlimbs];
+  alo = a[0:H::nlimbs];
+  ahi = a[H::nlimbs:H::nlimbs];
+  d = __sub_abs(d, alo, ahi);
+  r[0:H::nlimbs] = d;
+
+  /* tmp = d^2 */
+  _a = a;
+  _r = r;
+  rlo = _r[0:nlimbs];
+  d = rlo[0:H::nlimbs];
+  tmp = _tmp;
+  tmp = fun_ksqrn(tmp, d);
+  _tmp = tmp;
+
+  /* r = lo^2 + B^2 * hi^2 */
+  a = _a;
+  alo = a[0:H::nlimbs];
+  rlo = _r[0:nlimbs];
+  rlo = fun_ksqrn(rlo, alo);
+  _r[0:nlimbs] = rlo;
+
+  a = _a;
+  ahi = a[H::nlimbs:H::nlimbs];
+  r = _r;                   // (a part of a stack pointer at a non-zero
+  rhi = r[nlimbs:nlimbs];   //  offset is taken through a register)
+  rhi = fun_ksqrn(rhi, ahi);
+  _r[nlimbs:nlimbs] = rhi;
+
+  /* r += B * (lo^2 + hi^2 - d^2) */
+  r = _r;
+  tmp = _tmp;
+  c = 0;
+
+  rlo = r[0:nlimbs];
+  cf, tmp = BN::_subU_(tmp, rlo);
+  _, c += 0 + cf;
+
+  rhi = r[nlimbs:nlimbs];
+  cf, tmp = BN::_subU_(tmp, rhi);
+  _, c += 0 + cf;
+
+  rmid = r[H::nlimbs:nlimbs];
+  cf, rmid = BN::_subU_(rmid, tmp);
+  r[H::nlimbs:nlimbs] = rmid;
+  _, c -= 0 - cf;
+
+  cf, r[3*H::nlimbs] += c;
+  rhihi = r[3*H::nlimbs:H::nlimbs];
+  _, rhihi = H::BN::__carrypropU(rhihi, cf, 1);
+  r[3*H::nlimbs:H::nlimbs] = rhihi;
+
+  return r;
+}
+
+#[safety = { requires = is_arr_init(a, 0, 8*nlimbs), ensures = is_arr_init(r, 0, 16*nlimbs) }]
+inline fn _kar_sqrn_
+( reg mut ptr u64[2*nlimbs] r
+, reg const ptr u64[nlimbs] a
+) -> reg ptr u64[2*nlimbs]
+{
+  r = r; a = a;
+  r = _kar_sqrn(r, a);
+  r = r;
+  return r;
+}

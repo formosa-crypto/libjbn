@@ -1,0 +1,34 @@
+/* libjbn -- fp_mul_ksqr: binds the multiplication parameters of a field to
+   the multiplication selected by bn_mulsel and to the squaring over the
+   half size of bn_ksqr (README, "A squaring over the half size").
+
+   Library module, i.e. template (see README, sections 1 and 2): it is meant
+   to be `require`d inside a namespace, which becomes the instance; the tag
+   in the file name (@fp) gives the kind of namespace. Names below are
+   resolved by Jasmin's outward namespace lookup.
+
+   Instance:  required inside a field namespace, before fp_mont (or fp_base),
+              in the place of fp_mul_sel@fp.jinc
+   Expects:   param int nlimbs;
+              MUL::                        // bn_mulsel, same size
+              KSQR::                       // bn_ksqr, same size
+   Provides:  fun_muln fun_sqrn            // inline, hence free
+*/
+
+#[safety = { requires = is_arr_init(a, 0, 8*nlimbs) && is_arr_init(b, 0, 8*nlimbs), ensures = is_arr_init(r, 0, 16*nlimbs) }]
+inline fn fun_muln
+( reg mut ptr u64[2*nlimbs] r
+, reg const ptr u64[nlimbs] a b
+) -> reg ptr u64[2*nlimbs] {
+  r = MUL::_muln_(r, a, b);
+  return r;
+}
+
+#[safety = { requires = is_arr_init(a, 0, 8*nlimbs), ensures = is_arr_init(r, 0, 16*nlimbs) }]
+inline fn fun_sqrn
+( reg mut ptr u64[2*nlimbs] r
+, reg const ptr u64[nlimbs] a
+) -> reg ptr u64[2*nlimbs] {
+  r = KSQR::_kar_sqrn_(r, a);
+  return r;
+}
